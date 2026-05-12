@@ -7,6 +7,7 @@
 - Express
 - Knex
 - PostgreSQL
+- Zod
 - Backend primeiro
 - Arquitetura em camadas, seguindo uma leitura pratica de MVC
 - Revisao continua com postura de PR/code review
@@ -239,7 +240,6 @@ Ao revisar codigo, priorizar:
 
 ## Decisoes em Aberto
 
-- Biblioteca de validacao: Zod, Valibot ou outra.
 - Test runner: Vitest, Jest ou outro.
 - Provedor fiscal.
 - Estrategia de filas para emissao fiscal, se necessario.
@@ -249,4 +249,5 @@ Ao revisar codigo, priorizar:
 - Framework HTTP: Express.
 - Query builder: Knex.
 - Banco de dados: PostgreSQL.
+- Biblioteca de validacao: Zod.
 - ORM: nao sera usado no inicio. A escolha por Knex preserva controle sobre SQL, facilita relatorios e evita acoplamento prematuro a uma modelagem opinativa.
