@@ -1,4 +1,6 @@
-import type { Route } from "../shared/http/http.types.js";
+import type { Express } from "express";
 import { healthRoutes } from "./health/health.routes.js";
 
-export const routes: Route[] = [...healthRoutes];
+export function registerRoutes(app: Express): void {
+  app.use(healthRoutes);
+}
