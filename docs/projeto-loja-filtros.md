@@ -185,6 +185,7 @@ Relatorios posteriores:
 - Relatorios gerenciais entram desde as primeiras fases.
 - Busca por aplicacao de veiculo ou maquina e uma boa ideia, mas nao e essencial para a primeira entrega.
 - O backend sera construido em TypeScript com Node.js.
+- O backend usara Express, Knex e PostgreSQL.
 - O desenvolvimento comecara pelo backend.
 - A arquitetura seguira camadas inspiradas em MVC, com separacao entre views/rotas, controllers, models e servicos externos.
 - Chamadas ciclicas entre camadas sao proibidas.

@@ -4,6 +4,9 @@
 
 - TypeScript
 - Node.js
+- Express
+- Knex
+- PostgreSQL
 - Backend primeiro
 - Arquitetura em camadas, seguindo uma leitura pratica de MVC
 - Revisao continua com postura de PR/code review
@@ -236,10 +239,14 @@ Ao revisar codigo, priorizar:
 
 ## Decisoes em Aberto
 
-- Framework HTTP: Express, Fastify ou outro.
-- ORM/query builder: Prisma, Drizzle, TypeORM, Knex ou SQL direto.
-- Banco de dados: PostgreSQL, MySQL/MariaDB ou outro.
 - Biblioteca de validacao: Zod, Valibot ou outra.
 - Test runner: Vitest, Jest ou outro.
 - Provedor fiscal.
 - Estrategia de filas para emissao fiscal, se necessario.
+
+## Decisoes Tecnicas Fechadas
+
+- Framework HTTP: Express.
+- Query builder: Knex.
+- Banco de dados: PostgreSQL.
+- ORM: nao sera usado no inicio. A escolha por Knex preserva controle sobre SQL, facilita relatorios e evita acoplamento prematuro a uma modelagem opinativa.
