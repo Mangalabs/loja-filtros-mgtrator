@@ -1,8 +1,30 @@
 import { Router } from "express";
-import { indexProducts } from "../../controllers/products/products.controller.js";
+import { z } from "zod";
+import {
+  indexProducts,
+  storeProduct,
+} from "../../controllers/products/products.controller.js";
 import { AppError } from "../../shared/errors/app-error.js";
+import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const productsRoutes = Router();
+
+const createProductSchema = z.object({
+  name: z.string().trim().min(1),
+  internalCode: z.string().trim().min(1).optional(),
+  barcode: z.string().trim().min(1).optional(),
+  brandId: z.uuid().optional(),
+  groupId: z.uuid().optional(),
+  unit: z.string().trim().min(1).max(16).optional(),
+  costPrice: z.coerce.number().min(0).optional(),
+  salePrice: z.coerce.number().min(0).optional(),
+  minimumStock: z.coerce.number().min(0).optional(),
+  ncm: z.string().trim().min(1).max(16).optional(),
+  cest: z.string().trim().min(1).max(16).optional(),
+  origin: z.string().trim().min(1).max(2).optional(),
+  description: z.string().trim().min(1).optional(),
+  active: z.boolean().optional(),
+});
 
 productsRoutes.get("/products", async (request, response) => {
   const page = Number(request.query.page ?? 1);
@@ -25,6 +47,13 @@ productsRoutes.get("/products", async (request, response) => {
   });
 
   response.status(200).json(result);
+});
+
+productsRoutes.post("/products", async (request, response) => {
+  const body = validateBody(request, createProductSchema);
+  const result = await storeProduct(body);
+
+  response.status(201).json(result);
 });
 
 function parseStringFilter(value: unknown): string | undefined {

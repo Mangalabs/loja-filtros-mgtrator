@@ -21,6 +21,23 @@ export type ProductListItem = {
   active: boolean;
 };
 
+export type ProductCreateInput = {
+  name: string;
+  internalCode?: string;
+  barcode?: string;
+  brandId?: string;
+  groupId?: string;
+  unit?: string;
+  costPrice?: number;
+  salePrice?: number;
+  minimumStock?: number;
+  ncm?: string;
+  cest?: string;
+  origin?: string;
+  description?: string;
+  active?: boolean;
+};
+
 export async function listProducts(filters: ProductListFilters): Promise<ProductListItem[]> {
   const offset = (filters.page - 1) * filters.limit;
 
@@ -59,4 +76,54 @@ export async function listProducts(filters: ProductListFilters): Promise<Product
     .offset(offset);
 
   return rows;
+}
+
+export async function createProduct(input: ProductCreateInput): Promise<ProductListItem> {
+  const [created] = await db("products")
+    .insert({
+      name: input.name,
+      internal_code: input.internalCode,
+      barcode: input.barcode,
+      brand_id: input.brandId,
+      group_id: input.groupId,
+      unit: input.unit,
+      cost_price: input.costPrice,
+      sale_price: input.salePrice,
+      minimum_stock: input.minimumStock,
+      ncm: input.ncm,
+      cest: input.cest,
+      origin: input.origin,
+      description: input.description,
+      active: input.active,
+    })
+    .returning("id");
+
+  const product = await findProductById(created.id);
+
+  if (!product) {
+    throw new Error("Product was not found after creation");
+  }
+
+  return product;
+}
+
+async function findProductById(id: string): Promise<ProductListItem | undefined> {
+  return db("products")
+    .leftJoin("brands", "brands.id", "products.brand_id")
+    .leftJoin("product_groups", "product_groups.id", "products.group_id")
+    .select([
+      "products.id",
+      "products.name",
+      "products.internal_code as internalCode",
+      "products.barcode",
+      "brands.name as brandName",
+      "product_groups.name as groupName",
+      "products.unit",
+      "products.cost_price as costPrice",
+      "products.sale_price as salePrice",
+      "products.minimum_stock as minimumStock",
+      "products.active",
+    ])
+    .where("products.id", id)
+    .first();
 }
