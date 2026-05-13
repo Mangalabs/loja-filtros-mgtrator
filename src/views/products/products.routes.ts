@@ -5,6 +5,10 @@ import {
   storeProduct,
 } from "../../controllers/products/products.controller.js";
 import { AppError } from "../../shared/errors/app-error.js";
+import {
+  parseBooleanFilter,
+  parseStringFilter,
+} from "../../shared/http/query-params.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const productsRoutes = Router();
@@ -29,7 +33,7 @@ const createProductSchema = z.object({
 productsRoutes.get("/products", async (request, response) => {
   const page = Number(request.query.page ?? 1);
   const limit = Number(request.query.limit ?? 20);
-  const active = parseActiveFilter(request.query.active);
+  const active = parseBooleanFilter(request.query.active);
 
   if (!Number.isInteger(page) || page < 1) {
     throw new AppError("Invalid page parameter");
@@ -55,19 +59,3 @@ productsRoutes.post("/products", async (request, response) => {
 
   response.status(201).json(result);
 });
-
-function parseStringFilter(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function parseActiveFilter(value: unknown): boolean | undefined {
-  if (value === "true" || value === "1") {
-    return true;
-  }
-
-  if (value === "false" || value === "0") {
-    return false;
-  }
-
-  return undefined;
-}

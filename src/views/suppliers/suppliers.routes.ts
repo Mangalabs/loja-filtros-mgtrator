@@ -4,6 +4,10 @@ import {
   indexSuppliers,
   storeSupplier,
 } from "../../controllers/suppliers/suppliers.controller.js";
+import {
+  parseBooleanFilter,
+  parseStringFilter,
+} from "../../shared/http/query-params.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const suppliersRoutes = Router();
@@ -18,7 +22,7 @@ const createSupplierSchema = z.object({
 
 suppliersRoutes.get("/suppliers", async (request, response) => {
   const result = await indexSuppliers({
-    active: parseActiveFilter(request.query.active),
+    active: parseBooleanFilter(request.query.active),
     search: parseStringFilter(request.query.search),
   });
 
@@ -31,19 +35,3 @@ suppliersRoutes.post("/suppliers", async (request, response) => {
 
   response.status(201).json(result);
 });
-
-function parseStringFilter(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function parseActiveFilter(value: unknown): boolean | undefined {
-  if (value === "true" || value === "1") {
-    return true;
-  }
-
-  if (value === "false" || value === "0") {
-    return false;
-  }
-
-  return undefined;
-}

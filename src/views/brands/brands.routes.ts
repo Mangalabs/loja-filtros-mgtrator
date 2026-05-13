@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { indexBrands, storeBrand } from "../../controllers/brands/brands.controller.js";
+import { parseBooleanFilter } from "../../shared/http/query-params.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const brandsRoutes = Router();
@@ -12,7 +13,7 @@ const createBrandSchema = z.object({
 
 brandsRoutes.get("/brands", async (request, response) => {
   const result = await indexBrands({
-    active: parseActiveFilter(request.query.active),
+    active: parseBooleanFilter(request.query.active),
   });
 
   response.status(200).json(result);
@@ -24,15 +25,3 @@ brandsRoutes.post("/brands", async (request, response) => {
 
   response.status(201).json(result);
 });
-
-function parseActiveFilter(value: unknown): boolean | undefined {
-  if (value === "true" || value === "1") {
-    return true;
-  }
-
-  if (value === "false" || value === "0") {
-    return false;
-  }
-
-  return undefined;
-}

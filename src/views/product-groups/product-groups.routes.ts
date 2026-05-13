@@ -4,6 +4,7 @@ import {
   indexProductGroups,
   storeProductGroup,
 } from "../../controllers/product-groups/product-groups.controller.js";
+import { parseBooleanFilter } from "../../shared/http/query-params.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const productGroupsRoutes = Router();
@@ -15,7 +16,7 @@ const createProductGroupSchema = z.object({
 
 productGroupsRoutes.get("/product-groups", async (request, response) => {
   const result = await indexProductGroups({
-    active: parseActiveFilter(request.query.active),
+    active: parseBooleanFilter(request.query.active),
   });
 
   response.status(200).json(result);
@@ -27,15 +28,3 @@ productGroupsRoutes.post("/product-groups", async (request, response) => {
 
   response.status(201).json(result);
 });
-
-function parseActiveFilter(value: unknown): boolean | undefined {
-  if (value === "true" || value === "1") {
-    return true;
-  }
-
-  if (value === "false" || value === "0") {
-    return false;
-  }
-
-  return undefined;
-}
