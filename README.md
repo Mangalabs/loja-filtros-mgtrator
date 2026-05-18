@@ -39,6 +39,12 @@ O backend sobe em:
 http://127.0.0.1:3333
 ```
 
+O Postgres do Docker fica exposto localmente em:
+
+```text
+127.0.0.1:5433
+```
+
 Se os endpoints de catalogo retornarem `500`, confira se o Postgres esta rodando e se as migrations foram executadas.
 
 ## Frontend
