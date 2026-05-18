@@ -1,0 +1,56 @@
+export type ApiResult<T> = {
+  code: number;
+  status: "success";
+  data: T;
+};
+
+export type Product = {
+  id: string;
+  name: string;
+  internalCode: string | null;
+  barcode: string | null;
+  brandName: string | null;
+  groupName: string | null;
+  unit: string;
+  costPrice: string;
+  salePrice: string;
+  minimumStock: string;
+  active: boolean;
+};
+
+export type NamedEntity = {
+  id: string;
+  name: string;
+  active: boolean;
+};
+
+export type Supplier = NamedEntity & {
+  document: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
+export async function apiGet<T>(path: string): Promise<T> {
+  const response = await fetch(`/api${path}`);
+  return parseResponse<T>(response);
+}
+
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(`/api${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  return parseResponse<T>(response);
+}
+
+async function parseResponse<T>(response: Response): Promise<T> {
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.message ?? "Erro ao comunicar com o backend");
+  }
+
+  return payload;
+}
