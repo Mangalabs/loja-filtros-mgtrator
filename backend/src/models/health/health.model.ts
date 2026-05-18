@@ -4,6 +4,11 @@ export type HealthStatus = {
   checkedAt: string;
 };
 
+export type DatabaseHealthStatus = {
+  status: "ok";
+  checkedAt: string;
+};
+
 export function getHealthStatus(): HealthStatus {
   return {
     status: "ok",

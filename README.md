@@ -12,6 +12,20 @@ docs/      Documentacao de produto, arquitetura e integracao
 
 ## Backend
 
+Suba o PostgreSQL local:
+
+```bash
+docker compose up -d postgres
+```
+
+Configure o ambiente:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Rode migrations e inicie a API:
+
 ```bash
 cd backend
 npm install
@@ -25,7 +39,7 @@ O backend sobe em:
 http://127.0.0.1:3333
 ```
 
-Configure o banco em `backend/.env`, usando `backend/.env.example` como referencia.
+Se os endpoints de catalogo retornarem `500`, confira se o Postgres esta rodando e se as migrations foram executadas.
 
 ## Frontend
 
