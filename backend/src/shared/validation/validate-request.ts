@@ -9,7 +9,7 @@ export function validateBody<TSchema extends z.ZodType>(
   const result = schema.safeParse(request.body);
 
   if (!result.success) {
-    throw new AppError("Invalid request body", 422);
+    throw new AppError(result.error.issues[0]?.message ?? "Invalid request body", 422);
   }
 
   return result.data;

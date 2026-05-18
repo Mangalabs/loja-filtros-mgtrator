@@ -14,11 +14,15 @@ export const suppliersRoutes = Router();
 
 const createSupplierSchema = z.object({
   name: z.string().trim().min(1).max(160),
-  document: z.string().trim().min(1).max(32).optional(),
-  email: z.email().max(160).optional(),
-  phone: z.string().trim().min(1).max(32).optional(),
+  document: optionalText(32),
+  email: z.union([z.email().max(160), z.literal("")]).optional(),
+  phone: optionalText(32),
   active: z.boolean().optional(),
 });
+
+function optionalText(max: number) {
+  return z.union([z.string().trim().min(1).max(max), z.literal("")]).optional();
+}
 
 suppliersRoutes.get("/suppliers", async (request, response) => {
   const result = await indexSuppliers({

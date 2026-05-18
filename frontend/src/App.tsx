@@ -101,6 +101,7 @@ export function App() {
 
     try {
       await action();
+      setState("ready");
       setMessage("Registro salvo com sucesso.");
     } catch (error) {
       setState("error");
