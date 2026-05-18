@@ -13,3 +13,6 @@ dist/
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
+
+# TypeScript incremental build cache
+*.tsbuildinfo
