@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from "express";
+import { ZodError } from "zod";
 import { AppError } from "../errors/app-error.js";
 
 export const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
@@ -7,6 +8,15 @@ export const errorHandler: ErrorRequestHandler = (error, _request, response, _ne
       code: error.statusCode,
       status: "error",
       message: error.message,
+    });
+    return;
+  }
+
+  if (error instanceof ZodError) {
+    response.status(422).json({
+      code: 422,
+      status: "error",
+      message: "Invalid request data",
     });
     return;
   }

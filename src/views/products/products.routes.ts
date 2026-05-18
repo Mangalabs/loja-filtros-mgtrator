@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  changeProductStatus,
   indexProducts,
+  replaceProduct,
+  showProduct,
   storeProduct,
 } from "../../controllers/products/products.controller.js";
 import { AppError } from "../../shared/errors/app-error.js";
@@ -30,6 +33,18 @@ const createProductSchema = z.object({
   active: z.boolean().optional(),
 });
 
+const updateProductSchema = createProductSchema.partial().refine((value) => {
+  return Object.keys(value).length > 0;
+});
+
+const updateProductStatusSchema = z.object({
+  active: z.boolean(),
+});
+
+const productParamsSchema = z.object({
+  id: z.uuid(),
+});
+
 productsRoutes.get("/products", async (request, response) => {
   const page = Number(request.query.page ?? 1);
   const limit = Number(request.query.limit ?? 20);
@@ -53,9 +68,32 @@ productsRoutes.get("/products", async (request, response) => {
   response.status(200).json(result);
 });
 
+productsRoutes.get("/products/:id", async (request, response) => {
+  const { id } = productParamsSchema.parse(request.params);
+  const result = await showProduct(id);
+
+  response.status(200).json(result);
+});
+
 productsRoutes.post("/products", async (request, response) => {
   const body = validateBody(request, createProductSchema);
   const result = await storeProduct(body);
 
   response.status(201).json(result);
+});
+
+productsRoutes.put("/products/:id", async (request, response) => {
+  const { id } = productParamsSchema.parse(request.params);
+  const body = validateBody(request, updateProductSchema);
+  const result = await replaceProduct(id, body);
+
+  response.status(200).json(result);
+});
+
+productsRoutes.patch("/products/:id/status", async (request, response) => {
+  const { id } = productParamsSchema.parse(request.params);
+  const body = validateBody(request, updateProductStatusSchema);
+  const result = await changeProductStatus(id, body.active);
+
+  response.status(200).json(result);
 });

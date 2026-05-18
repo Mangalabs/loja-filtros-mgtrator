@@ -38,6 +38,8 @@ export type ProductCreateInput = {
   active?: boolean;
 };
 
+export type ProductUpdateInput = Partial<ProductCreateInput>;
+
 export async function listProducts(filters: ProductListFilters): Promise<ProductListItem[]> {
   const offset = (filters.page - 1) * filters.limit;
 
@@ -105,6 +107,61 @@ export async function createProduct(input: ProductCreateInput): Promise<ProductL
   }
 
   return product;
+}
+
+export async function getProductById(id: string): Promise<ProductListItem | undefined> {
+  return findProductById(id);
+}
+
+export async function updateProduct(
+  id: string,
+  input: ProductUpdateInput,
+): Promise<ProductListItem | undefined> {
+  const [updated] = await db("products")
+    .where("id", id)
+    .update({
+      name: input.name,
+      internal_code: input.internalCode,
+      barcode: input.barcode,
+      brand_id: input.brandId,
+      group_id: input.groupId,
+      unit: input.unit,
+      cost_price: input.costPrice,
+      sale_price: input.salePrice,
+      minimum_stock: input.minimumStock,
+      ncm: input.ncm,
+      cest: input.cest,
+      origin: input.origin,
+      description: input.description,
+      active: input.active,
+      updated_at: db.fn.now(),
+    })
+    .returning("id");
+
+  if (!updated) {
+    return undefined;
+  }
+
+  return findProductById(updated.id);
+}
+
+export async function updateProductStatus(
+  id: string,
+  active: boolean,
+): Promise<ProductListItem | undefined> {
+  const [updated] = await db("products")
+    .where("id", id)
+    .update({
+      active,
+      updated_at: db.fn.now(),
+    })
+    .returning("id");
+
+  if (!updated) {
+    return undefined;
+  }
+
+  return findProductById(updated.id);
 }
 
 async function findProductById(id: string): Promise<ProductListItem | undefined> {
