@@ -51,17 +51,36 @@ select {
 
 .nav-list {
   display: grid;
+  gap: 18px;
+}
+
+.nav-section {
+  display: grid;
   gap: 6px;
+}
+
+.nav-section > span {
+  color: #91aa9d;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  padding: 0 12px;
+  text-transform: uppercase;
 }
 
 .nav-item {
   align-items: center;
+  background: transparent;
+  border: 0;
   border-radius: 8px;
   color: #dbe8e2;
+  cursor: pointer;
   display: flex;
   gap: 10px;
   padding: 10px 12px;
+  text-align: left;
   text-decoration: none;
+  width: 100%;
 }
 
 .nav-item.active,
@@ -256,6 +275,44 @@ th {
   padding: 12px 14px;
 }
 
+.notice {
+  background: #edf8f1;
+  border: 1px solid #b8dfc5;
+  border-radius: 8px;
+  color: #1f6f4a;
+  margin-top: 18px;
+  padding: 12px 14px;
+}
+
+.single-column {
+  max-width: 760px;
+}
+
+.entity-list {
+  align-content: start;
+  display: grid;
+  gap: 8px;
+}
+
+.entity-row {
+  align-items: center;
+  border-bottom: 1px solid #e4e9e5;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+}
+
+.entity-row strong {
+  font-size: 14px;
+}
+
+.entity-row span,
+.empty-text {
+  color: #65716c;
+  font-size: 13px;
+}
+
 @media (max-width: 980px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -267,6 +324,11 @@ th {
 
   .layout-grid,
   .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .three-columns,
+  .two-columns {
     grid-template-columns: 1fr;
   }
 }
