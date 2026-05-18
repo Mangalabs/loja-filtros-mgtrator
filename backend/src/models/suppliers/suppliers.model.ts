@@ -48,7 +48,7 @@ export async function createSupplier(input: SupplierCreateInput): Promise<Suppli
       document: input.document,
       email: input.email,
       phone: input.phone,
-      active: input.active,
+      active: input.active ?? true,
     })
     .returning(["id", "name", "document", "email", "phone", "active"]);
 

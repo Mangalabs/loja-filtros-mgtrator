@@ -34,7 +34,7 @@ export async function createProductGroup(
   const [group] = await db("product_groups")
     .insert({
       name: input.name,
-      active: input.active,
+      active: input.active ?? true,
     })
     .returning(["id", "name", "active"]);
 

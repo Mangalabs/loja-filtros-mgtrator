@@ -30,7 +30,7 @@ export async function createBrand(input: BrandCreateInput): Promise<Brand> {
   const [brand] = await db("brands")
     .insert({
       name: input.name,
-      active: input.active,
+      active: input.active ?? true,
     })
     .returning(["id", "name", "active"]);
 
