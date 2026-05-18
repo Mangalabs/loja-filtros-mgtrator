@@ -39,6 +39,12 @@ O backend sobe em:
 http://127.0.0.1:3333
 ```
 
+Durante desenvolvimento, `npm run dev` roda em modo watch. Para executar o build compilado:
+
+```bash
+npm run dev:build
+```
+
 O Postgres do Docker fica exposto localmente em:
 
 ```text
