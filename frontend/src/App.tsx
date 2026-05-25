@@ -3,15 +3,21 @@ import {
   Filter,
   List,
   PackagePlus,
+  Pencil,
   Plus,
+  Power,
+  PowerOff,
   RefreshCcw,
   Tags,
   Truck,
+  X,
 } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import {
   apiGet,
+  apiPatch,
   apiPost,
+  apiPut,
   type ApiResult,
   type NamedEntity,
   type Product,
@@ -19,7 +25,7 @@ import {
 } from "./api";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
-type View = "products" | "new-product" | "brands" | "suppliers";
+type View = "products" | "new-product" | "edit-product" | "brands" | "suppliers";
 
 const viewTitles: Record<View, { title: string; description: string }> = {
   products: {
@@ -29,6 +35,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
   "new-product": {
     title: "Novo produto",
     description: "Cadastre filtros com codigos, fabricante, locacao e dados fiscais.",
+  },
+  "edit-product": {
+    title: "Editar produto",
+    description: "Atualize os dados cadastrais do produto selecionado.",
   },
   brands: {
     title: "Fabricantes",
@@ -48,6 +58,7 @@ export function App() {
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<Product>();
 
   async function loadCatalog() {
     setState("loading");
@@ -148,23 +159,42 @@ export function App() {
 
     await runAction(async () => {
       await apiPost("/products", {
-        name: String(form.get("productName") ?? "").trim(),
-        internalCode: optionalFormValue(form, "internalCode"),
-        barcode: optionalFormValue(form, "barcode"),
-        brandId: optionalFormValue(form, "brandId"),
-        unit: String(form.get("unit") ?? "UN").trim(),
-        location: optionalFormValue(form, "location"),
-        costPrice: Number(form.get("costPrice") || 0),
-        salePrice: Number(form.get("salePrice") || 0),
-        minimumStock: Number(form.get("minimumStock") || 0),
-        ncm: optionalFormValue(form, "ncm"),
-        cest: optionalFormValue(form, "cest"),
+        ...productFormBody(form),
       });
 
       formElement.reset();
       await loadCatalog();
       setView("products");
     });
+  }
+
+  async function updateProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedProduct) {
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+
+    await runAction(async () => {
+      await apiPut(`/products/${selectedProduct.id}`, productFormBody(form));
+      await loadCatalog();
+      setSelectedProduct(undefined);
+      setView("products");
+    });
+  }
+
+  async function changeProductStatus(product: Product) {
+    await runAction(async () => {
+      await apiPatch(`/products/${product.id}/status`, { active: !product.active });
+      await loadCatalog();
+    });
+  }
+
+  function editProduct(product: Product) {
+    setSelectedProduct(product);
+    setView("edit-product");
   }
 
   const activeTitle = viewTitles[view];
@@ -188,7 +218,10 @@ export function App() {
             <NavButton
               active={view === "new-product"}
               icon={<PackagePlus size={18} />}
-              onClick={() => setView("new-product")}
+              onClick={() => {
+                setSelectedProduct(undefined);
+                setView("new-product");
+              }}
             >
               Novo produto
             </NavButton>
@@ -233,11 +266,24 @@ export function App() {
             search={search}
             state={state}
             onSearchChange={setSearch}
+            onEdit={editProduct}
+            onChangeStatus={(product) => void changeProductStatus(product)}
           />
         ) : null}
 
         {view === "new-product" ? (
-          <ProductForm brands={brands} onSubmit={createProduct} />
+          <ProductForm brands={brands} onSubmit={createProduct} submitLabel="Cadastrar produto" />
+        ) : null}
+
+        {view === "edit-product" && selectedProduct ? (
+          <ProductForm
+            key={selectedProduct.id}
+            brands={brands}
+            product={selectedProduct}
+            onSubmit={updateProduct}
+            onCancel={() => setView("products")}
+            submitLabel="Salvar alteracoes"
+          />
         ) : null}
 
         {view === "brands" ? (
@@ -290,11 +336,15 @@ function ProductsPage({
   search,
   state,
   onSearchChange,
+  onEdit,
+  onChangeStatus,
 }: {
   products: Product[];
   search: string;
   state: LoadState;
   onSearchChange: (value: string) => void;
+  onEdit: (product: Product) => void;
+  onChangeStatus: (product: Product) => void;
 }) {
   return (
     <div className="panel wide">
@@ -311,12 +361,20 @@ function ProductsPage({
         />
       </div>
 
-      <ProductTable products={products} />
+      <ProductTable products={products} onEdit={onEdit} onChangeStatus={onChangeStatus} />
     </div>
   );
 }
 
-function ProductTable({ products }: { products: Product[] }) {
+function ProductTable({
+  products,
+  onEdit,
+  onChangeStatus,
+}: {
+  products: Product[];
+  onEdit: (product: Product) => void;
+  onChangeStatus: (product: Product) => void;
+}) {
   return (
     <div className="table-shell">
       <table>
@@ -328,6 +386,8 @@ function ProductTable({ products }: { products: Product[] }) {
             <th>Un.</th>
             <th>Locacao</th>
             <th>Venda</th>
+            <th>Status</th>
+            <th>Acoes</th>
           </tr>
         </thead>
         <tbody>
@@ -339,11 +399,28 @@ function ProductTable({ products }: { products: Product[] }) {
               <td>{product.unit}</td>
               <td>{product.location ?? "-"}</td>
               <td>R$ {product.salePrice}</td>
+              <td>
+                <span className={product.active ? "status-tag active" : "status-tag inactive"}>
+                  {product.active ? "Ativo" : "Inativo"}
+                </span>
+              </td>
+              <td>
+                <div className="table-actions">
+                  <button className="action-button" type="button" onClick={() => onEdit(product)}>
+                    <Pencil size={15} />
+                    Editar
+                  </button>
+                  <button className="action-button" type="button" onClick={() => onChangeStatus(product)}>
+                    {product.active ? <PowerOff size={15} /> : <Power size={15} />}
+                    {product.active ? "Inativar" : "Ativar"}
+                  </button>
+                </div>
+              </td>
             </tr>
           ))}
           {products.length === 0 ? (
             <tr>
-              <td colSpan={6}>Nenhum produto encontrado.</td>
+              <td colSpan={8}>Nenhum produto encontrado.</td>
             </tr>
           ) : null}
         </tbody>
@@ -354,24 +431,30 @@ function ProductTable({ products }: { products: Product[] }) {
 
 function ProductForm({
   brands,
+  product,
   onSubmit,
+  onCancel,
+  submitLabel,
 }: {
   brands: NamedEntity[];
+  product?: Product;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onCancel?: () => void;
+  submitLabel: string;
 }) {
   return (
     <form className="panel form-panel single-column" onSubmit={onSubmit}>
       <div className="panel-header compact">
-        <h2>Dados do produto</h2>
-        <PackagePlus size={18} />
+        <h2>{product ? "Editar produto" : "Dados do produto"}</h2>
+        {product ? <Pencil size={18} /> : <PackagePlus size={18} />}
       </div>
-      <input name="productName" placeholder="Nome do produto" required />
+      <input name="productName" placeholder="Nome do produto" defaultValue={product?.name} required />
       <div className="two-columns">
-        <input name="internalCode" placeholder="Codigo interno" />
-        <input name="barcode" placeholder="Codigo de barras" />
+        <input name="internalCode" placeholder="Codigo interno" defaultValue={product?.internalCode ?? ""} />
+        <input name="barcode" placeholder="Codigo de barras" defaultValue={product?.barcode ?? ""} />
       </div>
       <div className="two-columns">
-        <select name="brandId" defaultValue="">
+        <select name="brandId" defaultValue={product?.brandId ?? ""}>
           <option value="">Fabricante</option>
           {brands.map((brand) => (
             <option key={brand.id} value={brand.id}>
@@ -379,26 +462,34 @@ function ProductForm({
             </option>
           ))}
         </select>
-        <input name="location" placeholder="Locacao" />
+        <input name="location" placeholder="Locacao" defaultValue={product?.location ?? ""} />
       </div>
       <div className="three-columns">
-        <select name="unit" defaultValue="UN">
+        <select name="unit" defaultValue={product?.unit ?? "UN"}>
           <option value="UN">UN - Unidade</option>
           <option value="KIT">KIT - Kit</option>
           <option value="CJ">CJ - Conjunto</option>
         </select>
-        <input name="costPrice" type="number" step="0.01" placeholder="Custo" />
-        <input name="salePrice" type="number" step="0.01" placeholder="Venda" />
+        <input name="costPrice" type="number" step="0.01" placeholder="Custo" defaultValue={product?.costPrice} />
+        <input name="salePrice" type="number" step="0.01" placeholder="Venda" defaultValue={product?.salePrice} />
       </div>
       <div className="three-columns">
-        <input name="minimumStock" type="number" step="0.001" placeholder="Estoque min." />
-        <input name="ncm" placeholder="NCM" />
-        <input name="cest" placeholder="CEST" />
+        <input name="minimumStock" type="number" step="0.001" placeholder="Estoque min." defaultValue={product?.minimumStock} />
+        <input name="ncm" placeholder="NCM" defaultValue={product?.ncm ?? ""} />
+        <input name="cest" placeholder="CEST" defaultValue={product?.cest ?? ""} />
       </div>
-      <button className="primary-button" type="submit">
-        <Plus size={17} />
-        Cadastrar produto
-      </button>
+      <div className="form-actions">
+        {onCancel ? (
+          <button className="secondary-button" type="button" onClick={onCancel}>
+            <X size={17} />
+            Cancelar
+          </button>
+        ) : null}
+        <button className="primary-button" type="submit">
+          {product ? <Pencil size={17} /> : <Plus size={17} />}
+          {submitLabel}
+        </button>
+      </div>
     </form>
   );
 }
@@ -527,4 +618,24 @@ function Metric({ label, value }: { label: string; value: number }) {
 function optionalFormValue(form: FormData, key: string): string | undefined {
   const value = String(form.get(key) ?? "").trim();
   return value ? value : undefined;
+}
+
+function nullableFormValue(form: FormData, key: string): string | null {
+  return optionalFormValue(form, key) ?? null;
+}
+
+function productFormBody(form: FormData) {
+  return {
+    name: String(form.get("productName") ?? "").trim(),
+    internalCode: nullableFormValue(form, "internalCode"),
+    barcode: nullableFormValue(form, "barcode"),
+    brandId: nullableFormValue(form, "brandId"),
+    unit: String(form.get("unit") ?? "UN").trim(),
+    location: nullableFormValue(form, "location"),
+    costPrice: Number(form.get("costPrice") || 0),
+    salePrice: Number(form.get("salePrice") || 0),
+    minimumStock: Number(form.get("minimumStock") || 0),
+    ncm: nullableFormValue(form, "ncm"),
+    cest: nullableFormValue(form, "cest"),
+  };
 }

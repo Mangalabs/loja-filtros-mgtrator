@@ -113,7 +113,9 @@ select {
 }
 
 .icon-button,
-.primary-button {
+.primary-button,
+.secondary-button,
+.action-button {
   align-items: center;
   border: 0;
   cursor: pointer;
@@ -135,6 +137,17 @@ select {
   background: #1f6f4a;
   border-radius: 8px;
   color: #ffffff;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+}
+
+.secondary-button {
+  background: #ffffff;
+  border: 1px solid #c8d2cb;
+  border-radius: 8px;
+  color: #294236;
   font-weight: 700;
   justify-content: center;
   min-height: 42px;
@@ -249,6 +262,45 @@ th {
   color: #65716c;
   font-size: 13px;
   font-weight: 700;
+}
+
+.table-actions,
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.form-actions {
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.action-button {
+  background: transparent;
+  border: 1px solid #d8dfda;
+  border-radius: 6px;
+  color: #294236;
+  font-size: 13px;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.status-tag {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 9px;
+}
+
+.status-tag.active {
+  background: #edf8f1;
+  color: #1f6f4a;
+}
+
+.status-tag.inactive {
+  background: #f0f1ef;
+  color: #65716c;
 }
 
 .chips {

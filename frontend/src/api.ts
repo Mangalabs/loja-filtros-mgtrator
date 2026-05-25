@@ -9,6 +9,7 @@ export type Product = {
   name: string;
   internalCode: string | null;
   barcode: string | null;
+  brandId: string | null;
   brandName: string | null;
   groupName: string | null;
   unit: string;
@@ -16,6 +17,8 @@ export type Product = {
   costPrice: string;
   salePrice: string;
   minimumStock: string;
+  ncm: string | null;
+  cest: string | null;
   active: boolean;
 };
 
@@ -37,8 +40,20 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  return apiWrite<T>(path, "POST", body);
+}
+
+export async function apiPut<T>(path: string, body: unknown): Promise<T> {
+  return apiWrite<T>(path, "PUT", body);
+}
+
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  return apiWrite<T>(path, "PATCH", body);
+}
+
+async function apiWrite<T>(path: string, method: "POST" | "PUT" | "PATCH", body: unknown): Promise<T> {
   const response = await fetch(`/api${path}`, {
-    method: "POST",
+    method,
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
