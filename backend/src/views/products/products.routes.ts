@@ -100,9 +100,15 @@ productsRoutes.patch("/products/:id/status", async (request, response) => {
 });
 
 function optionalText(max: number) {
-  return z.union([z.string().trim().min(1).max(max), z.literal("")]).optional();
+  return z
+    .union([z.string().trim().min(1).max(max), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional();
 }
 
 function optionalUuid() {
-  return z.union([z.uuid(), z.literal("")]).optional();
+  return z
+    .union([z.uuid(), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional();
 }

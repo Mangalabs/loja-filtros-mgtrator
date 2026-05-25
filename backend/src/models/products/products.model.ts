@@ -12,6 +12,7 @@ export type ProductListItem = {
   name: string;
   internalCode: string | null;
   barcode: string | null;
+  brandId: string | null;
   brandName: string | null;
   groupName: string | null;
   unit: string;
@@ -19,24 +20,26 @@ export type ProductListItem = {
   costPrice: string;
   salePrice: string;
   minimumStock: string;
+  ncm: string | null;
+  cest: string | null;
   active: boolean;
 };
 
 export type ProductCreateInput = {
   name: string;
-  internalCode?: string;
-  barcode?: string;
-  brandId?: string;
-  groupId?: string;
+  internalCode?: string | null;
+  barcode?: string | null;
+  brandId?: string | null;
+  groupId?: string | null;
   unit?: string;
-  location?: string;
+  location?: string | null;
   costPrice?: number;
   salePrice?: number;
   minimumStock?: number;
-  ncm?: string;
-  cest?: string;
-  origin?: string;
-  description?: string;
+  ncm?: string | null;
+  cest?: string | null;
+  origin?: string | null;
+  description?: string | null;
   active?: boolean;
 };
 
@@ -53,6 +56,7 @@ export async function listProducts(filters: ProductListFilters): Promise<Product
       "products.name",
       "products.internal_code as internalCode",
       "products.barcode",
+      "products.brand_id as brandId",
       "brands.name as brandName",
       "product_groups.name as groupName",
       "products.unit",
@@ -60,6 +64,8 @@ export async function listProducts(filters: ProductListFilters): Promise<Product
       "products.cost_price as costPrice",
       "products.sale_price as salePrice",
       "products.minimum_stock as minimumStock",
+      "products.ncm",
+      "products.cest",
       "products.active",
     ])
     .modify((query) => {
@@ -69,6 +75,7 @@ export async function listProducts(filters: ProductListFilters): Promise<Product
             .whereILike("products.name", `%${filters.search}%`)
             .orWhereILike("products.internal_code", `%${filters.search}%`)
             .orWhereILike("products.barcode", `%${filters.search}%`)
+            .orWhereILike("brands.name", `%${filters.search}%`)
             .orWhereILike("products.location", `%${filters.search}%`);
         });
       }
@@ -179,6 +186,7 @@ async function findProductById(id: string): Promise<ProductListItem | undefined>
       "products.name",
       "products.internal_code as internalCode",
       "products.barcode",
+      "products.brand_id as brandId",
       "brands.name as brandName",
       "product_groups.name as groupName",
       "products.unit",
@@ -186,6 +194,8 @@ async function findProductById(id: string): Promise<ProductListItem | undefined>
       "products.cost_price as costPrice",
       "products.sale_price as salePrice",
       "products.minimum_stock as minimumStock",
+      "products.ncm",
+      "products.cest",
       "products.active",
     ])
     .where("products.id", id)

@@ -27,6 +27,7 @@ type Product = {
   name: string;
   internalCode: string | null;
   barcode: string | null;
+  brandId: string | null;
   brandName: string | null;
   groupName: string | null;
   unit: string;
@@ -34,6 +35,8 @@ type Product = {
   costPrice: string;
   salePrice: string;
   minimumStock: string;
+  ncm: string | null;
+  cest: string | null;
   active: boolean;
 };
 
@@ -191,16 +194,19 @@ describe("catalog routes", () => {
         costPrice: 18.5,
         salePrice: 29.9,
         minimumStock: 3,
+        ncm: "84212300",
+        cest: "0100100",
       },
     });
 
-    const listed = await request<Product[]>("/products?search=FAP4040");
+    const listed = await request<Product[]>("/products?search=Wega");
     const shown = await request<Product>(`/products/${created.body.data?.id}`);
     const updated = await request<Product>(`/products/${created.body.data?.id}`, {
       method: "PUT",
       body: {
         name: "Filtro Wega FAP4040 Atualizado",
         salePrice: 31.9,
+        location: "",
       },
     });
     const deactivated = await request<Product>(`/products/${created.body.data?.id}/status`, {
@@ -209,16 +215,20 @@ describe("catalog routes", () => {
     });
 
     assert.equal(created.status, 201);
+    assert.equal(created.body.data?.brandId, brand.body.data?.id);
     assert.equal(created.body.data?.brandName, "Wega");
     assert.equal(created.body.data?.groupName, "Filtro de ar");
     assert.equal(created.body.data?.unit, "KIT");
     assert.equal(created.body.data?.location, "Corredor A - Prateleira 2");
+    assert.equal(created.body.data?.ncm, "84212300");
+    assert.equal(created.body.data?.cest, "0100100");
     assert.equal(listed.status, 200);
     assert.equal(listed.body.data?.length, 1);
     assert.equal(shown.status, 200);
     assert.equal(shown.body.data?.internalCode, "FAP4040");
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.name, "Filtro Wega FAP4040 Atualizado");
+    assert.equal(updated.body.data?.location, null);
     assert.equal(deactivated.status, 200);
     assert.equal(deactivated.body.data?.active, false);
   });
