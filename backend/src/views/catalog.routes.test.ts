@@ -52,6 +52,14 @@ type StockEntry = {
   notes: string | null;
 };
 
+type StockAdjustment = {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: string;
+  reason: string;
+};
+
 let server: Server;
 let baseUrl: string;
 
@@ -334,6 +342,78 @@ describe("catalog routes", () => {
     assert.equal(response.body.message, "Fornecedor informado nao encontrado.");
     assert.equal(unchangedProduct.body.data?.currentStock, "0.000");
     assert.equal(entries.body.data?.length, 0);
+  });
+
+  it("records a stock adjustment and changes current product balance", async () => {
+    const supplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor do ajuste" },
+    });
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro para ajuste" },
+    });
+
+    await request("/stock-entries", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        supplierId: supplier.body.data?.id,
+        quantity: 10,
+        unitCost: 8,
+      },
+    });
+
+    const created = await request<StockAdjustment>("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: -3,
+        reason: "Item avariado no estoque",
+      },
+    });
+    const increased = await request<StockAdjustment>("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Unidades localizadas na contagem",
+      },
+    });
+    const listed = await request<StockAdjustment[]>("/stock-adjustments");
+    const updatedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.productName, "Filtro para ajuste");
+    assert.equal(created.body.data?.quantity, "-3.000");
+    assert.equal(created.body.data?.reason, "Item avariado no estoque");
+    assert.equal(increased.status, 201);
+    assert.equal(increased.body.data?.quantity, "2.000");
+    assert.equal(listed.body.data?.length, 2);
+    assert.equal(updatedProduct.body.data?.currentStock, "9.000");
+  });
+
+  it("rejects a stock adjustment that would create negative balance", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro com saldo insuficiente" },
+    });
+
+    const response = await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: -1,
+        reason: "Contagem fisica",
+      },
+    });
+    const unchangedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const adjustments = await request<StockAdjustment[]>("/stock-adjustments");
+
+    assert.equal(response.status, 422);
+    assert.equal(response.body.message, "Ajuste nao pode resultar em estoque negativo.");
+    assert.equal(unchangedProduct.body.data?.currentStock, "0.000");
+    assert.equal(adjustments.body.data?.length, 0);
   });
 });
 
