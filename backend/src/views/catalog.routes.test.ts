@@ -60,6 +60,13 @@ type StockAdjustment = {
   reason: string;
 };
 
+type PaymentMethod = {
+  id: string;
+  code: string;
+  name: string;
+  active: boolean;
+};
+
 let server: Server;
 let baseUrl: string;
 
@@ -94,6 +101,7 @@ beforeEach(async () => {
   await db.raw(
     "truncate table product_suppliers, products, product_groups, suppliers, brands cascade",
   );
+  await db("payment_methods").update({ active: true });
 });
 
 after(async () => {
@@ -200,6 +208,29 @@ describe("catalog routes", () => {
     assert.equal(response.body.message, "Dados invalidos.");
     assert.ok(response.body.errors?.some((error) => error.field === "name"));
     assert.ok(response.body.errors?.some((error) => error.field === "email"));
+  });
+
+  it("lists and deactivates the initial payment methods", async () => {
+    const listed = await request<PaymentMethod[]>("/payment-methods");
+    const debit = listed.body.data?.find((paymentMethod) => paymentMethod.code === "DEBIT");
+
+    const deactivated = await request<PaymentMethod>(`/payment-methods/${debit?.id}/status`, {
+      method: "PATCH",
+      body: { active: false },
+    });
+    const active = await request<PaymentMethod[]>("/payment-methods?active=true");
+
+    assert.equal(listed.status, 200);
+    assert.deepEqual(
+      listed.body.data?.map((paymentMethod) => paymentMethod.code),
+      ["PIX", "DEBIT", "BOLETO"],
+    );
+    assert.equal(deactivated.status, 200);
+    assert.equal(deactivated.body.data?.active, false);
+    assert.deepEqual(
+      active.body.data?.map((paymentMethod) => paymentMethod.code),
+      ["PIX", "BOLETO"],
+    );
   });
 
   it("creates, lists, shows, updates, and deactivates products", async () => {
