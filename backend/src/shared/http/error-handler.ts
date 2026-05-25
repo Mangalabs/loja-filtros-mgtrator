@@ -78,6 +78,8 @@ function getForeignKeyConstraintMessage(constraint?: string) {
     products_group_id_foreign: "Grupo de produto informado nao encontrado.",
     product_suppliers_product_id_foreign: "Produto informado nao encontrado.",
     product_suppliers_supplier_id_foreign: "Fornecedor informado nao encontrado.",
+    stock_movements_product_id_foreign: "Produto informado nao encontrado.",
+    stock_movements_supplier_id_foreign: "Fornecedor informado nao encontrado.",
   };
 
   return constraint
