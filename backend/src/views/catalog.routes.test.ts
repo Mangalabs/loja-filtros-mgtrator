@@ -64,6 +64,17 @@ let server: Server;
 let baseUrl: string;
 
 before(async () => {
+  const database = await db.raw<{ rows: Array<{ name: string }> }>(
+    "select current_database() as name",
+  );
+  const databaseName = database.rows[0]?.name;
+
+  if (!databaseName?.endsWith("_test")) {
+    throw new Error(
+      `Integration tests require a database ending in _test; received ${databaseName ?? "unknown"}.`,
+    );
+  }
+
   await db.migrate.latest({
     directory: "./database/migrations",
     extension: "cjs",
