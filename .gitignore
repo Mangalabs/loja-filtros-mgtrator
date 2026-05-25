@@ -4,6 +4,10 @@ dist/
 # Local Codex workspace state
 .codex
 
+# Internal project and integration documentation
+docs/
+gestaoclick (3).apib
+
 # Environment files stay local
 .env
 .env.*

@@ -12,6 +12,7 @@ export type Product = {
   brandName: string | null;
   groupName: string | null;
   unit: string;
+  location: string | null;
   costPrice: string;
   salePrice: string;
   minimumStock: string;

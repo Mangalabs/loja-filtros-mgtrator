@@ -19,7 +19,7 @@ import {
 } from "./api";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
-type View = "products" | "new-product" | "brands" | "groups" | "suppliers";
+type View = "products" | "new-product" | "brands" | "suppliers";
 
 const viewTitles: Record<View, { title: string; description: string }> = {
   products: {
@@ -28,15 +28,11 @@ const viewTitles: Record<View, { title: string; description: string }> = {
   },
   "new-product": {
     title: "Novo produto",
-    description: "Cadastre filtros com codigos, marca, grupo e dados fiscais.",
+    description: "Cadastre filtros com codigos, fabricante, locacao e dados fiscais.",
   },
   brands: {
-    title: "Marcas",
-    description: "Cadastre as marcas usadas no catalogo de produtos.",
-  },
-  groups: {
-    title: "Grupos de produtos",
-    description: "Organize filtros por grupos operacionais.",
+    title: "Fabricantes",
+    description: "Cadastre os fabricantes usados no catalogo de produtos.",
   },
   suppliers: {
     title: "Fornecedores",
@@ -48,7 +44,6 @@ export function App() {
   const [view, setView] = useState<View>("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
-  const [groups, setGroups] = useState<NamedEntity[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
@@ -59,17 +54,15 @@ export function App() {
     setMessage("");
 
     try {
-      const [productsResult, brandsResult, groupsResult, suppliersResult] =
+      const [productsResult, brandsResult, suppliersResult] =
         await Promise.all([
           apiGet<ApiResult<Product[]>>("/products"),
           apiGet<ApiResult<NamedEntity[]>>("/brands"),
-          apiGet<ApiResult<NamedEntity[]>>("/product-groups"),
           apiGet<ApiResult<Supplier[]>>("/suppliers"),
         ]);
 
       setProducts(productsResult.data);
       setBrands(brandsResult.data);
-      setGroups(groupsResult.data);
       setSuppliers(suppliersResult.data);
       setState("ready");
     } catch (error) {
@@ -90,7 +83,7 @@ export function App() {
     }
 
     return products.filter((product) => {
-      return [product.name, product.internalCode, product.barcode, product.brandName]
+      return [product.name, product.internalCode, product.barcode, product.brandName, product.location]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(term));
     });
@@ -159,8 +152,8 @@ export function App() {
         internalCode: optionalFormValue(form, "internalCode"),
         barcode: optionalFormValue(form, "barcode"),
         brandId: optionalFormValue(form, "brandId"),
-        groupId: optionalFormValue(form, "groupId"),
         unit: String(form.get("unit") ?? "UN").trim(),
+        location: optionalFormValue(form, "location"),
         costPrice: Number(form.get("costPrice") || 0),
         salePrice: Number(form.get("salePrice") || 0),
         minimumStock: Number(form.get("minimumStock") || 0),
@@ -203,10 +196,7 @@ export function App() {
 
           <NavSection title="Cadastros">
             <NavButton active={view === "brands"} icon={<Tags size={18} />} onClick={() => setView("brands")}>
-              Marcas
-            </NavButton>
-            <NavButton active={view === "groups"} icon={<Tags size={18} />} onClick={() => setView("groups")}>
-              Grupos
+              Fabricantes
             </NavButton>
           </NavSection>
 
@@ -233,8 +223,7 @@ export function App() {
 
         <section className="summary-grid">
           <Metric label="Produtos" value={products.length} />
-          <Metric label="Marcas" value={brands.length} />
-          <Metric label="Grupos" value={groups.length} />
+          <Metric label="Fabricantes" value={brands.length} />
           <Metric label="Fornecedores" value={suppliers.length} />
         </section>
 
@@ -248,24 +237,15 @@ export function App() {
         ) : null}
 
         {view === "new-product" ? (
-          <ProductForm brands={brands} groups={groups} onSubmit={createProduct} />
+          <ProductForm brands={brands} onSubmit={createProduct} />
         ) : null}
 
         {view === "brands" ? (
           <NamedEntityPage
-            title="Marcas"
+            title="Fabricantes"
             fieldName="brandName"
             items={brands}
             onSubmit={(event) => void createNamedEntity(event, "/brands", "brandName")}
-          />
-        ) : null}
-
-        {view === "groups" ? (
-          <NamedEntityPage
-            title="Grupos"
-            fieldName="groupName"
-            items={groups}
-            onSubmit={(event) => void createNamedEntity(event, "/product-groups", "groupName")}
           />
         ) : null}
 
@@ -325,7 +305,7 @@ function ProductsPage({
         </div>
         <input
           className="search"
-          placeholder="Buscar por nome, codigo ou marca"
+          placeholder="Buscar por nome, codigo, fabricante ou locacao"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
         />
@@ -344,8 +324,9 @@ function ProductTable({ products }: { products: Product[] }) {
           <tr>
             <th>Produto</th>
             <th>Codigo</th>
-            <th>Marca</th>
-            <th>Grupo</th>
+            <th>Fabricante</th>
+            <th>Un.</th>
+            <th>Locacao</th>
             <th>Venda</th>
           </tr>
         </thead>
@@ -355,13 +336,14 @@ function ProductTable({ products }: { products: Product[] }) {
               <td>{product.name}</td>
               <td>{product.internalCode ?? "-"}</td>
               <td>{product.brandName ?? "-"}</td>
-              <td>{product.groupName ?? "-"}</td>
+              <td>{product.unit}</td>
+              <td>{product.location ?? "-"}</td>
               <td>R$ {product.salePrice}</td>
             </tr>
           ))}
           {products.length === 0 ? (
             <tr>
-              <td colSpan={5}>Nenhum produto encontrado.</td>
+              <td colSpan={6}>Nenhum produto encontrado.</td>
             </tr>
           ) : null}
         </tbody>
@@ -372,11 +354,9 @@ function ProductTable({ products }: { products: Product[] }) {
 
 function ProductForm({
   brands,
-  groups,
   onSubmit,
 }: {
   brands: NamedEntity[];
-  groups: NamedEntity[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
@@ -392,24 +372,21 @@ function ProductForm({
       </div>
       <div className="two-columns">
         <select name="brandId" defaultValue="">
-          <option value="">Marca</option>
+          <option value="">Fabricante</option>
           {brands.map((brand) => (
             <option key={brand.id} value={brand.id}>
               {brand.name}
             </option>
           ))}
         </select>
-        <select name="groupId" defaultValue="">
-          <option value="">Grupo</option>
-          {groups.map((group) => (
-            <option key={group.id} value={group.id}>
-              {group.name}
-            </option>
-          ))}
-        </select>
+        <input name="location" placeholder="Locacao" />
       </div>
       <div className="three-columns">
-        <input name="unit" placeholder="UN" defaultValue="UN" />
+        <select name="unit" defaultValue="UN">
+          <option value="UN">UN - Unidade</option>
+          <option value="KIT">KIT - Kit</option>
+          <option value="CJ">CJ - Conjunto</option>
+        </select>
         <input name="costPrice" type="number" step="0.01" placeholder="Custo" />
         <input name="salePrice" type="number" step="0.01" placeholder="Venda" />
       </div>
