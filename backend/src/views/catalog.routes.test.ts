@@ -41,6 +41,17 @@ type Product = {
   active: boolean;
 };
 
+type StockEntry = {
+  id: string;
+  productId: string;
+  productName: string;
+  supplierId: string;
+  supplierName: string;
+  quantity: string;
+  unitCost: string;
+  notes: string | null;
+};
+
 let server: Server;
 let baseUrl: string;
 
@@ -254,6 +265,75 @@ describe("catalog routes", () => {
 
     assert.equal(duplicated.status, 409);
     assert.equal(duplicated.body.message, "Ja existe um produto com esse codigo de barras.");
+  });
+
+  it("records a stock entry and updates product balance and supplier cost", async () => {
+    const supplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Distribuidora de Filtros" },
+    });
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro para entrada",
+        costPrice: 10,
+      },
+    });
+
+    const created = await request<StockEntry>("/stock-entries", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        supplierId: supplier.body.data?.id,
+        quantity: 12.5,
+        unitCost: 14.9,
+        notes: "Recebimento inicial",
+      },
+    });
+    const listed = await request<StockEntry[]>("/stock-entries");
+    const updatedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const productSupplier = await db("product_suppliers")
+      .where({
+        product_id: product.body.data?.id,
+        supplier_id: supplier.body.data?.id,
+      })
+      .first();
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.productName, "Filtro para entrada");
+    assert.equal(created.body.data?.supplierName, "Distribuidora de Filtros");
+    assert.equal(created.body.data?.quantity, "12.500");
+    assert.equal(created.body.data?.unitCost, "14.90");
+    assert.equal(created.body.data?.notes, "Recebimento inicial");
+    assert.equal(listed.status, 200);
+    assert.equal(listed.body.data?.length, 1);
+    assert.equal(updatedProduct.body.data?.currentStock, "12.500");
+    assert.equal(updatedProduct.body.data?.costPrice, "14.90");
+    assert.equal(productSupplier?.last_cost_price, "14.90");
+  });
+
+  it("does not update product balance when a stock entry supplier is invalid", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro sem entrada valida" },
+    });
+
+    const response = await request("/stock-entries", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        supplierId: "00000000-0000-4000-8000-000000000001",
+        quantity: 4,
+        unitCost: 11.5,
+      },
+    });
+    const unchangedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const entries = await request<StockEntry[]>("/stock-entries");
+
+    assert.equal(response.status, 422);
+    assert.equal(response.body.message, "Fornecedor informado nao encontrado.");
+    assert.equal(unchangedProduct.body.data?.currentStock, "0.000");
+    assert.equal(entries.body.data?.length, 0);
   });
 });
 
