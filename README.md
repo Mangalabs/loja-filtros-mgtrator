@@ -24,6 +24,12 @@ Configure o ambiente:
 cp backend/.env.example backend/.env
 ```
 
+Crie uma base separada para os testes de integracao:
+
+```bash
+docker compose exec postgres createdb -U postgres loja_filtros_test
+```
+
 Rode migrations e inicie a API:
 
 ```bash
@@ -51,6 +57,8 @@ O Postgres do Docker fica exposto localmente em:
 127.0.0.1:5433
 ```
 
+Use a base `loja_filtros` no Beekeeper para consultar os dados registrados pela interface. A base `loja_filtros_test` e exclusiva da suite automatizada e tem seu conteudo limpo durante `npm test`.
+
 Se os endpoints de catalogo retornarem `500`, confira se o Postgres esta rodando e se as migrations foram executadas.
 
 ## Frontend
@@ -75,6 +83,7 @@ O Vite encaminha chamadas `/api` para o backend local.
 cd backend
 npm run typecheck
 npm run build
+npm test
 ```
 
 ```bash
