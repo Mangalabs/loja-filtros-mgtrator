@@ -9,6 +9,7 @@ export function showApiInfo() {
         "/health",
         "/health/database",
         "/products",
+        "/stock-adjustments",
         "/stock-entries",
         "/brands",
         "/product-groups",
