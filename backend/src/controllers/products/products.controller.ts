@@ -1,6 +1,7 @@
 import {
   createProduct,
   getProductById,
+  listLowStockProducts,
   listProducts,
   updateProduct,
   updateProductStatus,
@@ -27,6 +28,16 @@ export async function storeProduct(input: ProductCreateInput) {
     code: 201,
     status: "success",
     data: product,
+  };
+}
+
+export async function indexLowStockProducts() {
+  const products = await listLowStockProducts();
+
+  return {
+    code: 200,
+    status: "success",
+    data: products,
   };
 }
 

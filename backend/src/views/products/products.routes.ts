@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   changeProductStatus,
+  indexLowStockProducts,
   indexProducts,
   replaceProduct,
   showProduct,
@@ -65,6 +66,12 @@ productsRoutes.get("/products", async (request, response) => {
     active,
     search: parseStringFilter(request.query.search),
   });
+
+  response.status(200).json(result);
+});
+
+productsRoutes.get("/products/low-stock", async (_request, response) => {
+  const result = await indexLowStockProducts();
 
   response.status(200).json(result);
 });

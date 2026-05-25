@@ -286,6 +286,52 @@ describe("catalog routes", () => {
     assert.equal(duplicated.body.message, "Ja existe um produto com esse codigo de barras.");
   });
 
+  it("lists only active products that require stock replenishment", async () => {
+    const supplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor para reposicao" },
+    });
+    const lowStock = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro em falta", minimumStock: 5 },
+    });
+    const replenished = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro reposto", minimumStock: 2 },
+    });
+    const notConfigured = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro sem minimo" },
+    });
+    const inactive = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro inativo em falta", minimumStock: 3 },
+    });
+
+    await request("/stock-entries", {
+      method: "POST",
+      body: {
+        productId: replenished.body.data?.id,
+        supplierId: supplier.body.data?.id,
+        quantity: 4,
+        unitCost: 10,
+      },
+    });
+    await request(`/products/${inactive.body.data?.id}/status`, {
+      method: "PATCH",
+      body: { active: false },
+    });
+
+    const response = await request<Product[]>("/products/low-stock");
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.data?.length, 1);
+    assert.equal(response.body.data?.[0]?.id, lowStock.body.data?.id);
+    assert.equal(response.body.data?.[0]?.currentStock, "0.000");
+    assert.equal(response.body.data?.[0]?.minimumStock, "5.000");
+    assert.notEqual(response.body.data?.[0]?.id, notConfigured.body.data?.id);
+  });
+
   it("records a stock entry and updates product balance and supplier cost", async () => {
     const supplier = await request<NamedEntity>("/suppliers", {
       method: "POST",

@@ -93,6 +93,35 @@ export async function listProducts(filters: ProductListFilters): Promise<Product
   return rows;
 }
 
+export async function listLowStockProducts(): Promise<ProductListItem[]> {
+  return db("products")
+    .leftJoin("brands", "brands.id", "products.brand_id")
+    .leftJoin("product_groups", "product_groups.id", "products.group_id")
+    .select([
+      "products.id",
+      "products.name",
+      "products.internal_code as internalCode",
+      "products.barcode",
+      "products.brand_id as brandId",
+      "brands.name as brandName",
+      "product_groups.name as groupName",
+      "products.unit",
+      "products.location",
+      "products.cost_price as costPrice",
+      "products.sale_price as salePrice",
+      "products.minimum_stock as minimumStock",
+      "products.current_stock as currentStock",
+      "products.ncm",
+      "products.cest",
+      "products.active",
+    ])
+    .where("products.active", true)
+    .andWhere("products.minimum_stock", ">", 0)
+    .andWhereRaw("products.current_stock <= products.minimum_stock")
+    .orderBy("products.current_stock", "asc")
+    .orderBy("products.name", "asc");
+}
+
 export async function createProduct(input: ProductCreateInput): Promise<ProductListItem> {
   const [created] = await db("products")
     .insert({
