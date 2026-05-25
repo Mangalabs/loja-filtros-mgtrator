@@ -242,6 +242,12 @@ textarea {
   gap: 10px;
 }
 
+.field-help {
+  color: #65716c;
+  font-size: 12px;
+  margin: -2px 0 2px;
+}
+
 .two-columns,
 .three-columns {
   display: grid;

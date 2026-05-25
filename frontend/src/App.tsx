@@ -9,6 +9,7 @@ import {
   Power,
   PowerOff,
   RefreshCcw,
+  SlidersHorizontal,
   Tags,
   Truck,
   X,
@@ -22,12 +23,20 @@ import {
   type ApiResult,
   type NamedEntity,
   type Product,
+  type StockAdjustment,
   type StockEntry,
   type Supplier,
 } from "./api";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
-type View = "products" | "new-product" | "edit-product" | "stock-entries" | "brands" | "suppliers";
+type View =
+  | "products"
+  | "new-product"
+  | "edit-product"
+  | "stock-entries"
+  | "stock-adjustments"
+  | "brands"
+  | "suppliers";
 
 const viewTitles: Record<View, { title: string; description: string }> = {
   products: {
@@ -46,6 +55,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
     title: "Entrada de mercadoria",
     description: "Registre produtos recebidos e atualize o estoque da filial.",
   },
+  "stock-adjustments": {
+    title: "Ajuste de estoque",
+    description: "Corrija divergencias de saldo com motivo registrado.",
+  },
   brands: {
     title: "Fabricantes",
     description: "Cadastre os fabricantes usados no catalogo de produtos.",
@@ -62,6 +75,7 @@ export function App() {
   const [brands, setBrands] = useState<NamedEntity[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
+  const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([]);
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -72,18 +86,20 @@ export function App() {
     setMessage("");
 
     try {
-      const [productsResult, brandsResult, suppliersResult, stockEntriesResult] =
+      const [productsResult, brandsResult, suppliersResult, stockEntriesResult, stockAdjustmentsResult] =
         await Promise.all([
           apiGet<ApiResult<Product[]>>("/products"),
           apiGet<ApiResult<NamedEntity[]>>("/brands"),
           apiGet<ApiResult<Supplier[]>>("/suppliers"),
           apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
+          apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments"),
         ]);
 
       setProducts(productsResult.data);
       setBrands(brandsResult.data);
       setSuppliers(suppliersResult.data);
       setStockEntries(stockEntriesResult.data);
+      setStockAdjustments(stockAdjustmentsResult.data);
       setState("ready");
     } catch (error) {
       setState("error");
@@ -213,6 +229,23 @@ export function App() {
     });
   }
 
+  async function createStockAdjustment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    await runAction(async () => {
+      await apiPost("/stock-adjustments", {
+        productId: String(form.get("adjustmentProductId") ?? ""),
+        quantity: Number(form.get("adjustmentQuantity")),
+        reason: String(form.get("adjustmentReason") ?? "").trim(),
+      });
+
+      formElement.reset();
+      await loadCatalog();
+    });
+  }
+
   async function changeProductStatus(product: Product) {
     await runAction(async () => {
       await apiPatch(`/products/${product.id}/status`, { active: !product.active });
@@ -268,6 +301,13 @@ export function App() {
               onClick={() => setView("stock-entries")}
             >
               Entrada manual
+            </NavButton>
+            <NavButton
+              active={view === "stock-adjustments"}
+              icon={<SlidersHorizontal size={18} />}
+              onClick={() => setView("stock-adjustments")}
+            >
+              Ajuste manual
             </NavButton>
           </NavSection>
 
@@ -331,6 +371,14 @@ export function App() {
             products={products}
             suppliers={suppliers}
             onSubmit={createStockEntry}
+          />
+        ) : null}
+
+        {view === "stock-adjustments" ? (
+          <StockAdjustmentsPage
+            adjustments={stockAdjustments}
+            products={products}
+            onSubmit={createStockAdjustment}
           />
         ) : null}
 
@@ -743,6 +791,85 @@ function StockEntriesPage({
   );
 }
 
+function StockAdjustmentsPage({
+  adjustments,
+  products,
+  onSubmit,
+}: {
+  adjustments: StockAdjustment[];
+  products: Product[];
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <section className="layout-grid stock-entry-layout">
+      <form className="panel form-panel" onSubmit={onSubmit}>
+        <div className="panel-header compact">
+          <h2>Novo ajuste</h2>
+          <SlidersHorizontal size={18} />
+        </div>
+        <select name="adjustmentProductId" defaultValue="" required>
+          <option value="" disabled>
+            Produto
+          </option>
+          {products.map((product) => (
+            <option key={product.id} value={product.id}>
+              {product.name} - estoque {formatQuantity(product.currentStock)}
+              {product.active ? "" : " (inativo)"}
+            </option>
+          ))}
+        </select>
+        <input
+          name="adjustmentQuantity"
+          type="number"
+          step="0.001"
+          placeholder="Variacao de estoque (+ ou -)"
+          required
+        />
+        <p className="field-help">Use valor positivo para acrescentar ou negativo para retirar itens.</p>
+        <textarea name="adjustmentReason" maxLength={500} placeholder="Motivo do ajuste" rows={3} required />
+        <button className="primary-button" type="submit">
+          <Plus size={17} />
+          Registrar ajuste
+        </button>
+      </form>
+
+      <div className="panel wide stock-entry-history">
+        <div className="panel-header compact">
+          <h2>Ajustes registrados</h2>
+          <span>{adjustments.length} registros</span>
+        </div>
+        <div className="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Produto</th>
+                <th>Variacao</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {adjustments.map((adjustment) => (
+                <tr key={adjustment.id}>
+                  <td>{formatDateTime(adjustment.createdAt)}</td>
+                  <td>{adjustment.productName}</td>
+                  <td>{formatSignedQuantity(adjustment.quantity)}</td>
+                  <td>{adjustment.reason}</td>
+                </tr>
+              ))}
+              {adjustments.length === 0 ? (
+                <tr>
+                  <td colSpan={4}>Nenhum ajuste registrado.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="metric">
@@ -783,6 +910,12 @@ function formatQuantity(value: string) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
   });
+}
+
+function formatSignedQuantity(value: string) {
+  const quantity = Number(value);
+  const prefix = quantity > 0 ? "+" : "";
+  return `${prefix}${formatQuantity(value)}`;
 }
 
 function formatCurrency(value: string) {

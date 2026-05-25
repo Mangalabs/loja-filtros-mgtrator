@@ -47,6 +47,15 @@ export type StockEntry = {
   createdAt: string;
 };
 
+export type StockAdjustment = {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: string;
+  reason: string;
+  createdAt: string;
+};
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`/api${path}`);
   return parseResponse<T>(response);
