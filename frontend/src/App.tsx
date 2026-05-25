@@ -1,4 +1,5 @@
 import {
+  ArrowDownToLine,
   CircleDollarSign,
   Filter,
   List,
@@ -21,11 +22,12 @@ import {
   type ApiResult,
   type NamedEntity,
   type Product,
+  type StockEntry,
   type Supplier,
 } from "./api";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
-type View = "products" | "new-product" | "edit-product" | "brands" | "suppliers";
+type View = "products" | "new-product" | "edit-product" | "stock-entries" | "brands" | "suppliers";
 
 const viewTitles: Record<View, { title: string; description: string }> = {
   products: {
@@ -39,6 +41,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
   "edit-product": {
     title: "Editar produto",
     description: "Atualize os dados cadastrais do produto selecionado.",
+  },
+  "stock-entries": {
+    title: "Entrada de mercadoria",
+    description: "Registre produtos recebidos e atualize o estoque da filial.",
   },
   brands: {
     title: "Fabricantes",
@@ -55,6 +61,7 @@ export function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -65,16 +72,18 @@ export function App() {
     setMessage("");
 
     try {
-      const [productsResult, brandsResult, suppliersResult] =
+      const [productsResult, brandsResult, suppliersResult, stockEntriesResult] =
         await Promise.all([
           apiGet<ApiResult<Product[]>>("/products"),
           apiGet<ApiResult<NamedEntity[]>>("/brands"),
           apiGet<ApiResult<Supplier[]>>("/suppliers"),
+          apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
         ]);
 
       setProducts(productsResult.data);
       setBrands(brandsResult.data);
       setSuppliers(suppliersResult.data);
+      setStockEntries(stockEntriesResult.data);
       setState("ready");
     } catch (error) {
       setState("error");
@@ -185,6 +194,25 @@ export function App() {
     });
   }
 
+  async function createStockEntry(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    await runAction(async () => {
+      await apiPost("/stock-entries", {
+        productId: String(form.get("entryProductId") ?? ""),
+        supplierId: String(form.get("entrySupplierId") ?? ""),
+        quantity: Number(form.get("entryQuantity")),
+        unitCost: Number(form.get("entryUnitCost")),
+        notes: nullableFormValue(form, "entryNotes"),
+      });
+
+      formElement.reset();
+      await loadCatalog();
+    });
+  }
+
   async function changeProductStatus(product: Product) {
     await runAction(async () => {
       await apiPatch(`/products/${product.id}/status`, { active: !product.active });
@@ -233,6 +261,16 @@ export function App() {
             </NavButton>
           </NavSection>
 
+          <NavSection title="Estoque">
+            <NavButton
+              active={view === "stock-entries"}
+              icon={<ArrowDownToLine size={18} />}
+              onClick={() => setView("stock-entries")}
+            >
+              Entrada manual
+            </NavButton>
+          </NavSection>
+
           <NavSection title="Fornecedores">
             <NavButton active={view === "suppliers"} icon={<Truck size={18} />} onClick={() => setView("suppliers")}>
               Cadastro
@@ -258,6 +296,7 @@ export function App() {
           <Metric label="Produtos" value={products.length} />
           <Metric label="Fabricantes" value={brands.length} />
           <Metric label="Fornecedores" value={suppliers.length} />
+          <Metric label="Entradas" value={stockEntries.length} />
         </section>
 
         {view === "products" ? (
@@ -283,6 +322,15 @@ export function App() {
             onSubmit={updateProduct}
             onCancel={() => setView("products")}
             submitLabel="Salvar alteracoes"
+          />
+        ) : null}
+
+        {view === "stock-entries" ? (
+          <StockEntriesPage
+            entries={stockEntries}
+            products={products}
+            suppliers={suppliers}
+            onSubmit={createStockEntry}
           />
         ) : null}
 
@@ -607,6 +655,94 @@ function SuppliersPage({
   );
 }
 
+function StockEntriesPage({
+  entries,
+  products,
+  suppliers,
+  onSubmit,
+}: {
+  entries: StockEntry[];
+  products: Product[];
+  suppliers: Supplier[];
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <section className="layout-grid stock-entry-layout">
+      <form className="panel form-panel" onSubmit={onSubmit}>
+        <div className="panel-header compact">
+          <h2>Nova entrada</h2>
+          <ArrowDownToLine size={18} />
+        </div>
+        <select name="entryProductId" defaultValue="" required>
+          <option value="" disabled>
+            Produto
+          </option>
+          {products.filter((product) => product.active).map((product) => (
+            <option key={product.id} value={product.id}>
+              {product.name} - estoque {formatQuantity(product.currentStock)}
+            </option>
+          ))}
+        </select>
+        <select name="entrySupplierId" defaultValue="" required>
+          <option value="" disabled>
+            Fornecedor
+          </option>
+          {suppliers.filter((supplier) => supplier.active).map((supplier) => (
+            <option key={supplier.id} value={supplier.id}>
+              {supplier.name}
+            </option>
+          ))}
+        </select>
+        <div className="two-columns">
+          <input name="entryQuantity" type="number" min="0.001" step="0.001" placeholder="Quantidade" required />
+          <input name="entryUnitCost" type="number" min="0" step="0.01" placeholder="Custo unitario" required />
+        </div>
+        <textarea name="entryNotes" maxLength={500} placeholder="Observacao (opcional)" rows={3} />
+        <button className="primary-button" type="submit">
+          <Plus size={17} />
+          Registrar entrada
+        </button>
+      </form>
+
+      <div className="panel wide stock-entry-history">
+        <div className="panel-header compact">
+          <h2>Entradas registradas</h2>
+          <span>{entries.length} registros</span>
+        </div>
+        <div className="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Produto</th>
+                <th>Fornecedor</th>
+                <th>Qtd.</th>
+                <th>Custo un.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((entry) => (
+                <tr key={entry.id}>
+                  <td>{formatDateTime(entry.createdAt)}</td>
+                  <td>{entry.productName}</td>
+                  <td>{entry.supplierName}</td>
+                  <td>{formatQuantity(entry.quantity)}</td>
+                  <td>{formatCurrency(entry.unitCost)}</td>
+                </tr>
+              ))}
+              {entries.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>Nenhuma entrada registrada.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="metric">
@@ -647,4 +783,15 @@ function formatQuantity(value: string) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
   });
+}
+
+function formatCurrency(value: string) {
+  return Number(value).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("pt-BR");
 }

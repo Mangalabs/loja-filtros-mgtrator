@@ -35,6 +35,18 @@ export type Supplier = NamedEntity & {
   phone: string | null;
 };
 
+export type StockEntry = {
+  id: string;
+  productId: string;
+  productName: string;
+  supplierId: string;
+  supplierName: string;
+  quantity: string;
+  unitCost: string;
+  notes: string | null;
+  createdAt: string;
+};
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`/api${path}`);
   return parseResponse<T>(response);
