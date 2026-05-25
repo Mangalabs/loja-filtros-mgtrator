@@ -2,6 +2,7 @@ import {
   ArrowDownToLine,
   AlertTriangle,
   CircleDollarSign,
+  CreditCard,
   Filter,
   List,
   PackagePlus,
@@ -23,6 +24,7 @@ import {
   apiPut,
   type ApiResult,
   type NamedEntity,
+  type PaymentMethod,
   type Product,
   type StockAdjustment,
   type StockEntry,
@@ -37,6 +39,7 @@ type View =
   | "stock-entries"
   | "stock-adjustments"
   | "low-stock"
+  | "payment-methods"
   | "brands"
   | "suppliers";
 
@@ -65,6 +68,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
     title: "Reposicao",
     description: "Consulte produtos ativos que atingiram o estoque minimo.",
   },
+  "payment-methods": {
+    title: "Formas de pagamento",
+    description: "Configure as formas disponiveis para o futuro fechamento de vendas.",
+  },
   brands: {
     title: "Fabricantes",
     description: "Cadastre os fabricantes usados no catalogo de produtos.",
@@ -83,6 +90,7 @@ export function App() {
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -93,7 +101,15 @@ export function App() {
     setMessage("");
 
     try {
-      const [productsResult, brandsResult, suppliersResult, stockEntriesResult, stockAdjustmentsResult, lowStockResult] =
+      const [
+        productsResult,
+        brandsResult,
+        suppliersResult,
+        stockEntriesResult,
+        stockAdjustmentsResult,
+        lowStockResult,
+        paymentMethodsResult,
+      ] =
         await Promise.all([
           apiGet<ApiResult<Product[]>>("/products"),
           apiGet<ApiResult<NamedEntity[]>>("/brands"),
@@ -101,6 +117,7 @@ export function App() {
           apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
           apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments"),
           apiGet<ApiResult<Product[]>>("/products/low-stock"),
+          apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
         ]);
 
       setProducts(productsResult.data);
@@ -109,6 +126,7 @@ export function App() {
       setStockEntries(stockEntriesResult.data);
       setStockAdjustments(stockAdjustmentsResult.data);
       setLowStockProducts(lowStockResult.data);
+      setPaymentMethods(paymentMethodsResult.data);
       setState("ready");
     } catch (error) {
       setState("error");
@@ -262,6 +280,15 @@ export function App() {
     });
   }
 
+  async function changePaymentMethodStatus(paymentMethod: PaymentMethod) {
+    await runAction(async () => {
+      await apiPatch(`/payment-methods/${paymentMethod.id}/status`, {
+        active: !paymentMethod.active,
+      });
+      await loadCatalog();
+    });
+  }
+
   function editProduct(product: Product) {
     setSelectedProduct(product);
     setView("edit-product");
@@ -332,6 +359,16 @@ export function App() {
               Cadastro
             </NavButton>
           </NavSection>
+
+          <NavSection title="Financeiro">
+            <NavButton
+              active={view === "payment-methods"}
+              icon={<CreditCard size={18} />}
+              onClick={() => setView("payment-methods")}
+            >
+              Formas de pagamento
+            </NavButton>
+          </NavSection>
         </nav>
       </aside>
 
@@ -400,6 +437,13 @@ export function App() {
 
         {view === "low-stock" ? (
           <LowStockPage products={lowStockProducts} />
+        ) : null}
+
+        {view === "payment-methods" ? (
+          <PaymentMethodsPage
+            paymentMethods={paymentMethods}
+            onChangeStatus={(paymentMethod) => void changePaymentMethodStatus(paymentMethod)}
+          />
         ) : null}
 
         {view === "brands" ? (
@@ -928,6 +972,57 @@ function LowStockPage({ products }: { products: Product[] }) {
                 <td colSpan={6}>Nenhum produto requer reposicao.</td>
               </tr>
             ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function PaymentMethodsPage({
+  paymentMethods,
+  onChangeStatus,
+}: {
+  paymentMethods: PaymentMethod[];
+  onChangeStatus: (paymentMethod: PaymentMethod) => void;
+}) {
+  return (
+    <div className="panel wide">
+      <div className="panel-header compact">
+        <div>
+          <h2>Formas configuradas</h2>
+          <span>Credito sera incluido somente depois que suas regras forem definidas.</span>
+        </div>
+        <CreditCard size={18} />
+      </div>
+      <div className="table-shell">
+        <table>
+          <thead>
+            <tr>
+              <th>Forma de pagamento</th>
+              <th>Codigo</th>
+              <th>Status</th>
+              <th>Acoes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paymentMethods.map((paymentMethod) => (
+              <tr key={paymentMethod.id}>
+                <td>{paymentMethod.name}</td>
+                <td>{paymentMethod.code}</td>
+                <td>
+                  <span className={paymentMethod.active ? "status-tag active" : "status-tag inactive"}>
+                    {paymentMethod.active ? "Ativa" : "Inativa"}
+                  </span>
+                </td>
+                <td>
+                  <button className="action-button" type="button" onClick={() => onChangeStatus(paymentMethod)}>
+                    {paymentMethod.active ? <PowerOff size={14} /> : <Power size={14} />}
+                    {paymentMethod.active ? " Inativar" : " Ativar"}
+                  </button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

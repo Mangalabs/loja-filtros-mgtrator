@@ -56,6 +56,13 @@ export type StockAdjustment = {
   createdAt: string;
 };
 
+export type PaymentMethod = {
+  id: string;
+  code: string;
+  name: string;
+  active: boolean;
+};
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`/api${path}`);
   return parseResponse<T>(response);
