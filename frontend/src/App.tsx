@@ -385,6 +385,7 @@ function ProductTable({
             <th>Fabricante</th>
             <th>Un.</th>
             <th>Locacao</th>
+            <th>Estoque</th>
             <th>Venda</th>
             <th>Status</th>
             <th>Acoes</th>
@@ -398,6 +399,7 @@ function ProductTable({
               <td>{product.brandName ?? "-"}</td>
               <td>{product.unit}</td>
               <td>{product.location ?? "-"}</td>
+              <td>{formatQuantity(product.currentStock)}</td>
               <td>R$ {product.salePrice}</td>
               <td>
                 <span className={product.active ? "status-tag active" : "status-tag inactive"}>
@@ -420,7 +422,7 @@ function ProductTable({
           ))}
           {products.length === 0 ? (
             <tr>
-              <td colSpan={8}>Nenhum produto encontrado.</td>
+              <td colSpan={9}>Nenhum produto encontrado.</td>
             </tr>
           ) : null}
         </tbody>
@@ -638,4 +640,11 @@ function productFormBody(form: FormData) {
     ncm: nullableFormValue(form, "ncm"),
     cest: nullableFormValue(form, "cest"),
   };
+}
+
+function formatQuantity(value: string) {
+  return Number(value).toLocaleString("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  });
 }

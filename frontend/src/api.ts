@@ -17,6 +17,7 @@ export type Product = {
   costPrice: string;
   salePrice: string;
   minimumStock: string;
+  currentStock: string;
   ncm: string | null;
   cest: string | null;
   active: boolean;
