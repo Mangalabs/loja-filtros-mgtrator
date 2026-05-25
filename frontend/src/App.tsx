@@ -1,5 +1,6 @@
 import {
   ArrowDownToLine,
+  AlertTriangle,
   CircleDollarSign,
   Filter,
   List,
@@ -35,6 +36,7 @@ type View =
   | "edit-product"
   | "stock-entries"
   | "stock-adjustments"
+  | "low-stock"
   | "brands"
   | "suppliers";
 
@@ -59,6 +61,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
     title: "Ajuste de estoque",
     description: "Corrija divergencias de saldo com motivo registrado.",
   },
+  "low-stock": {
+    title: "Reposicao",
+    description: "Consulte produtos ativos que atingiram o estoque minimo.",
+  },
   brands: {
     title: "Fabricantes",
     description: "Cadastre os fabricantes usados no catalogo de produtos.",
@@ -76,6 +82,7 @@ export function App() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -86,13 +93,14 @@ export function App() {
     setMessage("");
 
     try {
-      const [productsResult, brandsResult, suppliersResult, stockEntriesResult, stockAdjustmentsResult] =
+      const [productsResult, brandsResult, suppliersResult, stockEntriesResult, stockAdjustmentsResult, lowStockResult] =
         await Promise.all([
           apiGet<ApiResult<Product[]>>("/products"),
           apiGet<ApiResult<NamedEntity[]>>("/brands"),
           apiGet<ApiResult<Supplier[]>>("/suppliers"),
           apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
           apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments"),
+          apiGet<ApiResult<Product[]>>("/products/low-stock"),
         ]);
 
       setProducts(productsResult.data);
@@ -100,6 +108,7 @@ export function App() {
       setSuppliers(suppliersResult.data);
       setStockEntries(stockEntriesResult.data);
       setStockAdjustments(stockAdjustmentsResult.data);
+      setLowStockProducts(lowStockResult.data);
       setState("ready");
     } catch (error) {
       setState("error");
@@ -309,6 +318,13 @@ export function App() {
             >
               Ajuste manual
             </NavButton>
+            <NavButton
+              active={view === "low-stock"}
+              icon={<AlertTriangle size={18} />}
+              onClick={() => setView("low-stock")}
+            >
+              Reposicao
+            </NavButton>
           </NavSection>
 
           <NavSection title="Fornecedores">
@@ -336,7 +352,7 @@ export function App() {
           <Metric label="Produtos" value={products.length} />
           <Metric label="Fabricantes" value={brands.length} />
           <Metric label="Fornecedores" value={suppliers.length} />
-          <Metric label="Entradas" value={stockEntries.length} />
+          <Metric label="Reposicao" value={lowStockProducts.length} />
         </section>
 
         {view === "products" ? (
@@ -380,6 +396,10 @@ export function App() {
             products={products}
             onSubmit={createStockAdjustment}
           />
+        ) : null}
+
+        {view === "low-stock" ? (
+          <LowStockPage products={lowStockProducts} />
         ) : null}
 
         {view === "brands" ? (
@@ -867,6 +887,51 @@ function StockAdjustmentsPage({
         </div>
       </div>
     </section>
+  );
+}
+
+function LowStockPage({ products }: { products: Product[] }) {
+  return (
+    <div className="panel wide">
+      <div className="panel-header compact">
+        <div>
+          <h2>Produtos para reposicao</h2>
+          <span>Produtos ativos com estoque atual igual ou menor que o minimo definido.</span>
+        </div>
+        <AlertTriangle size={18} />
+      </div>
+      <div className="table-shell">
+        <table>
+          <thead>
+            <tr>
+              <th>Produto</th>
+              <th>Fabricante</th>
+              <th>Locacao</th>
+              <th>Atual</th>
+              <th>Minimo</th>
+              <th>Faltam p/ minimo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.map((product) => (
+              <tr key={product.id}>
+                <td>{product.name}</td>
+                <td>{product.brandName ?? "-"}</td>
+                <td>{product.location ?? "-"}</td>
+                <td className="stock-warning">{formatQuantity(product.currentStock)}</td>
+                <td>{formatQuantity(product.minimumStock)}</td>
+                <td>{formatQuantity(String(Number(product.minimumStock) - Number(product.currentStock)))}</td>
+              </tr>
+            ))}
+            {products.length === 0 ? (
+              <tr>
+                <td colSpan={6}>Nenhum produto requer reposicao.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

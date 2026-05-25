@@ -324,6 +324,11 @@ th {
   color: #65716c;
 }
 
+.stock-warning {
+  color: #8b3f18;
+  font-weight: 700;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
