@@ -8,6 +8,7 @@
     "dev:build": "npm run build && node dist/main.js",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
+    "test": "node --import tsx --test src/views/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:make": "knex migrate:make --knexfile knexfile.cjs",
     "db:migrate": "knex migrate:latest --knexfile knexfile.cjs",

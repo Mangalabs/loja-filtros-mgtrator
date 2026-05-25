@@ -15,6 +15,7 @@ export type ProductListItem = {
   brandName: string | null;
   groupName: string | null;
   unit: string;
+  location: string | null;
   costPrice: string;
   salePrice: string;
   minimumStock: string;
@@ -28,6 +29,7 @@ export type ProductCreateInput = {
   brandId?: string;
   groupId?: string;
   unit?: string;
+  location?: string;
   costPrice?: number;
   salePrice?: number;
   minimumStock?: number;
@@ -54,6 +56,7 @@ export async function listProducts(filters: ProductListFilters): Promise<Product
       "brands.name as brandName",
       "product_groups.name as groupName",
       "products.unit",
+      "products.location",
       "products.cost_price as costPrice",
       "products.sale_price as salePrice",
       "products.minimum_stock as minimumStock",
@@ -65,7 +68,8 @@ export async function listProducts(filters: ProductListFilters): Promise<Product
           builder
             .whereILike("products.name", `%${filters.search}%`)
             .orWhereILike("products.internal_code", `%${filters.search}%`)
-            .orWhereILike("products.barcode", `%${filters.search}%`);
+            .orWhereILike("products.barcode", `%${filters.search}%`)
+            .orWhereILike("products.location", `%${filters.search}%`);
         });
       }
 
@@ -89,6 +93,7 @@ export async function createProduct(input: ProductCreateInput): Promise<ProductL
       brand_id: input.brandId,
       group_id: input.groupId,
       unit: input.unit,
+      location: input.location,
       cost_price: input.costPrice,
       sale_price: input.salePrice,
       minimum_stock: input.minimumStock,
@@ -126,6 +131,7 @@ export async function updateProduct(
       brand_id: input.brandId,
       group_id: input.groupId,
       unit: input.unit,
+      location: input.location,
       cost_price: input.costPrice,
       sale_price: input.salePrice,
       minimum_stock: input.minimumStock,
@@ -176,6 +182,7 @@ async function findProductById(id: string): Promise<ProductListItem | undefined>
       "brands.name as brandName",
       "product_groups.name as groupName",
       "products.unit",
+      "products.location",
       "products.cost_price as costPrice",
       "products.sale_price as salePrice",
       "products.minimum_stock as minimumStock",
