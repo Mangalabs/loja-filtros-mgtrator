@@ -35,6 +35,7 @@ type Product = {
   costPrice: string;
   salePrice: string;
   minimumStock: string;
+  currentStock: string;
   ncm: string | null;
   cest: string | null;
   active: boolean;
@@ -220,6 +221,7 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.groupName, "Filtro de ar");
     assert.equal(created.body.data?.unit, "KIT");
     assert.equal(created.body.data?.location, "Corredor A - Prateleira 2");
+    assert.equal(created.body.data?.currentStock, "0.000");
     assert.equal(created.body.data?.ncm, "84212300");
     assert.equal(created.body.data?.cest, "0100100");
     assert.equal(listed.status, 200);

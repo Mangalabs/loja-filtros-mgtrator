@@ -20,6 +20,7 @@ export type ProductListItem = {
   costPrice: string;
   salePrice: string;
   minimumStock: string;
+  currentStock: string;
   ncm: string | null;
   cest: string | null;
   active: boolean;
@@ -64,6 +65,7 @@ export async function listProducts(filters: ProductListFilters): Promise<Product
       "products.cost_price as costPrice",
       "products.sale_price as salePrice",
       "products.minimum_stock as minimumStock",
+      "products.current_stock as currentStock",
       "products.ncm",
       "products.cest",
       "products.active",
@@ -194,6 +196,7 @@ async function findProductById(id: string): Promise<ProductListItem | undefined>
       "products.cost_price as costPrice",
       "products.sale_price as salePrice",
       "products.minimum_stock as minimumStock",
+      "products.current_stock as currentStock",
       "products.ncm",
       "products.cest",
       "products.active",
