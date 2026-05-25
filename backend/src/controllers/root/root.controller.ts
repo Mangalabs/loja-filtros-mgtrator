@@ -10,6 +10,7 @@ export function showApiInfo() {
         "/health/database",
         "/products",
         "/products/low-stock",
+        "/payment-methods",
         "/stock-adjustments",
         "/stock-entries",
         "/brands",
