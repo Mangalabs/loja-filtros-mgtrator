@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   approveQuotedShippingOrder,
+  cancelOpenShippingOrder,
   indexShippingOrders,
   storeShippingOrder,
 } from "../../controllers/shipping-orders/shipping-orders.controller.js";
@@ -21,6 +22,10 @@ const shippingOrderParamsSchema = z.object({
   id: z.uuid(),
 });
 
+const cancelShippingOrderSchema = z.object({
+  reason: z.string().trim().min(1).max(500),
+});
+
 shippingOrdersRoutes.get("/shipping-orders", async (_request, response) => {
   response.status(200).json(await indexShippingOrders());
 });
@@ -37,4 +42,12 @@ shippingOrdersRoutes.patch("/shipping-orders/:id/approve", async (request, respo
   const userId = response.locals.authenticatedUser.id as string;
 
   response.status(200).json(await approveQuotedShippingOrder(id, userId));
+});
+
+shippingOrdersRoutes.patch("/shipping-orders/:id/cancel", async (request, response) => {
+  const { id } = shippingOrderParamsSchema.parse(request.params);
+  const body = validateBody(request, cancelShippingOrderSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(200).json(await cancelOpenShippingOrder(id, body.reason, userId));
 });

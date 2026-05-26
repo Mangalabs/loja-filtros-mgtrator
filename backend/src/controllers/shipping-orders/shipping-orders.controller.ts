@@ -2,9 +2,10 @@ import { db } from "../../database/knex.js";
 import {
   activeShippingClientExists,
   approveShippingOrder,
+  cancelShippingOrder,
   insertShippingOrder,
   listShippingOrders,
-  lockQuotedShippingOrder,
+  lockShippingOrder,
   lockReservableProduct,
   type ShippingOrderInput,
 } from "../../models/shipping-orders/shipping-orders.model.js";
@@ -49,13 +50,17 @@ export async function storeShippingOrder(input: ShippingOrderInput, createdByUse
 
 export async function approveQuotedShippingOrder(id: string, approvedByUserId: string) {
   const order = await db.transaction(async (transaction) => {
-    const quotedOrder = await lockQuotedShippingOrder(transaction, id);
+    const quotedOrder = await lockShippingOrder(transaction, id);
 
     if (!quotedOrder) {
       throw new AppError("Orcamento para envio nao encontrado.", 404);
     }
 
-    if (quotedOrder.status !== "QUOTED") {
+    if (quotedOrder.status === "CANCELLED") {
+      throw new AppError("Pedido cancelado nao pode ser aprovado para separacao.", 409);
+    }
+
+    if (quotedOrder.status === "APPROVED") {
       throw new AppError("Este orcamento ja foi aprovado para separacao.", 409);
     }
 
@@ -72,6 +77,40 @@ export async function approveQuotedShippingOrder(id: string, approvedByUserId: s
     }
 
     return approveShippingOrder(transaction, id, product.id, quantity, approvedByUserId);
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: order,
+  };
+}
+
+export async function cancelOpenShippingOrder(id: string, reason: string, cancelledByUserId: string) {
+  const order = await db.transaction(async (transaction) => {
+    const currentOrder = await lockShippingOrder(transaction, id);
+
+    if (!currentOrder) {
+      throw new AppError("Pedido para envio nao encontrado.", 404);
+    }
+
+    if (currentOrder.status === "CANCELLED") {
+      throw new AppError("Este pedido para envio ja foi cancelado.", 409);
+    }
+
+    if (currentOrder.status === "APPROVED") {
+      await lockReservableProduct(transaction, currentOrder.productId);
+    }
+
+    return cancelShippingOrder(
+      transaction,
+      id,
+      currentOrder.productId,
+      Number(currentOrder.quantity),
+      currentOrder.status === "APPROVED",
+      cancelledByUserId,
+      reason,
+    );
   });
 
   return {

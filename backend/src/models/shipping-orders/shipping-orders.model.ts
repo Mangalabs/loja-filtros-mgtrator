@@ -20,7 +20,9 @@ export type ShippingOrder = {
   createdByUserName: string;
   createdAt: Date;
   approvedAt: Date | null;
-  status: "QUOTED" | "APPROVED";
+  cancelledAt: Date | null;
+  cancellationReason: string | null;
+  status: "QUOTED" | "APPROVED" | "CANCELLED";
 };
 
 export type ReservedProduct = {
@@ -44,6 +46,8 @@ const shippingOrderColumns = [
   "created_users.name as createdByUserName",
   "shipping_orders.created_at as createdAt",
   "shipping_orders.approved_at as approvedAt",
+  "shipping_orders.cancelled_at as cancelledAt",
+  "shipping_orders.cancellation_reason as cancellationReason",
   "shipping_orders.status",
 ];
 
@@ -103,7 +107,7 @@ export async function insertShippingOrder(
   return findShippingOrder(transaction, created.id);
 }
 
-export async function lockQuotedShippingOrder(
+export async function lockShippingOrder(
   transaction: Knex.Transaction,
   id: string,
 ): Promise<{ id: string; productId: string; quantity: string; status: ShippingOrder["status"] } | undefined> {
@@ -138,6 +142,34 @@ export async function approveShippingOrder(
     status: "APPROVED",
     approved_by_user_id: approvedByUserId,
     approved_at: transaction.fn.now(),
+  });
+
+  return findShippingOrder(transaction, id);
+}
+
+export async function cancelShippingOrder(
+  transaction: Knex.Transaction,
+  id: string,
+  productId: string,
+  quantity: number,
+  wasApproved: boolean,
+  cancelledByUserId: string,
+  reason: string,
+): Promise<ShippingOrder> {
+  if (wasApproved) {
+    await transaction("products")
+      .where("id", productId)
+      .update({
+        reserved_stock: transaction.raw("reserved_stock - ?", [quantity]),
+        updated_at: transaction.fn.now(),
+      });
+  }
+
+  await transaction("shipping_orders").where("id", id).update({
+    status: "CANCELLED",
+    cancelled_by_user_id: cancelledByUserId,
+    cancelled_at: transaction.fn.now(),
+    cancellation_reason: reason,
   });
 
   return findShippingOrder(transaction, id);
