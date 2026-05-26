@@ -1,6 +1,7 @@
 import {
   ArrowDownToLine,
   AlertTriangle,
+  ArrowLeftRight,
   CircleDollarSign,
   CreditCard,
   Filter,
@@ -30,6 +31,7 @@ import {
   type Product,
   type StockAdjustment,
   type StockEntry,
+  type StockMovement,
   type Supplier,
 } from "./api";
 
@@ -40,6 +42,7 @@ type View =
   | "edit-product"
   | "stock-entries"
   | "stock-adjustments"
+  | "stock-movements"
   | "low-stock"
   | "payment-methods"
   | "brands"
@@ -66,6 +69,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
   "stock-adjustments": {
     title: "Ajuste de estoque",
     description: "Corrija divergencias de saldo com motivo registrado.",
+  },
+  "stock-movements": {
+    title: "Historico de estoque",
+    description: "Acompanhe entradas e ajustes que alteraram o saldo da filial.",
   },
   "low-stock": {
     title: "Reposicao",
@@ -97,6 +104,7 @@ export function App() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [state, setState] = useState<LoadState>("idle");
@@ -117,6 +125,7 @@ export function App() {
         suppliersResult,
         stockEntriesResult,
         stockAdjustmentsResult,
+        stockMovementsResult,
         lowStockResult,
         paymentMethodsResult,
       ] =
@@ -127,6 +136,7 @@ export function App() {
           apiGet<ApiResult<Supplier[]>>("/suppliers"),
           apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
           apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments"),
+          apiGet<ApiResult<StockMovement[]>>("/stock-movements"),
           apiGet<ApiResult<Product[]>>("/products/low-stock"),
           apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
         ]);
@@ -137,6 +147,7 @@ export function App() {
       setSuppliers(suppliersResult.data);
       setStockEntries(stockEntriesResult.data);
       setStockAdjustments(stockAdjustmentsResult.data);
+      setStockMovements(stockMovementsResult.data);
       setLowStockProducts(lowStockResult.data);
       setPaymentMethods(paymentMethodsResult.data);
       setState("ready");
@@ -399,6 +410,13 @@ export function App() {
             >
               Reposicao
             </NavButton>
+            <NavButton
+              active={view === "stock-movements"}
+              icon={<ArrowLeftRight size={18} />}
+              onClick={() => setView("stock-movements")}
+            >
+              Historico
+            </NavButton>
           </NavSection>
 
           <NavSection title="Fornecedores">
@@ -484,6 +502,10 @@ export function App() {
 
         {view === "low-stock" ? (
           <LowStockPage products={lowStockProducts} />
+        ) : null}
+
+        {view === "stock-movements" ? (
+          <StockMovementsPage movements={stockMovements} />
         ) : null}
 
         {view === "payment-methods" ? (
@@ -1132,6 +1154,53 @@ function LowStockPage({ products }: { products: Product[] }) {
             {products.length === 0 ? (
               <tr>
                 <td colSpan={6}>Nenhum produto requer reposicao.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function StockMovementsPage({ movements }: { movements: StockMovement[] }) {
+  return (
+    <div className="panel wide">
+      <div className="panel-header compact">
+        <div>
+          <h2>Movimentacoes registradas</h2>
+          <span>Entradas e ajustes que modificaram o estoque atual.</span>
+        </div>
+        <ArrowLeftRight size={18} />
+      </div>
+      <div className="table-shell">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Tipo</th>
+              <th>Produto</th>
+              <th>Quantidade</th>
+              <th>Fornecedor</th>
+              <th>Custo un.</th>
+              <th>Observacao</th>
+            </tr>
+          </thead>
+          <tbody>
+            {movements.map((movement) => (
+              <tr key={movement.id}>
+                <td>{formatDateTime(movement.createdAt)}</td>
+                <td>{movement.type === "ENTRY" ? "Entrada" : "Ajuste"}</td>
+                <td>{movement.productName}</td>
+                <td>{formatSignedQuantity(movement.quantity)}</td>
+                <td>{movement.supplierName ?? "-"}</td>
+                <td>{movement.unitCost ? formatCurrency(movement.unitCost) : "-"}</td>
+                <td>{movement.notes ?? "-"}</td>
+              </tr>
+            ))}
+            {movements.length === 0 ? (
+              <tr>
+                <td colSpan={7}>Nenhuma movimentacao registrada.</td>
               </tr>
             ) : null}
           </tbody>

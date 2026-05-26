@@ -63,6 +63,18 @@ export type StockAdjustment = {
   createdAt: string;
 };
 
+export type StockMovement = {
+  id: string;
+  type: "ENTRY" | "ADJUSTMENT";
+  productId: string;
+  productName: string;
+  supplierName: string | null;
+  quantity: string;
+  unitCost: string | null;
+  notes: string | null;
+  createdAt: string;
+};
+
 export type PaymentMethod = {
   id: string;
   code: string;
