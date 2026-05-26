@@ -11,6 +11,7 @@ export function showApiInfo() {
         "/products",
         "/products/low-stock",
         "/payment-methods",
+        "/clients",
         "/stock-adjustments",
         "/stock-entries",
         "/brands",

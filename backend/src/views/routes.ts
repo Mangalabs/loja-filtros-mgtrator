@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { brandsRoutes } from "./brands/brands.routes.js";
+import { clientsRoutes } from "./clients/clients.routes.js";
 import { healthRoutes } from "./health/health.routes.js";
 import { paymentMethodsRoutes } from "./payment-methods/payment-methods.routes.js";
 import { productGroupsRoutes } from "./product-groups/product-groups.routes.js";
@@ -12,6 +13,7 @@ import { suppliersRoutes } from "./suppliers/suppliers.routes.js";
 export function registerRoutes(app: Express): void {
   app.use(rootRoutes);
   app.use(brandsRoutes);
+  app.use(clientsRoutes);
   app.use(healthRoutes);
   app.use(paymentMethodsRoutes);
   app.use(productGroupsRoutes);
