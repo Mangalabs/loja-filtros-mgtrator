@@ -60,6 +60,17 @@ type StockAdjustment = {
   reason: string;
 };
 
+type StockMovement = {
+  id: string;
+  type: "ENTRY" | "ADJUSTMENT";
+  productId: string;
+  productName: string;
+  supplierName: string | null;
+  quantity: string;
+  unitCost: string | null;
+  notes: string | null;
+};
+
 type PaymentMethod = {
   id: string;
   code: string;
@@ -543,6 +554,51 @@ describe("catalog routes", () => {
     assert.equal(increased.body.data?.quantity, "2.000");
     assert.equal(listed.body.data?.length, 2);
     assert.equal(updatedProduct.body.data?.currentStock, "9.000");
+  });
+
+  it("lists entries and adjustments in the stock movement history", async () => {
+    const supplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor do historico" },
+    });
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro com historico" },
+    });
+
+    await request("/stock-entries", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        supplierId: supplier.body.data?.id,
+        quantity: 5,
+        unitCost: 11.9,
+        notes: "Compra inicial",
+      },
+    });
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: -1,
+        reason: "Avaria identificada",
+      },
+    });
+
+    const response = await request<StockMovement[]>("/stock-movements");
+    const entry = response.body.data?.find((movement) => movement.type === "ENTRY");
+    const adjustment = response.body.data?.find((movement) => movement.type === "ADJUSTMENT");
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.data?.length, 2);
+    assert.equal(entry?.productName, "Filtro com historico");
+    assert.equal(entry?.supplierName, "Fornecedor do historico");
+    assert.equal(entry?.quantity, "5.000");
+    assert.equal(entry?.unitCost, "11.90");
+    assert.equal(adjustment?.productName, "Filtro com historico");
+    assert.equal(adjustment?.supplierName, null);
+    assert.equal(adjustment?.quantity, "-1.000");
+    assert.equal(adjustment?.notes, "Avaria identificada");
   });
 
   it("rejects a stock adjustment that would create negative balance", async () => {
