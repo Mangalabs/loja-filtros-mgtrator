@@ -14,6 +14,7 @@ export function showApiInfo() {
         "/clients",
         "/stock-adjustments",
         "/stock-entries",
+        "/stock-movements",
         "/brands",
         "/product-groups",
         "/suppliers",

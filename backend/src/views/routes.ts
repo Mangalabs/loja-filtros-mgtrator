@@ -8,6 +8,7 @@ import { productsRoutes } from "./products/products.routes.js";
 import { rootRoutes } from "./root/root.routes.js";
 import { stockAdjustmentsRoutes } from "./stock-adjustments/stock-adjustments.routes.js";
 import { stockEntriesRoutes } from "./stock-entries/stock-entries.routes.js";
+import { stockMovementsRoutes } from "./stock-movements/stock-movements.routes.js";
 import { suppliersRoutes } from "./suppliers/suppliers.routes.js";
 
 export function registerRoutes(app: Express): void {
@@ -20,5 +21,6 @@ export function registerRoutes(app: Express): void {
   app.use(productsRoutes);
   app.use(stockAdjustmentsRoutes);
   app.use(stockEntriesRoutes);
+  app.use(stockMovementsRoutes);
   app.use(suppliersRoutes);
 }
