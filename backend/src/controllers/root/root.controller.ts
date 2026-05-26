@@ -13,6 +13,8 @@ export function showApiInfo() {
         "/auth/session",
         "/auth/logout",
         "/users",
+        "/cash-register/current",
+        "/cash-register/open",
         "/products",
         "/products/low-stock",
         "/payment-methods",

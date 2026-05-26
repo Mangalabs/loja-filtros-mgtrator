@@ -1,0 +1,29 @@
+import { Router } from "express";
+import { z } from "zod";
+import {
+  openCashRegister,
+  showCurrentCashRegister,
+} from "../../controllers/cash-register/cash-register.controller.js";
+import { validateBody } from "../../shared/validation/validate-request.js";
+
+export const cashRegisterRoutes = Router();
+
+const openCashRegisterSchema = z
+  .object({
+    openingBalance: z.coerce.number().min(0),
+  })
+  .strict();
+
+cashRegisterRoutes.get("/cash-register/current", async (_request, response) => {
+  const result = await showCurrentCashRegister();
+
+  response.status(200).json(result);
+});
+
+cashRegisterRoutes.post("/cash-register/open", async (request, response) => {
+  const body = validateBody(request, openCashRegisterSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+  const result = await openCashRegister(userId, body.openingBalance);
+
+  response.status(201).json(result);
+});

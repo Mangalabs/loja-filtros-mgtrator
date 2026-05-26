@@ -68,6 +68,7 @@ function getUniqueConstraintMessage(constraint?: string) {
     product_groups_name_unique: "Ja existe um grupo de produto com esse nome.",
     products_barcode_unique_not_empty: "Ja existe um produto com esse codigo de barras.",
     users_email_unique: "Ja existe um usuario com esse email.",
+    cash_register_sessions_one_open_unique: "Ja existe um caixa aberto.",
   };
 
   return constraint ? messages[constraint] ?? "Registro duplicado." : "Registro duplicado.";
