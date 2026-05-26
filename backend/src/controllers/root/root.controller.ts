@@ -8,6 +8,11 @@ export function showApiInfo() {
       endpoints: [
         "/health",
         "/health/database",
+        "/auth/setup",
+        "/auth/login",
+        "/auth/session",
+        "/auth/logout",
+        "/users",
         "/products",
         "/products/low-stock",
         "/payment-methods",

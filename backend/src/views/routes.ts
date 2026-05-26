@@ -1,4 +1,6 @@
 import type { Express } from "express";
+import { requireAuthentication } from "../shared/auth/authentication-middleware.js";
+import { authRoutes } from "./auth/auth.routes.js";
 import { brandsRoutes } from "./brands/brands.routes.js";
 import { clientsRoutes } from "./clients/clients.routes.js";
 import { healthRoutes } from "./health/health.routes.js";
@@ -10,12 +12,15 @@ import { stockAdjustmentsRoutes } from "./stock-adjustments/stock-adjustments.ro
 import { stockEntriesRoutes } from "./stock-entries/stock-entries.routes.js";
 import { stockMovementsRoutes } from "./stock-movements/stock-movements.routes.js";
 import { suppliersRoutes } from "./suppliers/suppliers.routes.js";
+import { usersRoutes } from "./users/users.routes.js";
 
 export function registerRoutes(app: Express): void {
   app.use(rootRoutes);
+  app.use(healthRoutes);
+  app.use(authRoutes);
+  app.use(requireAuthentication);
   app.use(brandsRoutes);
   app.use(clientsRoutes);
-  app.use(healthRoutes);
   app.use(paymentMethodsRoutes);
   app.use(productGroupsRoutes);
   app.use(productsRoutes);
@@ -23,4 +28,5 @@ export function registerRoutes(app: Express): void {
   app.use(stockEntriesRoutes);
   app.use(stockMovementsRoutes);
   app.use(suppliersRoutes);
+  app.use(usersRoutes);
 }

@@ -8,8 +8,19 @@ const testDatabaseUrl =
   process.env.TEST_DATABASE_URL ??
   "postgres://postgres:postgres@127.0.0.1:5433/loja_filtros_test";
 
+const nodeEnv = process.env.NODE_ENV ?? "development";
+const jwtSecret =
+  process.env.JWT_SECRET ??
+  (nodeEnv === "test" ? "loja-filtros-integration-tests-only-jwt-secret" : undefined);
+
+if (!jwtSecret || jwtSecret.length < 32) {
+  throw new Error("JWT_SECRET must be configured with at least 32 characters.");
+}
+
 export const env = {
+  nodeEnv,
   host: process.env.HOST ?? "127.0.0.1",
   port: Number(process.env.PORT ?? 3333),
-  databaseUrl: process.env.NODE_ENV === "test" ? testDatabaseUrl : developmentDatabaseUrl,
+  databaseUrl: nodeEnv === "test" ? testDatabaseUrl : developmentDatabaseUrl,
+  jwtSecret,
 };
