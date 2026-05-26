@@ -21,6 +21,8 @@ export type ProductListItem = {
   salePrice: string;
   minimumStock: string;
   currentStock: string;
+  reservedStock: string;
+  availableStock: string;
   ncm: string | null;
   cest: string | null;
   active: boolean;
@@ -66,6 +68,8 @@ export async function listProducts(filters: ProductListFilters): Promise<Product
       "products.sale_price as salePrice",
       "products.minimum_stock as minimumStock",
       "products.current_stock as currentStock",
+      "products.reserved_stock as reservedStock",
+      db.raw("products.current_stock - products.reserved_stock as ??", ["availableStock"]),
       "products.ncm",
       "products.cest",
       "products.active",
@@ -111,14 +115,16 @@ export async function listLowStockProducts(): Promise<ProductListItem[]> {
       "products.sale_price as salePrice",
       "products.minimum_stock as minimumStock",
       "products.current_stock as currentStock",
+      "products.reserved_stock as reservedStock",
+      db.raw("products.current_stock - products.reserved_stock as ??", ["availableStock"]),
       "products.ncm",
       "products.cest",
       "products.active",
     ])
     .where("products.active", true)
     .andWhere("products.minimum_stock", ">", 0)
-    .andWhereRaw("products.current_stock <= products.minimum_stock")
-    .orderBy("products.current_stock", "asc")
+    .andWhereRaw("products.current_stock - products.reserved_stock <= products.minimum_stock")
+    .orderByRaw("products.current_stock - products.reserved_stock asc")
     .orderBy("products.name", "asc");
 }
 
@@ -226,6 +232,8 @@ async function findProductById(id: string): Promise<ProductListItem | undefined>
       "products.sale_price as salePrice",
       "products.minimum_stock as minimumStock",
       "products.current_stock as currentStock",
+      "products.reserved_stock as reservedStock",
+      db.raw("products.current_stock - products.reserved_stock as ??", ["availableStock"]),
       "products.ncm",
       "products.cest",
       "products.active",

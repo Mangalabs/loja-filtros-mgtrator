@@ -1,0 +1,166 @@
+import type { Knex } from "knex";
+import { db } from "../../database/knex.js";
+
+export type ShippingOrderInput = {
+  clientId: string;
+  productId: string;
+  quantity: number;
+};
+
+export type ShippingOrder = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  clientPhone: string | null;
+  productId: string;
+  productName: string;
+  quantity: string;
+  unitPrice: string;
+  totalAmount: string;
+  createdByUserName: string;
+  createdAt: Date;
+  approvedAt: Date | null;
+  status: "QUOTED" | "APPROVED";
+};
+
+export type ReservedProduct = {
+  id: string;
+  salePrice: string;
+  currentStock: string;
+  reservedStock: string;
+  active: boolean;
+};
+
+const shippingOrderColumns = [
+  "shipping_orders.id",
+  "shipping_orders.client_id as clientId",
+  "clients.name as clientName",
+  "clients.phone as clientPhone",
+  "shipping_order_items.product_id as productId",
+  "products.name as productName",
+  "shipping_order_items.quantity",
+  "shipping_order_items.unit_price as unitPrice",
+  "shipping_orders.total_amount as totalAmount",
+  "created_users.name as createdByUserName",
+  "shipping_orders.created_at as createdAt",
+  "shipping_orders.approved_at as approvedAt",
+  "shipping_orders.status",
+];
+
+export async function listShippingOrders(): Promise<ShippingOrder[]> {
+  return shippingOrderQuery(db).orderBy("shipping_orders.created_at", "desc");
+}
+
+export async function activeShippingClientExists(
+  transaction: Knex.Transaction,
+  clientId: string,
+): Promise<boolean> {
+  const client = await transaction("clients").select("id").where({ id: clientId, active: true }).first();
+
+  return Boolean(client);
+}
+
+export async function lockReservableProduct(
+  transaction: Knex.Transaction,
+  productId: string,
+): Promise<ReservedProduct | undefined> {
+  return transaction("products")
+    .select([
+      "id",
+      "sale_price as salePrice",
+      "current_stock as currentStock",
+      "reserved_stock as reservedStock",
+      "active",
+    ])
+    .where("id", productId)
+    .forUpdate()
+    .first();
+}
+
+export async function insertShippingOrder(
+  transaction: Knex.Transaction,
+  input: ShippingOrderInput,
+  createdByUserId: string,
+  unitPrice: number,
+  totalAmount: number,
+): Promise<ShippingOrder> {
+  const [created] = await transaction("shipping_orders")
+    .insert({
+      client_id: input.clientId,
+      created_by_user_id: createdByUserId,
+      total_amount: totalAmount,
+    })
+    .returning("id");
+
+  await transaction("shipping_order_items").insert({
+    shipping_order_id: created.id,
+    product_id: input.productId,
+    quantity: input.quantity,
+    unit_price: unitPrice,
+    total_amount: totalAmount,
+  });
+
+  return findShippingOrder(transaction, created.id);
+}
+
+export async function lockQuotedShippingOrder(
+  transaction: Knex.Transaction,
+  id: string,
+): Promise<{ id: string; productId: string; quantity: string; status: ShippingOrder["status"] } | undefined> {
+  return transaction("shipping_orders")
+    .join("shipping_order_items", "shipping_order_items.shipping_order_id", "shipping_orders.id")
+    .select([
+      "shipping_orders.id",
+      "shipping_orders.status",
+      "shipping_order_items.product_id as productId",
+      "shipping_order_items.quantity",
+    ])
+    .where("shipping_orders.id", id)
+    .forUpdate("shipping_orders")
+    .first();
+}
+
+export async function approveShippingOrder(
+  transaction: Knex.Transaction,
+  id: string,
+  productId: string,
+  quantity: number,
+  approvedByUserId: string,
+): Promise<ShippingOrder> {
+  await transaction("products")
+    .where("id", productId)
+    .update({
+      reserved_stock: transaction.raw("reserved_stock + ?", [quantity]),
+      updated_at: transaction.fn.now(),
+    });
+
+  await transaction("shipping_orders").where("id", id).update({
+    status: "APPROVED",
+    approved_by_user_id: approvedByUserId,
+    approved_at: transaction.fn.now(),
+  });
+
+  return findShippingOrder(transaction, id);
+}
+
+async function findShippingOrder(
+  transaction: Knex.Transaction,
+  id: string,
+): Promise<ShippingOrder> {
+  const order = await shippingOrderQuery(transaction).where("shipping_orders.id", id).first();
+
+  if (!order) {
+    throw new Error("Shipping order was not found after operation");
+  }
+
+  return order;
+}
+
+function shippingOrderQuery(database: Knex | Knex.Transaction) {
+  return database("shipping_orders")
+    .join("shipping_order_items", "shipping_order_items.shipping_order_id", "shipping_orders.id")
+    .join("products", "products.id", "shipping_order_items.product_id")
+    .join("clients", "clients.id", "shipping_orders.client_id")
+    .join({ created_users: "users" }, "created_users.id", "shipping_orders.created_by_user_id")
+    .select(shippingOrderColumns);
+}

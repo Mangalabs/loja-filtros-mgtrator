@@ -27,6 +27,7 @@ export type SaleProduct = {
   name: string;
   salePrice: string;
   currentStock: string;
+  reservedStock: string;
   active: boolean;
 };
 
@@ -59,7 +60,14 @@ export async function lockSaleProduct(
   productId: string,
 ): Promise<SaleProduct | undefined> {
   return transaction("products")
-    .select(["id", "name", "sale_price as salePrice", "current_stock as currentStock", "active"])
+    .select([
+      "id",
+      "name",
+      "sale_price as salePrice",
+      "current_stock as currentStock",
+      "reserved_stock as reservedStock",
+      "active",
+    ])
     .where("id", productId)
     .forUpdate()
     .first();

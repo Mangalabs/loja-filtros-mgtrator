@@ -19,6 +19,7 @@ export type StockAdjustment = {
 export type LockedProductStock = {
   id: string;
   currentStock: string;
+  reservedStock: string;
 };
 
 export async function listStockAdjustments(): Promise<StockAdjustment[]> {
@@ -41,7 +42,7 @@ export async function lockProductStock(
   productId: string,
 ): Promise<LockedProductStock | undefined> {
   return transaction("products")
-    .select(["id", "current_stock as currentStock"])
+    .select(["id", "current_stock as currentStock", "reserved_stock as reservedStock"])
     .where("id", productId)
     .forUpdate()
     .first();

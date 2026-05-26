@@ -10,6 +10,7 @@ import { productGroupsRoutes } from "./product-groups/product-groups.routes.js";
 import { productsRoutes } from "./products/products.routes.js";
 import { rootRoutes } from "./root/root.routes.js";
 import { salesRoutes } from "./sales/sales.routes.js";
+import { shippingOrdersRoutes } from "./shipping-orders/shipping-orders.routes.js";
 import { stockAdjustmentsRoutes } from "./stock-adjustments/stock-adjustments.routes.js";
 import { stockEntriesRoutes } from "./stock-entries/stock-entries.routes.js";
 import { stockMovementsRoutes } from "./stock-movements/stock-movements.routes.js";
@@ -28,6 +29,7 @@ export function registerRoutes(app: Express): void {
   app.use(productGroupsRoutes);
   app.use(productsRoutes);
   app.use(salesRoutes);
+  app.use(shippingOrdersRoutes);
   app.use(stockAdjustmentsRoutes);
   app.use(stockEntriesRoutes);
   app.use(stockMovementsRoutes);

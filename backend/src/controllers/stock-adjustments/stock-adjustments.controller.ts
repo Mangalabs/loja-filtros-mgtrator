@@ -30,6 +30,10 @@ export async function storeStockAdjustment(input: StockAdjustmentInput) {
       throw new AppError("Ajuste nao pode resultar em estoque negativo.", 422);
     }
 
+    if (Number(product.currentStock) + input.quantity < Number(product.reservedStock)) {
+      throw new AppError("Ajuste nao pode retirar quantidade reservada para separacao.", 422);
+    }
+
     const created = await insertStockAdjustment(transaction, input);
     await applyStockAdjustment(transaction, input);
 

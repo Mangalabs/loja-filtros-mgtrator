@@ -32,7 +32,7 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
       throw new AppError("Produto informado nao disponivel para venda.", 422);
     }
 
-    if (Number(product.currentStock) < input.quantity) {
+    if (Number(product.currentStock) - Number(product.reservedStock) < input.quantity) {
       throw new AppError("Estoque insuficiente para concluir a venda.", 422);
     }
 
