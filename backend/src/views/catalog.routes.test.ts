@@ -62,13 +62,26 @@ type StockAdjustment = {
 
 type StockMovement = {
   id: string;
-  type: "ENTRY" | "ADJUSTMENT";
+  type: "ENTRY" | "ADJUSTMENT" | "SALE";
   productId: string;
   productName: string;
   supplierName: string | null;
   quantity: string;
   unitCost: string | null;
   notes: string | null;
+};
+
+type Sale = {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: string;
+  unitPrice: string;
+  totalAmount: string;
+  clientName: string | null;
+  paymentMethodName: string;
+  createdByUserName: string;
+  status: "COMPLETED";
 };
 
 type PaymentMethod = {
@@ -284,6 +297,81 @@ describe("catalog routes", () => {
     assert.equal(current.body.data?.id, opened.body.data?.id);
     assert.equal(duplicate.status, 409);
     assert.equal(duplicate.body.message, "Ja existe um caixa aberto.");
+  });
+
+  it("records a one-item counter sale and decreases product stock", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro para venda", salePrice: 29.9 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente da venda" },
+    });
+    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
+    const pix = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "PIX");
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 5,
+        reason: "Saldo inicial para teste de venda",
+      },
+    });
+
+    const withoutCash = await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 2,
+      },
+    });
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const created = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 2,
+      },
+    });
+    const insufficient = await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 4,
+      },
+    });
+    const listed = await request<Sale[]>("/sales");
+    const updatedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const movements = await request<StockMovement[]>("/stock-movements");
+    const saleMovement = movements.body.data?.find((movement) => movement.type === "SALE");
+
+    assert.equal(withoutCash.status, 422);
+    assert.equal(withoutCash.body.message, "Abra o caixa antes de registrar uma venda.");
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.productName, "Filtro para venda");
+    assert.equal(created.body.data?.clientName, "Cliente da venda");
+    assert.equal(created.body.data?.paymentMethodName, "PIX");
+    assert.equal(created.body.data?.quantity, "2.000");
+    assert.equal(created.body.data?.unitPrice, "29.90");
+    assert.equal(created.body.data?.totalAmount, "59.80");
+    assert.equal(created.body.data?.createdByUserName, "Administrador de teste");
+    assert.equal(insufficient.status, 422);
+    assert.equal(insufficient.body.message, "Estoque insuficiente para concluir a venda.");
+    assert.equal(listed.body.data?.length, 1);
+    assert.equal(updatedProduct.body.data?.currentStock, "3.000");
+    assert.equal(saleMovement?.quantity, "-2.000");
   });
 
   it("creates and lists brands", async () => {
