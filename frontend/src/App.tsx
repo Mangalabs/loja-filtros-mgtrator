@@ -6,6 +6,7 @@ import {
   CreditCard,
   Filter,
   List,
+  LogOut,
   PackagePlus,
   Pencil,
   Plus,
@@ -16,6 +17,7 @@ import {
   Tags,
   Truck,
   UserRound,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
@@ -25,6 +27,7 @@ import {
   apiPost,
   apiPut,
   type ApiResult,
+  type AuthUser,
   type Client,
   type NamedEntity,
   type PaymentMethod,
@@ -34,6 +37,7 @@ import {
   type StockMovement,
   type Supplier,
 } from "./api";
+import { useAuth } from "./auth/AuthContext";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 type View =
@@ -97,6 +101,20 @@ const viewTitles: Record<View, { title: string; description: string }> = {
 };
 
 export function App() {
+  const { loading, login, logout, requiresSetup, setup, user } = useAuth();
+
+  if (loading) {
+    return <div className="auth-loading">Validando sessao...</div>;
+  }
+
+  if (!user) {
+    return <LoginPage requiresSetup={requiresSetup} onLogin={login} onSetup={setup} />;
+  }
+
+  return <AuthenticatedApp user={user} onLogout={() => void logout()} />;
+}
+
+function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const [view, setView] = useState<View>("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
@@ -443,9 +461,22 @@ export function App() {
             <h1>{activeTitle.title}</h1>
             <p>{activeTitle.description}</p>
           </div>
-          <button className="icon-button" onClick={() => void loadCatalog()} title="Atualizar">
-            <RefreshCcw size={18} />
-          </button>
+          <div className="topbar-actions">
+            <div className="signed-user">
+              <ShieldCheck size={17} />
+              <div>
+                <strong>{user.name}</strong>
+                <span>{user.email}</span>
+              </div>
+            </div>
+            <button className="icon-button" onClick={() => void loadCatalog()} title="Atualizar">
+              <RefreshCcw size={18} />
+            </button>
+            <button className="secondary-button" type="button" onClick={onLogout}>
+              <LogOut size={17} />
+              Sair
+            </button>
+          </div>
         </header>
 
         {message ? <div className={state === "error" ? "alert" : "notice"}>{message}</div> : null}
@@ -538,6 +569,77 @@ export function App() {
         {view === "suppliers" ? (
           <SuppliersPage suppliers={suppliers} onSubmit={createSupplier} />
         ) : null}
+      </section>
+    </main>
+  );
+}
+
+function LoginPage({
+  requiresSetup,
+  onLogin,
+  onSetup,
+}: {
+  requiresSetup: boolean;
+  onLogin: (credentials: { email: string; password: string }) => Promise<void>;
+  onSetup: (input: { name: string; email: string; password: string }) => Promise<void>;
+}) {
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const credentials = {
+      email: String(form.get("email") ?? "").trim(),
+      password: String(form.get("password") ?? ""),
+    };
+
+    setSubmitting(true);
+    setMessage("");
+
+    try {
+      if (requiresSetup) {
+        await onSetup({
+          ...credentials,
+          name: String(form.get("name") ?? "").trim(),
+        });
+      } else {
+        await onLogin(credentials);
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="login-shell">
+      <section className="login-panel">
+        <div className="login-brand">
+          <Filter size={32} />
+          <div>
+            <strong>Filtros MG</strong>
+            <span>Operacao da filial</span>
+          </div>
+        </div>
+        <h1>{requiresSetup ? "Primeiro acesso" : "Entrar"}</h1>
+        <p>
+          {requiresSetup
+            ? "Crie o administrador inicial para proteger a operacao."
+            : "Informe seus dados para acessar o sistema."}
+        </p>
+        {message ? <div className="alert">{message}</div> : null}
+        <form className="login-form" onSubmit={submit}>
+          {requiresSetup ? <input name="name" placeholder="Nome do administrador" required /> : null}
+          <input name="email" type="email" placeholder="Email" required />
+          <input name="password" type="password" minLength={12} placeholder="Senha" required />
+          <button className="primary-button" type="submit" disabled={submitting}>
+            <ShieldCheck size={17} />
+            {submitting ? "Aguarde..." : requiresSetup ? "Criar administrador" : "Entrar"}
+          </button>
+        </form>
+        {requiresSetup ? <small>A senha deve conter pelo menos 12 caracteres.</small> : null}
       </section>
     </main>
   );

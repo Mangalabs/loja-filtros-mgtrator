@@ -82,8 +82,18 @@ export type PaymentMethod = {
   active: boolean;
 };
 
+export type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: "ADMIN";
+  active: boolean;
+};
+
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`/api${path}`);
+  const response = await fetch(`/api${path}`, {
+    credentials: "same-origin",
+  });
   return parseResponse<T>(response);
 }
 
@@ -102,6 +112,7 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
 async function apiWrite<T>(path: string, method: "POST" | "PUT" | "PATCH", body: unknown): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method,
+    credentials: "same-origin",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
