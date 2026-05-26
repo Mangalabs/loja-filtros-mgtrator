@@ -429,6 +429,18 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  async function cancelShippingOrder(event: FormEvent<HTMLFormElement>, order: ShippingOrder) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    await runAction(async () => {
+      await apiPatch(`/shipping-orders/${order.id}/cancel`, {
+        reason: String(form.get("shippingCancellationReason") ?? "").trim(),
+      });
+      await loadCatalog();
+    });
+  }
+
   async function changeProductStatus(product: Product) {
     await runAction(async () => {
       await apiPatch(`/products/${product.id}/status`, { active: !product.active });
@@ -681,6 +693,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             orders={shippingOrders}
             onSubmit={createShippingOrder}
             onApprove={(order) => void approveShippingOrder(order)}
+            onCancel={(event, order) => void cancelShippingOrder(event, order)}
           />
         ) : null}
 
@@ -1687,12 +1700,14 @@ function ShippingOrdersPage({
   orders,
   onSubmit,
   onApprove,
+  onCancel,
 }: {
   clients: Client[];
   products: Product[];
   orders: ShippingOrder[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onApprove: (order: ShippingOrder) => void;
+  onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void;
 }) {
   return (
     <section className="layout-grid stock-entry-layout">
@@ -1773,17 +1788,35 @@ function ShippingOrdersPage({
                   <td>{formatQuantity(order.quantity)}</td>
                   <td>{formatCurrency(order.totalAmount)}</td>
                   <td>
-                    <span className={order.status === "APPROVED" ? "status-tag active" : "status-tag pending"}>
+                    <span className={shippingOrderStatusClassName(order.status)}>
                       {shippingOrderStatusLabel(order.status)}
                     </span>
+                    {order.cancellationReason ? <div className="table-note">{order.cancellationReason}</div> : null}
                   </td>
                   <td>
-                    {order.status === "QUOTED" ? (
-                      <button className="action-button" type="button" onClick={() => onApprove(order)}>
-                        Aprovar e separar
-                      </button>
+                    {order.status !== "CANCELLED" ? (
+                      <div className="shipping-order-actions">
+                        {order.status === "QUOTED" ? (
+                          <button className="action-button" type="button" onClick={() => onApprove(order)}>
+                            Aprovar e separar
+                          </button>
+                        ) : (
+                          <span className="table-note">Separar para envio</span>
+                        )}
+                        <form className="cancel-order-form" onSubmit={(event) => onCancel(event, order)}>
+                          <input
+                            name="shippingCancellationReason"
+                            maxLength={500}
+                            placeholder="Motivo do cancelamento"
+                            required
+                          />
+                          <button className="action-button" type="submit">
+                            Cancelar
+                          </button>
+                        </form>
+                      </div>
                     ) : (
-                      "Separar para envio"
+                      "-"
                     )}
                   </td>
                 </tr>
@@ -1824,7 +1857,19 @@ function movementTypeLabel(type: StockMovement["type"]) {
 }
 
 function shippingOrderStatusLabel(status: ShippingOrder["status"]) {
-  return status === "APPROVED" ? "Aprovado - separar" : "Orcamento enviado";
+  if (status === "APPROVED") {
+    return "Aprovado - separar";
+  }
+
+  return status === "CANCELLED" ? "Cancelado" : "Orcamento enviado";
+}
+
+function shippingOrderStatusClassName(status: ShippingOrder["status"]) {
+  if (status === "APPROVED") {
+    return "status-tag active";
+  }
+
+  return status === "CANCELLED" ? "status-tag inactive" : "status-tag pending";
 }
 
 function optionalFormValue(form: FormData, key: string): string | undefined {

@@ -373,6 +373,29 @@ th {
   font-weight: 700;
 }
 
+.table-note {
+  color: #65716c;
+  display: block;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.shipping-order-actions {
+  display: grid;
+  gap: 8px;
+  min-width: 190px;
+}
+
+.cancel-order-form {
+  display: grid;
+  gap: 6px;
+}
+
+.cancel-order-form input {
+  font-size: 13px;
+  min-height: 34px;
+}
+
 .cash-register-details {
   display: grid;
   gap: 12px;

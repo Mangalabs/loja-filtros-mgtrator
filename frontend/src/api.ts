@@ -128,7 +128,9 @@ export type ShippingOrder = {
   createdByUserName: string;
   createdAt: string;
   approvedAt: string | null;
-  status: "QUOTED" | "APPROVED";
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  status: "QUOTED" | "APPROVED" | "CANCELLED";
 };
 
 export async function apiGet<T>(path: string): Promise<T> {
