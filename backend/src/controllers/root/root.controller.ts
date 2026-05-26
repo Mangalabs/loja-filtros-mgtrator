@@ -15,6 +15,7 @@ export function showApiInfo() {
         "/users",
         "/cash-register/current",
         "/cash-register/open",
+        "/sales",
         "/products",
         "/products/low-stock",
         "/payment-methods",
