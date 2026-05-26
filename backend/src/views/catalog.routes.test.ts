@@ -96,6 +96,15 @@ type User = {
   active: boolean;
 };
 
+type CashRegisterSession = {
+  id: string;
+  openedByUserId: string;
+  openedByUserName: string;
+  openingBalance: string;
+  status: "OPEN";
+  openedAt: string;
+};
+
 let server: Server;
 let baseUrl: string;
 let authCookie: string;
@@ -144,7 +153,7 @@ before(async () => {
 
 beforeEach(async () => {
   await db.raw(
-    "truncate table product_suppliers, products, product_groups, suppliers, brands, clients cascade",
+    "truncate table cash_register_sessions, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
   await db("payment_methods").update({ active: true });
 });
@@ -252,6 +261,29 @@ describe("catalog routes", () => {
     assert.equal(unauthenticatedCreate.status, 401);
     assert.equal(logout.status, 200);
     assert.equal(logout.cookie, "auth_token=");
+  });
+
+  it("opens one cash register session for the authenticated user", async () => {
+    const empty = await request<CashRegisterSession | null>("/cash-register/current");
+    const opened = await request<CashRegisterSession>("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 150.5 },
+    });
+    const current = await request<CashRegisterSession>("/cash-register/current");
+    const duplicate = await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    assert.equal(empty.status, 200);
+    assert.equal(empty.body.data, null);
+    assert.equal(opened.status, 201);
+    assert.equal(opened.body.data?.openingBalance, "150.50");
+    assert.equal(opened.body.data?.openedByUserName, "Administrador de teste");
+    assert.equal(opened.body.data?.status, "OPEN");
+    assert.equal(current.body.data?.id, opened.body.data?.id);
+    assert.equal(duplicate.status, 409);
+    assert.equal(duplicate.body.message, "Ja existe um caixa aberto.");
   });
 
   it("creates and lists brands", async () => {
