@@ -88,8 +88,17 @@ type Client = {
   active: boolean;
 };
 
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  role: "ADMIN";
+  active: boolean;
+};
+
 let server: Server;
 let baseUrl: string;
+let authCookie: string;
 
 before(async () => {
   const database = await db.raw<{ rows: Array<{ name: string }> }>(
@@ -107,6 +116,7 @@ before(async () => {
     directory: "./database/migrations",
     extension: "cjs",
   });
+  await db("users").del();
 
   server = await new Promise<Server>((resolve) => {
     const appServer = createApp().listen(0, "127.0.0.1", () => {
@@ -116,6 +126,20 @@ before(async () => {
 
   const address = server.address() as AddressInfo;
   baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const setup = await request<User>("/auth/setup", {
+    method: "POST",
+    authenticated: false,
+    body: {
+      name: "Administrador de teste",
+      email: "admin@example.com",
+      password: "senha-segura-123",
+    },
+  });
+
+  assert.equal(setup.status, 201);
+  assert.ok(setup.cookie);
+  authCookie = setup.cookie!;
 });
 
 beforeEach(async () => {
@@ -154,6 +178,76 @@ describe("catalog routes", () => {
     assert.equal(health.body.status, "ok");
     assert.equal(databaseHealth.status, 200);
     assert.equal(databaseHealth.body.status, "ok");
+  });
+
+  it("authenticates users and protects operational routes", async () => {
+    const blocked = await request("/products", { authenticated: false });
+    const session = await request<User>("/auth/session");
+    const invalidLogin = await request("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "admin@example.com",
+        password: "senha-incorreta",
+      },
+    });
+    const login = await request<User>("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "admin@example.com",
+        password: "senha-segura-123",
+      },
+    });
+    const repeatedSetup = await request("/auth/setup", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        name: "Outro administrador",
+        email: "outro@example.com",
+        password: "senha-segura-456",
+      },
+    });
+    const created = await request<User>("/users", {
+      method: "POST",
+      body: {
+        name: "Segundo usuario",
+        email: "segundo@example.com",
+        password: "senha-segura-789",
+      },
+    });
+    const unauthenticatedCreate = await request("/users", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        name: "Sem sessao",
+        email: "sem-sessao@example.com",
+        password: "senha-segura-000",
+      },
+    });
+    const logout = await request("/auth/logout", { method: "POST" });
+    const storedAdministrator = await db("users").where("email", "admin@example.com").first();
+    const loginBody = login.body as ApiResponse<User> & { token?: string };
+
+    assert.equal(blocked.status, 401);
+    assert.equal(blocked.body.message, "Autenticacao necessaria.");
+    assert.equal(session.status, 200);
+    assert.equal(session.body.data?.email, "admin@example.com");
+    assert.equal(invalidLogin.status, 401);
+    assert.equal(invalidLogin.body.message, "Email ou senha invalidos.");
+    assert.equal(login.status, 200);
+    assert.ok(login.cookie?.startsWith("auth_token="));
+    assert.match(login.rawCookie ?? "", /HttpOnly/);
+    assert.match(login.rawCookie ?? "", /SameSite=Strict/);
+    assert.equal(loginBody.token, undefined);
+    assert.notEqual(storedAdministrator?.password_hash, "senha-segura-123");
+    assert.match(storedAdministrator?.password_hash ?? "", /^scrypt\$/);
+    assert.equal(repeatedSetup.status, 403);
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.role, "ADMIN");
+    assert.equal(unauthenticatedCreate.status, 401);
+    assert.equal(logout.status, 200);
+    assert.equal(logout.cookie, "auth_token=");
   });
 
   it("creates and lists brands", async () => {
@@ -630,17 +724,31 @@ async function request<T = unknown>(
   options: {
     method?: string;
     body?: unknown;
+    authenticated?: boolean;
   } = {},
 ) {
+  const headers: Record<string, string> = {};
+
+  if (options.body) {
+    headers["content-type"] = "application/json";
+  }
+
+  if (options.authenticated !== false && authCookie) {
+    headers.cookie = authCookie;
+  }
+
   const response = await fetch(`${baseUrl}${path}`, {
     method: options.method ?? "GET",
-    headers: options.body ? { "content-type": "application/json" } : undefined,
+    headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
   const body = (await response.json()) as ApiResponse<T>;
+  const rawCookie = response.headers.get("set-cookie");
 
   return {
     status: response.status,
     body,
+    cookie: rawCookie?.split(";")[0],
+    rawCookie,
   };
 }
