@@ -65,7 +65,7 @@ export type StockAdjustment = {
 
 export type StockMovement = {
   id: string;
-  type: "ENTRY" | "ADJUSTMENT";
+  type: "ENTRY" | "ADJUSTMENT" | "SALE";
   productId: string;
   productName: string;
   supplierName: string | null;
@@ -97,6 +97,20 @@ export type CashRegisterSession = {
   openingBalance: string;
   status: "OPEN";
   openedAt: string;
+};
+
+export type Sale = {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: string;
+  unitPrice: string;
+  totalAmount: string;
+  clientName: string | null;
+  paymentMethodName: string;
+  createdByUserName: string;
+  createdAt: string;
+  status: "COMPLETED";
 };
 
 export async function apiGet<T>(path: string): Promise<T> {

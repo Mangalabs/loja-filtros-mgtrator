@@ -19,6 +19,7 @@ import {
   Truck,
   UserRound,
   ShieldCheck,
+  ShoppingCart,
   X,
 } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
@@ -34,6 +35,7 @@ import {
   type NamedEntity,
   type PaymentMethod,
   type Product,
+  type Sale,
   type StockAdjustment,
   type StockEntry,
   type StockMovement,
@@ -52,6 +54,7 @@ type View =
   | "low-stock"
   | "payment-methods"
   | "cash-register"
+  | "sales"
   | "brands"
   | "clients"
   | "suppliers";
@@ -93,6 +96,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
     title: "Caixa",
     description: "Abra o caixa da filial antes de iniciar operacoes de venda.",
   },
+  sales: {
+    title: "Venda de balcao",
+    description: "Registre a venda imediata de um produto com baixa de estoque.",
+  },
   brands: {
     title: "Fabricantes",
     description: "Cadastre os fabricantes usados no catalogo de produtos.",
@@ -133,6 +140,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [cashRegister, setCashRegister] = useState<CashRegisterSession | null>(null);
+  const [sales, setSales] = useState<Sale[]>([]);
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -155,6 +163,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
         lowStockResult,
         paymentMethodsResult,
         cashRegisterResult,
+        salesResult,
       ] =
         await Promise.all([
           apiGet<ApiResult<Product[]>>("/products"),
@@ -167,6 +176,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           apiGet<ApiResult<Product[]>>("/products/low-stock"),
           apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
           apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
+          apiGet<ApiResult<Sale[]>>("/sales"),
         ]);
 
       setProducts(productsResult.data);
@@ -179,6 +189,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
       setLowStockProducts(lowStockResult.data);
       setPaymentMethods(paymentMethodsResult.data);
       setCashRegister(cashRegisterResult.data);
+      setSales(salesResult.data);
       setState("ready");
     } catch (error) {
       setState("error");
@@ -365,6 +376,24 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  async function createSale(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    await runAction(async () => {
+      await apiPost("/sales", {
+        productId: String(form.get("saleProductId") ?? ""),
+        clientId: nullableFormValue(form, "saleClientId"),
+        paymentMethodId: String(form.get("salePaymentMethodId") ?? ""),
+        quantity: Number(form.get("saleQuantity")),
+      });
+
+      formElement.reset();
+      await loadCatalog();
+    });
+  }
+
   async function changeProductStatus(product: Product) {
     await runAction(async () => {
       await apiPatch(`/products/${product.id}/status`, { active: !product.active });
@@ -488,6 +517,12 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
               Abertura
             </NavButton>
           </NavSection>
+
+          <NavSection title="Vendas">
+            <NavButton active={view === "sales"} icon={<ShoppingCart size={18} />} onClick={() => setView("sales")}>
+              Balcao
+            </NavButton>
+          </NavSection>
         </nav>
       </aside>
 
@@ -584,6 +619,17 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
 
         {view === "cash-register" ? (
           <CashRegisterPage session={cashRegister} user={user} onSubmit={openCashRegister} />
+        ) : null}
+
+        {view === "sales" ? (
+          <SalesPage
+            cashRegister={cashRegister}
+            clients={clients}
+            paymentMethods={paymentMethods}
+            products={products}
+            sales={sales}
+            onSubmit={createSale}
+          />
         ) : null}
 
         {view === "brands" ? (
@@ -1332,7 +1378,7 @@ function StockMovementsPage({ movements }: { movements: StockMovement[] }) {
             {movements.map((movement) => (
               <tr key={movement.id}>
                 <td>{formatDateTime(movement.createdAt)}</td>
-                <td>{movement.type === "ENTRY" ? "Entrada" : "Ajuste"}</td>
+                <td>{movementTypeLabel(movement.type)}</td>
                 <td>{movement.productName}</td>
                 <td>{formatSignedQuantity(movement.quantity)}</td>
                 <td>{movement.supplierName ?? "-"}</td>
@@ -1465,6 +1511,120 @@ function CashRegisterPage({
   );
 }
 
+function SalesPage({
+  cashRegister,
+  clients,
+  paymentMethods,
+  products,
+  sales,
+  onSubmit,
+}: {
+  cashRegister: CashRegisterSession | null;
+  clients: Client[];
+  paymentMethods: PaymentMethod[];
+  products: Product[];
+  sales: Sale[];
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <section className="layout-grid stock-entry-layout">
+      <form className="panel form-panel" onSubmit={onSubmit}>
+        <div className="panel-header compact">
+          <div>
+            <h2>Nova venda</h2>
+            <span>Esta etapa aceita um produto e um pagamento por venda.</span>
+          </div>
+          <ShoppingCart size={18} />
+        </div>
+        {!cashRegister ? <div className="alert">Abra o caixa antes de registrar vendas.</div> : null}
+        <select name="saleProductId" defaultValue="" required disabled={!cashRegister}>
+          <option value="" disabled>
+            Produto
+          </option>
+          {products
+            .filter((product) => product.active && Number(product.currentStock) > 0)
+            .map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name} - {formatCurrency(product.salePrice)} - estoque {formatQuantity(product.currentStock)}
+              </option>
+            ))}
+        </select>
+        <div className="two-columns">
+          <input
+            name="saleQuantity"
+            type="number"
+            min="0.001"
+            step="0.001"
+            placeholder="Quantidade"
+            required
+            disabled={!cashRegister}
+          />
+          <select name="salePaymentMethodId" defaultValue="" required disabled={!cashRegister}>
+            <option value="" disabled>
+              Pagamento
+            </option>
+            {paymentMethods.filter((method) => method.active).map((method) => (
+              <option key={method.id} value={method.id}>
+                {method.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <select name="saleClientId" defaultValue="" disabled={!cashRegister}>
+          <option value="">Cliente nao identificado</option>
+          {clients.filter((client) => client.active).map((client) => (
+            <option key={client.id} value={client.id}>
+              {client.name}
+            </option>
+          ))}
+        </select>
+        <button className="primary-button" type="submit" disabled={!cashRegister}>
+          <Plus size={17} />
+          Concluir venda
+        </button>
+      </form>
+
+      <div className="panel wide">
+        <div className="panel-header compact">
+          <h2>Vendas registradas</h2>
+          <span>{sales.length} registros</span>
+        </div>
+        <div className="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Produto</th>
+                <th>Qtd.</th>
+                <th>Total</th>
+                <th>Pagamento</th>
+                <th>Cliente</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sales.map((sale) => (
+                <tr key={sale.id}>
+                  <td>{formatDateTime(sale.createdAt)}</td>
+                  <td>{sale.productName}</td>
+                  <td>{formatQuantity(sale.quantity)}</td>
+                  <td>{formatCurrency(sale.totalAmount)}</td>
+                  <td>{sale.paymentMethodName}</td>
+                  <td>{sale.clientName ?? "Nao identificado"}</td>
+                </tr>
+              ))}
+              {sales.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>Nenhuma venda registrada.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="metric">
@@ -1473,6 +1633,18 @@ function Metric({ label, value }: { label: string; value: number }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function movementTypeLabel(type: StockMovement["type"]) {
+  if (type === "ENTRY") {
+    return "Entrada";
+  }
+
+  if (type === "SALE") {
+    return "Venda";
+  }
+
+  return "Ajuste";
 }
 
 function optionalFormValue(form: FormData, key: string): string | undefined {
