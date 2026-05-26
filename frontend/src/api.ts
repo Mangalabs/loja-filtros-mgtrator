@@ -35,6 +35,13 @@ export type Supplier = NamedEntity & {
   phone: string | null;
 };
 
+export type Client = NamedEntity & {
+  personType: "PF" | "PJ" | "ES";
+  document: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
 export type StockEntry = {
   id: string;
   productId: string;

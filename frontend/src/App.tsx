@@ -14,6 +14,7 @@ import {
   SlidersHorizontal,
   Tags,
   Truck,
+  UserRound,
   X,
 } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
@@ -23,6 +24,7 @@ import {
   apiPost,
   apiPut,
   type ApiResult,
+  type Client,
   type NamedEntity,
   type PaymentMethod,
   type Product,
@@ -41,6 +43,7 @@ type View =
   | "low-stock"
   | "payment-methods"
   | "brands"
+  | "clients"
   | "suppliers";
 
 const viewTitles: Record<View, { title: string; description: string }> = {
@@ -76,6 +79,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
     title: "Fabricantes",
     description: "Cadastre os fabricantes usados no catalogo de produtos.",
   },
+  clients: {
+    title: "Clientes",
+    description: "Cadastre clientes para reservas e futuros documentos fiscais.",
+  },
   suppliers: {
     title: "Fornecedores",
     description: "Mantenha fornecedores disponiveis para compras e produtos.",
@@ -86,6 +93,7 @@ export function App() {
   const [view, setView] = useState<View>("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([]);
@@ -95,6 +103,7 @@ export function App() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product>();
+  const [selectedClient, setSelectedClient] = useState<Client>();
 
   async function loadCatalog() {
     setState("loading");
@@ -104,6 +113,7 @@ export function App() {
       const [
         productsResult,
         brandsResult,
+        clientsResult,
         suppliersResult,
         stockEntriesResult,
         stockAdjustmentsResult,
@@ -113,6 +123,7 @@ export function App() {
         await Promise.all([
           apiGet<ApiResult<Product[]>>("/products"),
           apiGet<ApiResult<NamedEntity[]>>("/brands"),
+          apiGet<ApiResult<Client[]>>("/clients"),
           apiGet<ApiResult<Supplier[]>>("/suppliers"),
           apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
           apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments"),
@@ -122,6 +133,7 @@ export function App() {
 
       setProducts(productsResult.data);
       setBrands(brandsResult.data);
+      setClients(clientsResult.data);
       setSuppliers(suppliersResult.data);
       setStockEntries(stockEntriesResult.data);
       setStockAdjustments(stockAdjustmentsResult.data);
@@ -200,6 +212,31 @@ export function App() {
       });
 
       formElement.reset();
+      await loadCatalog();
+    });
+  }
+
+  async function saveClient(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const body = {
+      personType: String(form.get("clientPersonType") ?? "PF"),
+      name: String(form.get("clientName") ?? "").trim(),
+      document: nullableFormValue(form, "clientDocument"),
+      phone: nullableFormValue(form, "clientPhone"),
+      email: nullableFormValue(form, "clientEmail"),
+    };
+
+    await runAction(async () => {
+      if (selectedClient) {
+        await apiPut(`/clients/${selectedClient.id}`, body);
+      } else {
+        await apiPost("/clients", body);
+      }
+
+      formElement.reset();
+      setSelectedClient(undefined);
       await loadCatalog();
     });
   }
@@ -289,6 +326,13 @@ export function App() {
     });
   }
 
+  async function changeClientStatus(client: Client) {
+    await runAction(async () => {
+      await apiPatch(`/clients/${client.id}/status`, { active: !client.active });
+      await loadCatalog();
+    });
+  }
+
   function editProduct(product: Product) {
     setSelectedProduct(product);
     setView("edit-product");
@@ -327,6 +371,9 @@ export function App() {
           <NavSection title="Cadastros">
             <NavButton active={view === "brands"} icon={<Tags size={18} />} onClick={() => setView("brands")}>
               Fabricantes
+            </NavButton>
+            <NavButton active={view === "clients"} icon={<UserRound size={18} />} onClick={() => setView("clients")}>
+              Clientes
             </NavButton>
           </NavSection>
 
@@ -452,6 +499,17 @@ export function App() {
             fieldName="brandName"
             items={brands}
             onSubmit={(event) => void createNamedEntity(event, "/brands", "brandName")}
+          />
+        ) : null}
+
+        {view === "clients" ? (
+          <ClientsPage
+            clients={clients}
+            selectedClient={selectedClient}
+            onSubmit={saveClient}
+            onEdit={setSelectedClient}
+            onCancel={() => setSelectedClient(undefined)}
+            onChangeStatus={(client) => void changeClientStatus(client)}
           />
         ) : null}
 
@@ -757,6 +815,110 @@ function SuppliersPage({
               {suppliers.length === 0 ? (
                 <tr>
                   <td colSpan={4}>Nenhum fornecedor cadastrado.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ClientsPage({
+  clients,
+  selectedClient,
+  onSubmit,
+  onEdit,
+  onCancel,
+  onChangeStatus,
+}: {
+  clients: Client[];
+  selectedClient?: Client;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onEdit: (client: Client) => void;
+  onCancel: () => void;
+  onChangeStatus: (client: Client) => void;
+}) {
+  return (
+    <section className="layout-grid">
+      <form key={selectedClient?.id ?? "new"} className="panel form-panel" onSubmit={onSubmit}>
+        <div className="panel-header compact">
+          <h2>{selectedClient ? "Editar cliente" : "Novo cliente"}</h2>
+          <UserRound size={18} />
+        </div>
+        <select name="clientPersonType" defaultValue={selectedClient?.personType ?? "PF"} required>
+          <option value="PF">Pessoa fisica</option>
+          <option value="PJ">Pessoa juridica</option>
+          <option value="ES">Estrangeiro</option>
+        </select>
+        <input name="clientName" placeholder="Nome" defaultValue={selectedClient?.name} required />
+        <input name="clientDocument" placeholder="CPF/CNPJ" defaultValue={selectedClient?.document ?? ""} />
+        <div className="two-columns">
+          <input name="clientPhone" placeholder="Telefone" defaultValue={selectedClient?.phone ?? ""} />
+          <input
+            name="clientEmail"
+            type="email"
+            placeholder="Email"
+            defaultValue={selectedClient?.email ?? ""}
+          />
+        </div>
+        <div className="form-actions">
+          {selectedClient ? (
+            <button className="secondary-button" type="button" onClick={onCancel}>
+              Cancelar
+            </button>
+          ) : null}
+          <button className="primary-button" type="submit">
+            <Plus size={17} />
+            {selectedClient ? "Salvar alteracoes" : "Cadastrar cliente"}
+          </button>
+        </div>
+      </form>
+
+      <div className="panel wide">
+        <div className="panel-header compact">
+          <h2>Clientes cadastrados</h2>
+          <span>{clients.length} registros</span>
+        </div>
+        <div className="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Documento</th>
+                <th>Telefone</th>
+                <th>Status</th>
+                <th>Acoes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients.map((client) => (
+                <tr key={client.id}>
+                  <td>{client.name}</td>
+                  <td>{client.personType}</td>
+                  <td>{client.document ?? "-"}</td>
+                  <td>{client.phone ?? "-"}</td>
+                  <td>
+                    <span className={client.active ? "status-tag active" : "status-tag inactive"}>
+                      {client.active ? "Ativo" : "Inativo"}
+                    </span>
+                  </td>
+                  <td className="table-actions">
+                    <button className="action-button" type="button" onClick={() => onEdit(client)}>
+                      <Pencil size={14} /> Editar
+                    </button>
+                    <button className="action-button" type="button" onClick={() => onChangeStatus(client)}>
+                      {client.active ? <PowerOff size={14} /> : <Power size={14} />}
+                      {client.active ? " Inativar" : " Ativar"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {clients.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>Nenhum cliente cadastrado.</td>
                 </tr>
               ) : null}
             </tbody>
