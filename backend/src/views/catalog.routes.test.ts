@@ -67,6 +67,16 @@ type PaymentMethod = {
   active: boolean;
 };
 
+type Client = {
+  id: string;
+  personType: "PF" | "PJ" | "ES";
+  name: string;
+  document: string | null;
+  email: string | null;
+  phone: string | null;
+  active: boolean;
+};
+
 let server: Server;
 let baseUrl: string;
 
@@ -99,7 +109,7 @@ before(async () => {
 
 beforeEach(async () => {
   await db.raw(
-    "truncate table product_suppliers, products, product_groups, suppliers, brands cascade",
+    "truncate table product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
   await db("payment_methods").update({ active: true });
 });
@@ -231,6 +241,60 @@ describe("catalog routes", () => {
       active.body.data?.map((paymentMethod) => paymentMethod.code),
       ["PIX", "BOLETO"],
     );
+  });
+
+  it("updates inactive clients without changing their status", async () => {
+    const created = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Ana Cliente",
+        document: "12345678900",
+        email: "ana@example.com",
+        phone: "85999990000",
+      },
+    });
+    const listed = await request<Client[]>("/clients?search=12345678900");
+    const deactivated = await request<Client>(`/clients/${created.body.data?.id}/status`, {
+      method: "PATCH",
+      body: { active: false },
+    });
+    const updated = await request<Client>(`/clients/${created.body.data?.id}`, {
+      method: "PUT",
+      body: {
+        personType: "PJ",
+        name: "Ana Filtros LTDA",
+        document: "",
+        email: "",
+        phone: "8533330000",
+      },
+    });
+    const active = await request<Client[]>("/clients?active=true");
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.personType, "PF");
+    assert.equal(listed.status, 200);
+    assert.equal(listed.body.data?.length, 1);
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data?.personType, "PJ");
+    assert.equal(updated.body.data?.name, "Ana Filtros LTDA");
+    assert.equal(updated.body.data?.document, null);
+    assert.equal(updated.body.data?.email, null);
+    assert.equal(deactivated.status, 200);
+    assert.equal(deactivated.body.data?.active, false);
+    assert.equal(updated.body.data?.active, false);
+    assert.equal(active.body.data?.length, 0);
+  });
+
+  it("returns validation details for invalid client person type", async () => {
+    const response = await request("/clients", {
+      method: "POST",
+      body: { personType: "INVALID", name: "Cliente" },
+    });
+
+    assert.equal(response.status, 422);
+    assert.equal(response.body.message, "Dados invalidos.");
+    assert.ok(response.body.errors?.some((error) => error.field === "personType"));
   });
 
   it("creates, lists, shows, updates, and deactivates products", async () => {
