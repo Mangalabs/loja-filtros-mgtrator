@@ -90,6 +90,15 @@ export type AuthUser = {
   active: boolean;
 };
 
+export type CashRegisterSession = {
+  id: string;
+  openedByUserId: string;
+  openedByUserName: string;
+  openingBalance: string;
+  status: "OPEN";
+  openedAt: string;
+};
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`/api${path}`, {
     credentials: "same-origin",

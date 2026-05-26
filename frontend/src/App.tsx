@@ -2,6 +2,7 @@ import {
   ArrowDownToLine,
   AlertTriangle,
   ArrowLeftRight,
+  Banknote,
   CircleDollarSign,
   CreditCard,
   Filter,
@@ -28,6 +29,7 @@ import {
   apiPut,
   type ApiResult,
   type AuthUser,
+  type CashRegisterSession,
   type Client,
   type NamedEntity,
   type PaymentMethod,
@@ -49,6 +51,7 @@ type View =
   | "stock-movements"
   | "low-stock"
   | "payment-methods"
+  | "cash-register"
   | "brands"
   | "clients"
   | "suppliers";
@@ -85,6 +88,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
   "payment-methods": {
     title: "Formas de pagamento",
     description: "Configure as formas disponiveis para o futuro fechamento de vendas.",
+  },
+  "cash-register": {
+    title: "Caixa",
+    description: "Abra o caixa da filial antes de iniciar operacoes de venda.",
   },
   brands: {
     title: "Fabricantes",
@@ -125,6 +132,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [cashRegister, setCashRegister] = useState<CashRegisterSession | null>(null);
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -146,6 +154,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
         stockMovementsResult,
         lowStockResult,
         paymentMethodsResult,
+        cashRegisterResult,
       ] =
         await Promise.all([
           apiGet<ApiResult<Product[]>>("/products"),
@@ -157,6 +166,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           apiGet<ApiResult<StockMovement[]>>("/stock-movements"),
           apiGet<ApiResult<Product[]>>("/products/low-stock"),
           apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
+          apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
         ]);
 
       setProducts(productsResult.data);
@@ -168,6 +178,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
       setStockMovements(stockMovementsResult.data);
       setLowStockProducts(lowStockResult.data);
       setPaymentMethods(paymentMethodsResult.data);
+      setCashRegister(cashRegisterResult.data);
       setState("ready");
     } catch (error) {
       setState("error");
@@ -339,6 +350,21 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  async function openCashRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    await runAction(async () => {
+      await apiPost("/cash-register/open", {
+        openingBalance: Number(form.get("openingBalance") || 0),
+      });
+
+      formElement.reset();
+      await loadCatalog();
+    });
+  }
+
   async function changeProductStatus(product: Product) {
     await runAction(async () => {
       await apiPatch(`/products/${product.id}/status`, { active: !product.active });
@@ -452,6 +478,16 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
               Formas de pagamento
             </NavButton>
           </NavSection>
+
+          <NavSection title="Caixa">
+            <NavButton
+              active={view === "cash-register"}
+              icon={<Banknote size={18} />}
+              onClick={() => setView("cash-register")}
+            >
+              Abertura
+            </NavButton>
+          </NavSection>
         </nav>
       </aside>
 
@@ -544,6 +580,10 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             paymentMethods={paymentMethods}
             onChangeStatus={(paymentMethod) => void changePaymentMethodStatus(paymentMethod)}
           />
+        ) : null}
+
+        {view === "cash-register" ? (
+          <CashRegisterPage session={cashRegister} user={user} onSubmit={openCashRegister} />
         ) : null}
 
         {view === "brands" ? (
@@ -1360,6 +1400,68 @@ function PaymentMethodsPage({
         </table>
       </div>
     </div>
+  );
+}
+
+function CashRegisterPage({
+  session,
+  user,
+  onSubmit,
+}: {
+  session: CashRegisterSession | null;
+  user: AuthUser;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  if (session) {
+    return (
+      <div className="panel single-column">
+        <div className="panel-header compact">
+          <div>
+            <h2>Caixa aberto</h2>
+            <span>O fechamento sera disponibilizado em uma proxima etapa.</span>
+          </div>
+          <span className="status-tag active">Aberto</span>
+        </div>
+        <div className="cash-register-details">
+          <div>
+            <span>Aberto por</span>
+            <strong>{session.openedByUserName}</strong>
+          </div>
+          <div>
+            <span>Data de abertura</span>
+            <strong>{formatDateTime(session.openedAt)}</strong>
+          </div>
+          <div>
+            <span>Saldo inicial</span>
+            <strong>{formatCurrency(session.openingBalance)}</strong>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form className="panel form-panel single-column" onSubmit={onSubmit}>
+      <div className="panel-header compact">
+        <div>
+          <h2>Abrir caixa</h2>
+          <span>A abertura ficara registrada no usuario autenticado.</span>
+        </div>
+        <Banknote size={18} />
+      </div>
+      <label className="field-label">
+        Responsavel
+        <input value={user.name} disabled />
+      </label>
+      <label className="field-label">
+        Saldo inicial
+        <input name="openingBalance" type="number" min="0" step="0.01" defaultValue="0.00" required />
+      </label>
+      <button className="primary-button" type="submit">
+        <Plus size={17} />
+        Abrir caixa
+      </button>
+    </form>
   );
 }
 
