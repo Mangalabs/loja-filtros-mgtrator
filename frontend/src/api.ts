@@ -18,6 +18,8 @@ export type Product = {
   salePrice: string;
   minimumStock: string;
   currentStock: string;
+  reservedStock: string;
+  availableStock: string;
   ncm: string | null;
   cest: string | null;
   active: boolean;
@@ -111,6 +113,22 @@ export type Sale = {
   createdByUserName: string;
   createdAt: string;
   status: "COMPLETED";
+};
+
+export type ShippingOrder = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  clientPhone: string | null;
+  productId: string;
+  productName: string;
+  quantity: string;
+  unitPrice: string;
+  totalAmount: string;
+  createdByUserName: string;
+  createdAt: string;
+  approvedAt: string | null;
+  status: "QUOTED" | "APPROVED";
 };
 
 export async function apiGet<T>(path: string): Promise<T> {

@@ -20,6 +20,7 @@ import {
   UserRound,
   ShieldCheck,
   ShoppingCart,
+  Send,
   X,
 } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
@@ -36,6 +37,7 @@ import {
   type PaymentMethod,
   type Product,
   type Sale,
+  type ShippingOrder,
   type StockAdjustment,
   type StockEntry,
   type StockMovement,
@@ -55,6 +57,7 @@ type View =
   | "payment-methods"
   | "cash-register"
   | "sales"
+  | "shipping-orders"
   | "brands"
   | "clients"
   | "suppliers";
@@ -100,6 +103,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
     title: "Venda de balcao",
     description: "Registre a venda imediata de um produto com baixa de estoque.",
   },
+  "shipping-orders": {
+    title: "Pedidos para envio",
+    description: "Registre orcamentos aprovados pelo cliente e separe os produtos para envio.",
+  },
   brands: {
     title: "Fabricantes",
     description: "Cadastre os fabricantes usados no catalogo de produtos.",
@@ -141,6 +148,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [cashRegister, setCashRegister] = useState<CashRegisterSession | null>(null);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [shippingOrders, setShippingOrders] = useState<ShippingOrder[]>([]);
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -164,6 +172,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
         paymentMethodsResult,
         cashRegisterResult,
         salesResult,
+        shippingOrdersResult,
       ] =
         await Promise.all([
           apiGet<ApiResult<Product[]>>("/products"),
@@ -177,6 +186,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
           apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
           apiGet<ApiResult<Sale[]>>("/sales"),
+          apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
         ]);
 
       setProducts(productsResult.data);
@@ -190,6 +200,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
       setPaymentMethods(paymentMethodsResult.data);
       setCashRegister(cashRegisterResult.data);
       setSales(salesResult.data);
+      setShippingOrders(shippingOrdersResult.data);
       setState("ready");
     } catch (error) {
       setState("error");
@@ -394,6 +405,30 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  async function createShippingOrder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    await runAction(async () => {
+      await apiPost("/shipping-orders", {
+        clientId: String(form.get("shippingClientId") ?? ""),
+        productId: String(form.get("shippingProductId") ?? ""),
+        quantity: Number(form.get("shippingQuantity")),
+      });
+
+      formElement.reset();
+      await loadCatalog();
+    });
+  }
+
+  async function approveShippingOrder(order: ShippingOrder) {
+    await runAction(async () => {
+      await apiPatch(`/shipping-orders/${order.id}/approve`, {});
+      await loadCatalog();
+    });
+  }
+
   async function changeProductStatus(product: Product) {
     await runAction(async () => {
       await apiPatch(`/products/${product.id}/status`, { active: !product.active });
@@ -522,6 +557,13 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             <NavButton active={view === "sales"} icon={<ShoppingCart size={18} />} onClick={() => setView("sales")}>
               Balcao
             </NavButton>
+            <NavButton
+              active={view === "shipping-orders"}
+              icon={<Send size={18} />}
+              onClick={() => setView("shipping-orders")}
+            >
+              Para envio
+            </NavButton>
           </NavSection>
         </nav>
       </aside>
@@ -629,6 +671,16 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             products={products}
             sales={sales}
             onSubmit={createSale}
+          />
+        ) : null}
+
+        {view === "shipping-orders" ? (
+          <ShippingOrdersPage
+            clients={clients}
+            products={products}
+            orders={shippingOrders}
+            onSubmit={createShippingOrder}
+            onApprove={(order) => void approveShippingOrder(order)}
           />
         ) : null}
 
@@ -813,7 +865,9 @@ function ProductTable({
             <th>Fabricante</th>
             <th>Un.</th>
             <th>Locacao</th>
-            <th>Estoque</th>
+            <th>Fisico</th>
+            <th>Reservado</th>
+            <th>Disponivel</th>
             <th>Venda</th>
             <th>Status</th>
             <th>Acoes</th>
@@ -828,6 +882,8 @@ function ProductTable({
               <td>{product.unit}</td>
               <td>{product.location ?? "-"}</td>
               <td>{formatQuantity(product.currentStock)}</td>
+              <td>{formatQuantity(product.reservedStock)}</td>
+              <td>{formatQuantity(product.availableStock)}</td>
               <td>R$ {product.salePrice}</td>
               <td>
                 <span className={product.active ? "status-tag active" : "status-tag inactive"}>
@@ -850,7 +906,7 @@ function ProductTable({
           ))}
           {products.length === 0 ? (
             <tr>
-              <td colSpan={9}>Nenhum produto encontrado.</td>
+              <td colSpan={11}>Nenhum produto encontrado.</td>
             </tr>
           ) : null}
         </tbody>
@@ -1249,7 +1305,7 @@ function StockAdjustmentsPage({
           </option>
           {products.map((product) => (
             <option key={product.id} value={product.id}>
-              {product.name} - estoque {formatQuantity(product.currentStock)}
+              {product.name} - fisico {formatQuantity(product.currentStock)} - reservado {formatQuantity(product.reservedStock)}
               {product.active ? "" : " (inativo)"}
             </option>
           ))}
@@ -1312,7 +1368,7 @@ function LowStockPage({ products }: { products: Product[] }) {
       <div className="panel-header compact">
         <div>
           <h2>Produtos para reposicao</h2>
-          <span>Produtos ativos com estoque atual igual ou menor que o minimo definido.</span>
+          <span>Produtos ativos com saldo disponivel igual ou menor que o minimo definido.</span>
         </div>
         <AlertTriangle size={18} />
       </div>
@@ -1323,7 +1379,7 @@ function LowStockPage({ products }: { products: Product[] }) {
               <th>Produto</th>
               <th>Fabricante</th>
               <th>Locacao</th>
-              <th>Atual</th>
+              <th>Disponivel</th>
               <th>Minimo</th>
               <th>Faltam p/ minimo</th>
             </tr>
@@ -1334,9 +1390,9 @@ function LowStockPage({ products }: { products: Product[] }) {
                 <td>{product.name}</td>
                 <td>{product.brandName ?? "-"}</td>
                 <td>{product.location ?? "-"}</td>
-                <td className="stock-warning">{formatQuantity(product.currentStock)}</td>
+                <td className="stock-warning">{formatQuantity(product.availableStock)}</td>
                 <td>{formatQuantity(product.minimumStock)}</td>
-                <td>{formatQuantity(String(Number(product.minimumStock) - Number(product.currentStock)))}</td>
+                <td>{formatQuantity(String(Number(product.minimumStock) - Number(product.availableStock)))}</td>
               </tr>
             ))}
             {products.length === 0 ? (
@@ -1542,10 +1598,10 @@ function SalesPage({
             Produto
           </option>
           {products
-            .filter((product) => product.active && Number(product.currentStock) > 0)
+            .filter((product) => product.active && Number(product.availableStock) > 0)
             .map((product) => (
               <option key={product.id} value={product.id}>
-                {product.name} - {formatCurrency(product.salePrice)} - estoque {formatQuantity(product.currentStock)}
+                {product.name} - {formatCurrency(product.salePrice)} - disponivel {formatQuantity(product.availableStock)}
               </option>
             ))}
         </select>
@@ -1625,6 +1681,126 @@ function SalesPage({
   );
 }
 
+function ShippingOrdersPage({
+  clients,
+  products,
+  orders,
+  onSubmit,
+  onApprove,
+}: {
+  clients: Client[];
+  products: Product[];
+  orders: ShippingOrder[];
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onApprove: (order: ShippingOrder) => void;
+}) {
+  return (
+    <section className="layout-grid stock-entry-layout">
+      <form className="panel form-panel" onSubmit={onSubmit}>
+        <div className="panel-header compact">
+          <div>
+            <h2>Novo orcamento</h2>
+            <span>Atendimento remoto com um produto nesta etapa.</span>
+          </div>
+          <Send size={18} />
+        </div>
+        <p className="field-help">
+          Informe o cliente contatado. A peca sera reservada somente quando o orcamento for aprovado.
+        </p>
+        <select name="shippingClientId" defaultValue="" required>
+          <option value="" disabled>
+            Cliente
+          </option>
+          {clients.filter((client) => client.active).map((client) => (
+            <option key={client.id} value={client.id}>
+              {client.name}{client.phone ? ` - ${client.phone}` : ""}
+            </option>
+          ))}
+        </select>
+        <select name="shippingProductId" defaultValue="" required>
+          <option value="" disabled>
+            Produto
+          </option>
+          {products
+            .filter((product) => product.active && Number(product.availableStock) > 0)
+            .map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name} - {formatCurrency(product.salePrice)} - disponivel {formatQuantity(product.availableStock)}
+              </option>
+            ))}
+        </select>
+        <input
+          name="shippingQuantity"
+          type="number"
+          min="0.001"
+          step="0.001"
+          placeholder="Quantidade"
+          required
+        />
+        <button className="primary-button" type="submit">
+          <Plus size={17} />
+          Registrar orcamento
+        </button>
+      </form>
+
+      <div className="panel wide">
+        <div className="panel-header compact">
+          <div>
+            <h2>Pedidos para envio</h2>
+            <span>Ao aprovar, separe fisicamente a quantidade reservada.</span>
+          </div>
+          <span>{orders.length} registros</span>
+        </div>
+        <div className="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Cliente</th>
+                <th>Produto</th>
+                <th>Qtd.</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Acoes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order.id}>
+                  <td>{formatDateTime(order.createdAt)}</td>
+                  <td>{order.clientName}</td>
+                  <td>{order.productName}</td>
+                  <td>{formatQuantity(order.quantity)}</td>
+                  <td>{formatCurrency(order.totalAmount)}</td>
+                  <td>
+                    <span className={order.status === "APPROVED" ? "status-tag active" : "status-tag pending"}>
+                      {shippingOrderStatusLabel(order.status)}
+                    </span>
+                  </td>
+                  <td>
+                    {order.status === "QUOTED" ? (
+                      <button className="action-button" type="button" onClick={() => onApprove(order)}>
+                        Aprovar e separar
+                      </button>
+                    ) : (
+                      "Separar para envio"
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {orders.length === 0 ? (
+                <tr>
+                  <td colSpan={7}>Nenhum orcamento para envio registrado.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="metric">
@@ -1645,6 +1821,10 @@ function movementTypeLabel(type: StockMovement["type"]) {
   }
 
   return "Ajuste";
+}
+
+function shippingOrderStatusLabel(status: ShippingOrder["status"]) {
+  return status === "APPROVED" ? "Aprovado - separar" : "Orcamento enviado";
 }
 
 function optionalFormValue(form: FormData, key: string): string | undefined {

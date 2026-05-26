@@ -363,6 +363,11 @@ th {
   color: #65716c;
 }
 
+.status-tag.pending {
+  background: #fff4ed;
+  color: #8b3f18;
+}
+
 .stock-warning {
   color: #8b3f18;
   font-weight: 700;
