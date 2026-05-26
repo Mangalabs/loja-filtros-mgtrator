@@ -227,7 +227,10 @@ describe("catalog routes", () => {
     });
     const logout = await request("/auth/logout", { method: "POST" });
     const storedAdministrator = await db("users").where("email", "admin@example.com").first();
-    const loginBody = login.body as ApiResponse<User> & { token?: string };
+    const loginBody = login.body as ApiResponse<User> & {
+      token?: string;
+      data?: User & { passwordHash?: string };
+    };
 
     assert.equal(blocked.status, 401);
     assert.equal(blocked.body.message, "Autenticacao necessaria.");
@@ -240,6 +243,7 @@ describe("catalog routes", () => {
     assert.match(login.rawCookie ?? "", /HttpOnly/);
     assert.match(login.rawCookie ?? "", /SameSite=Strict/);
     assert.equal(loginBody.token, undefined);
+    assert.equal(loginBody.data?.passwordHash, undefined);
     assert.notEqual(storedAdministrator?.password_hash, "senha-segura-123");
     assert.match(storedAdministrator?.password_hash ?? "", /^scrypt\$/);
     assert.equal(repeatedSetup.status, 403);

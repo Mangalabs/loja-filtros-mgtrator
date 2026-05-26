@@ -66,14 +66,21 @@ export async function authenticateUser(input: CredentialsInput) {
 }
 
 async function authenticatedResult(user: User) {
-  const token = await issueAuthToken(user);
+  const publicUser: User = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    active: user.active,
+  };
+  const token = await issueAuthToken(publicUser);
 
   return {
     token,
     response: {
       code: 200,
       status: "success",
-      data: user,
+      data: publicUser,
     },
   };
 }
