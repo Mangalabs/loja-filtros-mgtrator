@@ -36,6 +36,8 @@ type Product = {
   salePrice: string;
   minimumStock: string;
   currentStock: string;
+  reservedStock: string;
+  availableStock: string;
   ncm: string | null;
   cest: string | null;
   active: boolean;
@@ -82,6 +84,17 @@ type Sale = {
   paymentMethodName: string;
   createdByUserName: string;
   status: "COMPLETED";
+};
+
+type ShippingOrder = {
+  id: string;
+  clientName: string;
+  clientPhone: string | null;
+  productName: string;
+  quantity: string;
+  unitPrice: string;
+  totalAmount: string;
+  status: "QUOTED" | "APPROVED";
 };
 
 type PaymentMethod = {
@@ -374,6 +387,94 @@ describe("catalog routes", () => {
     assert.equal(saleMovement?.quantity, "-2.000");
   });
 
+  it("creates a shipping quote and reserves its item after approval", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro para envio", salePrice: 44.9, minimumStock: 1 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente WhatsApp", phone: "85999998888" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 3,
+        reason: "Saldo inicial para pedido",
+      },
+    });
+
+    const quoted = await request<ShippingOrder>("/shipping-orders", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 2,
+      },
+    });
+    const beforeApproval = await request<Product>(`/products/${product.body.data?.id}`);
+    const approved = await request<ShippingOrder>(`/shipping-orders/${quoted.body.data?.id}/approve`, {
+      method: "PATCH",
+      body: {},
+    });
+    const repeatedApproval = await request(`/shipping-orders/${quoted.body.data?.id}/approve`, {
+      method: "PATCH",
+      body: {},
+    });
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
+    const pix = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "PIX");
+    const saleOverAvailable = await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 2,
+      },
+    });
+    const adjustmentOverAvailable = await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: -2,
+        reason: "Tentativa de retirar produto reservado",
+      },
+    });
+    const listed = await request<ShippingOrder[]>("/shipping-orders");
+    const afterApproval = await request<Product>(`/products/${product.body.data?.id}`);
+    const lowStock = await request<Product[]>("/products/low-stock");
+
+    assert.equal(quoted.status, 201);
+    assert.equal(quoted.body.data?.status, "QUOTED");
+    assert.equal(quoted.body.data?.clientName, "Cliente WhatsApp");
+    assert.equal(quoted.body.data?.clientPhone, "85999998888");
+    assert.equal(quoted.body.data?.unitPrice, "44.90");
+    assert.equal(quoted.body.data?.totalAmount, "89.80");
+    assert.equal(beforeApproval.body.data?.currentStock, "3.000");
+    assert.equal(beforeApproval.body.data?.reservedStock, "0.000");
+    assert.equal(approved.status, 200);
+    assert.equal(approved.body.data?.status, "APPROVED");
+    assert.equal(repeatedApproval.status, 409);
+    assert.equal(saleOverAvailable.status, 422);
+    assert.equal(saleOverAvailable.body.message, "Estoque insuficiente para concluir a venda.");
+    assert.equal(adjustmentOverAvailable.status, 422);
+    assert.equal(
+      adjustmentOverAvailable.body.message,
+      "Ajuste nao pode retirar quantidade reservada para separacao.",
+    );
+    assert.equal(listed.body.data?.length, 1);
+    assert.equal(afterApproval.body.data?.currentStock, "3.000");
+    assert.equal(afterApproval.body.data?.reservedStock, "2.000");
+    assert.equal(afterApproval.body.data?.availableStock, "1.000");
+    assert.equal(lowStock.body.data?.[0]?.id, product.body.data?.id);
+  });
+
   it("creates and lists brands", async () => {
     const created = await request<NamedEntity>("/brands", {
       method: "POST",
@@ -576,6 +677,8 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.unit, "KIT");
     assert.equal(created.body.data?.location, "Corredor A - Prateleira 2");
     assert.equal(created.body.data?.currentStock, "0.000");
+    assert.equal(created.body.data?.reservedStock, "0.000");
+    assert.equal(created.body.data?.availableStock, "0.000");
     assert.equal(created.body.data?.ncm, "84212300");
     assert.equal(created.body.data?.cest, "0100100");
     assert.equal(listed.status, 200);
