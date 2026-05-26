@@ -94,7 +94,8 @@ type ShippingOrder = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
-  status: "QUOTED" | "APPROVED";
+  cancellationReason: string | null;
+  status: "QUOTED" | "APPROVED" | "CANCELLED";
 };
 
 type PaymentMethod = {
@@ -449,6 +450,20 @@ describe("catalog routes", () => {
     const listed = await request<ShippingOrder[]>("/shipping-orders");
     const afterApproval = await request<Product>(`/products/${product.body.data?.id}`);
     const lowStock = await request<Product[]>("/products/low-stock");
+    const cancelled = await request<ShippingOrder>(`/shipping-orders/${quoted.body.data?.id}/cancel`, {
+      method: "PATCH",
+      body: { reason: "Cliente desistiu da compra" },
+    });
+    const repeatedCancellation = await request(`/shipping-orders/${quoted.body.data?.id}/cancel`, {
+      method: "PATCH",
+      body: { reason: "Tentativa repetida" },
+    });
+    const approvalAfterCancellation = await request(`/shipping-orders/${quoted.body.data?.id}/approve`, {
+      method: "PATCH",
+      body: {},
+    });
+    const afterCancellation = await request<Product>(`/products/${product.body.data?.id}`);
+    const lowStockAfterCancellation = await request<Product[]>("/products/low-stock");
 
     assert.equal(quoted.status, 201);
     assert.equal(quoted.body.data?.status, "QUOTED");
@@ -473,6 +488,19 @@ describe("catalog routes", () => {
     assert.equal(afterApproval.body.data?.reservedStock, "2.000");
     assert.equal(afterApproval.body.data?.availableStock, "1.000");
     assert.equal(lowStock.body.data?.[0]?.id, product.body.data?.id);
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(cancelled.body.data?.cancellationReason, "Cliente desistiu da compra");
+    assert.equal(repeatedCancellation.status, 409);
+    assert.equal(approvalAfterCancellation.status, 409);
+    assert.equal(
+      approvalAfterCancellation.body.message,
+      "Pedido cancelado nao pode ser aprovado para separacao.",
+    );
+    assert.equal(afterCancellation.body.data?.currentStock, "3.000");
+    assert.equal(afterCancellation.body.data?.reservedStock, "0.000");
+    assert.equal(afterCancellation.body.data?.availableStock, "3.000");
+    assert.equal(lowStockAfterCancellation.body.data?.length, 0);
   });
 
   it("creates and lists brands", async () => {
