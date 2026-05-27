@@ -95,8 +95,10 @@ type ShippingOrder = {
   unitPrice: string;
   totalAmount: string;
   separatedAt: string | null;
+  saleId: string | null;
+  completedAt: string | null;
   cancellationReason: string | null;
-  status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED";
+  status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED";
 };
 
 type PaymentMethod = {
@@ -524,6 +526,90 @@ describe("catalog routes", () => {
     assert.equal(afterCancellation.body.data?.reservedStock, "0.000");
     assert.equal(afterCancellation.body.data?.availableStock, "3.000");
     assert.equal(lowStockAfterCancellation.body.data?.length, 0);
+  });
+
+  it("completes a separated shipping order as a sale", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro enviado", salePrice: 69.9 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente do envio", phone: "85988887777" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 4,
+        reason: "Saldo para venda remota",
+      },
+    });
+
+    const quoted = await request<ShippingOrder>("/shipping-orders", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 2,
+      },
+    });
+
+    await request(`/shipping-orders/${quoted.body.data?.id}/approve`, {
+      method: "PATCH",
+      body: {},
+    });
+    await request(`/shipping-orders/${quoted.body.data?.id}/separate`, {
+      method: "PATCH",
+      body: {},
+    });
+
+    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
+    const boleto = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "BOLETO");
+    const withoutCash = await request(`/shipping-orders/${quoted.body.data?.id}/complete`, {
+      method: "PATCH",
+      body: { paymentMethodId: boleto?.id },
+    });
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const completed = await request<ShippingOrder>(`/shipping-orders/${quoted.body.data?.id}/complete`, {
+      method: "PATCH",
+      body: { paymentMethodId: boleto?.id },
+    });
+    const repeatedCompletion = await request(`/shipping-orders/${quoted.body.data?.id}/complete`, {
+      method: "PATCH",
+      body: { paymentMethodId: boleto?.id },
+    });
+    const cancellationAfterCompletion = await request(`/shipping-orders/${quoted.body.data?.id}/cancel`, {
+      method: "PATCH",
+      body: { reason: "Tentativa apos venda" },
+    });
+    const sales = await request<Sale[]>("/sales");
+    const updatedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const movements = await request<StockMovement[]>("/stock-movements");
+    const saleMovement = movements.body.data?.find((movement) => movement.type === "SALE");
+
+    assert.equal(withoutCash.status, 422);
+    assert.equal(withoutCash.body.message, "Abra o caixa antes de concluir a venda para envio.");
+    assert.equal(completed.status, 200);
+    assert.equal(completed.body.data?.status, "COMPLETED");
+    assert.ok(completed.body.data?.saleId);
+    assert.ok(completed.body.data?.completedAt);
+    assert.equal(repeatedCompletion.status, 409);
+    assert.equal(cancellationAfterCompletion.status, 409);
+    assert.equal(sales.body.data?.length, 1);
+    assert.equal(sales.body.data?.[0]?.clientName, "Cliente do envio");
+    assert.equal(sales.body.data?.[0]?.paymentMethodName, "Boleto");
+    assert.equal(sales.body.data?.[0]?.totalAmount, "139.80");
+    assert.equal(updatedProduct.body.data?.currentStock, "2.000");
+    assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
+    assert.equal(updatedProduct.body.data?.availableStock, "2.000");
+    assert.equal(saleMovement?.quantity, "-2.000");
   });
 
   it("creates and lists brands", async () => {
