@@ -7,6 +7,7 @@ import {
   listShippingOrders,
   lockShippingOrder,
   lockReservableProduct,
+  separateShippingOrder,
   type ShippingOrderInput,
 } from "../../models/shipping-orders/shipping-orders.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
@@ -64,6 +65,10 @@ export async function approveQuotedShippingOrder(id: string, approvedByUserId: s
       throw new AppError("Este orcamento ja foi aprovado para separacao.", 409);
     }
 
+    if (quotedOrder.status === "SEPARATED") {
+      throw new AppError("A separacao deste pedido ja foi confirmada.", 409);
+    }
+
     const product = await lockReservableProduct(transaction, quotedOrder.productId);
 
     if (!product || !product.active) {
@@ -98,7 +103,7 @@ export async function cancelOpenShippingOrder(id: string, reason: string, cancel
       throw new AppError("Este pedido para envio ja foi cancelado.", 409);
     }
 
-    if (currentOrder.status === "APPROVED") {
+    if (currentOrder.status === "APPROVED" || currentOrder.status === "SEPARATED") {
       await lockReservableProduct(transaction, currentOrder.productId);
     }
 
@@ -107,10 +112,40 @@ export async function cancelOpenShippingOrder(id: string, reason: string, cancel
       id,
       currentOrder.productId,
       Number(currentOrder.quantity),
-      currentOrder.status === "APPROVED",
+      currentOrder.status === "APPROVED" || currentOrder.status === "SEPARATED",
       cancelledByUserId,
       reason,
     );
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: order,
+  };
+}
+
+export async function confirmShippingOrderSeparation(id: string, separatedByUserId: string) {
+  const order = await db.transaction(async (transaction) => {
+    const currentOrder = await lockShippingOrder(transaction, id);
+
+    if (!currentOrder) {
+      throw new AppError("Pedido para envio nao encontrado.", 404);
+    }
+
+    if (currentOrder.status === "QUOTED") {
+      throw new AppError("Aprove o orcamento antes de confirmar a separacao.", 409);
+    }
+
+    if (currentOrder.status === "CANCELLED") {
+      throw new AppError("Pedido cancelado nao pode ser separado.", 409);
+    }
+
+    if (currentOrder.status === "SEPARATED") {
+      throw new AppError("A separacao deste pedido ja foi confirmada.", 409);
+    }
+
+    return separateShippingOrder(transaction, id, separatedByUserId);
   });
 
   return {

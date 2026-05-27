@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   approveQuotedShippingOrder,
   cancelOpenShippingOrder,
+  confirmShippingOrderSeparation,
   indexShippingOrders,
   storeShippingOrder,
 } from "../../controllers/shipping-orders/shipping-orders.controller.js";
@@ -50,4 +51,11 @@ shippingOrdersRoutes.patch("/shipping-orders/:id/cancel", async (request, respon
   const userId = response.locals.authenticatedUser.id as string;
 
   response.status(200).json(await cancelOpenShippingOrder(id, body.reason, userId));
+});
+
+shippingOrdersRoutes.patch("/shipping-orders/:id/separate", async (request, response) => {
+  const { id } = shippingOrderParamsSchema.parse(request.params);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(200).json(await confirmShippingOrderSeparation(id, userId));
 });

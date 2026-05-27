@@ -20,9 +20,10 @@ export type ShippingOrder = {
   createdByUserName: string;
   createdAt: Date;
   approvedAt: Date | null;
+  separatedAt: Date | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
-  status: "QUOTED" | "APPROVED" | "CANCELLED";
+  status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED";
 };
 
 export type ReservedProduct = {
@@ -46,6 +47,7 @@ const shippingOrderColumns = [
   "created_users.name as createdByUserName",
   "shipping_orders.created_at as createdAt",
   "shipping_orders.approved_at as approvedAt",
+  "shipping_orders.separated_at as separatedAt",
   "shipping_orders.cancelled_at as cancelledAt",
   "shipping_orders.cancellation_reason as cancellationReason",
   "shipping_orders.status",
@@ -170,6 +172,20 @@ export async function cancelShippingOrder(
     cancelled_by_user_id: cancelledByUserId,
     cancelled_at: transaction.fn.now(),
     cancellation_reason: reason,
+  });
+
+  return findShippingOrder(transaction, id);
+}
+
+export async function separateShippingOrder(
+  transaction: Knex.Transaction,
+  id: string,
+  separatedByUserId: string,
+): Promise<ShippingOrder> {
+  await transaction("shipping_orders").where("id", id).update({
+    status: "SEPARATED",
+    separated_by_user_id: separatedByUserId,
+    separated_at: transaction.fn.now(),
   });
 
   return findShippingOrder(transaction, id);
