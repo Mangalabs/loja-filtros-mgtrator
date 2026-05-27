@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   approveQuotedShippingOrder,
   cancelOpenShippingOrder,
+  completeSeparatedShippingOrder,
   confirmShippingOrderSeparation,
   indexShippingOrders,
   storeShippingOrder,
@@ -25,6 +26,10 @@ const shippingOrderParamsSchema = z.object({
 
 const cancelShippingOrderSchema = z.object({
   reason: z.string().trim().min(1).max(500),
+});
+
+const completeShippingOrderSchema = z.object({
+  paymentMethodId: z.uuid(),
 });
 
 shippingOrdersRoutes.get("/shipping-orders", async (_request, response) => {
@@ -58,4 +63,12 @@ shippingOrdersRoutes.patch("/shipping-orders/:id/separate", async (request, resp
   const userId = response.locals.authenticatedUser.id as string;
 
   response.status(200).json(await confirmShippingOrderSeparation(id, userId));
+});
+
+shippingOrdersRoutes.patch("/shipping-orders/:id/complete", async (request, response) => {
+  const { id } = shippingOrderParamsSchema.parse(request.params);
+  const body = validateBody(request, completeShippingOrderSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(200).json(await completeSeparatedShippingOrder(id, body.paymentMethodId, userId));
 });

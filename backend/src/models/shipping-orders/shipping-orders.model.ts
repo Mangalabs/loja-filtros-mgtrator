@@ -21,9 +21,11 @@ export type ShippingOrder = {
   createdAt: Date;
   approvedAt: Date | null;
   separatedAt: Date | null;
+  saleId: string | null;
+  completedAt: Date | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
-  status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED";
+  status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED";
 };
 
 export type ReservedProduct = {
@@ -48,6 +50,8 @@ const shippingOrderColumns = [
   "shipping_orders.created_at as createdAt",
   "shipping_orders.approved_at as approvedAt",
   "shipping_orders.separated_at as separatedAt",
+  "shipping_orders.sale_id as saleId",
+  "shipping_orders.completed_at as completedAt",
   "shipping_orders.cancelled_at as cancelledAt",
   "shipping_orders.cancellation_reason as cancellationReason",
   "shipping_orders.status",
@@ -112,14 +116,28 @@ export async function insertShippingOrder(
 export async function lockShippingOrder(
   transaction: Knex.Transaction,
   id: string,
-): Promise<{ id: string; productId: string; quantity: string; status: ShippingOrder["status"] } | undefined> {
+): Promise<
+  | {
+      id: string;
+      clientId: string;
+      productId: string;
+      quantity: string;
+      unitPrice: string;
+      totalAmount: string;
+      status: ShippingOrder["status"];
+    }
+  | undefined
+> {
   return transaction("shipping_orders")
     .join("shipping_order_items", "shipping_order_items.shipping_order_id", "shipping_orders.id")
     .select([
       "shipping_orders.id",
+      "shipping_orders.client_id as clientId",
+      "shipping_orders.total_amount as totalAmount",
       "shipping_orders.status",
       "shipping_order_items.product_id as productId",
       "shipping_order_items.quantity",
+      "shipping_order_items.unit_price as unitPrice",
     ])
     .where("shipping_orders.id", id)
     .forUpdate("shipping_orders")
@@ -186,6 +204,35 @@ export async function separateShippingOrder(
     status: "SEPARATED",
     separated_by_user_id: separatedByUserId,
     separated_at: transaction.fn.now(),
+  });
+
+  return findShippingOrder(transaction, id);
+}
+
+export async function releaseShippingOrderReservation(
+  transaction: Knex.Transaction,
+  productId: string,
+  quantity: number,
+): Promise<void> {
+  await transaction("products")
+    .where("id", productId)
+    .update({
+      reserved_stock: transaction.raw("reserved_stock - ?", [quantity]),
+      updated_at: transaction.fn.now(),
+    });
+}
+
+export async function completeShippingOrder(
+  transaction: Knex.Transaction,
+  id: string,
+  saleId: string,
+  completedByUserId: string,
+): Promise<ShippingOrder> {
+  await transaction("shipping_orders").where("id", id).update({
+    status: "COMPLETED",
+    sale_id: saleId,
+    completed_by_user_id: completedByUserId,
+    completed_at: transaction.fn.now(),
   });
 
   return findShippingOrder(transaction, id);

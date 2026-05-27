@@ -1,12 +1,19 @@
 import { db } from "../../database/knex.js";
 import {
+  activePaymentMethodExists,
+  findOpenCashRegister,
+  insertSale,
+} from "../../models/sales/sales.model.js";
+import {
   activeShippingClientExists,
   approveShippingOrder,
   cancelShippingOrder,
+  completeShippingOrder,
   insertShippingOrder,
   listShippingOrders,
   lockShippingOrder,
   lockReservableProduct,
+  releaseShippingOrderReservation,
   separateShippingOrder,
   type ShippingOrderInput,
 } from "../../models/shipping-orders/shipping-orders.model.js";
@@ -69,6 +76,10 @@ export async function approveQuotedShippingOrder(id: string, approvedByUserId: s
       throw new AppError("A separacao deste pedido ja foi confirmada.", 409);
     }
 
+    if (quotedOrder.status === "COMPLETED") {
+      throw new AppError("Este pedido ja foi concluido como venda.", 409);
+    }
+
     const product = await lockReservableProduct(transaction, quotedOrder.productId);
 
     if (!product || !product.active) {
@@ -101,6 +112,10 @@ export async function cancelOpenShippingOrder(id: string, reason: string, cancel
 
     if (currentOrder.status === "CANCELLED") {
       throw new AppError("Este pedido para envio ja foi cancelado.", 409);
+    }
+
+    if (currentOrder.status === "COMPLETED") {
+      throw new AppError("Venda concluida nao pode ser cancelada por este fluxo.", 409);
     }
 
     if (currentOrder.status === "APPROVED" || currentOrder.status === "SEPARATED") {
@@ -145,7 +160,70 @@ export async function confirmShippingOrderSeparation(id: string, separatedByUser
       throw new AppError("A separacao deste pedido ja foi confirmada.", 409);
     }
 
+    if (currentOrder.status === "COMPLETED") {
+      throw new AppError("Este pedido ja foi concluido como venda.", 409);
+    }
+
     return separateShippingOrder(transaction, id, separatedByUserId);
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: order,
+  };
+}
+
+export async function completeSeparatedShippingOrder(
+  id: string,
+  paymentMethodId: string,
+  completedByUserId: string,
+) {
+  const order = await db.transaction(async (transaction) => {
+    const currentOrder = await lockShippingOrder(transaction, id);
+
+    if (!currentOrder) {
+      throw new AppError("Pedido para envio nao encontrado.", 404);
+    }
+
+    if (currentOrder.status !== "SEPARATED") {
+      throw new AppError("Confirme a separacao antes de concluir a venda para envio.", 409);
+    }
+
+    const cashRegister = await findOpenCashRegister(transaction);
+
+    if (!cashRegister) {
+      throw new AppError("Abra o caixa antes de concluir a venda para envio.", 422);
+    }
+
+    if (!(await activePaymentMethodExists(transaction, paymentMethodId))) {
+      throw new AppError("Forma de pagamento informada nao disponivel.", 422);
+    }
+
+    const product = await lockReservableProduct(transaction, currentOrder.productId);
+    const quantity = Number(currentOrder.quantity);
+
+    if (!product || Number(product.reservedStock) < quantity || Number(product.currentStock) < quantity) {
+      throw new AppError("Reserva insuficiente para concluir esta venda.", 422);
+    }
+
+    await releaseShippingOrderReservation(transaction, product.id, quantity);
+
+    const sale = await insertSale(
+      transaction,
+      {
+        productId: currentOrder.productId,
+        clientId: currentOrder.clientId,
+        paymentMethodId,
+        quantity,
+      },
+      cashRegister.id,
+      completedByUserId,
+      Number(currentOrder.unitPrice),
+      Number(currentOrder.totalAmount),
+    );
+
+    return completeShippingOrder(transaction, id, sale.id, completedByUserId);
   });
 
   return {
