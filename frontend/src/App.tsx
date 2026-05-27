@@ -441,6 +441,13 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  async function separateShippingOrder(order: ShippingOrder) {
+    await runAction(async () => {
+      await apiPatch(`/shipping-orders/${order.id}/separate`, {});
+      await loadCatalog();
+    });
+  }
+
   async function changeProductStatus(product: Product) {
     await runAction(async () => {
       await apiPatch(`/products/${product.id}/status`, { active: !product.active });
@@ -693,6 +700,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             orders={shippingOrders}
             onSubmit={createShippingOrder}
             onApprove={(order) => void approveShippingOrder(order)}
+            onSeparate={(order) => void separateShippingOrder(order)}
             onCancel={(event, order) => void cancelShippingOrder(event, order)}
           />
         ) : null}
@@ -1700,6 +1708,7 @@ function ShippingOrdersPage({
   orders,
   onSubmit,
   onApprove,
+  onSeparate,
   onCancel,
 }: {
   clients: Client[];
@@ -1707,6 +1716,7 @@ function ShippingOrdersPage({
   orders: ShippingOrder[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onApprove: (order: ShippingOrder) => void;
+  onSeparate: (order: ShippingOrder) => void;
   onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void;
 }) {
   return (
@@ -1798,10 +1808,14 @@ function ShippingOrdersPage({
                       <div className="shipping-order-actions">
                         {order.status === "QUOTED" ? (
                           <button className="action-button" type="button" onClick={() => onApprove(order)}>
-                            Aprovar e separar
+                            Aprovar e reservar
+                          </button>
+                        ) : order.status === "APPROVED" ? (
+                          <button className="action-button" type="button" onClick={() => onSeparate(order)}>
+                            Confirmar separacao
                           </button>
                         ) : (
-                          <span className="table-note">Separar para envio</span>
+                          <span className="table-note">Pronto para envio</span>
                         )}
                         <form className="cancel-order-form" onSubmit={(event) => onCancel(event, order)}>
                           <input
@@ -1861,11 +1875,15 @@ function shippingOrderStatusLabel(status: ShippingOrder["status"]) {
     return "Aprovado - separar";
   }
 
+  if (status === "SEPARATED") {
+    return "Separado para envio";
+  }
+
   return status === "CANCELLED" ? "Cancelado" : "Orcamento enviado";
 }
 
 function shippingOrderStatusClassName(status: ShippingOrder["status"]) {
-  if (status === "APPROVED") {
+  if (status === "APPROVED" || status === "SEPARATED") {
     return "status-tag active";
   }
 
