@@ -448,6 +448,18 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  async function completeShippingOrder(event: FormEvent<HTMLFormElement>, order: ShippingOrder) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    await runAction(async () => {
+      await apiPatch(`/shipping-orders/${order.id}/complete`, {
+        paymentMethodId: String(form.get("shippingPaymentMethodId") ?? ""),
+      });
+      await loadCatalog();
+    });
+  }
+
   async function changeProductStatus(product: Product) {
     await runAction(async () => {
       await apiPatch(`/products/${product.id}/status`, { active: !product.active });
@@ -696,11 +708,14 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
         {view === "shipping-orders" ? (
           <ShippingOrdersPage
             clients={clients}
+            cashRegister={cashRegister}
+            paymentMethods={paymentMethods}
             products={products}
             orders={shippingOrders}
             onSubmit={createShippingOrder}
             onApprove={(order) => void approveShippingOrder(order)}
             onSeparate={(order) => void separateShippingOrder(order)}
+            onComplete={(event, order) => void completeShippingOrder(event, order)}
             onCancel={(event, order) => void cancelShippingOrder(event, order)}
           />
         ) : null}
@@ -1704,19 +1719,25 @@ function SalesPage({
 
 function ShippingOrdersPage({
   clients,
+  cashRegister,
+  paymentMethods,
   products,
   orders,
   onSubmit,
   onApprove,
   onSeparate,
+  onComplete,
   onCancel,
 }: {
   clients: Client[];
+  cashRegister: CashRegisterSession | null;
+  paymentMethods: PaymentMethod[];
   products: Product[];
   orders: ShippingOrder[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onApprove: (order: ShippingOrder) => void;
   onSeparate: (order: ShippingOrder) => void;
+  onComplete: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void;
   onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void;
 }) {
   return (
@@ -1772,7 +1793,7 @@ function ShippingOrdersPage({
         <div className="panel-header compact">
           <div>
             <h2>Pedidos para envio</h2>
-            <span>Ao aprovar, separe fisicamente a quantidade reservada.</span>
+            <span>Reserve, separe e conclua a venda quando o pedido sair para envio.</span>
           </div>
           <span>{orders.length} registros</span>
         </div>
@@ -1804,7 +1825,7 @@ function ShippingOrdersPage({
                     {order.cancellationReason ? <div className="table-note">{order.cancellationReason}</div> : null}
                   </td>
                   <td>
-                    {order.status !== "CANCELLED" ? (
+                    {order.status !== "CANCELLED" && order.status !== "COMPLETED" ? (
                       <div className="shipping-order-actions">
                         {order.status === "QUOTED" ? (
                           <button className="action-button" type="button" onClick={() => onApprove(order)}>
@@ -1815,7 +1836,22 @@ function ShippingOrdersPage({
                             Confirmar separacao
                           </button>
                         ) : (
-                          <span className="table-note">Pronto para envio</span>
+                          <form className="cancel-order-form" onSubmit={(event) => onComplete(event, order)}>
+                            {!cashRegister ? <span className="table-note">Abra o caixa para concluir.</span> : null}
+                            <select name="shippingPaymentMethodId" defaultValue="" required disabled={!cashRegister}>
+                              <option value="" disabled>
+                                Pagamento
+                              </option>
+                              {paymentMethods.filter((method) => method.active).map((method) => (
+                                <option key={method.id} value={method.id}>
+                                  {method.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button className="action-button" type="submit" disabled={!cashRegister}>
+                              Concluir venda e saida
+                            </button>
+                          </form>
                         )}
                         <form className="cancel-order-form" onSubmit={(event) => onCancel(event, order)}>
                           <input
@@ -1829,6 +1865,8 @@ function ShippingOrdersPage({
                           </button>
                         </form>
                       </div>
+                    ) : order.status === "COMPLETED" ? (
+                      "Venda concluida"
                     ) : (
                       "-"
                     )}
@@ -1879,11 +1917,15 @@ function shippingOrderStatusLabel(status: ShippingOrder["status"]) {
     return "Separado para envio";
   }
 
+  if (status === "COMPLETED") {
+    return "Venda concluida";
+  }
+
   return status === "CANCELLED" ? "Cancelado" : "Orcamento enviado";
 }
 
 function shippingOrderStatusClassName(status: ShippingOrder["status"]) {
-  if (status === "APPROVED" || status === "SEPARATED") {
+  if (status === "APPROVED" || status === "SEPARATED" || status === "COMPLETED") {
     return "status-tag active";
   }
 

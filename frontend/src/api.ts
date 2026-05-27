@@ -129,9 +129,11 @@ export type ShippingOrder = {
   createdAt: string;
   approvedAt: string | null;
   separatedAt: string | null;
+  saleId: string | null;
+  completedAt: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
-  status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED";
+  status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED";
 };
 
 export async function apiGet<T>(path: string): Promise<T> {
