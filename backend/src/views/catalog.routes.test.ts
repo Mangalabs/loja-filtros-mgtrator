@@ -94,8 +94,9 @@ type ShippingOrder = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  separatedAt: string | null;
   cancellationReason: string | null;
-  status: "QUOTED" | "APPROVED" | "CANCELLED";
+  status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED";
 };
 
 type PaymentMethod = {
@@ -450,6 +451,18 @@ describe("catalog routes", () => {
     const listed = await request<ShippingOrder[]>("/shipping-orders");
     const afterApproval = await request<Product>(`/products/${product.body.data?.id}`);
     const lowStock = await request<Product[]>("/products/low-stock");
+    const separated = await request<ShippingOrder>(`/shipping-orders/${quoted.body.data?.id}/separate`, {
+      method: "PATCH",
+      body: {},
+    });
+    const repeatedSeparation = await request(`/shipping-orders/${quoted.body.data?.id}/separate`, {
+      method: "PATCH",
+      body: {},
+    });
+    const approvalAfterSeparation = await request(`/shipping-orders/${quoted.body.data?.id}/approve`, {
+      method: "PATCH",
+      body: {},
+    });
     const cancelled = await request<ShippingOrder>(`/shipping-orders/${quoted.body.data?.id}/cancel`, {
       method: "PATCH",
       body: { reason: "Cliente desistiu da compra" },
@@ -488,8 +501,18 @@ describe("catalog routes", () => {
     assert.equal(afterApproval.body.data?.reservedStock, "2.000");
     assert.equal(afterApproval.body.data?.availableStock, "1.000");
     assert.equal(lowStock.body.data?.[0]?.id, product.body.data?.id);
+    assert.equal(separated.status, 200);
+    assert.equal(separated.body.data?.status, "SEPARATED");
+    assert.ok(separated.body.data?.separatedAt);
+    assert.equal(repeatedSeparation.status, 409);
+    assert.equal(approvalAfterSeparation.status, 409);
+    assert.equal(
+      approvalAfterSeparation.body.message,
+      "A separacao deste pedido ja foi confirmada.",
+    );
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.ok(cancelled.body.data?.separatedAt);
     assert.equal(cancelled.body.data?.cancellationReason, "Cliente desistiu da compra");
     assert.equal(repeatedCancellation.status, 409);
     assert.equal(approvalAfterCancellation.status, 409);
