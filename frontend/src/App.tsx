@@ -26,8 +26,7 @@ import {
 } from "lucide-react";
 import MuiAlert from "@mui/material/Alert";
 import ButtonBase from "@mui/material/ButtonBase";
-import Button, { type ButtonProps } from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
+import Button from "@mui/material/Button";
 import Collapse from "@mui/material/Collapse";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -58,6 +57,9 @@ import {
   type Supplier,
 } from "./api";
 import { useAuth } from "./auth/AuthContext";
+import { PrimaryButton, SecondaryButton, StatusChip, TableActionButton } from "./components/ui";
+import { formatCurrency, formatDateTime, formatQuantity, formatSignedQuantity } from "./utils/format";
+import { QuotesPage, type QuoteDraftInput } from "./views/quotes/QuotesPage";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 type View =
@@ -91,24 +93,6 @@ type ConfirmationState = {
   resolve: (confirmed: boolean) => void;
   title: string;
 };
-type QuoteDraftItem = {
-  productId: string;
-  description: string;
-  quantity: string;
-  unitPrice: string;
-};
-type QuoteDraftInput = {
-  clientId: string;
-  validUntil?: string | null;
-  notes?: string | null;
-  items: Array<{
-    productId: string;
-    description?: string | null;
-    quantity: number;
-    unitPrice?: number | null;
-  }>;
-};
-
 const navSectionViews: Record<NavSectionKey, View[]> = {
   products: ["products", "new-product", "edit-product"],
   catalog: ["brands", "clients"],
@@ -1386,46 +1370,6 @@ function ConfirmationDialog({
   );
 }
 
-function StatusChip({ label, tone }: { label: string; tone: "success" | "neutral" | "warning" }) {
-  if (tone === "success") {
-    return <Chip color="success" label={label} size="small" variant="outlined" />;
-  }
-
-  if (tone === "warning") {
-    return <Chip color="warning" label={label} size="small" variant="outlined" />;
-  }
-
-  return <Chip label={label} size="small" variant="outlined" />;
-}
-
-type AppButtonProps = Omit<ButtonProps, "color" | "size" | "startIcon" | "variant"> & {
-  icon?: ReactNode;
-};
-
-function PrimaryButton({ children, icon, ...props }: AppButtonProps) {
-  return (
-    <Button color="success" variant="contained" startIcon={icon} {...props}>
-      {children}
-    </Button>
-  );
-}
-
-function SecondaryButton({ children, icon, ...props }: AppButtonProps) {
-  return (
-    <Button color="inherit" variant="outlined" startIcon={icon} {...props}>
-      {children}
-    </Button>
-  );
-}
-
-function TableActionButton({ children, icon, ...props }: AppButtonProps) {
-  return (
-    <Button color="inherit" size="small" variant="outlined" startIcon={icon} {...props}>
-      {children}
-    </Button>
-  );
-}
-
 function ProductsPage({
   products,
   search,
@@ -2228,233 +2172,6 @@ function CashRegisterPage({
   );
 }
 
-function QuotesPage({
-  clients,
-  products,
-  quotes,
-  onSubmit,
-}: {
-  clients: Client[];
-  products: Product[];
-  quotes: Quote[];
-  onSubmit: (input: QuoteDraftInput) => Promise<boolean>;
-}) {
-  const [clientId, setClientId] = useState("");
-  const [validUntil, setValidUntil] = useState("");
-  const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()]);
-  const activeProducts = products.filter((product) => product.active);
-  const quoteTotal = items.reduce((sum, item) => {
-    return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0);
-  }, 0);
-
-  function updateItem(index: number, changes: Partial<QuoteDraftItem>) {
-    setItems((currentItems) =>
-      currentItems.map((item, itemIndex) => {
-        if (itemIndex !== index) {
-          return item;
-        }
-
-        if (changes.productId) {
-          const product = activeProducts.find((currentProduct) => currentProduct.id === changes.productId);
-
-          return {
-            ...item,
-            ...changes,
-            description: product?.name ?? item.description,
-            unitPrice: product?.salePrice ?? item.unitPrice,
-          };
-        }
-
-        return { ...item, ...changes };
-      }),
-    );
-  }
-
-  function removeItem(index: number) {
-    setItems((currentItems) => currentItems.filter((_item, itemIndex) => itemIndex !== index));
-  }
-
-  function resetQuoteForm() {
-    setClientId("");
-    setValidUntil("");
-    setNotes("");
-    setItems([emptyQuoteItem()]);
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const saved = await onSubmit({
-      clientId,
-      validUntil: validUntil || null,
-      notes: notes.trim() || null,
-      items: items.map((item) => ({
-        productId: item.productId,
-        description: item.description.trim() || null,
-        quantity: Number(item.quantity),
-        unitPrice: item.unitPrice === "" ? null : Number(item.unitPrice),
-      })),
-    });
-
-    if (saved) {
-      resetQuoteForm();
-    }
-  }
-
-  return (
-    <section className="layout-grid stock-entry-layout">
-      <form className="panel form-panel" onSubmit={submit}>
-        <div className="panel-header compact">
-          <div>
-            <h2>Novo orcamento</h2>
-            <span>Monte itens, valores e dados comerciais antes do PDF.</span>
-          </div>
-          <ListIcon size={18} />
-        </div>
-        <select value={clientId} onChange={(event) => setClientId(event.target.value)} required>
-          <option value="" disabled>
-            Cliente
-          </option>
-          {clients.filter((client) => client.active).map((client) => (
-            <option key={client.id} value={client.id}>
-              {client.name}{client.phone ? ` - ${client.phone}` : ""}
-            </option>
-          ))}
-        </select>
-        <div className="two-columns">
-          <label className="field-label">
-            Validade
-            <input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
-          </label>
-          <label className="field-label">
-            Total
-            <input value={formatCurrency(quoteTotal)} disabled />
-          </label>
-        </div>
-        <textarea
-          value={notes}
-          maxLength={1000}
-          placeholder="Observacoes do orcamento"
-          rows={3}
-          onChange={(event) => setNotes(event.target.value)}
-        />
-
-        <div className="quote-items">
-          {items.map((item, index) => (
-            <div className="quote-item-row" key={index}>
-              <div className="panel-header compact">
-                <strong>Item {index + 1}</strong>
-                {items.length > 1 ? (
-                  <TableActionButton type="button" onClick={() => removeItem(index)}>
-                    Remover
-                  </TableActionButton>
-                ) : null}
-              </div>
-              <select
-                value={item.productId}
-                onChange={(event) => updateItem(index, { productId: event.target.value })}
-                required
-              >
-                <option value="" disabled>
-                  Produto
-                </option>
-                {activeProducts.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name} - base {formatCurrency(product.salePrice)}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={item.description}
-                placeholder="Descricao no orcamento"
-                maxLength={500}
-                onChange={(event) => updateItem(index, { description: event.target.value })}
-                required
-              />
-              <div className="two-columns">
-                <input
-                  value={item.quantity}
-                  type="number"
-                  min="0.001"
-                  step="0.001"
-                  placeholder="Quantidade"
-                  onChange={(event) => updateItem(index, { quantity: event.target.value })}
-                  required
-                />
-                <input
-                  value={item.unitPrice}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Valor unitario"
-                  onChange={(event) => updateItem(index, { unitPrice: event.target.value })}
-                  required
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <SecondaryButton type="button" onClick={() => setItems((currentItems) => [...currentItems, emptyQuoteItem()])}>
-          Adicionar item
-        </SecondaryButton>
-        <PrimaryButton icon={<Plus size={17} />} type="submit">
-          Salvar orcamento
-        </PrimaryButton>
-      </form>
-
-      <div className="panel wide">
-        <div className="panel-header compact">
-          <div>
-            <h2>Orcamentos salvos</h2>
-            <span>{quotes.length} registros</span>
-          </div>
-          <StatusChip label="PDF em etapa posterior" tone="warning" />
-        </div>
-        <div className="table-shell">
-          <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Cliente</th>
-                <th>Itens</th>
-                <th>Validade</th>
-                <th>Total</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quotes.map((quote) => (
-                <tr key={quote.id}>
-                  <td>{formatDateTime(quote.createdAt)}</td>
-                  <td>{quote.clientName}</td>
-                  <td>
-                    {quote.items.length} item(ns)
-                    <span className="table-note">
-                      {quote.items.map((item) => item.description).join(", ")}
-                    </span>
-                  </td>
-                  <td>{quote.validUntil ? formatDate(quote.validUntil) : "-"}</td>
-                  <td>{formatCurrency(quote.totalAmount)}</td>
-                  <td>
-                    <StatusChip label="Rascunho" tone="warning" />
-                  </td>
-                </tr>
-              ))}
-              {quotes.length === 0 ? (
-                <tr>
-                  <td colSpan={6}>Nenhum orcamento salvo.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function SalesPage({
   cashRegister,
   clients,
@@ -2962,41 +2679,4 @@ function productFormBody(form: FormData) {
     ncm: nullableFormValue(form, "ncm"),
     cest: nullableFormValue(form, "cest"),
   };
-}
-
-function formatQuantity(value: string) {
-  return Number(value).toLocaleString("pt-BR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 3,
-  });
-}
-
-function formatSignedQuantity(value: string) {
-  const quantity = Number(value);
-  const prefix = quantity > 0 ? "+" : "";
-  return `${prefix}${formatQuantity(value)}`;
-}
-
-function emptyQuoteItem(): QuoteDraftItem {
-  return {
-    productId: "",
-    description: "",
-    quantity: "1",
-    unitPrice: "",
-  };
-}
-
-function formatCurrency(value: string | number) {
-  return Number(value).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("pt-BR");
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("pt-BR");
 }
