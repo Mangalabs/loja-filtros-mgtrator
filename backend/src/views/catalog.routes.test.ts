@@ -131,8 +131,21 @@ type CashRegisterSession = {
   openedByUserId: string;
   openedByUserName: string;
   openingBalance: string;
-  status: "OPEN";
+  closingBalance: string | null;
+  closedByUserId: string | null;
+  closedByUserName: string | null;
+  status: "OPEN" | "CLOSED";
   openedAt: string;
+  closedAt: string | null;
+  salesTotal: string;
+  expectedClosingBalance: string;
+  difference: string | null;
+  paymentSummary: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    paymentMethodCode: string;
+    amount: string;
+  }>;
 };
 
 let server: Server;
@@ -309,11 +322,84 @@ describe("catalog routes", () => {
     assert.equal(empty.body.data, null);
     assert.equal(opened.status, 201);
     assert.equal(opened.body.data?.openingBalance, "150.50");
+    assert.equal(opened.body.data?.salesTotal, "0.00");
+    assert.equal(opened.body.data?.expectedClosingBalance, "150.50");
     assert.equal(opened.body.data?.openedByUserName, "Administrador de teste");
     assert.equal(opened.body.data?.status, "OPEN");
     assert.equal(current.body.data?.id, opened.body.data?.id);
     assert.equal(duplicate.status, 409);
     assert.equal(duplicate.body.message, "Ja existe um caixa aberto.");
+  });
+
+  it("closes the current cash register with a payment summary", async () => {
+    const closeWithoutCash = await request("/cash-register/close", {
+      method: "PATCH",
+      body: { closingBalance: 0 },
+    });
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro para fechamento", salePrice: 29.9 },
+    });
+    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
+    const pix = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "PIX");
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 3,
+        reason: "Saldo para fechamento",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 100 },
+    });
+    await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 2,
+      },
+    });
+
+    const current = await request<CashRegisterSession | null>("/cash-register/current");
+    const closed = await request<CashRegisterSession>("/cash-register/close", {
+      method: "PATCH",
+      body: { closingBalance: 160 },
+    });
+    const currentAfterClose = await request<CashRegisterSession | null>("/cash-register/current");
+    const saleAfterClose = await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+      },
+    });
+    const reopened = await request<CashRegisterSession>("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    assert.equal(closeWithoutCash.status, 422);
+    assert.equal(closeWithoutCash.body.message, "Nao existe caixa aberto para fechamento.");
+    assert.equal(current.body.data?.salesTotal, "59.80");
+    assert.equal(current.body.data?.expectedClosingBalance, "159.80");
+    assert.equal(current.body.data?.paymentSummary[0]?.paymentMethodCode, "PIX");
+    assert.equal(current.body.data?.paymentSummary[0]?.amount, "59.80");
+    assert.equal(closed.status, 200);
+    assert.equal(closed.body.data?.status, "CLOSED");
+    assert.equal(closed.body.data?.closingBalance, "160.00");
+    assert.equal(closed.body.data?.closedByUserName, "Administrador de teste");
+    assert.equal(closed.body.data?.salesTotal, "59.80");
+    assert.equal(closed.body.data?.expectedClosingBalance, "159.80");
+    assert.equal(closed.body.data?.difference, "0.20");
+    assert.equal(currentAfterClose.body.data, null);
+    assert.equal(saleAfterClose.status, 422);
+    assert.equal(saleAfterClose.body.message, "Abra o caixa antes de registrar uma venda.");
+    assert.equal(reopened.status, 201);
   });
 
   it("records a one-item counter sale and decreases product stock", async () => {
