@@ -387,6 +387,21 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  async function closeCashRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    await runAction(async () => {
+      await apiPatch("/cash-register/close", {
+        closingBalance: Number(form.get("closingBalance") || 0),
+      });
+
+      formElement.reset();
+      await loadCatalog();
+    });
+  }
+
   async function createSale(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -691,7 +706,12 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
         ) : null}
 
         {view === "cash-register" ? (
-          <CashRegisterPage session={cashRegister} user={user} onSubmit={openCashRegister} />
+          <CashRegisterPage
+            session={cashRegister}
+            user={user}
+            onOpen={openCashRegister}
+            onClose={closeCashRegister}
+          />
         ) : null}
 
         {view === "sales" ? (
@@ -1544,19 +1564,22 @@ function PaymentMethodsPage({
 function CashRegisterPage({
   session,
   user,
-  onSubmit,
+  onOpen,
+  onClose,
 }: {
   session: CashRegisterSession | null;
   user: AuthUser;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onOpen: (event: FormEvent<HTMLFormElement>) => void;
+  onClose: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   if (session) {
     return (
-      <div className="panel single-column">
+      <section className="layout-grid stock-entry-layout">
+        <div className="panel">
         <div className="panel-header compact">
           <div>
             <h2>Caixa aberto</h2>
-            <span>O fechamento sera disponibilizado em uma proxima etapa.</span>
+            <span>Confira os recebimentos antes de fechar o caixa.</span>
           </div>
           <span className="status-tag active">Aberto</span>
         </div>
@@ -1573,13 +1596,60 @@ function CashRegisterPage({
             <span>Saldo inicial</span>
             <strong>{formatCurrency(session.openingBalance)}</strong>
           </div>
+          <div>
+            <span>Vendas</span>
+            <strong>{formatCurrency(session.salesTotal)}</strong>
+          </div>
+          <div>
+            <span>Esperado</span>
+            <strong>{formatCurrency(session.expectedClosingBalance)}</strong>
+          </div>
         </div>
-      </div>
+        </div>
+
+        <form className="panel form-panel" onSubmit={onClose}>
+          <div className="panel-header compact">
+            <div>
+              <h2>Fechamento</h2>
+              <span>Informe o total conferido no caixa.</span>
+            </div>
+            <Banknote size={18} />
+          </div>
+          <div className="entity-list">
+            {session.paymentSummary.map((payment) => (
+              <div className="entity-row" key={payment.paymentMethodId}>
+                <strong>{payment.paymentMethodName}</strong>
+                <span>{formatCurrency(payment.amount)}</span>
+              </div>
+            ))}
+            {session.paymentSummary.length === 0 ? <span className="empty-text">Nenhuma venda registrada.</span> : null}
+          </div>
+          <label className="field-label">
+            Saldo esperado
+            <input value={formatCurrency(session.expectedClosingBalance)} disabled />
+          </label>
+          <label className="field-label">
+            Valor conferido
+            <input
+              name="closingBalance"
+              type="number"
+              min="0"
+              step="0.01"
+              defaultValue={session.expectedClosingBalance}
+              required
+            />
+          </label>
+          <button className="primary-button" type="submit">
+            <Plus size={17} />
+            Fechar caixa
+          </button>
+        </form>
+      </section>
     );
   }
 
   return (
-    <form className="panel form-panel single-column" onSubmit={onSubmit}>
+    <form className="panel form-panel single-column" onSubmit={onOpen}>
       <div className="panel-header compact">
         <div>
           <h2>Abrir caixa</h2>

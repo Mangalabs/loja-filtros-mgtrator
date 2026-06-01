@@ -97,8 +97,21 @@ export type CashRegisterSession = {
   openedByUserId: string;
   openedByUserName: string;
   openingBalance: string;
-  status: "OPEN";
+  closingBalance: string | null;
+  closedByUserId: string | null;
+  closedByUserName: string | null;
+  status: "OPEN" | "CLOSED";
   openedAt: string;
+  closedAt: string | null;
+  salesTotal: string;
+  expectedClosingBalance: string;
+  difference: string | null;
+  paymentSummary: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    paymentMethodCode: string;
+    amount: string;
+  }>;
 };
 
 export type Sale = {
