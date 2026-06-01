@@ -92,11 +92,38 @@ const initialOpenNavSections: Record<NavSectionKey, boolean> = {
   cash: true,
   sales: true,
 };
+const navSectionsStorageKey = "loja-filtros.nav-sections";
 
 function findActiveNavSection(view: View) {
   return (Object.keys(navSectionViews) as NavSectionKey[]).find((section) =>
     navSectionViews[section].includes(view),
   );
+}
+
+function readInitialOpenNavSections() {
+  if (typeof window === "undefined") {
+    return initialOpenNavSections;
+  }
+
+  const storedValue = window.localStorage.getItem(navSectionsStorageKey);
+
+  if (!storedValue) {
+    return initialOpenNavSections;
+  }
+
+  try {
+    const parsedValue = JSON.parse(storedValue) as Partial<Record<NavSectionKey, boolean>>;
+
+    return (Object.keys(initialOpenNavSections) as NavSectionKey[]).reduce(
+      (sections, section) => ({
+        ...sections,
+        [section]: typeof parsedValue[section] === "boolean" ? parsedValue[section] : sections[section],
+      }),
+      { ...initialOpenNavSections },
+    );
+  } catch {
+    return initialOpenNavSections;
+  }
 }
 
 const viewTitles: Record<View, { title: string; description: string }> = {
@@ -192,7 +219,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   const [selectedProduct, setSelectedProduct] = useState<Product>();
   const [selectedClient, setSelectedClient] = useState<Client>();
   const [openNavSections, setOpenNavSections] =
-    useState<Record<NavSectionKey, boolean>>(initialOpenNavSections);
+    useState<Record<NavSectionKey, boolean>>(readInitialOpenNavSections);
 
   async function loadCatalog() {
     setState("loading");
@@ -250,6 +277,10 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   useEffect(() => {
     void loadCatalog();
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(navSectionsStorageKey, JSON.stringify(openNavSections));
+  }, [openNavSections]);
 
   useEffect(() => {
     const activeSection = findActiveNavSection(view);
@@ -992,7 +1023,12 @@ function NavButton({
   onClick: () => void;
 }) {
   return (
-    <button className={active ? "nav-item active" : "nav-item"} type="button" onClick={onClick}>
+    <button
+      aria-current={active ? "page" : undefined}
+      className={active ? "nav-item active" : "nav-item"}
+      type="button"
+      onClick={onClick}
+    >
       {icon}
       {children}
     </button>

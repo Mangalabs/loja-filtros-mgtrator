@@ -79,6 +79,9 @@ textarea {
   letter-spacing: 0;
   padding: 10px 12px;
   text-transform: uppercase;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
   width: 100%;
 }
 
@@ -88,10 +91,21 @@ textarea {
   color: #ffffff;
 }
 
+.nav-section-trigger:focus-visible,
+.nav-item:focus-visible {
+  outline: 2px solid #9bd1b6;
+  outline-offset: 2px;
+}
+
 .nav-section-title {
   align-items: center;
   display: flex;
   gap: 10px;
+}
+
+.nav-section-title svg,
+.nav-item svg {
+  flex: 0 0 auto;
 }
 
 .nav-section-items {
@@ -112,6 +126,9 @@ textarea {
   padding: 10px 12px;
   text-align: left;
   text-decoration: none;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
   width: 100%;
 }
 
