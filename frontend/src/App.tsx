@@ -47,6 +47,7 @@ import {
   type Client,
   type NamedEntity,
   type PaymentMethod,
+  type PickupReservation,
   type Product,
   type Sale,
   type ShippingOrder,
@@ -70,6 +71,7 @@ type View =
   | "cash-register"
   | "sales"
   | "shipping-orders"
+  | "pickup-reservations"
   | "brands"
   | "clients"
   | "suppliers";
@@ -95,7 +97,7 @@ const navSectionViews: Record<NavSectionKey, View[]> = {
   suppliers: ["suppliers"],
   finance: ["payment-methods"],
   cash: ["cash-register"],
-  sales: ["sales", "shipping-orders"],
+  sales: ["sales", "shipping-orders", "pickup-reservations"],
 };
 
 const initialOpenNavSections: Record<NavSectionKey, boolean> = {
@@ -186,6 +188,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
     title: "Pedidos para envio",
     description: "Registre orcamentos aprovados pelo cliente e separe os produtos para envio.",
   },
+  "pickup-reservations": {
+    title: "Reservas para retirada",
+    description: "Reserve produtos para clientes retirarem na loja e conclua a venda no caixa.",
+  },
   brands: {
     title: "Fabricantes",
     description: "Cadastre os fabricantes usados no catalogo de produtos.",
@@ -228,6 +234,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   const [cashRegister, setCashRegister] = useState<CashRegisterSession | null>(null);
   const [sales, setSales] = useState<Sale[]>([]);
   const [shippingOrders, setShippingOrders] = useState<ShippingOrder[]>([]);
+  const [pickupReservations, setPickupReservations] = useState<PickupReservation[]>([]);
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -255,6 +262,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
         cashRegisterResult,
         salesResult,
         shippingOrdersResult,
+        pickupReservationsResult,
       ] =
         await Promise.all([
           apiGet<ApiResult<Product[]>>("/products"),
@@ -269,6 +277,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
           apiGet<ApiResult<Sale[]>>("/sales"),
           apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
+          apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
         ]);
 
       setProducts(productsResult.data);
@@ -283,6 +292,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
       setCashRegister(cashRegisterResult.data);
       setSales(salesResult.data);
       setShippingOrders(shippingOrdersResult.data);
+      setPickupReservations(pickupReservationsResult.data);
       setState("ready");
     } catch (error) {
       setState("error");
@@ -643,6 +653,71 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  async function createPickupReservation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    await runAction(async () => {
+      await apiPost("/pickup-reservations", {
+        clientId: String(form.get("pickupClientId") ?? ""),
+        productId: String(form.get("pickupProductId") ?? ""),
+        quantity: Number(form.get("pickupQuantity")),
+      });
+
+      formElement.reset();
+      await loadCatalog();
+    });
+  }
+
+  async function cancelPickupReservation(event: FormEvent<HTMLFormElement>, reservation: PickupReservation) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+
+    if (
+      !(await requestConfirmation(
+        `Cancelar a reserva de ${reservation.clientName}? O estoque reservado sera liberado.`,
+        "Cancelar reserva?",
+        "Cancelar reserva",
+      ))
+    ) {
+      return;
+    }
+
+    const form = new FormData(formElement);
+
+    await runAction(async () => {
+      await apiPatch(`/pickup-reservations/${reservation.id}/cancel`, {
+        reason: String(form.get("pickupCancellationReason") ?? "").trim(),
+      });
+      await loadCatalog();
+    });
+  }
+
+  async function completePickupReservation(event: FormEvent<HTMLFormElement>, reservation: PickupReservation) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+
+    if (
+      !(await requestConfirmation(
+        `Concluir a reserva de ${reservation.clientName} como venda e baixar o estoque?`,
+        "Concluir retirada?",
+        "Concluir venda",
+      ))
+    ) {
+      return;
+    }
+
+    const form = new FormData(formElement);
+
+    await runAction(async () => {
+      await apiPatch(`/pickup-reservations/${reservation.id}/complete`, {
+        paymentMethodId: String(form.get("pickupPaymentMethodId") ?? ""),
+      });
+      await loadCatalog();
+    });
+  }
+
   async function changeProductStatus(product: Product) {
     const nextStatus = product.active ? "inativar" : "ativar";
 
@@ -861,6 +936,13 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             >
               Para envio
             </NavButton>
+            <NavButton
+              active={view === "pickup-reservations"}
+              icon={<PackagePlus size={18} />}
+              onClick={() => setView("pickup-reservations")}
+            >
+              Retirada
+            </NavButton>
           </NavSection>
         </nav>
       </aside>
@@ -1036,6 +1118,19 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             onSeparate={(order) => void separateShippingOrder(order)}
             onComplete={(event, order) => void completeShippingOrder(event, order)}
             onCancel={(event, order) => void cancelShippingOrder(event, order)}
+          />
+        ) : null}
+
+        {view === "pickup-reservations" ? (
+          <PickupReservationsPage
+            cashRegister={cashRegister}
+            clients={clients}
+            paymentMethods={paymentMethods}
+            products={products}
+            reservations={pickupReservations}
+            onSubmit={createPickupReservation}
+            onComplete={(event, reservation) => void completePickupReservation(event, reservation)}
+            onCancel={(event, reservation) => void cancelPickupReservation(event, reservation)}
           />
         ) : null}
 
@@ -2386,6 +2481,163 @@ function ShippingOrdersPage({
   );
 }
 
+function PickupReservationsPage({
+  cashRegister,
+  clients,
+  paymentMethods,
+  products,
+  reservations,
+  onSubmit,
+  onComplete,
+  onCancel,
+}: {
+  cashRegister: CashRegisterSession | null;
+  clients: Client[];
+  paymentMethods: PaymentMethod[];
+  products: Product[];
+  reservations: PickupReservation[];
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onComplete: (event: FormEvent<HTMLFormElement>, reservation: PickupReservation) => void;
+  onCancel: (event: FormEvent<HTMLFormElement>, reservation: PickupReservation) => void;
+}) {
+  return (
+    <section className="layout-grid stock-entry-layout">
+      <form className="panel form-panel" onSubmit={onSubmit}>
+        <div className="panel-header compact">
+          <div>
+            <h2>Nova reserva</h2>
+            <span>Reserve uma peca para o cliente retirar na loja.</span>
+          </div>
+          <PackagePlus size={18} />
+        </div>
+        <p className="field-help">
+          A reserva prende o saldo disponivel imediatamente. A baixa acontece somente ao concluir a venda.
+        </p>
+        <select name="pickupClientId" defaultValue="" required>
+          <option value="" disabled>
+            Cliente
+          </option>
+          {clients.filter((client) => client.active).map((client) => (
+            <option key={client.id} value={client.id}>
+              {client.name}{client.phone ? ` - ${client.phone}` : ""}
+            </option>
+          ))}
+        </select>
+        <select name="pickupProductId" defaultValue="" required>
+          <option value="" disabled>
+            Produto
+          </option>
+          {products
+            .filter((product) => product.active && Number(product.availableStock) > 0)
+            .map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name} - {formatCurrency(product.salePrice)} - disponivel {formatQuantity(product.availableStock)}
+              </option>
+            ))}
+        </select>
+        <input
+          name="pickupQuantity"
+          type="number"
+          min="0.001"
+          step="0.001"
+          placeholder="Quantidade"
+          required
+        />
+        <PrimaryButton icon={<Plus size={17} />} type="submit">
+          Registrar reserva
+        </PrimaryButton>
+      </form>
+
+      <div className="panel wide">
+        <div className="panel-header compact">
+          <div>
+            <h2>Reservas para retirada</h2>
+            <span>Conclua a venda quando o cliente retirar ou cancele para liberar o estoque.</span>
+          </div>
+          <span>{reservations.length} registros</span>
+        </div>
+        <div className="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Cliente</th>
+                <th>Produto</th>
+                <th>Qtd.</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Acoes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reservations.map((reservation) => (
+                <tr key={reservation.id}>
+                  <td>{formatDateTime(reservation.createdAt)}</td>
+                  <td>{reservation.clientName}</td>
+                  <td>{reservation.productName}</td>
+                  <td>{formatQuantity(reservation.quantity)}</td>
+                  <td>{formatCurrency(reservation.totalAmount)}</td>
+                  <td>
+                    <StatusChip
+                      label={pickupReservationStatusLabel(reservation.status)}
+                      tone={pickupReservationStatusTone(reservation.status)}
+                    />
+                    {reservation.cancellationReason ? (
+                      <div className="table-note">{reservation.cancellationReason}</div>
+                    ) : null}
+                  </td>
+                  <td>
+                    {reservation.status === "RESERVED" ? (
+                      <div className="shipping-order-actions">
+                        <form className="cancel-order-form" onSubmit={(event) => onComplete(event, reservation)}>
+                          {!cashRegister ? <span className="table-note">Abra o caixa para concluir.</span> : null}
+                          <select name="pickupPaymentMethodId" defaultValue="" required disabled={!cashRegister}>
+                            <option value="" disabled>
+                              Pagamento
+                            </option>
+                            {paymentMethods.filter((method) => method.active).map((method) => (
+                              <option key={method.id} value={method.id}>
+                                {method.name}
+                              </option>
+                            ))}
+                          </select>
+                          <TableActionButton type="submit" disabled={!cashRegister}>
+                            Concluir venda
+                          </TableActionButton>
+                        </form>
+                        <form className="cancel-order-form" onSubmit={(event) => onCancel(event, reservation)}>
+                          <input
+                            name="pickupCancellationReason"
+                            maxLength={500}
+                            placeholder="Motivo do cancelamento"
+                            required
+                          />
+                          <TableActionButton type="submit">
+                            Cancelar
+                          </TableActionButton>
+                        </form>
+                      </div>
+                    ) : reservation.status === "COMPLETED" ? (
+                      "Venda concluida"
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {reservations.length === 0 ? (
+                <tr>
+                  <td colSpan={7}>Nenhuma reserva para retirada registrada.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Metric({
   active,
   icon,
@@ -2442,6 +2694,22 @@ function shippingOrderStatusLabel(status: ShippingOrder["status"]) {
 
 function shippingOrderStatusTone(status: ShippingOrder["status"]): "success" | "neutral" | "warning" {
   if (status === "APPROVED" || status === "SEPARATED" || status === "COMPLETED") {
+    return "success";
+  }
+
+  return status === "CANCELLED" ? "neutral" : "warning";
+}
+
+function pickupReservationStatusLabel(status: PickupReservation["status"]) {
+  if (status === "COMPLETED") {
+    return "Venda concluida";
+  }
+
+  return status === "CANCELLED" ? "Cancelada" : "Reservada";
+}
+
+function pickupReservationStatusTone(status: PickupReservation["status"]): "success" | "neutral" | "warning" {
+  if (status === "COMPLETED") {
     return "success";
   }
 

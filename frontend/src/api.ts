@@ -149,6 +149,25 @@ export type ShippingOrder = {
   status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED";
 };
 
+export type PickupReservation = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  clientPhone: string | null;
+  productId: string;
+  productName: string;
+  quantity: string;
+  unitPrice: string;
+  totalAmount: string;
+  createdByUserName: string;
+  createdAt: string;
+  saleId: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  status: "RESERVED" | "CANCELLED" | "COMPLETED";
+};
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`/api${path}`, {
     credentials: "same-origin",
