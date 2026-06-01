@@ -18,6 +18,7 @@ export function showApiInfo() {
         "/cash-register/close",
         "/sales",
         "/shipping-orders",
+        "/pickup-reservations",
         "/products",
         "/products/low-stock",
         "/payment-methods",

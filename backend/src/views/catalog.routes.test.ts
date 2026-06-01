@@ -101,6 +101,20 @@ type ShippingOrder = {
   status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED";
 };
 
+type PickupReservation = {
+  id: string;
+  clientName: string;
+  clientPhone: string | null;
+  productName: string;
+  quantity: string;
+  unitPrice: string;
+  totalAmount: string;
+  saleId: string | null;
+  completedAt: string | null;
+  cancellationReason: string | null;
+  status: "RESERVED" | "CANCELLED" | "COMPLETED";
+};
+
 type PaymentMethod = {
   id: string;
   code: string;
@@ -695,6 +709,143 @@ describe("catalog routes", () => {
     assert.equal(updatedProduct.body.data?.currentStock, "2.000");
     assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
     assert.equal(updatedProduct.body.data?.availableStock, "2.000");
+    assert.equal(saleMovement?.quantity, "-2.000");
+  });
+
+  it("creates and cancels a pickup reservation releasing reserved stock", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro reservado", salePrice: 49.9 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente retirada", phone: "85977776666" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 3,
+        reason: "Saldo para reserva",
+      },
+    });
+
+    const created = await request<PickupReservation>("/pickup-reservations", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 2,
+      },
+    });
+    const repeatedOverAvailable = await request("/pickup-reservations", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 2,
+      },
+    });
+    const reservedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const cancelled = await request<PickupReservation>(`/pickup-reservations/${created.body.data?.id}/cancel`, {
+      method: "PATCH",
+      body: { reason: "Cliente desistiu" },
+    });
+    const repeatedCancellation = await request(`/pickup-reservations/${created.body.data?.id}/cancel`, {
+      method: "PATCH",
+      body: { reason: "Tentativa repetida" },
+    });
+    const listed = await request<PickupReservation[]>("/pickup-reservations");
+    const releasedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.status, "RESERVED");
+    assert.equal(created.body.data?.totalAmount, "99.80");
+    assert.equal(repeatedOverAvailable.status, 422);
+    assert.equal(repeatedOverAvailable.body.message, "Quantidade indisponivel para esta reserva.");
+    assert.equal(reservedProduct.body.data?.reservedStock, "2.000");
+    assert.equal(reservedProduct.body.data?.availableStock, "1.000");
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(cancelled.body.data?.cancellationReason, "Cliente desistiu");
+    assert.equal(repeatedCancellation.status, 409);
+    assert.equal(listed.body.data?.length, 1);
+    assert.equal(releasedProduct.body.data?.reservedStock, "0.000");
+    assert.equal(releasedProduct.body.data?.availableStock, "3.000");
+  });
+
+  it("completes a pickup reservation as a sale", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro retirada venda", salePrice: 39.9 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente retirou" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 5,
+        reason: "Saldo para retirada",
+      },
+    });
+
+    const reservation = await request<PickupReservation>("/pickup-reservations", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 2,
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
+    const boleto = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "BOLETO");
+    const withoutCash = await request(`/pickup-reservations/${reservation.body.data?.id}/complete`, {
+      method: "PATCH",
+      body: { paymentMethodId: boleto?.id },
+    });
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const completed = await request<PickupReservation>(`/pickup-reservations/${reservation.body.data?.id}/complete`, {
+      method: "PATCH",
+      body: { paymentMethodId: boleto?.id },
+    });
+    const repeatedCompletion = await request(`/pickup-reservations/${reservation.body.data?.id}/complete`, {
+      method: "PATCH",
+      body: { paymentMethodId: boleto?.id },
+    });
+    const cancellationAfterCompletion = await request(`/pickup-reservations/${reservation.body.data?.id}/cancel`, {
+      method: "PATCH",
+      body: { reason: "Tentativa apos retirada" },
+    });
+    const sales = await request<Sale[]>("/sales");
+    const updatedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const movements = await request<StockMovement[]>("/stock-movements");
+    const saleMovement = movements.body.data?.find((movement) => movement.type === "SALE");
+
+    assert.equal(withoutCash.status, 422);
+    assert.equal(withoutCash.body.message, "Abra o caixa antes de concluir a reserva para retirada.");
+    assert.equal(completed.status, 200);
+    assert.equal(completed.body.data?.status, "COMPLETED");
+    assert.ok(completed.body.data?.saleId);
+    assert.ok(completed.body.data?.completedAt);
+    assert.equal(repeatedCompletion.status, 409);
+    assert.equal(cancellationAfterCompletion.status, 409);
+    assert.equal(sales.body.data?.length, 1);
+    assert.equal(sales.body.data?.[0]?.clientName, "Cliente retirou");
+    assert.equal(sales.body.data?.[0]?.paymentMethodName, "Boleto");
+    assert.equal(sales.body.data?.[0]?.totalAmount, "79.80");
+    assert.equal(updatedProduct.body.data?.currentStock, "3.000");
+    assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
+    assert.equal(updatedProduct.body.data?.availableStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
   });
 

@@ -1,0 +1,58 @@
+import { Router } from "express";
+import { z } from "zod";
+import {
+  cancelOpenPickupReservation,
+  completeReservedPickup,
+  indexPickupReservations,
+  storePickupReservation,
+} from "../../controllers/pickup-reservations/pickup-reservations.controller.js";
+import { validateBody } from "../../shared/validation/validate-request.js";
+
+export const pickupReservationsRoutes = Router();
+
+const createPickupReservationSchema = z
+  .object({
+    clientId: z.uuid(),
+    productId: z.uuid(),
+    quantity: z.coerce.number().positive(),
+  })
+  .strict();
+
+const pickupReservationParamsSchema = z.object({
+  id: z.uuid(),
+});
+
+const cancelPickupReservationSchema = z.object({
+  reason: z.string().trim().min(1).max(500),
+});
+
+const completePickupReservationSchema = z.object({
+  paymentMethodId: z.uuid(),
+});
+
+pickupReservationsRoutes.get("/pickup-reservations", async (_request, response) => {
+  response.status(200).json(await indexPickupReservations());
+});
+
+pickupReservationsRoutes.post("/pickup-reservations", async (request, response) => {
+  const body = validateBody(request, createPickupReservationSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(201).json(await storePickupReservation(body, userId));
+});
+
+pickupReservationsRoutes.patch("/pickup-reservations/:id/cancel", async (request, response) => {
+  const { id } = pickupReservationParamsSchema.parse(request.params);
+  const body = validateBody(request, cancelPickupReservationSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(200).json(await cancelOpenPickupReservation(id, body.reason, userId));
+});
+
+pickupReservationsRoutes.patch("/pickup-reservations/:id/complete", async (request, response) => {
+  const { id } = pickupReservationParamsSchema.parse(request.params);
+  const body = validateBody(request, completePickupReservationSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(200).json(await completeReservedPickup(id, body.paymentMethodId, userId));
+});

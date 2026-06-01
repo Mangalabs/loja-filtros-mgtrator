@@ -6,6 +6,7 @@ import { cashRegisterRoutes } from "./cash-register/cash-register.routes.js";
 import { clientsRoutes } from "./clients/clients.routes.js";
 import { healthRoutes } from "./health/health.routes.js";
 import { paymentMethodsRoutes } from "./payment-methods/payment-methods.routes.js";
+import { pickupReservationsRoutes } from "./pickup-reservations/pickup-reservations.routes.js";
 import { productGroupsRoutes } from "./product-groups/product-groups.routes.js";
 import { productsRoutes } from "./products/products.routes.js";
 import { rootRoutes } from "./root/root.routes.js";
@@ -26,6 +27,7 @@ export function registerRoutes(app: Express): void {
   app.use(cashRegisterRoutes);
   app.use(clientsRoutes);
   app.use(paymentMethodsRoutes);
+  app.use(pickupReservationsRoutes);
   app.use(productGroupsRoutes);
   app.use(productsRoutes);
   app.use(salesRoutes);
