@@ -27,6 +27,7 @@ import {
 import MuiAlert from "@mui/material/Alert";
 import ButtonBase from "@mui/material/ButtonBase";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -1263,6 +1264,18 @@ function ConfirmationDialog({
   );
 }
 
+function StatusChip({ label, tone }: { label: string; tone: "success" | "neutral" | "warning" }) {
+  if (tone === "success") {
+    return <Chip color="success" label={label} size="small" variant="outlined" />;
+  }
+
+  if (tone === "warning") {
+    return <Chip color="warning" label={label} size="small" variant="outlined" />;
+  }
+
+  return <Chip label={label} size="small" variant="outlined" />;
+}
+
 function ProductsPage({
   products,
   search,
@@ -1338,9 +1351,7 @@ function ProductTable({
               <td>{formatQuantity(product.availableStock)}</td>
               <td>R$ {product.salePrice}</td>
               <td>
-                <span className={product.active ? "status-tag active" : "status-tag inactive"}>
-                  {product.active ? "Ativo" : "Inativo"}
-                </span>
+                <StatusChip label={product.active ? "Ativo" : "Inativo"} tone={product.active ? "success" : "neutral"} />
               </td>
               <td>
                 <div className="table-actions">
@@ -1619,9 +1630,7 @@ function ClientsPage({
                   <td>{client.document ?? "-"}</td>
                   <td>{client.phone ?? "-"}</td>
                   <td>
-                    <span className={client.active ? "status-tag active" : "status-tag inactive"}>
-                      {client.active ? "Ativo" : "Inativo"}
-                    </span>
+                    <StatusChip label={client.active ? "Ativo" : "Inativo"} tone={client.active ? "success" : "neutral"} />
                   </td>
                   <td className="table-actions">
                     <button className="action-button" type="button" onClick={() => onEdit(client)}>
@@ -1938,9 +1947,10 @@ function PaymentMethodsPage({
                 <td>{paymentMethod.name}</td>
                 <td>{paymentMethod.code}</td>
                 <td>
-                  <span className={paymentMethod.active ? "status-tag active" : "status-tag inactive"}>
-                    {paymentMethod.active ? "Ativa" : "Inativa"}
-                  </span>
+                  <StatusChip
+                    label={paymentMethod.active ? "Ativa" : "Inativa"}
+                    tone={paymentMethod.active ? "success" : "neutral"}
+                  />
                 </td>
                 <td>
                   <button className="action-button" type="button" onClick={() => onChangeStatus(paymentMethod)}>
@@ -1977,7 +1987,7 @@ function CashRegisterPage({
             <h2>Caixa aberto</h2>
             <span>Confira os recebimentos antes de fechar o caixa.</span>
           </div>
-          <span className="status-tag active">Aberto</span>
+          <StatusChip label="Aberto" tone="success" />
         </div>
         <div className="cash-register-details">
           <div>
@@ -2285,9 +2295,10 @@ function ShippingOrdersPage({
                   <td>{formatQuantity(order.quantity)}</td>
                   <td>{formatCurrency(order.totalAmount)}</td>
                   <td>
-                    <span className={shippingOrderStatusClassName(order.status)}>
-                      {shippingOrderStatusLabel(order.status)}
-                    </span>
+                    <StatusChip
+                      label={shippingOrderStatusLabel(order.status)}
+                      tone={shippingOrderStatusTone(order.status)}
+                    />
                     {order.cancellationReason ? <div className="table-note">{order.cancellationReason}</div> : null}
                   </td>
                   <td>
@@ -2406,12 +2417,12 @@ function shippingOrderStatusLabel(status: ShippingOrder["status"]) {
   return status === "CANCELLED" ? "Cancelado" : "Orcamento enviado";
 }
 
-function shippingOrderStatusClassName(status: ShippingOrder["status"]) {
+function shippingOrderStatusTone(status: ShippingOrder["status"]): "success" | "neutral" | "warning" {
   if (status === "APPROVED" || status === "SEPARATED" || status === "COMPLETED") {
-    return "status-tag active";
+    return "success";
   }
 
-  return status === "CANCELLED" ? "status-tag inactive" : "status-tag pending";
+  return status === "CANCELLED" ? "neutral" : "warning";
 }
 
 function optionalFormValue(form: FormData, key: string): string | undefined {

@@ -556,29 +556,6 @@ tbody tr:last-child td {
   white-space: nowrap;
 }
 
-.status-tag {
-  border-radius: 999px;
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 5px 9px;
-}
-
-.status-tag.active {
-  background: #edf8f1;
-  color: #1f6f4a;
-}
-
-.status-tag.inactive {
-  background: #f0f1ef;
-  color: #65716c;
-}
-
-.status-tag.pending {
-  background: #fff4ed;
-  color: #8b3f18;
-}
-
 .stock-warning {
   color: #8b3f18;
   font-weight: 700;
