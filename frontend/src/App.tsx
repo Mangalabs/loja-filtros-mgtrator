@@ -3,10 +3,12 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   Banknote,
+  ChevronDown,
+  ChevronRight,
   CircleDollarSign,
   CreditCard,
   Filter,
-  List,
+  List as ListIcon,
   LogOut,
   PackagePlus,
   Pencil,
@@ -23,6 +25,7 @@ import {
   Send,
   X,
 } from "lucide-react";
+import Collapse from "@mui/material/Collapse";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import {
   apiGet,
@@ -61,6 +64,40 @@ type View =
   | "brands"
   | "clients"
   | "suppliers";
+type NavSectionKey =
+  | "products"
+  | "catalog"
+  | "stock"
+  | "suppliers"
+  | "finance"
+  | "cash"
+  | "sales";
+
+const navSectionViews: Record<NavSectionKey, View[]> = {
+  products: ["products", "new-product", "edit-product"],
+  catalog: ["brands", "clients"],
+  stock: ["stock-entries", "stock-adjustments", "stock-movements", "low-stock"],
+  suppliers: ["suppliers"],
+  finance: ["payment-methods"],
+  cash: ["cash-register"],
+  sales: ["sales", "shipping-orders"],
+};
+
+const initialOpenNavSections: Record<NavSectionKey, boolean> = {
+  products: true,
+  catalog: true,
+  stock: true,
+  suppliers: true,
+  finance: true,
+  cash: true,
+  sales: true,
+};
+
+function findActiveNavSection(view: View) {
+  return (Object.keys(navSectionViews) as NavSectionKey[]).find((section) =>
+    navSectionViews[section].includes(view),
+  );
+}
 
 const viewTitles: Record<View, { title: string; description: string }> = {
   products: {
@@ -154,6 +191,8 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   const [search, setSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product>();
   const [selectedClient, setSelectedClient] = useState<Client>();
+  const [openNavSections, setOpenNavSections] =
+    useState<Record<NavSectionKey, boolean>>(initialOpenNavSections);
 
   async function loadCatalog() {
     setState("loading");
@@ -211,6 +250,22 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   useEffect(() => {
     void loadCatalog();
   }, []);
+
+  useEffect(() => {
+    const activeSection = findActiveNavSection(view);
+
+    if (!activeSection) {
+      return;
+    }
+
+    setOpenNavSections((current) => {
+      if (current[activeSection]) {
+        return current;
+      }
+
+      return { ...current, [activeSection]: true };
+    });
+  }, [view]);
 
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -503,6 +558,14 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     setView("edit-product");
   }
 
+  function toggleNavSection(section: NavSectionKey) {
+    setOpenNavSections((current) => ({ ...current, [section]: !current[section] }));
+  }
+
+  function isNavSectionActive(section: NavSectionKey) {
+    return navSectionViews[section].includes(view);
+  }
+
   const activeTitle = viewTitles[view];
 
   return (
@@ -517,8 +580,14 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
         </div>
 
         <nav className="nav-list" aria-label="Navegacao principal">
-          <NavSection title="Produtos">
-            <NavButton active={view === "products"} icon={<List size={18} />} onClick={() => setView("products")}>
+          <NavSection
+            active={isNavSectionActive("products")}
+            icon={<PackagePlus size={17} />}
+            open={openNavSections.products}
+            title="Produtos"
+            onToggle={() => toggleNavSection("products")}
+          >
+            <NavButton active={view === "products"} icon={<ListIcon size={18} />} onClick={() => setView("products")}>
               Lista de produtos
             </NavButton>
             <NavButton
@@ -533,7 +602,13 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             </NavButton>
           </NavSection>
 
-          <NavSection title="Cadastros">
+          <NavSection
+            active={isNavSectionActive("catalog")}
+            icon={<Tags size={17} />}
+            open={openNavSections.catalog}
+            title="Cadastros"
+            onToggle={() => toggleNavSection("catalog")}
+          >
             <NavButton active={view === "brands"} icon={<Tags size={18} />} onClick={() => setView("brands")}>
               Fabricantes
             </NavButton>
@@ -542,7 +617,13 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             </NavButton>
           </NavSection>
 
-          <NavSection title="Estoque">
+          <NavSection
+            active={isNavSectionActive("stock")}
+            icon={<ArrowLeftRight size={17} />}
+            open={openNavSections.stock}
+            title="Estoque"
+            onToggle={() => toggleNavSection("stock")}
+          >
             <NavButton
               active={view === "stock-entries"}
               icon={<ArrowDownToLine size={18} />}
@@ -573,13 +654,25 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             </NavButton>
           </NavSection>
 
-          <NavSection title="Fornecedores">
+          <NavSection
+            active={isNavSectionActive("suppliers")}
+            icon={<Truck size={17} />}
+            open={openNavSections.suppliers}
+            title="Fornecedores"
+            onToggle={() => toggleNavSection("suppliers")}
+          >
             <NavButton active={view === "suppliers"} icon={<Truck size={18} />} onClick={() => setView("suppliers")}>
               Cadastro
             </NavButton>
           </NavSection>
 
-          <NavSection title="Financeiro">
+          <NavSection
+            active={isNavSectionActive("finance")}
+            icon={<CreditCard size={17} />}
+            open={openNavSections.finance}
+            title="Financeiro"
+            onToggle={() => toggleNavSection("finance")}
+          >
             <NavButton
               active={view === "payment-methods"}
               icon={<CreditCard size={18} />}
@@ -589,7 +682,13 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             </NavButton>
           </NavSection>
 
-          <NavSection title="Caixa">
+          <NavSection
+            active={isNavSectionActive("cash")}
+            icon={<Banknote size={17} />}
+            open={openNavSections.cash}
+            title="Caixa"
+            onToggle={() => toggleNavSection("cash")}
+          >
             <NavButton
               active={view === "cash-register"}
               icon={<Banknote size={18} />}
@@ -599,7 +698,13 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             </NavButton>
           </NavSection>
 
-          <NavSection title="Vendas">
+          <NavSection
+            active={isNavSectionActive("sales")}
+            icon={<ShoppingCart size={17} />}
+            open={openNavSections.sales}
+            title="Vendas"
+            onToggle={() => toggleNavSection("sales")}
+          >
             <NavButton active={view === "sales"} icon={<ShoppingCart size={18} />} onClick={() => setView("sales")}>
               Balcao
             </NavButton>
@@ -839,11 +944,38 @@ function LoginPage({
   );
 }
 
-function NavSection({ title, children }: { title: string; children: ReactNode }) {
+function NavSection({
+  active,
+  children,
+  icon,
+  open,
+  title,
+  onToggle,
+}: {
+  active: boolean;
+  children: ReactNode;
+  icon: ReactNode;
+  open: boolean;
+  title: string;
+  onToggle: () => void;
+}) {
   return (
     <div className="nav-section">
-      <span>{title}</span>
-      {children}
+      <button
+        aria-expanded={open}
+        className={active ? "nav-section-trigger active" : "nav-section-trigger"}
+        type="button"
+        onClick={onToggle}
+      >
+        <span className="nav-section-title">
+          {icon}
+          {title}
+        </span>
+        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+      </button>
+      <Collapse in={open} timeout="auto" unmountOnExit>
+        <div className="nav-section-items">{children}</div>
+      </Collapse>
     </div>
   );
 }

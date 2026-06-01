@@ -57,21 +57,47 @@ textarea {
 
 .nav-list {
   display: grid;
-  gap: 18px;
+  gap: 10px;
 }
 
 .nav-section {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
-.nav-section > span {
-  color: #91aa9d;
-  font-size: 12px;
+.nav-section-trigger {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: #b9c9c0;
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
   font-weight: 800;
+  justify-content: space-between;
   letter-spacing: 0;
-  padding: 0 12px;
+  padding: 10px 12px;
   text-transform: uppercase;
+  width: 100%;
+}
+
+.nav-section-trigger.active,
+.nav-section-trigger:hover {
+  background: #254638;
+  color: #ffffff;
+}
+
+.nav-section-title {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.nav-section-items {
+  display: grid;
+  gap: 6px;
+  padding: 4px 0 0 10px;
 }
 
 .nav-item {
@@ -87,6 +113,11 @@ textarea {
   text-align: left;
   text-decoration: none;
   width: 100%;
+}
+
+.nav-section-items .nav-item {
+  font-size: 14px;
+  padding-left: 14px;
 }
 
 .nav-item.active,
