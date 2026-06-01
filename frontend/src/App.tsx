@@ -69,6 +69,7 @@ import {
   StockMovementsPage,
 } from "./views/stock/StockPages";
 
+// Tipos e configuracoes de navegacao do shell principal.
 type LoadState = "idle" | "loading" | "ready" | "error";
 type View =
   | "products"
@@ -221,6 +222,7 @@ const viewTitles: Record<View, { title: string; description: string }> = {
   },
 };
 
+// Entrada da aplicacao: decide entre autenticacao/setup e area autenticada.
 export function App() {
   const { loading, login, logout, requiresSetup, setup, user } = useAuth();
 
@@ -235,6 +237,7 @@ export function App() {
   return <AuthenticatedApp user={user} onLogout={() => void logout()} />;
 }
 
+// Shell autenticado: concentra estado compartilhado, carregamento e orquestracao das telas.
 function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const [view, setView] = useState<View>("products");
   const [products, setProducts] = useState<Product[]>([]);
@@ -260,6 +263,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     useState<Record<NavSectionKey, boolean>>(readInitialOpenNavSections);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
 
+  // Carregamento dos dados usados pelas telas internas.
   async function loadCatalog() {
     setState("loading");
     setMessage("");
@@ -357,6 +361,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }, [products, search]);
 
+  // Utilitarios de fluxo: mensagem global, confirmacao e execucao padronizada de acoes.
   async function runAction(action: () => Promise<void>) {
     setMessage("");
 
@@ -383,6 +388,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     setConfirmation(null);
   }
 
+  // Acoes de cadastro e catalogo.
   async function createNamedEntity(
     event: FormEvent<HTMLFormElement>,
     path: string,
@@ -480,6 +486,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  // Acoes de estoque.
   async function createStockEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -516,6 +523,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  // Acoes financeiras e de caixa.
   async function openCashRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -557,6 +565,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  // Acoes de vendas, orcamentos, envio e retirada.
   async function createSale(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -729,6 +738,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
+  // Acoes de status e navegacao local.
   async function changeProductStatus(product: Product) {
     const nextStatus = product.active ? "inativar" : "ativar";
 
@@ -800,6 +810,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
 
   const activeTitle = viewTitles[view];
 
+  // Layout principal: sidebar, topo, resumo e selecao da tela ativa.
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -1183,6 +1194,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   );
 }
 
+// Componentes locais ainda mantidos no App enquanto o refactor manual continua.
 function LoginPage({
   requiresSetup,
   onLogin,
@@ -1784,6 +1796,7 @@ function Metric({
   );
 }
 
+// Helpers de formulario usados pelas acoes que ainda vivem no shell.
 function optionalFormValue(form: FormData, key: string): string | undefined {
   const value = String(form.get(key) ?? "").trim();
   return value ? value : undefined;
