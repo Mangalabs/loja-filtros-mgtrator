@@ -251,7 +251,42 @@ textarea {
   padding: 16px;
 }
 
-.metric span {
+.metric.metric-button {
+  color: #18211d;
+  display: grid;
+  justify-items: start;
+  text-align: left;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+  width: 100%;
+}
+
+.metric-button:hover,
+.metric-button.active {
+  border-color: #b5cfc1;
+  box-shadow: 0 10px 22px rgba(29, 51, 41, 0.08);
+  transform: translateY(-1px);
+}
+
+.metric-button:focus-visible {
+  outline: 2px solid #1f6f4a;
+  outline-offset: 3px;
+}
+
+.metric-icon {
+  align-items: center;
+  background: #edf5f0;
+  border-radius: 999px;
+  color: #1f6f4a;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.metric-label {
   color: #65716c;
   font-size: 13px;
 }

@@ -5,7 +5,6 @@ import {
   Banknote,
   ChevronDown,
   ChevronRight,
-  CircleDollarSign,
   CreditCard,
   Filter,
   List as ListIcon,
@@ -25,6 +24,7 @@ import {
   Send,
   X,
 } from "lucide-react";
+import ButtonBase from "@mui/material/ButtonBase";
 import Collapse from "@mui/material/Collapse";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import {
@@ -777,10 +777,34 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
         {message ? <div className={state === "error" ? "alert" : "notice"}>{message}</div> : null}
 
         <section className="summary-grid">
-          <Metric label="Produtos" value={products.length} />
-          <Metric label="Fabricantes" value={brands.length} />
-          <Metric label="Fornecedores" value={suppliers.length} />
-          <Metric label="Reposicao" value={lowStockProducts.length} />
+          <Metric
+            active={view === "products"}
+            icon={<PackagePlus size={18} />}
+            label="Produtos"
+            value={products.length}
+            onClick={() => setView("products")}
+          />
+          <Metric
+            active={view === "brands"}
+            icon={<Tags size={18} />}
+            label="Fabricantes"
+            value={brands.length}
+            onClick={() => setView("brands")}
+          />
+          <Metric
+            active={view === "suppliers"}
+            icon={<Truck size={18} />}
+            label="Fornecedores"
+            value={suppliers.length}
+            onClick={() => setView("suppliers")}
+          />
+          <Metric
+            active={view === "low-stock"}
+            icon={<AlertTriangle size={18} />}
+            label="Reposicao"
+            value={lowStockProducts.length}
+            onClick={() => setView("low-stock")}
+          />
         </section>
 
         {view === "products" ? (
@@ -2124,13 +2148,29 @@ function ShippingOrdersPage({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({
+  active,
+  icon,
+  label,
+  value,
+  onClick,
+}: {
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+  value: number;
+  onClick: () => void;
+}) {
   return (
-    <div className="metric">
-      <CircleDollarSign size={18} />
-      <span>{label}</span>
+    <ButtonBase
+      className={active ? "metric metric-button active" : "metric metric-button"}
+      focusRipple
+      onClick={onClick}
+    >
+      <span className="metric-icon">{icon}</span>
+      <span className="metric-label">{label}</span>
       <strong>{value}</strong>
-    </div>
+    </ButtonBase>
   );
 }
 
