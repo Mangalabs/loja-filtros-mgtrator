@@ -168,6 +168,30 @@ export type PickupReservation = {
   status: "RESERVED" | "CANCELLED" | "COMPLETED";
 };
 
+export type Quote = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  clientPhone: string | null;
+  status: "DRAFT";
+  totalAmount: string;
+  validUntil: string | null;
+  notes: string | null;
+  createdByUserName: string;
+  createdAt: string;
+  updatedAt: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    totalAmount: string;
+    position: number;
+  }>;
+};
+
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`/api${path}`, {
     credentials: "same-origin",
