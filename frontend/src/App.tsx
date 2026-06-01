@@ -757,6 +757,16 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             <p>{activeTitle.description}</p>
           </div>
           <div className="topbar-actions">
+            <button
+              className={cashRegister ? "cash-status-button open" : "cash-status-button closed"}
+              title="Ir para caixa"
+              type="button"
+              onClick={() => setView("cash-register")}
+            >
+              <Banknote size={17} />
+              <span>Caixa</span>
+              <strong>{cashRegister ? "Aberto" : "Fechado"}</strong>
+            </button>
             <div className="signed-user">
               <ShieldCheck size={17} />
               <div>
