@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import MuiAlert from "@mui/material/Alert";
 import ButtonBase from "@mui/material/ButtonBase";
-import Button from "@mui/material/Button";
+import Button, { type ButtonProps } from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
 import Dialog from "@mui/material/Dialog";
@@ -889,13 +889,12 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
                 <span>{user.email}</span>
               </div>
             </div>
-            <button className="icon-button" onClick={() => void loadCatalog()} title="Atualizar">
+            <IconButton color="success" onClick={() => void loadCatalog()} title="Atualizar">
               <RefreshCcw size={18} />
-            </button>
-            <button className="secondary-button" type="button" onClick={onLogout}>
-              <LogOut size={17} />
+            </IconButton>
+            <SecondaryButton icon={<LogOut size={17} />} type="button" onClick={onLogout}>
               Sair
-            </button>
+            </SecondaryButton>
           </div>
         </header>
 
@@ -1128,10 +1127,9 @@ function LoginPage({
           {requiresSetup ? <input name="name" placeholder="Nome do administrador" required /> : null}
           <input name="email" type="email" placeholder="Email" required />
           <input name="password" type="password" minLength={12} placeholder="Senha" required />
-          <button className="primary-button" type="submit" disabled={submitting}>
-            <ShieldCheck size={17} />
+          <PrimaryButton icon={<ShieldCheck size={17} />} type="submit" disabled={submitting}>
             {submitting ? "Aguarde..." : requiresSetup ? "Criar administrador" : "Entrar"}
-          </button>
+          </PrimaryButton>
         </form>
         {requiresSetup ? <small>A senha deve conter pelo menos 12 caracteres.</small> : null}
       </section>
@@ -1276,6 +1274,34 @@ function StatusChip({ label, tone }: { label: string; tone: "success" | "neutral
   return <Chip label={label} size="small" variant="outlined" />;
 }
 
+type AppButtonProps = Omit<ButtonProps, "color" | "size" | "startIcon" | "variant"> & {
+  icon?: ReactNode;
+};
+
+function PrimaryButton({ children, icon, ...props }: AppButtonProps) {
+  return (
+    <Button color="success" variant="contained" startIcon={icon} {...props}>
+      {children}
+    </Button>
+  );
+}
+
+function SecondaryButton({ children, icon, ...props }: AppButtonProps) {
+  return (
+    <Button color="inherit" variant="outlined" startIcon={icon} {...props}>
+      {children}
+    </Button>
+  );
+}
+
+function TableActionButton({ children, icon, ...props }: AppButtonProps) {
+  return (
+    <Button color="inherit" size="small" variant="outlined" startIcon={icon} {...props}>
+      {children}
+    </Button>
+  );
+}
+
 function ProductsPage({
   products,
   search,
@@ -1355,14 +1381,16 @@ function ProductTable({
               </td>
               <td>
                 <div className="table-actions">
-                  <button className="action-button" type="button" onClick={() => onEdit(product)}>
-                    <Pencil size={15} />
+                  <TableActionButton icon={<Pencil size={15} />} type="button" onClick={() => onEdit(product)}>
                     Editar
-                  </button>
-                  <button className="action-button" type="button" onClick={() => onChangeStatus(product)}>
-                    {product.active ? <PowerOff size={15} /> : <Power size={15} />}
+                  </TableActionButton>
+                  <TableActionButton
+                    icon={product.active ? <PowerOff size={15} /> : <Power size={15} />}
+                    type="button"
+                    onClick={() => onChangeStatus(product)}
+                  >
                     {product.active ? "Inativar" : "Ativar"}
-                  </button>
+                  </TableActionButton>
                 </div>
               </td>
             </tr>
@@ -1429,15 +1457,13 @@ function ProductForm({
       </div>
       <div className="form-actions">
         {onCancel ? (
-          <button className="secondary-button" type="button" onClick={onCancel}>
-            <X size={17} />
+          <SecondaryButton icon={<X size={17} />} type="button" onClick={onCancel}>
             Cancelar
-          </button>
+          </SecondaryButton>
         ) : null}
-        <button className="primary-button" type="submit">
-          {product ? <Pencil size={17} /> : <Plus size={17} />}
+        <PrimaryButton icon={product ? <Pencil size={17} /> : <Plus size={17} />} type="submit">
           {submitLabel}
-        </button>
+        </PrimaryButton>
       </div>
     </form>
   );
@@ -1462,10 +1488,9 @@ function NamedEntityPage({
           <Tags size={18} />
         </div>
         <input name={fieldName} placeholder="Nome" required />
-        <button className="primary-button" type="submit">
-          <Plus size={17} />
+        <PrimaryButton icon={<Plus size={17} />} type="submit">
           Cadastrar
-        </button>
+        </PrimaryButton>
       </form>
 
       <EntityList title={title} items={items} />
@@ -1511,10 +1536,9 @@ function SuppliersPage({
           <input name="supplierPhone" placeholder="Telefone" />
           <input name="supplierEmail" type="email" placeholder="Email" />
         </div>
-        <button className="primary-button" type="submit">
-          <Plus size={17} />
+        <PrimaryButton icon={<Plus size={17} />} type="submit">
           Cadastrar fornecedor
-        </button>
+        </PrimaryButton>
       </form>
 
       <div className="panel wide">
@@ -1594,14 +1618,13 @@ function ClientsPage({
         </div>
         <div className="form-actions">
           {selectedClient ? (
-            <button className="secondary-button" type="button" onClick={onCancel}>
+            <SecondaryButton type="button" onClick={onCancel}>
               Cancelar
-            </button>
+            </SecondaryButton>
           ) : null}
-          <button className="primary-button" type="submit">
-            <Plus size={17} />
+          <PrimaryButton icon={<Plus size={17} />} type="submit">
             {selectedClient ? "Salvar alteracoes" : "Cadastrar cliente"}
-          </button>
+          </PrimaryButton>
         </div>
       </form>
 
@@ -1633,13 +1656,16 @@ function ClientsPage({
                     <StatusChip label={client.active ? "Ativo" : "Inativo"} tone={client.active ? "success" : "neutral"} />
                   </td>
                   <td className="table-actions">
-                    <button className="action-button" type="button" onClick={() => onEdit(client)}>
-                      <Pencil size={14} /> Editar
-                    </button>
-                    <button className="action-button" type="button" onClick={() => onChangeStatus(client)}>
-                      {client.active ? <PowerOff size={14} /> : <Power size={14} />}
-                      {client.active ? " Inativar" : " Ativar"}
-                    </button>
+                    <TableActionButton icon={<Pencil size={14} />} type="button" onClick={() => onEdit(client)}>
+                      Editar
+                    </TableActionButton>
+                    <TableActionButton
+                      icon={client.active ? <PowerOff size={14} /> : <Power size={14} />}
+                      type="button"
+                      onClick={() => onChangeStatus(client)}
+                    >
+                      {client.active ? "Inativar" : "Ativar"}
+                    </TableActionButton>
                   </td>
                 </tr>
               ))}
@@ -1699,10 +1725,9 @@ function StockEntriesPage({
           <input name="entryUnitCost" type="number" min="0" step="0.01" placeholder="Custo unitario" required />
         </div>
         <textarea name="entryNotes" maxLength={500} placeholder="Observacao (opcional)" rows={3} />
-        <button className="primary-button" type="submit">
-          <Plus size={17} />
+        <PrimaryButton icon={<Plus size={17} />} type="submit">
           Registrar entrada
-        </button>
+        </PrimaryButton>
       </form>
 
       <div className="panel wide stock-entry-history">
@@ -1780,10 +1805,9 @@ function StockAdjustmentsPage({
         />
         <p className="field-help">Use valor positivo para acrescentar ou negativo para retirar itens.</p>
         <textarea name="adjustmentReason" maxLength={500} placeholder="Motivo do ajuste" rows={3} required />
-        <button className="primary-button" type="submit">
-          <Plus size={17} />
+        <PrimaryButton icon={<Plus size={17} />} type="submit">
           Registrar ajuste
-        </button>
+        </PrimaryButton>
       </form>
 
       <div className="panel wide stock-entry-history">
@@ -1953,10 +1977,13 @@ function PaymentMethodsPage({
                   />
                 </td>
                 <td>
-                  <button className="action-button" type="button" onClick={() => onChangeStatus(paymentMethod)}>
-                    {paymentMethod.active ? <PowerOff size={14} /> : <Power size={14} />}
-                    {paymentMethod.active ? " Inativar" : " Ativar"}
-                  </button>
+                  <TableActionButton
+                    icon={paymentMethod.active ? <PowerOff size={14} /> : <Power size={14} />}
+                    type="button"
+                    onClick={() => onChangeStatus(paymentMethod)}
+                  >
+                    {paymentMethod.active ? "Inativar" : "Ativar"}
+                  </TableActionButton>
                 </td>
               </tr>
             ))}
@@ -2045,10 +2072,9 @@ function CashRegisterPage({
               required
             />
           </label>
-          <button className="primary-button" type="submit">
-            <Plus size={17} />
+          <PrimaryButton icon={<Plus size={17} />} type="submit">
             Fechar caixa
-          </button>
+          </PrimaryButton>
         </form>
       </section>
     );
@@ -2071,10 +2097,9 @@ function CashRegisterPage({
         Saldo inicial
         <input name="openingBalance" type="number" min="0" step="0.01" defaultValue="0.00" required />
       </label>
-      <button className="primary-button" type="submit">
-        <Plus size={17} />
+      <PrimaryButton icon={<Plus size={17} />} type="submit">
         Abrir caixa
-      </button>
+      </PrimaryButton>
     </form>
   );
 }
@@ -2146,10 +2171,9 @@ function SalesPage({
             </option>
           ))}
         </select>
-        <button className="primary-button" type="submit" disabled={!cashRegister}>
-          <Plus size={17} />
+        <PrimaryButton icon={<Plus size={17} />} type="submit" disabled={!cashRegister}>
           Concluir venda
-        </button>
+        </PrimaryButton>
       </form>
 
       <div className="panel wide">
@@ -2259,10 +2283,9 @@ function ShippingOrdersPage({
           placeholder="Quantidade"
           required
         />
-        <button className="primary-button" type="submit">
-          <Plus size={17} />
+        <PrimaryButton icon={<Plus size={17} />} type="submit">
           Registrar orcamento
-        </button>
+        </PrimaryButton>
       </form>
 
       <div className="panel wide">
@@ -2305,13 +2328,13 @@ function ShippingOrdersPage({
                     {order.status !== "CANCELLED" && order.status !== "COMPLETED" ? (
                       <div className="shipping-order-actions">
                         {order.status === "QUOTED" ? (
-                          <button className="action-button" type="button" onClick={() => onApprove(order)}>
+                          <TableActionButton type="button" onClick={() => onApprove(order)}>
                             Aprovar e reservar
-                          </button>
+                          </TableActionButton>
                         ) : order.status === "APPROVED" ? (
-                          <button className="action-button" type="button" onClick={() => onSeparate(order)}>
+                          <TableActionButton type="button" onClick={() => onSeparate(order)}>
                             Confirmar separacao
-                          </button>
+                          </TableActionButton>
                         ) : (
                           <form className="cancel-order-form" onSubmit={(event) => onComplete(event, order)}>
                             {!cashRegister ? <span className="table-note">Abra o caixa para concluir.</span> : null}
@@ -2325,9 +2348,9 @@ function ShippingOrdersPage({
                                 </option>
                               ))}
                             </select>
-                            <button className="action-button" type="submit" disabled={!cashRegister}>
+                            <TableActionButton type="submit" disabled={!cashRegister}>
                               Concluir venda e saida
-                            </button>
+                            </TableActionButton>
                           </form>
                         )}
                         <form className="cancel-order-form" onSubmit={(event) => onCancel(event, order)}>
@@ -2337,9 +2360,9 @@ function ShippingOrdersPage({
                             placeholder="Motivo do cancelamento"
                             required
                           />
-                          <button className="action-button" type="submit">
+                          <TableActionButton type="submit">
                             Cancelar
-                          </button>
+                          </TableActionButton>
                         </form>
                       </div>
                     ) : order.status === "COMPLETED" ? (
