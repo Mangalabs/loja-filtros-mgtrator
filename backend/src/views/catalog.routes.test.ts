@@ -115,6 +115,27 @@ type PickupReservation = {
   status: "RESERVED" | "CANCELLED" | "COMPLETED";
 };
 
+type Quote = {
+  id: string;
+  clientName: string;
+  clientPhone: string | null;
+  status: "DRAFT";
+  totalAmount: string;
+  validUntil: string | null;
+  notes: string | null;
+  createdByUserName: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    totalAmount: string;
+    position: number;
+  }>;
+};
+
 type PaymentMethod = {
   id: string;
   code: string;
@@ -847,6 +868,110 @@ describe("catalog routes", () => {
     assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
     assert.equal(updatedProduct.body.data?.availableStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
+  });
+
+  it("creates and shows a multi-item quote without changing stock", async () => {
+    const firstProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro quote A", salePrice: 50 },
+    });
+    const secondProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro quote B", salePrice: 80 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente orcamento", phone: "85911112222" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: firstProduct.body.data?.id,
+        quantity: 2,
+        reason: "Saldo nao deve mudar no orcamento",
+      },
+    });
+
+    const created = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        validUntil: "2026-06-30",
+        notes: "Retirar condicoes no PDF depois",
+        items: [
+          {
+            productId: firstProduct.body.data?.id,
+            quantity: 2,
+            unitPrice: 45,
+            description: "Filtro quote A promocional",
+          },
+          {
+            productId: secondProduct.body.data?.id,
+            quantity: 1,
+          },
+        ],
+      },
+    });
+    const shown = await request<Quote>(`/quotes/${created.body.data?.id}`);
+    const listed = await request<Quote[]>("/quotes");
+    const unchangedProduct = await request<Product>(`/products/${firstProduct.body.data?.id}`);
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.status, "DRAFT");
+    assert.equal(created.body.data?.clientName, "Cliente orcamento");
+    assert.equal(created.body.data?.totalAmount, "170.00");
+    assert.ok(created.body.data?.validUntil?.startsWith("2026-06-30"));
+    assert.equal(created.body.data?.notes, "Retirar condicoes no PDF depois");
+    assert.equal(created.body.data?.items.length, 2);
+    assert.equal(created.body.data?.items[0]?.description, "Filtro quote A promocional");
+    assert.equal(created.body.data?.items[0]?.unitPrice, "45.00");
+    assert.equal(created.body.data?.items[0]?.totalAmount, "90.00");
+    assert.equal(created.body.data?.items[1]?.description, "Filtro quote B");
+    assert.equal(created.body.data?.items[1]?.unitPrice, "80.00");
+    assert.equal(shown.body.data?.items.length, 2);
+    assert.equal(listed.body.data?.length, 1);
+    assert.equal(unchangedProduct.body.data?.currentStock, "2.000");
+    assert.equal(unchangedProduct.body.data?.reservedStock, "0.000");
+  });
+
+  it("rejects quotes with unavailable products or empty items", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro indisponivel quote", salePrice: 25 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente quote invalido" },
+    });
+
+    await request(`/products/${product.body.data?.id}/status`, {
+      method: "PATCH",
+      body: { active: false },
+    });
+
+    const withoutItems = await request("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        items: [],
+      },
+    });
+    const inactiveProduct = await request("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+
+    assert.equal(withoutItems.status, 422);
+    assert.equal(withoutItems.body.errors?.[0]?.field, "items");
+    assert.equal(inactiveProduct.status, 422);
+    assert.equal(
+      inactiveProduct.body.message,
+      "Um ou mais produtos informados nao estao disponiveis para orcamento.",
+    );
   });
 
   it("creates and lists brands", async () => {

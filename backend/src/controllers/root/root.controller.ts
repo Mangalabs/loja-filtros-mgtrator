@@ -19,6 +19,7 @@ export function showApiInfo() {
         "/sales",
         "/shipping-orders",
         "/pickup-reservations",
+        "/quotes",
         "/products",
         "/products/low-stock",
         "/payment-methods",
