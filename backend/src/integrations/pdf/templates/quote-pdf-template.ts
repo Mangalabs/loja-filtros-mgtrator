@@ -2,20 +2,21 @@ import type { Quote } from "../../../models/quotes/quotes.model.js";
 
 export function quotePdfHtml(quote: Quote) {
   const rows = quote.items
-    .map(
-      (item) => `
+    .map((item, index) => {
+      return `
         <tr>
-          <td>${item.position}</td>
+          <td class="text-center">${String(index + 1).padStart(2, "0")}</td>
           <td>
             <strong>${escapeHtml(item.description)}</strong>
-            <small>${escapeHtml(item.productName)}</small>
+            <span class="item-origin">${escapeHtml(item.productName)}</span>
           </td>
-          <td>${formatQuantity(item.quantity)}</td>
-          <td>${formatCurrency(item.unitPrice)}</td>
-          <td>${formatCurrency(item.totalAmount)}</td>
+          <td class="text-center">${escapeHtml(item.productNcm ?? "-")}</td>
+          <td class="text-center">${formatQuantity(item.quantity)}</td>
+          <td class="text-right">${formatCurrency(item.unitPrice)}</td>
+          <td class="text-right">${formatCurrency(item.totalAmount)}</td>
         </tr>
-      `,
-    )
+      `;
+    })
     .join("");
 
   return `
@@ -23,63 +24,86 @@ export function quotePdfHtml(quote: Quote) {
     <html lang="pt-BR">
       <head>
         <meta charset="utf-8" />
-        <title>Orcamento ${escapeHtml(quote.id)}</title>
+        <title>Orcamento no ${escapeHtml(quote.id)}</title>
         <style>
           ${quotePdfCss()}
         </style>
       </head>
       <body>
-        <header>
-          <div>
-            <h1>Orcamento</h1>
-            <p class="quote-number">Codigo: ${escapeHtml(quote.id)}</p>
-          </div>
-          <div class="muted company-block">
-            <p>Filtros MG</p>
-            <p>Operacao da filial</p>
-          </div>
-        </header>
+        <div class="page">
+          <header class="header-container">
+            <div class="logo-area">
+              <span>Filtros MG</span>
+            </div>
+            <div class="company-info">
+              <h1 class="document-title">ORCAMENTO</h1>
+              <strong>Filtros MG</strong><br />
+              Operacao da filial<br />
+              Documento comercial sem valor fiscal
+            </div>
+          </header>
 
-        <section class="section grid">
-          <div class="card">
-            <h2>Cliente</h2>
-            <p>${escapeHtml(quote.clientName)}</p>
-            <p class="muted">${escapeHtml(quote.clientPhone ?? "Telefone nao informado")}</p>
-          </div>
-          <div class="card">
-            <h2>Condicoes</h2>
-            <p>Emissao: ${formatDate(quote.createdAt)}</p>
-            <p>Validade: ${quote.validUntil ? formatDate(quote.validUntil) : "Nao informada"}</p>
-          </div>
-        </section>
+          <section class="info-grid">
+            <div class="info-box">
+              <h2>Dados do cliente</h2>
+              <p><strong>Nome:</strong> ${escapeHtml(quote.clientName)}</p>
+              <p><strong>Telefone:</strong> ${escapeHtml(quote.clientPhone ?? "Nao informado")}</p>
+              <p><strong>Documento:</strong> ${escapeHtml(quote.clientDocument ?? "Nao informado")}</p>
+              <p><strong>Email:</strong> ${escapeHtml(quote.clientEmail ?? "Nao informado")}</p>
+            </div>
 
-        <section class="section">
-          <h2>Itens</h2>
-          <table>
+            <div class="info-box">
+              <h2>Condicoes comerciais</h2>
+              <p><strong>No controle:</strong> #${escapeHtml(quote.id)}</p>
+              <p><strong>Data de emissao:</strong> ${formatDate(quote.createdAt)}</p>
+              <p><strong>Forma de pagamento:</strong> A combinar</p>
+              <p><strong>Validade da proposta:</strong> ${quote.validUntil ? formatDate(quote.validUntil) : "Nao informada"}</p>
+            </div>
+          </section>
+
+          <table class="items-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>Descricao</th>
-                <th>Qtd.</th>
-                <th>Valor un.</th>
-                <th>Total</th>
+                <th class="text-center">Item</th>
+                <th>Descricao do produto</th>
+                <th class="text-center">NCM</th>
+                <th class="text-center">Qtd</th>
+                <th class="text-right">Val. unitario</th>
+                <th class="text-right">Val. total</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>
-          <div class="total">
-            <div class="total-box">
-              <span>Total do orcamento</span>
-              <strong>${formatCurrency(quote.totalAmount)}</strong>
-            </div>
-          </div>
-        </section>
 
-        ${quote.notes ? `<section class="section card"><h2>Observacoes</h2><p>${escapeHtml(quote.notes)}</p></section>` : ""}
+          <section class="financial-summary">
+            <table class="summary-table">
+              <tbody>
+                <tr>
+                  <td>Subtotal dos itens:</td>
+                  <td class="text-right">${formatCurrency(quote.totalAmount)}</td>
+                </tr>
+                <tr>
+                  <td>Frete:</td>
+                  <td class="text-right">A combinar</td>
+                </tr>
+                <tr>
+                  <td>Impostos calculados:</td>
+                  <td class="text-right">Inclusos quando aplicavel</td>
+                </tr>
+                <tr class="total-row">
+                  <td>Total geral:</td>
+                  <td class="text-right">${formatCurrency(quote.totalAmount)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
 
-        <footer>
-          Este documento e um orcamento comercial e nao representa documento fiscal.
-        </footer>
+          ${quote.notes ? `<section class="notes-box"><h2>Observacoes</h2><p>${escapeHtml(quote.notes)}</p></section>` : ""}
+
+          <footer class="footer">
+            Gerado automaticamente pelo sistema da filial. Proposta sujeita a disponibilidade de estoque.
+          </footer>
+        </div>
       </body>
     </html>
   `;
@@ -87,81 +111,159 @@ export function quotePdfHtml(quote: Quote) {
 
 function quotePdfCss() {
   return `
-    * { box-sizing: border-box; }
-    body {
-      color: #18211d;
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 13px;
+    @page {
+      size: A4;
       margin: 0;
     }
-    header {
-      align-items: flex-start;
-      border-bottom: 2px solid #1f6f4a;
+    * { box-sizing: border-box; }
+    body {
+      color: #333333;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.4;
+      margin: 0;
+      padding: 0;
+    }
+    .page {
+      min-height: 100%;
+      padding-bottom: 26px;
+      position: relative;
+    }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    .header-container {
+      align-items: center;
+      border-bottom: 2px solid #1a365d;
       display: flex;
       justify-content: space-between;
-      padding-bottom: 18px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
     }
-    h1, h2, p { margin: 0; }
-    h1 { color: #1d3329; font-size: 26px; }
-    h2 { color: #1d3329; font-size: 16px; margin-bottom: 8px; }
-    .muted { color: #65716c; }
-    .company-block { text-align: right; }
-    .quote-number { color: #65716c; font-size: 12px; margin-top: 6px; }
-    .section { margin-top: 22px; }
-    .grid {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .logo-area {
+      align-items: center;
+      background-color: #f1f5f9;
+      border: 1px dashed #cbd5e1;
+      color: #64748b;
+      display: flex;
+      font-size: 9pt;
+      height: 55px;
+      justify-content: center;
+      width: 140px;
     }
-    .card {
-      background: #f7faf7;
-      border: 1px solid #dfe5e1;
-      border-radius: 8px;
-      padding: 12px;
+    .company-info {
+      color: #475569;
+      font-size: 8.5pt;
+      text-align: right;
+    }
+    .document-title {
+      color: #1a365d;
+      font-size: 16pt;
+      font-weight: 700;
+      margin: 0 0 3px;
+    }
+    .info-grid {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .info-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      flex: 1;
+      padding: 10px;
+    }
+    .info-box h2,
+    .notes-box h2 {
+      border-bottom: 1px solid #e2e8f0;
+      color: #1a365d;
+      font-size: 10pt;
+      margin: 0 0 6px;
+      padding-bottom: 3px;
+      text-transform: uppercase;
+    }
+    .info-box p,
+    .notes-box p {
+      color: #334155;
+      font-size: 9pt;
+      margin: 3px 0;
     }
     table {
       border-collapse: collapse;
-      margin-top: 10px;
       width: 100%;
     }
-    th {
-      background: #edf5f0;
-      color: #294236;
-      font-size: 12px;
-      text-align: left;
+    tr {
+      page-break-inside: avoid;
     }
-    th, td {
-      border-bottom: 1px solid #dfe5e1;
-      padding: 9px 8px;
+    th {
+      background-color: #1a365d;
+      color: #ffffff;
+      font-size: 9pt;
+      font-weight: 600;
+      padding: 6px 8px;
+      text-transform: uppercase;
+    }
+    td {
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 9pt;
+      padding: 6px 8px;
       vertical-align: top;
     }
-    td small {
-      color: #65716c;
-      display: block;
-      margin-top: 4px;
+    .items-table {
+      margin-bottom: 20px;
     }
-    .total {
-      align-items: center;
+    .items-table th:nth-child(1) { width: 6%; }
+    .items-table th:nth-child(2) { width: 44%; }
+    .items-table th:nth-child(3) { width: 14%; }
+    .items-table th:nth-child(4) { width: 8%; }
+    .items-table th:nth-child(5) { width: 14%; }
+    .items-table th:nth-child(6) { width: 14%; }
+    .items-table tr:nth-child(even) td {
+      background-color: #f8fafc;
+    }
+    .item-origin {
+      color: #64748b;
+      display: block;
+      font-size: 8pt;
+      margin-top: 2px;
+    }
+    .financial-summary {
       display: flex;
       justify-content: flex-end;
+      margin-top: 10px;
+      page-break-inside: avoid;
+    }
+    .summary-table {
+      width: 280px;
+    }
+    .summary-table td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 5px 8px;
+    }
+    .summary-table tr.total-row td {
+      background-color: #f1f5f9;
+      border-top: 2px solid #1a365d;
+      color: #1a365d;
+      font-size: 10.5pt;
+      font-weight: 700;
+    }
+    .notes-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
       margin-top: 18px;
+      padding: 10px;
     }
-    .total-box {
-      background: #1f6f4a;
-      border-radius: 8px;
-      color: #ffffff;
-      min-width: 220px;
-      padding: 14px;
-      text-align: right;
-    }
-    .total-box span { display: block; font-size: 12px; opacity: 0.85; }
-    .total-box strong { display: block; font-size: 24px; margin-top: 4px; }
-    footer {
-      border-top: 1px solid #dfe5e1;
-      color: #65716c;
-      font-size: 11px;
-      margin-top: 28px;
-      padding-top: 12px;
+    .footer {
+      border-top: 1px solid #e2e8f0;
+      bottom: 0;
+      color: #94a3b8;
+      font-size: 7.5pt;
+      left: 0;
+      padding-top: 6px;
+      position: fixed;
+      right: 0;
+      text-align: center;
     }
   `;
 }

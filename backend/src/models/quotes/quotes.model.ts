@@ -19,6 +19,7 @@ export type QuoteItem = {
   id: string;
   productId: string;
   productName: string;
+  productNcm: string | null;
   description: string;
   quantity: string;
   unitPrice: string;
@@ -31,6 +32,8 @@ export type Quote = {
   clientId: string;
   clientName: string;
   clientPhone: string | null;
+  clientDocument: string | null;
+  clientEmail: string | null;
   status: "DRAFT";
   totalAmount: string;
   validUntil: string | null;
@@ -58,6 +61,8 @@ const quoteColumns = [
   "quotes.client_id as clientId",
   "clients.name as clientName",
   "clients.phone as clientPhone",
+  "clients.document as clientDocument",
+  "clients.email as clientEmail",
   "quotes.status",
   "quotes.total_amount as totalAmount",
   "quotes.valid_until as validUntil",
@@ -72,6 +77,7 @@ const quoteItemColumns = [
   "quote_items.quote_id as quoteId",
   "quote_items.product_id as productId",
   "products.name as productName",
+  "products.ncm as productNcm",
   "quote_items.description",
   "quote_items.quantity",
   "quote_items.unit_price as unitPrice",

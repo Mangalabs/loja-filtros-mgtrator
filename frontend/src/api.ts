@@ -173,6 +173,8 @@ export type Quote = {
   clientId: string;
   clientName: string;
   clientPhone: string | null;
+  clientDocument: string | null;
+  clientEmail: string | null;
   status: "DRAFT";
   totalAmount: string;
   validUntil: string | null;
@@ -184,6 +186,7 @@ export type Quote = {
     id: string;
     productId: string;
     productName: string;
+    productNcm: string | null;
     description: string;
     quantity: string;
     unitPrice: string;
