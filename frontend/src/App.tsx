@@ -25,7 +25,13 @@ import {
   X,
 } from "lucide-react";
 import ButtonBase from "@mui/material/ButtonBase";
+import Button from "@mui/material/Button";
 import Collapse from "@mui/material/Collapse";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import {
   apiGet,
@@ -72,6 +78,12 @@ type NavSectionKey =
   | "finance"
   | "cash"
   | "sales";
+type ConfirmationState = {
+  confirmLabel?: string;
+  message: string;
+  resolve: (confirmed: boolean) => void;
+  title: string;
+};
 
 const navSectionViews: Record<NavSectionKey, View[]> = {
   products: ["products", "new-product", "edit-product"],
@@ -124,10 +136,6 @@ function readInitialOpenNavSections() {
   } catch {
     return initialOpenNavSections;
   }
-}
-
-function confirmAction(message: string) {
-  return window.confirm(message);
 }
 
 const viewTitles: Record<View, { title: string; description: string }> = {
@@ -224,6 +232,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   const [selectedClient, setSelectedClient] = useState<Client>();
   const [openNavSections, setOpenNavSections] =
     useState<Record<NavSectionKey, boolean>>(readInitialOpenNavSections);
+  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
 
   async function loadCatalog() {
     setState("loading");
@@ -327,6 +336,17 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
       setState("error");
       setMessage(error instanceof Error ? error.message : "Erro inesperado");
     }
+  }
+
+  function requestConfirmation(message: string, title = "Confirmar acao", confirmLabel = "Confirmar") {
+    return new Promise<boolean>((resolve) => {
+      setConfirmation({ confirmLabel, message, resolve, title });
+    });
+  }
+
+  function closeConfirmation(confirmed: boolean) {
+    confirmation?.resolve(confirmed);
+    setConfirmation(null);
   }
 
   async function createNamedEntity(
@@ -479,12 +499,18 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
 
   async function closeCashRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
 
-    if (!confirmAction("Confirmar fechamento do caixa? Depois disso, novas vendas exigirao uma nova abertura.")) {
+    if (
+      !(await requestConfirmation(
+        "Depois disso, novas vendas exigirao uma nova abertura.",
+        "Fechar caixa?",
+        "Fechar caixa",
+      ))
+    ) {
       return;
     }
 
-    const formElement = event.currentTarget;
     const form = new FormData(formElement);
 
     await runAction(async () => {
@@ -533,7 +559,13 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   }
 
   async function approveShippingOrder(order: ShippingOrder) {
-    if (!confirmAction(`Aprovar o pedido de ${order.clientName} e reservar ${formatQuantity(order.quantity)} item(ns)?`)) {
+    if (
+      !(await requestConfirmation(
+        `Aprovar o pedido de ${order.clientName} e reservar ${formatQuantity(order.quantity)} item(ns)?`,
+        "Aprovar pedido?",
+        "Aprovar e reservar",
+      ))
+    ) {
       return;
     }
 
@@ -545,12 +577,19 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
 
   async function cancelShippingOrder(event: FormEvent<HTMLFormElement>, order: ShippingOrder) {
     event.preventDefault();
+    const formElement = event.currentTarget;
 
-    if (!confirmAction(`Cancelar o pedido de ${order.clientName}? A reserva sera liberada, se existir.`)) {
+    if (
+      !(await requestConfirmation(
+        `Cancelar o pedido de ${order.clientName}? A reserva sera liberada, se existir.`,
+        "Cancelar pedido?",
+        "Cancelar pedido",
+      ))
+    ) {
       return;
     }
 
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
 
     await runAction(async () => {
       await apiPatch(`/shipping-orders/${order.id}/cancel`, {
@@ -561,7 +600,13 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   }
 
   async function separateShippingOrder(order: ShippingOrder) {
-    if (!confirmAction(`Confirmar separacao do pedido de ${order.clientName}?`)) {
+    if (
+      !(await requestConfirmation(
+        `Confirmar separacao do pedido de ${order.clientName}?`,
+        "Confirmar separacao?",
+        "Confirmar",
+      ))
+    ) {
       return;
     }
 
@@ -573,12 +618,19 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
 
   async function completeShippingOrder(event: FormEvent<HTMLFormElement>, order: ShippingOrder) {
     event.preventDefault();
+    const formElement = event.currentTarget;
 
-    if (!confirmAction(`Concluir o pedido de ${order.clientName} como venda e baixar o estoque?`)) {
+    if (
+      !(await requestConfirmation(
+        `Concluir o pedido de ${order.clientName} como venda e baixar o estoque?`,
+        "Concluir venda?",
+        "Concluir venda",
+      ))
+    ) {
       return;
     }
 
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
 
     await runAction(async () => {
       await apiPatch(`/shipping-orders/${order.id}/complete`, {
@@ -591,7 +643,12 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   async function changeProductStatus(product: Product) {
     const nextStatus = product.active ? "inativar" : "ativar";
 
-    if (!confirmAction(`Confirmar ${nextStatus} o produto "${product.name}"?`)) {
+    if (
+      !(await requestConfirmation(
+        `Confirmar ${nextStatus} o produto "${product.name}"?`,
+        "Alterar status do produto?",
+      ))
+    ) {
       return;
     }
 
@@ -604,7 +661,12 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   async function changePaymentMethodStatus(paymentMethod: PaymentMethod) {
     const nextStatus = paymentMethod.active ? "inativar" : "ativar";
 
-    if (!confirmAction(`Confirmar ${nextStatus} a forma de pagamento "${paymentMethod.name}"?`)) {
+    if (
+      !(await requestConfirmation(
+        `Confirmar ${nextStatus} a forma de pagamento "${paymentMethod.name}"?`,
+        "Alterar forma de pagamento?",
+      ))
+    ) {
       return;
     }
 
@@ -619,7 +681,12 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   async function changeClientStatus(client: Client) {
     const nextStatus = client.active ? "inativar" : "ativar";
 
-    if (!confirmAction(`Confirmar ${nextStatus} o cliente "${client.name}"?`)) {
+    if (
+      !(await requestConfirmation(
+        `Confirmar ${nextStatus} o cliente "${client.name}"?`,
+        "Alterar status do cliente?",
+      ))
+    ) {
       return;
     }
 
@@ -836,6 +903,15 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             onClose={() => setMessage("")}
           />
         ) : null}
+
+        <ConfirmationDialog
+          confirmLabel={confirmation?.confirmLabel ?? "Confirmar"}
+          message={confirmation?.message ?? ""}
+          open={Boolean(confirmation)}
+          title={confirmation?.title ?? "Confirmar acao"}
+          onCancel={() => closeConfirmation(false)}
+          onConfirm={() => closeConfirmation(true)}
+        />
 
         <section className="summary-grid">
           <Metric
@@ -1139,6 +1215,46 @@ function AppMessage({
         <X size={16} />
       </button>
     </div>
+  );
+}
+
+function ConfirmationDialog({
+  confirmLabel,
+  message,
+  open,
+  title,
+  onCancel,
+  onConfirm,
+}: {
+  confirmLabel: string;
+  message: string;
+  open: boolean;
+  title: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onClose={onCancel}
+      aria-labelledby="confirmation-dialog-title"
+      aria-describedby="confirmation-dialog-description"
+      maxWidth="xs"
+      fullWidth
+    >
+      <DialogTitle id="confirmation-dialog-title">{title}</DialogTitle>
+      <DialogContent>
+        <DialogContentText id="confirmation-dialog-description">{message}</DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button color="inherit" onClick={onCancel}>
+          Voltar
+        </Button>
+        <Button variant="contained" color="success" onClick={onConfirm} autoFocus>
+          {confirmLabel}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
