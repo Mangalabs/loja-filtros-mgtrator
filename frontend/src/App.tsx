@@ -784,7 +784,13 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           </div>
         </header>
 
-        {message ? <div className={state === "error" ? "alert" : "notice"}>{message}</div> : null}
+        {message ? (
+          <AppMessage
+            kind={state === "error" ? "error" : "success"}
+            message={message}
+            onClose={() => setMessage("")}
+          />
+        ) : null}
 
         <section className="summary-grid">
           <Metric
@@ -1066,6 +1072,28 @@ function NavButton({
       {icon}
       {children}
     </button>
+  );
+}
+
+function AppMessage({
+  kind,
+  message,
+  onClose,
+}: {
+  kind: "error" | "success";
+  message: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className={kind === "error" ? "app-message error" : "app-message success"} role="status">
+      <span className="app-message-icon">
+        {kind === "error" ? <AlertTriangle size={18} /> : <ShieldCheck size={18} />}
+      </span>
+      <span>{message}</span>
+      <button className="app-message-close" type="button" onClick={onClose} aria-label="Fechar mensagem">
+        <X size={16} />
+      </button>
+    </div>
   );
 }
 
