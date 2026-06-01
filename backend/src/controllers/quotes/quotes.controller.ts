@@ -1,4 +1,5 @@
 import { db } from "../../database/knex.js";
+import { generateQuotePdf } from "../../integrations/pdf/quote-pdf.js";
 import {
   activeQuoteClientExists,
   getQuoteById,
@@ -28,6 +29,19 @@ export async function showQuote(id: string) {
     code: 200,
     status: "success",
     data: quote,
+  };
+}
+
+export async function showQuotePdf(id: string) {
+  const quote = await getQuoteById(id);
+
+  if (!quote) {
+    throw new AppError("Orcamento nao encontrado.", 404);
+  }
+
+  return {
+    filename: `orcamento-${quote.id}.pdf`,
+    pdf: await generateQuotePdf(quote),
   };
 }
 

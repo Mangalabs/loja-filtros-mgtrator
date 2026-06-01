@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
-import { indexQuotes, showQuote, storeQuote } from "../../controllers/quotes/quotes.controller.js";
+import {
+  indexQuotes,
+  showQuote,
+  showQuotePdf,
+  storeQuote,
+} from "../../controllers/quotes/quotes.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const quotesRoutes = Router();
@@ -40,6 +45,17 @@ const quoteParamsSchema = z.object({
 
 quotesRoutes.get("/quotes", async (_request, response) => {
   response.status(200).json(await indexQuotes());
+});
+
+quotesRoutes.get("/quotes/:id/pdf", async (request, response) => {
+  const { id } = quoteParamsSchema.parse(request.params);
+  const result = await showQuotePdf(id);
+
+  response
+    .status(200)
+    .type("application/pdf")
+    .attachment(result.filename)
+    .send(result.pdf);
 });
 
 quotesRoutes.get("/quotes/:id", async (request, response) => {

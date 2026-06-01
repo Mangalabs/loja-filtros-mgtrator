@@ -915,6 +915,7 @@ describe("catalog routes", () => {
     });
     const shown = await request<Quote>(`/quotes/${created.body.data?.id}`);
     const listed = await request<Quote[]>("/quotes");
+    const pdf = await requestRaw(`/quotes/${created.body.data?.id}/pdf`);
     const unchangedProduct = await request<Product>(`/products/${firstProduct.body.data?.id}`);
 
     assert.equal(created.status, 201);
@@ -931,6 +932,9 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(shown.body.data?.items.length, 2);
     assert.equal(listed.body.data?.length, 1);
+    assert.equal(pdf.status, 200);
+    assert.equal(pdf.contentType, "application/pdf");
+    assert.equal(pdf.body.subarray(0, 4).toString(), "%PDF");
     assert.equal(unchangedProduct.body.data?.currentStock, "2.000");
     assert.equal(unchangedProduct.body.data?.reservedStock, "0.000");
   });
@@ -1476,5 +1480,31 @@ async function request<T = unknown>(
     body,
     cookie: rawCookie?.split(";")[0],
     rawCookie,
+  };
+}
+
+async function requestRaw(
+  path: string,
+  options: {
+    method?: string;
+    authenticated?: boolean;
+  } = {},
+) {
+  const headers: Record<string, string> = {};
+
+  if (options.authenticated !== false && authCookie) {
+    headers.cookie = authCookie;
+  }
+
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: options.method ?? "GET",
+    headers,
+  });
+  const body = Buffer.from(await response.arrayBuffer());
+
+  return {
+    status: response.status,
+    body,
+    contentType: response.headers.get("content-type"),
   };
 }
