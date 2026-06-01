@@ -52,7 +52,7 @@ export async function listSales(): Promise<Sale[]> {
 export async function findOpenCashRegister(
   transaction: Knex.Transaction,
 ): Promise<{ id: string } | undefined> {
-  return transaction("cash_register_sessions").select("id").where("status", "OPEN").first();
+  return transaction("cash_register_sessions").select("id").where("status", "OPEN").forUpdate().first();
 }
 
 export async function lockSaleProduct(

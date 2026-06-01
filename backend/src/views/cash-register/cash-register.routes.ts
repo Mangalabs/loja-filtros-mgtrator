@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  closeCurrentCashRegister,
   openCashRegister,
   showCurrentCashRegister,
 } from "../../controllers/cash-register/cash-register.controller.js";
@@ -11,6 +12,12 @@ export const cashRegisterRoutes = Router();
 const openCashRegisterSchema = z
   .object({
     openingBalance: z.coerce.number().min(0),
+  })
+  .strict();
+
+const closeCashRegisterSchema = z
+  .object({
+    closingBalance: z.coerce.number().min(0),
   })
   .strict();
 
@@ -26,4 +33,12 @@ cashRegisterRoutes.post("/cash-register/open", async (request, response) => {
   const result = await openCashRegister(userId, body.openingBalance);
 
   response.status(201).json(result);
+});
+
+cashRegisterRoutes.patch("/cash-register/close", async (request, response) => {
+  const body = validateBody(request, closeCashRegisterSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+  const result = await closeCurrentCashRegister(userId, body.closingBalance);
+
+  response.status(200).json(result);
 });
