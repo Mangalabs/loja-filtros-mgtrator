@@ -12,11 +12,12 @@ export async function generateQuotePdf(quote: Quote): Promise<Buffer> {
     await page.setContent(quotePdfHtml(quote), { waitUntil: "load" });
     const pdf = await page.pdf({
       format: "A4",
+      landscape: true,
       margin: {
-        top: "16mm",
-        right: "14mm",
-        bottom: "16mm",
-        left: "14mm",
+        top: "10mm",
+        right: "10mm",
+        bottom: "10mm",
+        left: "10mm",
       },
       printBackground: true,
     });

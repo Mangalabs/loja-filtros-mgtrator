@@ -185,8 +185,11 @@ export type Quote = {
   items: Array<{
     id: string;
     productId: string;
+    productInternalCode: string | null;
     productName: string;
+    productBrandName: string | null;
     productNcm: string | null;
+    productAvailableStock: string;
     description: string;
     quantity: string;
     unitPrice: string;

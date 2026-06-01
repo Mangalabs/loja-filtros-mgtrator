@@ -18,8 +18,11 @@ export type QuoteInput = {
 export type QuoteItem = {
   id: string;
   productId: string;
+  productInternalCode: string | null;
   productName: string;
+  productBrandName: string | null;
   productNcm: string | null;
+  productAvailableStock: string;
   description: string;
   quantity: string;
   unitPrice: string;
@@ -76,8 +79,11 @@ const quoteItemColumns = [
   "quote_items.id",
   "quote_items.quote_id as quoteId",
   "quote_items.product_id as productId",
+  "products.internal_code as productInternalCode",
   "products.name as productName",
+  "brands.name as productBrandName",
   "products.ncm as productNcm",
+  db.raw("(products.current_stock - products.reserved_stock) as \"productAvailableStock\""),
   "quote_items.description",
   "quote_items.quantity",
   "quote_items.unit_price as unitPrice",
@@ -185,6 +191,7 @@ async function withQuoteItems(
   const quoteIds = quotes.map((quote) => quote.id);
   const items = await database("quote_items")
     .join("products", "products.id", "quote_items.product_id")
+    .leftJoin("brands", "brands.id", "products.brand_id")
     .select<QuoteItemRow[]>(quoteItemColumns)
     .whereIn("quote_items.quote_id", quoteIds)
     .orderBy("quote_items.position", "asc");
