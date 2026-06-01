@@ -126,6 +126,10 @@ function readInitialOpenNavSections() {
   }
 }
 
+function confirmAction(message: string) {
+  return window.confirm(message);
+}
+
 const viewTitles: Record<View, { title: string; description: string }> = {
   products: {
     title: "Produtos",
@@ -475,6 +479,11 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
 
   async function closeCashRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!confirmAction("Confirmar fechamento do caixa? Depois disso, novas vendas exigirao uma nova abertura.")) {
+      return;
+    }
+
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
 
@@ -524,6 +533,10 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   }
 
   async function approveShippingOrder(order: ShippingOrder) {
+    if (!confirmAction(`Aprovar o pedido de ${order.clientName} e reservar ${formatQuantity(order.quantity)} item(ns)?`)) {
+      return;
+    }
+
     await runAction(async () => {
       await apiPatch(`/shipping-orders/${order.id}/approve`, {});
       await loadCatalog();
@@ -532,6 +545,11 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
 
   async function cancelShippingOrder(event: FormEvent<HTMLFormElement>, order: ShippingOrder) {
     event.preventDefault();
+
+    if (!confirmAction(`Cancelar o pedido de ${order.clientName}? A reserva sera liberada, se existir.`)) {
+      return;
+    }
+
     const form = new FormData(event.currentTarget);
 
     await runAction(async () => {
@@ -543,6 +561,10 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   }
 
   async function separateShippingOrder(order: ShippingOrder) {
+    if (!confirmAction(`Confirmar separacao do pedido de ${order.clientName}?`)) {
+      return;
+    }
+
     await runAction(async () => {
       await apiPatch(`/shipping-orders/${order.id}/separate`, {});
       await loadCatalog();
@@ -551,6 +573,11 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
 
   async function completeShippingOrder(event: FormEvent<HTMLFormElement>, order: ShippingOrder) {
     event.preventDefault();
+
+    if (!confirmAction(`Concluir o pedido de ${order.clientName} como venda e baixar o estoque?`)) {
+      return;
+    }
+
     const form = new FormData(event.currentTarget);
 
     await runAction(async () => {
@@ -562,6 +589,12 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   }
 
   async function changeProductStatus(product: Product) {
+    const nextStatus = product.active ? "inativar" : "ativar";
+
+    if (!confirmAction(`Confirmar ${nextStatus} o produto "${product.name}"?`)) {
+      return;
+    }
+
     await runAction(async () => {
       await apiPatch(`/products/${product.id}/status`, { active: !product.active });
       await loadCatalog();
@@ -569,6 +602,12 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   }
 
   async function changePaymentMethodStatus(paymentMethod: PaymentMethod) {
+    const nextStatus = paymentMethod.active ? "inativar" : "ativar";
+
+    if (!confirmAction(`Confirmar ${nextStatus} a forma de pagamento "${paymentMethod.name}"?`)) {
+      return;
+    }
+
     await runAction(async () => {
       await apiPatch(`/payment-methods/${paymentMethod.id}/status`, {
         active: !paymentMethod.active,
@@ -578,6 +617,12 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   }
 
   async function changeClientStatus(client: Client) {
+    const nextStatus = client.active ? "inativar" : "ativar";
+
+    if (!confirmAction(`Confirmar ${nextStatus} o cliente "${client.name}"?`)) {
+      return;
+    }
+
     await runAction(async () => {
       await apiPatch(`/clients/${client.id}/status`, { active: !client.active });
       await loadCatalog();
