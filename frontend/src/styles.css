@@ -644,46 +644,7 @@ tbody tr:last-child td {
 }
 
 .app-message {
-  align-items: center;
-  border-radius: 10px;
-  display: flex;
-  gap: 10px;
   margin-top: 18px;
-  padding: 12px 14px;
-}
-
-.app-message.success {
-  background: #edf8f1;
-  border: 1px solid #b8dfc5;
-  color: #1f6f4a;
-}
-
-.app-message.error {
-  background: #fff4ed;
-  border: 1px solid #f2c4a7;
-  color: #8b3f18;
-}
-
-.app-message-icon {
-  align-items: center;
-  display: inline-flex;
-}
-
-.app-message-close {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  color: inherit;
-  cursor: pointer;
-  display: inline-flex;
-  justify-content: center;
-  margin-left: auto;
-  padding: 4px;
-}
-
-.app-message-close:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
 }
 
 .alert {

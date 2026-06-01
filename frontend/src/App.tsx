@@ -24,6 +24,7 @@ import {
   Send,
   X,
 } from "lucide-react";
+import MuiAlert from "@mui/material/Alert";
 import ButtonBase from "@mui/material/ButtonBase";
 import Button from "@mui/material/Button";
 import Collapse from "@mui/material/Collapse";
@@ -32,6 +33,7 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
+import IconButton from "@mui/material/IconButton";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import {
   apiGet,
@@ -1120,7 +1122,7 @@ function LoginPage({
             ? "Crie o administrador inicial para proteger a operacao."
             : "Informe seus dados para acessar o sistema."}
         </p>
-        {message ? <div className="alert">{message}</div> : null}
+        {message ? <AppMessage kind="error" message={message} onClose={() => setMessage("")} /> : null}
         <form className="login-form" onSubmit={submit}>
           {requiresSetup ? <input name="name" placeholder="Nome do administrador" required /> : null}
           <input name="email" type="email" placeholder="Email" required />
@@ -1206,15 +1208,18 @@ function AppMessage({
   onClose: () => void;
 }) {
   return (
-    <div className={kind === "error" ? "app-message error" : "app-message success"} role="status">
-      <span className="app-message-icon">
-        {kind === "error" ? <AlertTriangle size={18} /> : <ShieldCheck size={18} />}
-      </span>
-      <span>{message}</span>
-      <button className="app-message-close" type="button" onClick={onClose} aria-label="Fechar mensagem">
-        <X size={16} />
-      </button>
-    </div>
+    <MuiAlert
+      className="app-message"
+      severity={kind === "error" ? "error" : "success"}
+      variant="outlined"
+      action={
+        <IconButton aria-label="Fechar mensagem" color="inherit" size="small" onClick={onClose}>
+          <X size={16} />
+        </IconButton>
+      }
+    >
+      {message}
+    </MuiAlert>
   );
 }
 
