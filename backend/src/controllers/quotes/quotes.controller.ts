@@ -8,6 +8,10 @@ import {
   listQuotes,
   type QuoteInput,
 } from "../../models/quotes/quotes.model.js";
+import {
+  findShippingOrderByQuoteId,
+  insertShippingOrderFromQuote,
+} from "../../models/shipping-orders/shipping-orders.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
 export async function indexQuotes() {
@@ -88,5 +92,33 @@ export async function storeQuote(input: QuoteInput, createdByUserId: string) {
     code: 201,
     status: "success",
     data: quote,
+  };
+}
+
+export async function createShippingOrderFromQuote(id: string, createdByUserId: string) {
+  const order = await db.transaction(async (transaction) => {
+    const quote = await getQuoteById(id, transaction);
+
+    if (!quote) {
+      throw new AppError("Orcamento nao encontrado.", 404);
+    }
+
+    const existingOrder = await findShippingOrderByQuoteId(transaction, id);
+
+    if (existingOrder) {
+      throw new AppError("Este orcamento ja foi enviado para pedidos de envio.", 409);
+    }
+
+    if (quote.items.length === 0) {
+      throw new AppError("Orcamento sem itens nao pode gerar pedido de envio.", 422);
+    }
+
+    return insertShippingOrderFromQuote(transaction, quote, createdByUserId);
+  });
+
+  return {
+    code: 201,
+    status: "success",
+    data: order,
   };
 }

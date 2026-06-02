@@ -80,19 +80,21 @@ export async function approveQuotedShippingOrder(id: string, approvedByUserId: s
       throw new AppError("Este pedido ja foi concluido como venda.", 409);
     }
 
-    const product = await lockReservableProduct(transaction, quotedOrder.productId);
+    const reservedItems = aggregateShippingItems(quotedOrder.items);
 
-    if (!product || !product.active) {
-      throw new AppError("Produto informado nao disponivel para separacao.", 422);
+    for (const item of reservedItems) {
+      const product = await lockReservableProduct(transaction, item.productId);
+
+      if (!product || !product.active) {
+        throw new AppError("Produto informado nao disponivel para separacao.", 422);
+      }
+
+      if (Number(product.currentStock) - Number(product.reservedStock) < item.quantity) {
+        throw new AppError("Estoque insuficiente para separar este pedido.", 422);
+      }
     }
 
-    const quantity = Number(quotedOrder.quantity);
-
-    if (Number(product.currentStock) - Number(product.reservedStock) < quantity) {
-      throw new AppError("Estoque insuficiente para separar este pedido.", 422);
-    }
-
-    return approveShippingOrder(transaction, id, product.id, quantity, approvedByUserId);
+    return approveShippingOrder(transaction, id, reservedItems, approvedByUserId);
   });
 
   return {
@@ -118,15 +120,18 @@ export async function cancelOpenShippingOrder(id: string, reason: string, cancel
       throw new AppError("Venda concluida nao pode ser cancelada por este fluxo.", 409);
     }
 
+    const reservedItems = aggregateShippingItems(currentOrder.items);
+
     if (currentOrder.status === "APPROVED" || currentOrder.status === "SEPARATED") {
-      await lockReservableProduct(transaction, currentOrder.productId);
+      for (const item of reservedItems) {
+        await lockReservableProduct(transaction, item.productId);
+      }
     }
 
     return cancelShippingOrder(
       transaction,
       id,
-      currentOrder.productId,
-      Number(currentOrder.quantity),
+      reservedItems,
       currentOrder.status === "APPROVED" || currentOrder.status === "SEPARATED",
       cancelledByUserId,
       reason,
@@ -190,6 +195,10 @@ export async function completeSeparatedShippingOrder(
       throw new AppError("Confirme a separacao antes de concluir a venda para envio.", 409);
     }
 
+    if (currentOrder.items.length !== 1) {
+      throw new AppError("Venda para envio com multiplos itens sera concluida na etapa de venda multi-itens.", 409);
+    }
+
     const cashRegister = await findOpenCashRegister(transaction);
 
     if (!cashRegister) {
@@ -200,8 +209,9 @@ export async function completeSeparatedShippingOrder(
       throw new AppError("Forma de pagamento informada nao disponivel.", 422);
     }
 
-    const product = await lockReservableProduct(transaction, currentOrder.productId);
-    const quantity = Number(currentOrder.quantity);
+    const orderItem = currentOrder.items[0];
+    const product = await lockReservableProduct(transaction, orderItem.productId);
+    const quantity = Number(orderItem.quantity);
 
     if (!product || Number(product.reservedStock) < quantity || Number(product.currentStock) < quantity) {
       throw new AppError("Reserva insuficiente para concluir esta venda.", 422);
@@ -212,14 +222,14 @@ export async function completeSeparatedShippingOrder(
     const sale = await insertSale(
       transaction,
       {
-        productId: currentOrder.productId,
+        productId: orderItem.productId,
         clientId: currentOrder.clientId,
         paymentMethodId,
         quantity,
       },
       cashRegister.id,
       completedByUserId,
-      Number(currentOrder.unitPrice),
+      Number(orderItem.unitPrice),
       Number(currentOrder.totalAmount),
     );
 
@@ -231,4 +241,22 @@ export async function completeSeparatedShippingOrder(
     status: "success",
     data: order,
   };
+}
+
+function aggregateShippingItems(items: Array<{ productId: string; quantity: string }>) {
+  return items.reduce<Array<{ productId: string; quantity: number }>>((aggregatedItems, item) => {
+    const existing = aggregatedItems.find((currentItem) => currentItem.productId === item.productId);
+
+    if (existing) {
+      existing.quantity += Number(item.quantity);
+      return aggregatedItems;
+    }
+
+    aggregatedItems.push({
+      productId: item.productId,
+      quantity: Number(item.quantity),
+    });
+
+    return aggregatedItems;
+  }, []);
 }

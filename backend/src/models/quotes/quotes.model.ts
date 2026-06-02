@@ -101,14 +101,17 @@ export async function listQuotes(): Promise<Quote[]> {
   return withQuoteItems(db, quoteRows);
 }
 
-export async function getQuoteById(id: string): Promise<Quote | undefined> {
-  const quote = await quoteQuery(db).where("quotes.id", id).first();
+export async function getQuoteById(
+  id: string,
+  database: Knex | Knex.Transaction = db,
+): Promise<Quote | undefined> {
+  const quote = await quoteQuery(database).where("quotes.id", id).first();
 
   if (!quote) {
     return undefined;
   }
 
-  const [withItems] = await withQuoteItems(db, [quote]);
+  const [withItems] = await withQuoteItems(database, [quote]);
   return withItems;
 }
 

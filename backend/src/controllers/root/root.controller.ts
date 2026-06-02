@@ -21,6 +21,7 @@ export function showApiInfo() {
         "/pickup-reservations",
         "/quotes",
         "/quotes/:id/pdf",
+        "/quotes/:id/shipping-order",
         "/products",
         "/products/low-stock",
         "/payment-methods",

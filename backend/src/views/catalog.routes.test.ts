@@ -90,12 +90,22 @@ type Sale = {
 
 type ShippingOrder = {
   id: string;
+  quoteId: string | null;
   clientName: string;
   clientPhone: string | null;
   productName: string;
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    quantity: string;
+    unitPrice: string;
+    totalAmount: string;
+    position: number;
+  }>;
   separatedAt: string | null;
   saleId: string | null;
   completedAt: string | null;
@@ -612,6 +622,8 @@ describe("catalog routes", () => {
     assert.equal(quoted.body.data?.clientPhone, "85999998888");
     assert.equal(quoted.body.data?.unitPrice, "44.90");
     assert.equal(quoted.body.data?.totalAmount, "89.80");
+    assert.equal(quoted.body.data?.items.length, 1);
+    assert.equal(quoted.body.data?.items[0]?.productName, "Filtro para envio");
     assert.equal(beforeApproval.body.data?.currentStock, "3.000");
     assert.equal(beforeApproval.body.data?.reservedStock, "0.000");
     assert.equal(approved.status, 200);
@@ -925,6 +937,15 @@ describe("catalog routes", () => {
     const shown = await request<Quote>(`/quotes/${created.body.data?.id}`);
     const listed = await request<Quote[]>("/quotes");
     const pdf = await requestRaw(`/quotes/${created.body.data?.id}/pdf`);
+    const shippingOrder = await request<ShippingOrder>(`/quotes/${created.body.data?.id}/shipping-order`, {
+      method: "POST",
+      body: {},
+    });
+    const repeatedShippingOrder = await request(`/quotes/${created.body.data?.id}/shipping-order`, {
+      method: "POST",
+      body: {},
+    });
+    const listedShippingOrders = await request<ShippingOrder[]>("/shipping-orders");
     const unchangedProduct = await request<Product>(`/products/${firstProduct.body.data?.id}`);
 
     assert.equal(created.status, 201);
@@ -944,6 +965,22 @@ describe("catalog routes", () => {
     assert.equal(pdf.status, 200);
     assert.equal(pdf.contentType, "application/pdf");
     assert.equal(pdf.body.subarray(0, 4).toString(), "%PDF");
+    assert.equal(shippingOrder.status, 201);
+    assert.equal(shippingOrder.body.data?.quoteId, created.body.data?.id);
+    assert.equal(shippingOrder.body.data?.clientName, "Cliente orcamento");
+    assert.equal(shippingOrder.body.data?.totalAmount, "170.00");
+    assert.equal(shippingOrder.body.data?.items.length, 2);
+    assert.equal(shippingOrder.body.data?.items[0]?.productName, "Filtro quote A");
+    assert.equal(shippingOrder.body.data?.items[0]?.quantity, "2.000");
+    assert.equal(shippingOrder.body.data?.items[1]?.productName, "Filtro quote B");
+    assert.equal(shippingOrder.body.data?.items[1]?.unitPrice, "80.00");
+    assert.equal(repeatedShippingOrder.status, 409);
+    assert.equal(
+      repeatedShippingOrder.body.message,
+      "Este orcamento ja foi enviado para pedidos de envio.",
+    );
+    assert.equal(listedShippingOrders.body.data?.length, 1);
+    assert.equal(listedShippingOrders.body.data?.[0]?.items.length, 2);
     assert.equal(unchangedProduct.body.data?.currentStock, "2.000");
     assert.equal(unchangedProduct.body.data?.reservedStock, "0.000");
   });

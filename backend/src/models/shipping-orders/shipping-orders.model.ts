@@ -1,5 +1,6 @@
 import type { Knex } from "knex";
 import { db } from "../../database/knex.js";
+import type { Quote } from "../quotes/quotes.model.js";
 
 export type ShippingOrderInput = {
   clientId: string;
@@ -9,6 +10,7 @@ export type ShippingOrderInput = {
 
 export type ShippingOrder = {
   id: string;
+  quoteId: string | null;
   clientId: string;
   clientName: string;
   clientPhone: string | null;
@@ -17,6 +19,7 @@ export type ShippingOrder = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  items: ShippingOrderItem[];
   createdByUserName: string;
   createdAt: Date;
   approvedAt: Date | null;
@@ -26,6 +29,16 @@ export type ShippingOrder = {
   cancelledAt: Date | null;
   cancellationReason: string | null;
   status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED";
+};
+
+export type ShippingOrderItem = {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: string;
+  unitPrice: string;
+  totalAmount: string;
+  position: number;
 };
 
 export type ReservedProduct = {
@@ -38,13 +51,10 @@ export type ReservedProduct = {
 
 const shippingOrderColumns = [
   "shipping_orders.id",
+  "shipping_orders.quote_id as quoteId",
   "shipping_orders.client_id as clientId",
   "clients.name as clientName",
   "clients.phone as clientPhone",
-  "shipping_order_items.product_id as productId",
-  "products.name as productName",
-  "shipping_order_items.quantity",
-  "shipping_order_items.unit_price as unitPrice",
   "shipping_orders.total_amount as totalAmount",
   "created_users.name as createdByUserName",
   "shipping_orders.created_at as createdAt",
@@ -57,8 +67,39 @@ const shippingOrderColumns = [
   "shipping_orders.status",
 ];
 
+const shippingOrderItemColumns = [
+  "shipping_order_items.id",
+  "shipping_order_items.shipping_order_id as shippingOrderId",
+  "shipping_order_items.product_id as productId",
+  "products.name as productName",
+  "shipping_order_items.quantity",
+  "shipping_order_items.unit_price as unitPrice",
+  "shipping_order_items.total_amount as totalAmount",
+  "shipping_order_items.position",
+];
+
+type ShippingOrderRow = Omit<ShippingOrder, "items" | "productId" | "productName" | "quantity" | "unitPrice">;
+type ShippingOrderItemRow = ShippingOrderItem & {
+  shippingOrderId: string;
+};
+
+type LockedShippingOrderItem = {
+  productId: string;
+  quantity: string;
+  unitPrice: string;
+};
+
+type LockedShippingOrder = {
+  id: string;
+  clientId: string;
+  totalAmount: string;
+  status: ShippingOrder["status"];
+  items: LockedShippingOrderItem[];
+};
+
 export async function listShippingOrders(): Promise<ShippingOrder[]> {
-  return shippingOrderQuery(db).orderBy("shipping_orders.created_at", "desc");
+  const orders = await shippingOrderQuery(db).orderBy("shipping_orders.created_at", "desc");
+  return withShippingOrderItems(db, orders);
 }
 
 export async function activeShippingClientExists(
@@ -113,50 +154,89 @@ export async function insertShippingOrder(
   return findShippingOrder(transaction, created.id);
 }
 
+export async function findShippingOrderByQuoteId(
+  transaction: Knex.Transaction,
+  quoteId: string,
+): Promise<ShippingOrder | undefined> {
+  const order = await shippingOrderQuery(transaction).where("shipping_orders.quote_id", quoteId).first();
+
+  if (!order) {
+    return undefined;
+  }
+
+  const [withItems] = await withShippingOrderItems(transaction, [order]);
+  return withItems;
+}
+
+export async function insertShippingOrderFromQuote(
+  transaction: Knex.Transaction,
+  quote: Quote,
+  createdByUserId: string,
+): Promise<ShippingOrder> {
+  const [created] = await transaction("shipping_orders")
+    .insert({
+      quote_id: quote.id,
+      client_id: quote.clientId,
+      created_by_user_id: createdByUserId,
+      total_amount: quote.totalAmount,
+    })
+    .returning("id");
+
+  await transaction("shipping_order_items").insert(
+    quote.items.map((item) => ({
+      shipping_order_id: created.id,
+      product_id: item.productId,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      total_amount: item.totalAmount,
+      position: item.position,
+    })),
+  );
+
+  return findShippingOrder(transaction, created.id);
+}
+
 export async function lockShippingOrder(
   transaction: Knex.Transaction,
   id: string,
-): Promise<
-  | {
-      id: string;
-      clientId: string;
-      productId: string;
-      quantity: string;
-      unitPrice: string;
-      totalAmount: string;
-      status: ShippingOrder["status"];
-    }
-  | undefined
-> {
-  return transaction("shipping_orders")
-    .join("shipping_order_items", "shipping_order_items.shipping_order_id", "shipping_orders.id")
+): Promise<LockedShippingOrder | undefined> {
+  const order = await transaction("shipping_orders")
     .select([
       "shipping_orders.id",
       "shipping_orders.client_id as clientId",
       "shipping_orders.total_amount as totalAmount",
       "shipping_orders.status",
-      "shipping_order_items.product_id as productId",
-      "shipping_order_items.quantity",
-      "shipping_order_items.unit_price as unitPrice",
     ])
     .where("shipping_orders.id", id)
     .forUpdate("shipping_orders")
     .first();
+
+  if (!order) {
+    return undefined;
+  }
+
+  const items = await transaction("shipping_order_items")
+    .select(["product_id as productId", "quantity", "unit_price as unitPrice"])
+    .where("shipping_order_id", id)
+    .orderBy("position", "asc");
+
+  return { ...order, items };
 }
 
 export async function approveShippingOrder(
   transaction: Knex.Transaction,
   id: string,
-  productId: string,
-  quantity: number,
+  items: Array<{ productId: string; quantity: number }>,
   approvedByUserId: string,
 ): Promise<ShippingOrder> {
-  await transaction("products")
-    .where("id", productId)
-    .update({
-      reserved_stock: transaction.raw("reserved_stock + ?", [quantity]),
-      updated_at: transaction.fn.now(),
-    });
+  for (const item of items) {
+    await transaction("products")
+      .where("id", item.productId)
+      .update({
+        reserved_stock: transaction.raw("reserved_stock + ?", [item.quantity]),
+        updated_at: transaction.fn.now(),
+      });
+  }
 
   await transaction("shipping_orders").where("id", id).update({
     status: "APPROVED",
@@ -170,19 +250,20 @@ export async function approveShippingOrder(
 export async function cancelShippingOrder(
   transaction: Knex.Transaction,
   id: string,
-  productId: string,
-  quantity: number,
+  items: Array<{ productId: string; quantity: number }>,
   wasApproved: boolean,
   cancelledByUserId: string,
   reason: string,
 ): Promise<ShippingOrder> {
   if (wasApproved) {
-    await transaction("products")
-      .where("id", productId)
-      .update({
-        reserved_stock: transaction.raw("reserved_stock - ?", [quantity]),
-        updated_at: transaction.fn.now(),
-      });
+    for (const item of items) {
+      await transaction("products")
+        .where("id", item.productId)
+        .update({
+          reserved_stock: transaction.raw("reserved_stock - ?", [item.quantity]),
+          updated_at: transaction.fn.now(),
+        });
+    }
   }
 
   await transaction("shipping_orders").where("id", id).update({
@@ -248,14 +329,45 @@ async function findShippingOrder(
     throw new Error("Shipping order was not found after operation");
   }
 
-  return order;
+  const [withItems] = await withShippingOrderItems(transaction, [order]);
+  return withItems;
 }
 
 function shippingOrderQuery(database: Knex | Knex.Transaction) {
   return database("shipping_orders")
-    .join("shipping_order_items", "shipping_order_items.shipping_order_id", "shipping_orders.id")
-    .join("products", "products.id", "shipping_order_items.product_id")
     .join("clients", "clients.id", "shipping_orders.client_id")
     .join({ created_users: "users" }, "created_users.id", "shipping_orders.created_by_user_id")
-    .select(shippingOrderColumns);
+    .select<ShippingOrderRow[]>(shippingOrderColumns);
+}
+
+async function withShippingOrderItems(
+  database: Knex | Knex.Transaction,
+  orders: ShippingOrderRow[],
+): Promise<ShippingOrder[]> {
+  if (orders.length === 0) {
+    return [];
+  }
+
+  const orderIds = orders.map((order) => order.id);
+  const items = await database("shipping_order_items")
+    .join("products", "products.id", "shipping_order_items.product_id")
+    .select<ShippingOrderItemRow[]>(shippingOrderItemColumns)
+    .whereIn("shipping_order_items.shipping_order_id", orderIds)
+    .orderBy("shipping_order_items.position", "asc");
+
+  return orders.map((order) => {
+    const orderItems = items
+      .filter((item) => item.shippingOrderId === order.id)
+      .map(({ shippingOrderId: _shippingOrderId, ...item }) => item);
+    const firstItem = orderItems[0];
+
+    return {
+      ...order,
+      productId: firstItem?.productId ?? "",
+      productName: firstItem?.productName ?? "",
+      quantity: firstItem?.quantity ?? "0.000",
+      unitPrice: firstItem?.unitPrice ?? "0.00",
+      items: orderItems,
+    };
+  });
 }

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  createShippingOrderFromQuote,
   indexQuotes,
   showQuote,
   showQuotePdf,
@@ -69,4 +70,11 @@ quotesRoutes.post("/quotes", async (request, response) => {
   const userId = response.locals.authenticatedUser.id as string;
 
   response.status(201).json(await storeQuote(body, userId));
+});
+
+quotesRoutes.post("/quotes/:id/shipping-order", async (request, response) => {
+  const { id } = quoteParamsSchema.parse(request.params);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(201).json(await createShippingOrderFromQuote(id, userId));
 });
