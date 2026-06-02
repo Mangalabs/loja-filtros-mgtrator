@@ -56,7 +56,7 @@ export function QuotesPage({
           return {
             ...item,
             ...changes,
-            description: product?.name ?? item.description,
+            description: product?.description ?? product?.name ?? item.description,
             unitPrice: product?.salePrice ?? item.unitPrice,
           };
         }

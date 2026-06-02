@@ -22,6 +22,8 @@ export type Product = {
   availableStock: string;
   ncm: string | null;
   cest: string | null;
+  origin: string | null;
+  description: string | null;
   active: boolean;
 };
 

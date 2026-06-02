@@ -70,7 +70,7 @@ export async function storeQuote(input: QuoteInput, createdByUserId: string) {
 
       return {
         productId: item.productId,
-        description: item.description?.trim() || product.name,
+        description: item.description?.trim() || product.description || product.name,
         quantity: item.quantity,
         unitPrice,
         totalAmount,

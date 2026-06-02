@@ -1543,6 +1543,15 @@ function ProductForm({
         <input name="ncm" placeholder="NCM" defaultValue={product?.ncm ?? ""} />
         <input name="cest" placeholder="CEST" defaultValue={product?.cest ?? ""} />
       </div>
+      <div className="two-columns">
+        <input name="origin" maxLength={2} placeholder="Origem fiscal" defaultValue={product?.origin ?? ""} />
+        <input
+          name="description"
+          maxLength={1000}
+          placeholder="Descricao comercial para orcamento"
+          defaultValue={product?.description ?? ""}
+        />
+      </div>
       <div className="form-actions">
         {onCancel ? (
           <SecondaryButton icon={<X size={17} />} type="button" onClick={onCancel}>
@@ -1819,5 +1828,7 @@ function productFormBody(form: FormData) {
     minimumStock: Number(form.get("minimumStock") || 0),
     ncm: nullableFormValue(form, "ncm"),
     cest: nullableFormValue(form, "cest"),
+    origin: nullableFormValue(form, "origin"),
+    description: nullableFormValue(form, "description"),
   };
 }

@@ -40,6 +40,8 @@ type Product = {
   availableStock: string;
   ncm: string | null;
   cest: string | null;
+  origin: string | null;
+  description: string | null;
   active: boolean;
 };
 
@@ -877,7 +879,11 @@ describe("catalog routes", () => {
     });
     const secondProduct = await request<Product>("/products", {
       method: "POST",
-      body: { name: "Filtro quote B", salePrice: 80 },
+      body: {
+        name: "Filtro quote B",
+        salePrice: 80,
+        description: "Descricao comercial quote B",
+      },
     });
     const client = await request<Client>("/clients", {
       method: "POST",
@@ -928,7 +934,7 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.items[0]?.description, "Filtro quote A promocional");
     assert.equal(created.body.data?.items[0]?.unitPrice, "45.00");
     assert.equal(created.body.data?.items[0]?.totalAmount, "90.00");
-    assert.equal(created.body.data?.items[1]?.description, "Filtro quote B");
+    assert.equal(created.body.data?.items[1]?.description, "Descricao comercial quote B");
     assert.equal(created.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(shown.body.data?.items.length, 2);
     assert.equal(listed.body.data?.length, 1);
@@ -1155,6 +1161,8 @@ describe("catalog routes", () => {
         minimumStock: 3,
         ncm: "84212300",
         cest: "0100100",
+        origin: "0",
+        description: "Descricao comercial do filtro para orcamento",
       },
     });
 
@@ -1184,10 +1192,13 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.availableStock, "0.000");
     assert.equal(created.body.data?.ncm, "84212300");
     assert.equal(created.body.data?.cest, "0100100");
+    assert.equal(created.body.data?.origin, "0");
+    assert.equal(created.body.data?.description, "Descricao comercial do filtro para orcamento");
     assert.equal(listed.status, 200);
     assert.equal(listed.body.data?.length, 1);
     assert.equal(shown.status, 200);
     assert.equal(shown.body.data?.internalCode, "FAP4040");
+    assert.equal(shown.body.data?.description, "Descricao comercial do filtro para orcamento");
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.name, "Filtro Wega FAP4040 Atualizado");
     assert.equal(updated.body.data?.location, null);

@@ -50,6 +50,7 @@ export type Quote = {
 type QuoteProduct = {
   id: string;
   name: string;
+  description: string | null;
   salePrice: string;
   active: boolean;
 };
@@ -121,7 +122,7 @@ export async function listActiveQuoteProducts(
   productIds: string[],
 ): Promise<QuoteProduct[]> {
   return transaction("products")
-    .select(["id", "name", "sale_price as salePrice", "active"])
+    .select(["id", "name", "description", "sale_price as salePrice", "active"])
     .whereIn("id", productIds)
     .andWhere("active", true);
 }

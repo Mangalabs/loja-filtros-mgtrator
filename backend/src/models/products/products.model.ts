@@ -25,6 +25,8 @@ export type ProductListItem = {
   availableStock: string;
   ncm: string | null;
   cest: string | null;
+  origin: string | null;
+  description: string | null;
   active: boolean;
 };
 
@@ -72,6 +74,8 @@ export async function listProducts(filters: ProductListFilters): Promise<Product
       db.raw("products.current_stock - products.reserved_stock as ??", ["availableStock"]),
       "products.ncm",
       "products.cest",
+      "products.origin",
+      "products.description",
       "products.active",
     ])
     .modify((query) => {
@@ -119,6 +123,8 @@ export async function listLowStockProducts(): Promise<ProductListItem[]> {
       db.raw("products.current_stock - products.reserved_stock as ??", ["availableStock"]),
       "products.ncm",
       "products.cest",
+      "products.origin",
+      "products.description",
       "products.active",
     ])
     .where("products.active", true)
@@ -236,6 +242,8 @@ async function findProductById(id: string): Promise<ProductListItem | undefined>
       db.raw("products.current_stock - products.reserved_stock as ??", ["availableStock"]),
       "products.ncm",
       "products.cest",
+      "products.origin",
+      "products.description",
       "products.active",
     ])
     .where("products.id", id)
