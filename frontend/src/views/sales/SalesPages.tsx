@@ -1,5 +1,5 @@
 import { PackagePlus, Plus, Send, ShoppingCart } from "lucide-react";
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import type {
   CashRegisterSession,
   Client,
@@ -9,8 +9,22 @@ import type {
   Sale,
   ShippingOrder,
 } from "../../api";
-import { PrimaryButton, StatusChip, TableActionButton, type StatusTone } from "../../components/ui";
+import { PrimaryButton, SecondaryButton, StatusChip, TableActionButton, type StatusTone } from "../../components/ui";
 import { formatCurrency, formatDateTime, formatQuantity } from "../../utils/format";
+
+type SaleDraftItem = {
+  productId: string;
+  quantity: string;
+};
+
+export type SaleDraftInput = {
+  clientId?: string | null;
+  paymentMethodId: string;
+  items: Array<{
+    productId: string;
+    quantity: number;
+  }>;
+};
 
 export function SalesPage({
   cashRegister,
@@ -25,42 +39,116 @@ export function SalesPage({
   paymentMethods: PaymentMethod[];
   products: Product[];
   sales: Sale[];
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (input: SaleDraftInput) => Promise<boolean>;
 }) {
+  const [clientId, setClientId] = useState("");
+  const [paymentMethodId, setPaymentMethodId] = useState("");
+  const [items, setItems] = useState<SaleDraftItem[]>([emptySaleItem()]);
+  const availableProducts = products.filter((product) => product.active && Number(product.availableStock) > 0);
+  const saleTotal = items.reduce((sum, item) => {
+    const product = availableProducts.find((currentProduct) => currentProduct.id === item.productId);
+    return sum + Number(item.quantity || 0) * Number(product?.salePrice ?? 0);
+  }, 0);
+
+  function updateItem(index: number, changes: Partial<SaleDraftItem>) {
+    setItems((currentItems) =>
+      currentItems.map((item, itemIndex) => (itemIndex === index ? { ...item, ...changes } : item)),
+    );
+  }
+
+  function removeItem(index: number) {
+    setItems((currentItems) => currentItems.filter((_item, itemIndex) => itemIndex !== index));
+  }
+
+  function resetForm() {
+    setClientId("");
+    setPaymentMethodId("");
+    setItems([emptySaleItem()]);
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const saved = await onSubmit({
+      clientId: clientId || null,
+      paymentMethodId,
+      items: items.map((item) => ({
+        productId: item.productId,
+        quantity: Number(item.quantity),
+      })),
+    });
+
+    saved && resetForm();
+  }
+
   return (
     <section className="layout-grid stock-entry-layout">
-      <form className="panel form-panel" onSubmit={onSubmit}>
+      <form className="panel form-panel" onSubmit={submit}>
         <div className="panel-header compact">
           <div>
             <h2>Nova venda</h2>
-            <span>Esta etapa aceita um produto e um pagamento por venda.</span>
+            <span>Monte uma venda de balcão com um ou mais itens.</span>
           </div>
           <ShoppingCart size={18} />
         </div>
         {!cashRegister ? <div className="alert">Abra o caixa antes de registrar vendas.</div> : null}
-        <select name="saleProductId" defaultValue="" required disabled={!cashRegister}>
-          <option value="" disabled>
-            Produto
-          </option>
-          {products
-            .filter((product) => product.active && Number(product.availableStock) > 0)
-            .map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name} - {formatCurrency(product.salePrice)} - disponivel {formatQuantity(product.availableStock)}
-              </option>
-            ))}
-        </select>
+
+        <div className="quote-items">
+          {items.map((item, index) => (
+            <div className="quote-item-row" key={index}>
+              <div className="panel-header compact">
+                <strong>Item {index + 1}</strong>
+                {items.length > 1 ? (
+                  <TableActionButton type="button" onClick={() => removeItem(index)}>
+                    Remover
+                  </TableActionButton>
+                ) : null}
+              </div>
+              <select
+                value={item.productId}
+                onChange={(event) => updateItem(index, { productId: event.target.value })}
+                required
+                disabled={!cashRegister}
+              >
+                <option value="" disabled>
+                  Produto
+                </option>
+                {availableProducts.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name} - {formatCurrency(product.salePrice)} - disponivel{" "}
+                    {formatQuantity(product.availableStock)}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={item.quantity}
+                type="number"
+                min="0.001"
+                step="0.001"
+                placeholder="Quantidade"
+                required
+                disabled={!cashRegister}
+                onChange={(event) => updateItem(index, { quantity: event.target.value })}
+              />
+            </div>
+          ))}
+        </div>
+
+        <SecondaryButton
+          type="button"
+          onClick={() => setItems((currentItems) => [...currentItems, emptySaleItem()])}
+          disabled={!cashRegister}
+        >
+          Adicionar item
+        </SecondaryButton>
+
         <div className="two-columns">
-          <input
-            name="saleQuantity"
-            type="number"
-            min="0.001"
-            step="0.001"
-            placeholder="Quantidade"
+          <select
+            value={paymentMethodId}
+            onChange={(event) => setPaymentMethodId(event.target.value)}
             required
             disabled={!cashRegister}
-          />
-          <select name="salePaymentMethodId" defaultValue="" required disabled={!cashRegister}>
+          >
             <option value="" disabled>
               Pagamento
             </option>
@@ -70,8 +158,12 @@ export function SalesPage({
               </option>
             ))}
           </select>
+          <label className="field-label">
+            Total estimado
+            <input value={formatCurrency(saleTotal)} disabled />
+          </label>
         </div>
-        <select name="saleClientId" defaultValue="" disabled={!cashRegister}>
+        <select value={clientId} onChange={(event) => setClientId(event.target.value)} disabled={!cashRegister}>
           <option value="">Cliente nao identificado</option>
           {clients.filter((client) => client.active).map((client) => (
             <option key={client.id} value={client.id}>
@@ -132,6 +224,13 @@ export function SalesPage({
       </div>
     </section>
   );
+}
+
+function emptySaleItem(): SaleDraftItem {
+  return {
+    productId: "",
+    quantity: "",
+  };
 }
 
 export function ShippingOrdersPage({

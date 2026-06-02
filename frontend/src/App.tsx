@@ -61,7 +61,7 @@ import { PrimaryButton, SecondaryButton, StatusChip, TableActionButton } from ".
 import { formatCurrency, formatDateTime, formatQuantity } from "./utils/format";
 import { CashRegisterPage, PaymentMethodsPage } from "./views/finance/FinancePages";
 import { QuotesPage, type QuoteDraftInput } from "./views/quotes/QuotesPage";
-import { PickupReservationsPage, SalesPage, ShippingOrdersPage } from "./views/sales/SalesPages";
+import { PickupReservationsPage, SalesPage, ShippingOrdersPage, type SaleDraftInput } from "./views/sales/SalesPages";
 import {
   LowStockPage,
   StockAdjustmentsPage,
@@ -566,20 +566,9 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   }
 
   // Acoes de vendas, orcamentos, envio e retirada.
-  async function createSale(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPost("/sales", {
-        productId: String(form.get("saleProductId") ?? ""),
-        clientId: nullableFormValue(form, "saleClientId"),
-        paymentMethodId: String(form.get("salePaymentMethodId") ?? ""),
-        quantity: Number(form.get("saleQuantity")),
-      });
-
-      formElement.reset();
+  async function createSale(input: SaleDraftInput) {
+    return runAction(async () => {
+      await apiPost("/sales", input);
       await loadCatalog();
     });
   }
