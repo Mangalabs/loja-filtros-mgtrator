@@ -105,8 +105,17 @@ export function SalesPage({
               {sales.map((sale) => (
                 <tr key={sale.id}>
                   <td>{formatDateTime(sale.createdAt)}</td>
-                  <td>{sale.productName}</td>
-                  <td>{formatQuantity(sale.quantity)}</td>
+                  <td>
+                    {sale.items.length} item(ns)
+                    <span className="table-note">
+                      {sale.items.map((item) => item.productName).join(", ")}
+                    </span>
+                  </td>
+                  <td>
+                    {formatQuantity(
+                      String(sale.items.reduce((sum, item) => sum + Number(item.quantity), 0)),
+                    )}
+                  </td>
                   <td>{formatCurrency(sale.totalAmount)}</td>
                   <td>{sale.paymentMethodName}</td>
                   <td>{sale.clientName ?? "Nao identificado"}</td>

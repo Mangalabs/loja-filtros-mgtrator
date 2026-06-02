@@ -126,6 +126,15 @@ export type Sale = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    quantity: string;
+    unitPrice: string;
+    totalAmount: string;
+    position: number;
+  }>;
   clientName: string | null;
   paymentMethodName: string;
   createdByUserName: string;
