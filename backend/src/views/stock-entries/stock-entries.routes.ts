@@ -27,7 +27,8 @@ stockEntriesRoutes.get("/stock-entries", async (_request, response) => {
 
 stockEntriesRoutes.post("/stock-entries", async (request, response) => {
   const body = validateBody(request, createStockEntrySchema);
-  const result = await storeStockEntry(body);
+  const userId = response.locals.authenticatedUser.id as string;
+  const result = await storeStockEntry(body, userId);
 
   response.status(201).json(result);
 });

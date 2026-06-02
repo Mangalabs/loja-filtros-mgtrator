@@ -51,10 +51,12 @@ export async function lockProductStock(
 export async function insertStockAdjustment(
   transaction: Knex.Transaction,
   input: StockAdjustmentInput,
+  createdByUserId: string,
 ): Promise<StockAdjustment> {
   const [created] = await transaction("stock_movements")
     .insert({
       product_id: input.productId,
+      created_by_user_id: createdByUserId,
       type: "ADJUSTMENT",
       quantity: input.quantity,
       notes: input.reason,

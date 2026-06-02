@@ -20,7 +20,7 @@ export async function indexStockEntries() {
   };
 }
 
-export async function storeStockEntry(input: StockEntryInput) {
+export async function storeStockEntry(input: StockEntryInput, createdByUserId: string) {
   const entry = await db.transaction(async (transaction) => {
     if (!(await lockProduct(transaction, input.productId))) {
       throw new AppError("Produto informado nao encontrado.", 422);
@@ -30,7 +30,7 @@ export async function storeStockEntry(input: StockEntryInput) {
       throw new AppError("Fornecedor informado nao encontrado.", 422);
     }
 
-    const created = await insertStockEntry(transaction, input);
+    const created = await insertStockEntry(transaction, input, createdByUserId);
     await applyStockEntryToProduct(transaction, input);
     await saveLastSupplierCost(transaction, input);
 

@@ -65,11 +65,13 @@ export async function supplierExists(
 export async function insertStockEntry(
   transaction: Knex.Transaction,
   input: StockEntryInput,
+  createdByUserId: string,
 ): Promise<StockEntry> {
   const [created] = await transaction("stock_movements")
     .insert({
       product_id: input.productId,
       supplier_id: input.supplierId,
+      created_by_user_id: createdByUserId,
       type: "ENTRY",
       quantity: input.quantity,
       unit_cost: input.unitCost,

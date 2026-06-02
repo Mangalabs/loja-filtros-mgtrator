@@ -70,6 +70,8 @@ type StockMovement = {
   productId: string;
   productName: string;
   supplierName: string | null;
+  createdByUserId: string | null;
+  createdByUserName: string | null;
   quantity: string;
   unitCost: string | null;
   notes: string | null;
@@ -1468,10 +1470,12 @@ describe("catalog routes", () => {
     assert.equal(response.body.data?.length, 2);
     assert.equal(entry?.productName, "Filtro com historico");
     assert.equal(entry?.supplierName, "Fornecedor do historico");
+    assert.equal(entry?.createdByUserName, "Administrador de teste");
     assert.equal(entry?.quantity, "5.000");
     assert.equal(entry?.unitCost, "11.90");
     assert.equal(adjustment?.productName, "Filtro com historico");
     assert.equal(adjustment?.supplierName, null);
+    assert.equal(adjustment?.createdByUserName, "Administrador de teste");
     assert.equal(adjustment?.quantity, "-1.000");
     assert.equal(adjustment?.notes, "Avaria identificada");
   });

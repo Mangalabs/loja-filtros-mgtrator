@@ -128,6 +128,7 @@ export async function insertSale(
   await transaction("stock_movements").insert({
     product_id: input.productId,
     sale_id: created.id,
+    created_by_user_id: createdByUserId,
     type: "SALE",
     quantity: -input.quantity,
   });

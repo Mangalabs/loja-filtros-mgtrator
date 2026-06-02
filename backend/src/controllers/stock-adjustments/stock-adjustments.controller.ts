@@ -18,7 +18,7 @@ export async function indexStockAdjustments() {
   };
 }
 
-export async function storeStockAdjustment(input: StockAdjustmentInput) {
+export async function storeStockAdjustment(input: StockAdjustmentInput, createdByUserId: string) {
   const adjustment = await db.transaction(async (transaction) => {
     const product = await lockProductStock(transaction, input.productId);
 
@@ -34,7 +34,7 @@ export async function storeStockAdjustment(input: StockAdjustmentInput) {
       throw new AppError("Ajuste nao pode retirar quantidade reservada para separacao.", 422);
     }
 
-    const created = await insertStockAdjustment(transaction, input);
+    const created = await insertStockAdjustment(transaction, input, createdByUserId);
     await applyStockAdjustment(transaction, input);
 
     return created;

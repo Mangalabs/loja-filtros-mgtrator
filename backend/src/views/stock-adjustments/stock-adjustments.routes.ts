@@ -24,7 +24,8 @@ stockAdjustmentsRoutes.get("/stock-adjustments", async (_request, response) => {
 
 stockAdjustmentsRoutes.post("/stock-adjustments", async (request, response) => {
   const body = validateBody(request, createStockAdjustmentSchema);
-  const result = await storeStockAdjustment(body);
+  const userId = response.locals.authenticatedUser.id as string;
+  const result = await storeStockAdjustment(body, userId);
 
   response.status(201).json(result);
 });
