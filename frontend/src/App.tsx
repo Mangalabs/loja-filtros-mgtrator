@@ -61,7 +61,13 @@ import { PrimaryButton, SecondaryButton, StatusChip, TableActionButton } from ".
 import { formatCurrency, formatDateTime, formatQuantity } from "./utils/format";
 import { CashRegisterPage, PaymentMethodsPage } from "./views/finance/FinancePages";
 import { QuotesPage, type QuoteDraftInput } from "./views/quotes/QuotesPage";
-import { PickupReservationsPage, SalesPage, ShippingOrdersPage, type SaleDraftInput } from "./views/sales/SalesPages";
+import {
+  PickupReservationsPage,
+  SalesPage,
+  ShippingOrdersPage,
+  type PickupReservationDraftInput,
+  type SaleDraftInput,
+} from "./views/sales/SalesPages";
 import {
   LowStockPage,
   StockAdjustmentsPage,
@@ -682,19 +688,9 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
-  async function createPickupReservation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPost("/pickup-reservations", {
-        clientId: String(form.get("pickupClientId") ?? ""),
-        productId: String(form.get("pickupProductId") ?? ""),
-        quantity: Number(form.get("pickupQuantity")),
-      });
-
-      formElement.reset();
+  async function createPickupReservation(input: PickupReservationDraftInput) {
+    return runAction(async () => {
+      await apiPost("/pickup-reservations", input);
       await loadCatalog();
     });
   }

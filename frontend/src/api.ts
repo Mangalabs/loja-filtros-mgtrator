@@ -183,6 +183,15 @@ export type PickupReservation = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    quantity: string;
+    unitPrice: string;
+    totalAmount: string;
+    position: number;
+  }>;
   createdByUserName: string;
   createdAt: string;
   saleId: string | null;

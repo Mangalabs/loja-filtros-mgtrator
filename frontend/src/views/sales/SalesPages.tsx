@@ -17,9 +17,22 @@ type SaleDraftItem = {
   quantity: string;
 };
 
+type PickupReservationDraftItem = {
+  productId: string;
+  quantity: string;
+};
+
 export type SaleDraftInput = {
   clientId?: string | null;
   paymentMethodId: string;
+  items: Array<{
+    productId: string;
+    quantity: number;
+  }>;
+};
+
+export type PickupReservationDraftInput = {
+  clientId: string;
   items: Array<{
     productId: string;
     quantity: number;
@@ -233,6 +246,13 @@ function emptySaleItem(): SaleDraftItem {
   };
 }
 
+function emptyPickupReservationItem(): PickupReservationDraftItem {
+  return {
+    productId: "",
+    quantity: "",
+  };
+}
+
 export function ShippingOrdersPage({
   cashRegister,
   paymentMethods,
@@ -394,24 +414,61 @@ export function PickupReservationsPage({
   paymentMethods: PaymentMethod[];
   products: Product[];
   reservations: PickupReservation[];
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (input: PickupReservationDraftInput) => Promise<boolean>;
   onComplete: (event: FormEvent<HTMLFormElement>, reservation: PickupReservation) => void;
   onCancel: (event: FormEvent<HTMLFormElement>, reservation: PickupReservation) => void;
 }) {
+  const [clientId, setClientId] = useState("");
+  const [items, setItems] = useState<PickupReservationDraftItem[]>([emptyPickupReservationItem()]);
+  const availableProducts = products.filter((product) => product.active && Number(product.availableStock) > 0);
+  const reservationTotal = items.reduce((sum, item) => {
+    const product = availableProducts.find((currentProduct) => currentProduct.id === item.productId);
+    return sum + Number(item.quantity || 0) * Number(product?.salePrice ?? 0);
+  }, 0);
+
+  function updateItem(index: number, changes: Partial<PickupReservationDraftItem>) {
+    setItems((currentItems) =>
+      currentItems.map((item, itemIndex) => (itemIndex === index ? { ...item, ...changes } : item)),
+    );
+  }
+
+  function removeItem(index: number) {
+    setItems((currentItems) => currentItems.filter((_item, itemIndex) => itemIndex !== index));
+  }
+
+  function resetForm() {
+    setClientId("");
+    setItems([emptyPickupReservationItem()]);
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const saved = await onSubmit({
+      clientId,
+      items: items.map((item) => ({
+        productId: item.productId,
+        quantity: Number(item.quantity),
+      })),
+    });
+
+    saved && resetForm();
+  }
+
   return (
     <section className="layout-grid stock-entry-layout">
-      <form className="panel form-panel" onSubmit={onSubmit}>
+      <form className="panel form-panel" onSubmit={submit}>
         <div className="panel-header compact">
           <div>
             <h2>Nova reserva</h2>
-            <span>Reserve uma peca para o cliente retirar na loja.</span>
+            <span>Reserve uma ou mais pecas para retirada na loja.</span>
           </div>
           <PackagePlus size={18} />
         </div>
         <p className="field-help">
           A reserva prende o saldo disponivel imediatamente. A baixa acontece somente ao concluir a venda.
         </p>
-        <select name="pickupClientId" defaultValue="" required>
+        <select value={clientId} onChange={(event) => setClientId(event.target.value)} required>
           <option value="" disabled>
             Cliente
           </option>
@@ -421,26 +478,53 @@ export function PickupReservationsPage({
             </option>
           ))}
         </select>
-        <select name="pickupProductId" defaultValue="" required>
-          <option value="" disabled>
-            Produto
-          </option>
-          {products
-            .filter((product) => product.active && Number(product.availableStock) > 0)
-            .map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name} - {formatCurrency(product.salePrice)} - disponivel {formatQuantity(product.availableStock)}
-              </option>
-            ))}
-        </select>
-        <input
-          name="pickupQuantity"
-          type="number"
-          min="0.001"
-          step="0.001"
-          placeholder="Quantidade"
-          required
-        />
+
+        <div className="quote-items">
+          {items.map((item, index) => (
+            <div className="quote-item-row" key={index}>
+              <div className="panel-header compact">
+                <strong>Item {index + 1}</strong>
+                {items.length > 1 ? (
+                  <TableActionButton type="button" onClick={() => removeItem(index)}>
+                    Remover
+                  </TableActionButton>
+                ) : null}
+              </div>
+              <select
+                value={item.productId}
+                onChange={(event) => updateItem(index, { productId: event.target.value })}
+                required
+              >
+                <option value="" disabled>
+                  Produto
+                </option>
+                {availableProducts.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name} - {formatCurrency(product.salePrice)} - disponivel{" "}
+                    {formatQuantity(product.availableStock)}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={item.quantity}
+                type="number"
+                min="0.001"
+                step="0.001"
+                placeholder="Quantidade"
+                required
+                onChange={(event) => updateItem(index, { quantity: event.target.value })}
+              />
+            </div>
+          ))}
+        </div>
+
+        <SecondaryButton type="button" onClick={() => setItems((currentItems) => [...currentItems, emptyPickupReservationItem()])}>
+          Adicionar item
+        </SecondaryButton>
+        <label className="field-label">
+          Total estimado
+          <input value={formatCurrency(reservationTotal)} disabled />
+        </label>
         <PrimaryButton icon={<Plus size={17} />} type="submit">
           Registrar reserva
         </PrimaryButton>
@@ -472,8 +556,17 @@ export function PickupReservationsPage({
                 <tr key={reservation.id}>
                   <td>{formatDateTime(reservation.createdAt)}</td>
                   <td>{reservation.clientName}</td>
-                  <td>{reservation.productName}</td>
-                  <td>{formatQuantity(reservation.quantity)}</td>
+                  <td>
+                    {reservation.items.length} item(ns)
+                    <span className="table-note">
+                      {reservation.items.map((item) => item.productName).join(", ")}
+                    </span>
+                  </td>
+                  <td>
+                    {formatQuantity(
+                      String(reservation.items.reduce((sum, item) => sum + Number(item.quantity), 0)),
+                    )}
+                  </td>
                   <td>{formatCurrency(reservation.totalAmount)}</td>
                   <td>
                     <StatusChip
