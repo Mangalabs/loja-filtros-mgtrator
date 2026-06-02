@@ -591,10 +591,30 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     });
   }
 
-  async function approveShippingOrder(order: ShippingOrder) {
+  async function createShippingOrderFromQuote(quote: Quote) {
     if (
       !(await requestConfirmation(
-        `Aprovar o pedido de ${order.clientName} e reservar ${formatQuantity(order.quantity)} item(ns)?`,
+        `Enviar o orcamento de ${quote.clientName} para a fila de pedidos para envio?`,
+        "Enviar para envio?",
+        "Enviar para envio",
+      ))
+    ) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPost(`/quotes/${quote.id}/shipping-order`, {});
+      await loadCatalog();
+      setView("shipping-orders");
+    });
+  }
+
+  async function approveShippingOrder(order: ShippingOrder) {
+    const orderQuantity = order.items.reduce((sum, item) => sum + Number(item.quantity), 0);
+
+    if (
+      !(await requestConfirmation(
+        `Aprovar o pedido de ${order.clientName} e reservar ${formatQuantity(String(orderQuantity))} item(ns)?`,
         "Aprovar pedido?",
         "Aprovar e reservar",
       ))
@@ -1126,6 +1146,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             products={products}
             quotes={quotes}
             onSubmit={createQuote}
+            onCreateShippingOrder={(quote) => void createShippingOrderFromQuote(quote)}
           />
         ) : null}
 

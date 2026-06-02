@@ -28,11 +28,13 @@ export function QuotesPage({
   products,
   quotes,
   onSubmit,
+  onCreateShippingOrder,
 }: {
   clients: Client[];
   products: Product[];
   quotes: Quote[];
   onSubmit: (input: QuoteDraftInput) => Promise<boolean>;
+  onCreateShippingOrder: (quote: Quote) => void;
 }) {
   const [clientId, setClientId] = useState("");
   const [validUntil, setValidUntil] = useState("");
@@ -239,6 +241,9 @@ export function QuotesPage({
                   <td>
                     <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
                       Baixar PDF
+                    </TableActionButton>
+                    <TableActionButton type="button" onClick={() => onCreateShippingOrder(quote)}>
+                      Enviar p/ envio
                     </TableActionButton>
                   </td>
                 </tr>

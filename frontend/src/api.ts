@@ -133,6 +133,7 @@ export type Sale = {
 
 export type ShippingOrder = {
   id: string;
+  quoteId: string | null;
   clientId: string;
   clientName: string;
   clientPhone: string | null;
@@ -141,6 +142,15 @@ export type ShippingOrder = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    quantity: string;
+    unitPrice: string;
+    totalAmount: string;
+    position: number;
+  }>;
   createdByUserName: string;
   createdAt: string;
   approvedAt: string | null;

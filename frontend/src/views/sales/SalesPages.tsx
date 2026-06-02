@@ -189,8 +189,18 @@ export function ShippingOrdersPage({
                 <tr key={order.id}>
                   <td>{formatDateTime(order.createdAt)}</td>
                   <td>{order.clientName}</td>
-                  <td>{order.productName}</td>
-                  <td>{formatQuantity(order.quantity)}</td>
+                  <td>
+                    {order.items.length} item(ns)
+                    {order.quoteId ? <span className="table-note">Origem: orcamento</span> : null}
+                    <span className="table-note">
+                      {order.items.map((item) => item.productName).join(", ")}
+                    </span>
+                  </td>
+                  <td>
+                    {formatQuantity(
+                      String(order.items.reduce((sum, item) => sum + Number(item.quantity), 0)),
+                    )}
+                  </td>
                   <td>{formatCurrency(order.totalAmount)}</td>
                   <td>
                     <StatusChip
