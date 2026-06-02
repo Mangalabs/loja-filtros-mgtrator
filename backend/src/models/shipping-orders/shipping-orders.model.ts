@@ -87,6 +87,8 @@ type LockedShippingOrderItem = {
   productId: string;
   quantity: string;
   unitPrice: string;
+  totalAmount: string;
+  position: number;
 };
 
 type LockedShippingOrder = {
@@ -216,7 +218,13 @@ export async function lockShippingOrder(
   }
 
   const items = await transaction("shipping_order_items")
-    .select(["product_id as productId", "quantity", "unit_price as unitPrice"])
+    .select([
+      "product_id as productId",
+      "quantity",
+      "unit_price as unitPrice",
+      "total_amount as totalAmount",
+      "position",
+    ])
     .where("shipping_order_id", id)
     .orderBy("position", "asc");
 

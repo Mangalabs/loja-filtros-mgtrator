@@ -26,14 +26,36 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
       throw new AppError("Abra o caixa antes de registrar uma venda.", 422);
     }
 
-    const product = await lockSaleProduct(transaction, input.productId);
+    const saleItems: Array<{
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      totalAmount: number;
+      position: number;
+      availableStock: number;
+    }> = [];
 
-    if (!product || !product.active) {
-      throw new AppError("Produto informado nao disponivel para venda.", 422);
+    for (const [index, item] of input.items.entries()) {
+      const product = await lockSaleProduct(transaction, item.productId);
+
+      if (!product || !product.active) {
+        throw new AppError("Produto informado nao disponivel para venda.", 422);
+      }
+
+      saleItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: Number(product.salePrice),
+        totalAmount: Number((Number(product.salePrice) * item.quantity).toFixed(2)),
+        position: index + 1,
+        availableStock: Number(product.currentStock) - Number(product.reservedStock),
+      });
     }
 
-    if (Number(product.currentStock) - Number(product.reservedStock) < input.quantity) {
-      throw new AppError("Estoque insuficiente para concluir a venda.", 422);
+    for (const item of aggregateSaleItems(saleItems)) {
+      if (item.availableStock < item.quantity) {
+        throw new AppError("Estoque insuficiente para concluir a venda.", 422);
+      }
     }
 
     if (!(await activePaymentMethodExists(transaction, input.paymentMethodId))) {
@@ -44,15 +66,16 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
       throw new AppError("Cliente informado nao disponivel.", 422);
     }
 
-    const unitPrice = Number(product.salePrice);
-    const totalAmount = Number((unitPrice * input.quantity).toFixed(2));
+    const totalAmount = Number(
+      saleItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
+    );
 
     return insertSale(
       transaction,
       input,
       cashRegister.id,
       createdByUserId,
-      unitPrice,
+      saleItems,
       totalAmount,
     );
   });
@@ -62,4 +85,28 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
     status: "success",
     data: sale,
   };
+}
+
+function aggregateSaleItems(
+  items: Array<{ productId: string; quantity: number; availableStock: number }>,
+) {
+  return items.reduce<Array<{ productId: string; quantity: number; availableStock: number }>>(
+    (aggregatedItems, item) => {
+      const existing = aggregatedItems.find((currentItem) => currentItem.productId === item.productId);
+
+      if (existing) {
+        existing.quantity += item.quantity;
+        return aggregatedItems;
+      }
+
+      aggregatedItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+        availableStock: item.availableStock,
+      });
+
+      return aggregatedItems;
+    },
+    [],
+  );
 }

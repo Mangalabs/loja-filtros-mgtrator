@@ -195,10 +195,6 @@ export async function completeSeparatedShippingOrder(
       throw new AppError("Confirme a separacao antes de concluir a venda para envio.", 409);
     }
 
-    if (currentOrder.items.length !== 1) {
-      throw new AppError("Venda para envio com multiplos itens sera concluida na etapa de venda multi-itens.", 409);
-    }
-
     const cashRegister = await findOpenCashRegister(transaction);
 
     if (!cashRegister) {
@@ -209,27 +205,39 @@ export async function completeSeparatedShippingOrder(
       throw new AppError("Forma de pagamento informada nao disponivel.", 422);
     }
 
-    const orderItem = currentOrder.items[0];
-    const product = await lockReservableProduct(transaction, orderItem.productId);
-    const quantity = Number(orderItem.quantity);
+    const reservedItems = aggregateShippingItems(currentOrder.items);
 
-    if (!product || Number(product.reservedStock) < quantity || Number(product.currentStock) < quantity) {
-      throw new AppError("Reserva insuficiente para concluir esta venda.", 422);
+    for (const item of reservedItems) {
+      const product = await lockReservableProduct(transaction, item.productId);
+
+      if (!product || Number(product.reservedStock) < item.quantity || Number(product.currentStock) < item.quantity) {
+        throw new AppError("Reserva insuficiente para concluir esta venda.", 422);
+      }
     }
 
-    await releaseShippingOrderReservation(transaction, product.id, quantity);
+    for (const item of reservedItems) {
+      await releaseShippingOrderReservation(transaction, item.productId, item.quantity);
+    }
 
     const sale = await insertSale(
       transaction,
       {
-        productId: orderItem.productId,
         clientId: currentOrder.clientId,
         paymentMethodId,
-        quantity,
+        items: currentOrder.items.map((item) => ({
+          productId: item.productId,
+          quantity: Number(item.quantity),
+        })),
       },
       cashRegister.id,
       completedByUserId,
-      Number(orderItem.unitPrice),
+      currentOrder.items.map((item) => ({
+        productId: item.productId,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        totalAmount: Number(item.totalAmount),
+        position: item.position,
+      })),
       Number(currentOrder.totalAmount),
     );
 

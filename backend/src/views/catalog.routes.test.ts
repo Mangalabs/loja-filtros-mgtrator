@@ -84,6 +84,15 @@ type Sale = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    quantity: string;
+    unitPrice: string;
+    totalAmount: string;
+    position: number;
+  }>;
   clientName: string | null;
   paymentMethodName: string;
   createdByUserName: string;
@@ -750,6 +759,95 @@ describe("catalog routes", () => {
     assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
     assert.equal(updatedProduct.body.data?.availableStock, "2.000");
     assert.equal(saleMovement?.quantity, "-2.000");
+  });
+
+  it("completes a multi-item quoted shipping order as a sale", async () => {
+    const firstProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro envio multi A", salePrice: 40 },
+    });
+    const secondProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro envio multi B", salePrice: 75 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente envio multi" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: firstProduct.body.data?.id,
+        quantity: 5,
+        reason: "Saldo para envio multi A",
+      },
+    });
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: secondProduct.body.data?.id,
+        quantity: 3,
+        reason: "Saldo para envio multi B",
+      },
+    });
+
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        items: [
+          { productId: firstProduct.body.data?.id, quantity: 2 },
+          { productId: secondProduct.body.data?.id, quantity: 1 },
+        ],
+      },
+    });
+    const shippingOrder = await request<ShippingOrder>(`/quotes/${quote.body.data?.id}/shipping-order`, {
+      method: "POST",
+      body: {},
+    });
+
+    await request(`/shipping-orders/${shippingOrder.body.data?.id}/approve`, {
+      method: "PATCH",
+      body: {},
+    });
+    await request(`/shipping-orders/${shippingOrder.body.data?.id}/separate`, {
+      method: "PATCH",
+      body: {},
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
+    const boleto = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "BOLETO");
+    const completed = await request<ShippingOrder>(`/shipping-orders/${shippingOrder.body.data?.id}/complete`, {
+      method: "PATCH",
+      body: { paymentMethodId: boleto?.id },
+    });
+    const sales = await request<Sale[]>("/sales");
+    const firstUpdatedProduct = await request<Product>(`/products/${firstProduct.body.data?.id}`);
+    const secondUpdatedProduct = await request<Product>(`/products/${secondProduct.body.data?.id}`);
+    const movements = await request<StockMovement[]>("/stock-movements");
+    const saleMovements = movements.body.data?.filter((movement) => movement.type === "SALE") ?? [];
+
+    assert.equal(completed.status, 200);
+    assert.equal(completed.body.data?.status, "COMPLETED");
+    assert.equal(sales.body.data?.length, 1);
+    assert.equal(sales.body.data?.[0]?.items.length, 2);
+    assert.equal(sales.body.data?.[0]?.totalAmount, "155.00");
+    assert.equal(sales.body.data?.[0]?.items[0]?.productName, "Filtro envio multi A");
+    assert.equal(sales.body.data?.[0]?.items[0]?.quantity, "2.000");
+    assert.equal(sales.body.data?.[0]?.items[1]?.productName, "Filtro envio multi B");
+    assert.equal(sales.body.data?.[0]?.items[1]?.quantity, "1.000");
+    assert.equal(firstUpdatedProduct.body.data?.currentStock, "3.000");
+    assert.equal(firstUpdatedProduct.body.data?.reservedStock, "0.000");
+    assert.equal(secondUpdatedProduct.body.data?.currentStock, "2.000");
+    assert.equal(secondUpdatedProduct.body.data?.reservedStock, "0.000");
+    assert.equal(saleMovements.length, 2);
+    assert.ok(saleMovements.some((movement) => movement.productName === "Filtro envio multi A"));
+    assert.ok(saleMovements.some((movement) => movement.productName === "Filtro envio multi B"));
   });
 
   it("creates and cancels a pickup reservation releasing reserved stock", async () => {

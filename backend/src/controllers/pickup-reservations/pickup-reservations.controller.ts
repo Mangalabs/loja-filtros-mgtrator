@@ -136,14 +136,26 @@ export async function completeReservedPickup(
     const sale = await insertSale(
       transaction,
       {
-        productId: currentReservation.productId,
         clientId: currentReservation.clientId,
         paymentMethodId,
-        quantity,
+        items: [
+          {
+            productId: currentReservation.productId,
+            quantity,
+          },
+        ],
       },
       cashRegister.id,
       completedByUserId,
-      Number(currentReservation.unitPrice),
+      [
+        {
+          productId: currentReservation.productId,
+          quantity,
+          unitPrice: Number(currentReservation.unitPrice),
+          totalAmount: Number(currentReservation.totalAmount),
+          position: 1,
+        },
+      ],
       Number(currentReservation.totalAmount),
     );
 
