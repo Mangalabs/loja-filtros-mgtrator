@@ -73,6 +73,8 @@ export type StockMovement = {
   productId: string;
   productName: string;
   supplierName: string | null;
+  createdByUserId: string | null;
+  createdByUserName: string | null;
   quantity: string;
   unitCost: string | null;
   notes: string | null;

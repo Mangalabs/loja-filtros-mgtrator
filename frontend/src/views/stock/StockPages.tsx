@@ -233,6 +233,7 @@ export function StockMovementsPage({ movements }: { movements: StockMovement[] }
               <th>Produto</th>
               <th>Quantidade</th>
               <th>Fornecedor</th>
+              <th>Operador</th>
               <th>Custo un.</th>
               <th>Observacao</th>
             </tr>
@@ -245,13 +246,14 @@ export function StockMovementsPage({ movements }: { movements: StockMovement[] }
                 <td>{movement.productName}</td>
                 <td>{formatSignedQuantity(movement.quantity)}</td>
                 <td>{movement.supplierName ?? "-"}</td>
+                <td>{movement.createdByUserName ?? "-"}</td>
                 <td>{movement.unitCost ? formatCurrency(movement.unitCost) : "-"}</td>
                 <td>{movement.notes ?? "-"}</td>
               </tr>
             ))}
             {movements.length === 0 ? (
               <tr>
-                <td colSpan={7}>Nenhuma movimentacao registrada.</td>
+                <td colSpan={8}>Nenhuma movimentacao registrada.</td>
               </tr>
             ) : null}
           </tbody>
