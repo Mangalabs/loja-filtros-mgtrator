@@ -41,6 +41,8 @@ export type Quote = {
   totalAmount: string;
   validUntil: string | null;
   notes: string | null;
+  shippingOrderId: string | null;
+  shippingOrderStatus: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED" | null;
   createdByUserName: string;
   createdByUserEmail: string;
   createdByUserPhone: string | null;
@@ -73,6 +75,8 @@ const quoteColumns = [
   "quotes.total_amount as totalAmount",
   "quotes.valid_until as validUntil",
   "quotes.notes",
+  "shipping_orders.id as shippingOrderId",
+  "shipping_orders.status as shippingOrderStatus",
   "users.name as createdByUserName",
   "users.email as createdByUserEmail",
   "users.phone as createdByUserPhone",
@@ -185,6 +189,7 @@ function quoteQuery(database: Knex | Knex.Transaction) {
   return database("quotes")
     .join("clients", "clients.id", "quotes.client_id")
     .join("users", "users.id", "quotes.created_by_user_id")
+    .leftJoin("shipping_orders", "shipping_orders.quote_id", "quotes.id")
     .select<QuoteRow[]>(quoteColumns);
 }
 

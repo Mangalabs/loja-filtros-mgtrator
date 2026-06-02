@@ -155,6 +155,8 @@ type Quote = {
   totalAmount: string;
   validUntil: string | null;
   notes: string | null;
+  shippingOrderId: string | null;
+  shippingOrderStatus: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED" | null;
   createdByUserName: string;
   items: Array<{
     id: string;
@@ -1135,6 +1137,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {},
     });
+    const listedAfterShippingOrder = await request<Quote[]>("/quotes");
     const listedShippingOrders = await request<ShippingOrder[]>("/shipping-orders");
     const unchangedProduct = await request<Product>(`/products/${firstProduct.body.data?.id}`);
 
@@ -1151,7 +1154,10 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.items[1]?.description, "Descricao comercial quote B");
     assert.equal(created.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(shown.body.data?.items.length, 2);
+    assert.equal(shown.body.data?.shippingOrderId, null);
+    assert.equal(shown.body.data?.shippingOrderStatus, null);
     assert.equal(listed.body.data?.length, 1);
+    assert.equal(listed.body.data?.[0]?.shippingOrderId, null);
     assert.equal(pdf.status, 200);
     assert.equal(pdf.contentType, "application/pdf");
     assert.equal(pdf.body.subarray(0, 4).toString(), "%PDF");
@@ -1169,6 +1175,8 @@ describe("catalog routes", () => {
       repeatedShippingOrder.body.message,
       "Este orcamento ja foi enviado para pedidos de envio.",
     );
+    assert.equal(listedAfterShippingOrder.body.data?.[0]?.shippingOrderId, shippingOrder.body.data?.id);
+    assert.equal(listedAfterShippingOrder.body.data?.[0]?.shippingOrderStatus, "QUOTED");
     assert.equal(listedShippingOrders.body.data?.length, 1);
     assert.equal(listedShippingOrders.body.data?.[0]?.items.length, 2);
     assert.equal(unchangedProduct.body.data?.currentStock, "2.000");

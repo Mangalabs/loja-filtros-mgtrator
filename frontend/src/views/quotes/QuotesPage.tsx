@@ -236,15 +236,23 @@ export function QuotesPage({
                   <td>{quote.validUntil ? formatDate(quote.validUntil) : "-"}</td>
                   <td>{formatCurrency(quote.totalAmount)}</td>
                   <td>
-                    <StatusChip label="Rascunho" tone="warning" />
+                    {quote.shippingOrderId ? (
+                      <StatusChip label={quoteShippingStatusLabel(quote.shippingOrderStatus)} tone="success" />
+                    ) : (
+                      <StatusChip label="Rascunho" tone="warning" />
+                    )}
                   </td>
                   <td>
                     <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
                       Baixar PDF
                     </TableActionButton>
-                    <TableActionButton type="button" onClick={() => onCreateShippingOrder(quote)}>
-                      Enviar p/ envio
-                    </TableActionButton>
+                    {quote.shippingOrderId ? (
+                      <span className="table-note">Pedido para envio criado</span>
+                    ) : (
+                      <TableActionButton type="button" onClick={() => onCreateShippingOrder(quote)}>
+                        Enviar p/ envio
+                      </TableActionButton>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -259,6 +267,26 @@ export function QuotesPage({
       </div>
     </section>
   );
+}
+
+function quoteShippingStatusLabel(status: Quote["shippingOrderStatus"]) {
+  if (status === "APPROVED") {
+    return "Envio aprovado";
+  }
+
+  if (status === "SEPARATED") {
+    return "Separado para envio";
+  }
+
+  if (status === "COMPLETED") {
+    return "Venda concluida";
+  }
+
+  if (status === "CANCELLED") {
+    return "Envio cancelado";
+  }
+
+  return "Enviado p/ envio";
 }
 
 function emptyQuoteItem(): QuoteDraftItem {

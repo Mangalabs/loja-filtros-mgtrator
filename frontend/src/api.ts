@@ -212,6 +212,8 @@ export type Quote = {
   totalAmount: string;
   validUntil: string | null;
   notes: string | null;
+  shippingOrderId: string | null;
+  shippingOrderStatus: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED" | null;
   createdByUserName: string;
   createdByUserEmail: string;
   createdByUserPhone: string | null;
