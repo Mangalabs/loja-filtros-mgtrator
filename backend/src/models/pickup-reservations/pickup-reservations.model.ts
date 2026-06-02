@@ -3,8 +3,10 @@ import { db } from "../../database/knex.js";
 
 export type PickupReservationInput = {
   clientId: string;
-  productId: string;
-  quantity: number;
+  items: Array<{
+    productId: string;
+    quantity: number;
+  }>;
 };
 
 export type PickupReservation = {
@@ -17,6 +19,7 @@ export type PickupReservation = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  items: PickupReservationItem[];
   createdByUserName: string;
   createdAt: Date;
   saleId: string | null;
@@ -24,6 +27,16 @@ export type PickupReservation = {
   cancelledAt: Date | null;
   cancellationReason: string | null;
   status: "RESERVED" | "CANCELLED" | "COMPLETED";
+};
+
+export type PickupReservationItem = {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: string;
+  unitPrice: string;
+  totalAmount: string;
+  position: number;
 };
 
 export type ReservableProduct = {
@@ -39,10 +52,6 @@ const pickupReservationColumns = [
   "pickup_reservations.client_id as clientId",
   "clients.name as clientName",
   "clients.phone as clientPhone",
-  "pickup_reservation_items.product_id as productId",
-  "products.name as productName",
-  "pickup_reservation_items.quantity",
-  "pickup_reservation_items.unit_price as unitPrice",
   "pickup_reservations.total_amount as totalAmount",
   "created_users.name as createdByUserName",
   "pickup_reservations.created_at as createdAt",
@@ -53,8 +62,44 @@ const pickupReservationColumns = [
   "pickup_reservations.status",
 ];
 
+const pickupReservationItemColumns = [
+  "pickup_reservation_items.id",
+  "pickup_reservation_items.pickup_reservation_id as pickupReservationId",
+  "pickup_reservation_items.product_id as productId",
+  "products.name as productName",
+  "pickup_reservation_items.quantity",
+  "pickup_reservation_items.unit_price as unitPrice",
+  "pickup_reservation_items.total_amount as totalAmount",
+  "pickup_reservation_items.position",
+];
+
+type PickupReservationRow = Omit<
+  PickupReservation,
+  "items" | "productId" | "productName" | "quantity" | "unitPrice"
+>;
+type PickupReservationItemRow = PickupReservationItem & {
+  pickupReservationId: string;
+};
+
+type LockedPickupReservationItem = {
+  productId: string;
+  quantity: string;
+  unitPrice: string;
+  totalAmount: string;
+  position: number;
+};
+
+type LockedPickupReservation = {
+  id: string;
+  clientId: string;
+  totalAmount: string;
+  status: PickupReservation["status"];
+  items: LockedPickupReservationItem[];
+};
+
 export async function listPickupReservations(): Promise<PickupReservation[]> {
-  return pickupReservationQuery(db).orderBy("pickup_reservations.created_at", "desc");
+  const reservations = await pickupReservationQuery(db).orderBy("pickup_reservations.created_at", "desc");
+  return withPickupReservationItems(db, reservations);
 }
 
 export async function activePickupClientExists(
@@ -87,15 +132,23 @@ export async function insertPickupReservation(
   transaction: Knex.Transaction,
   input: PickupReservationInput,
   createdByUserId: string,
-  unitPrice: number,
+  items: Array<{
+    productId: string;
+    quantity: number;
+    unitPrice: number;
+    totalAmount: number;
+    position: number;
+  }>,
   totalAmount: number,
 ): Promise<PickupReservation> {
-  await transaction("products")
-    .where("id", input.productId)
-    .update({
-      reserved_stock: transaction.raw("reserved_stock + ?", [input.quantity]),
-      updated_at: transaction.fn.now(),
-    });
+  for (const item of aggregateReservationItems(items)) {
+    await transaction("products")
+      .where("id", item.productId)
+      .update({
+        reserved_stock: transaction.raw("reserved_stock + ?", [item.quantity]),
+        updated_at: transaction.fn.now(),
+      });
+  }
 
   const [created] = await transaction("pickup_reservations")
     .insert({
@@ -105,13 +158,16 @@ export async function insertPickupReservation(
     })
     .returning("id");
 
-  await transaction("pickup_reservation_items").insert({
-    pickup_reservation_id: created.id,
-    product_id: input.productId,
-    quantity: input.quantity,
-    unit_price: unitPrice,
-    total_amount: totalAmount,
-  });
+  await transaction("pickup_reservation_items").insert(
+    items.map((item) => ({
+      pickup_reservation_id: created.id,
+      product_id: item.productId,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      total_amount: item.totalAmount,
+      position: item.position,
+    })),
+  );
 
   return findPickupReservation(transaction, created.id);
 }
@@ -119,52 +175,51 @@ export async function insertPickupReservation(
 export async function lockPickupReservation(
   transaction: Knex.Transaction,
   id: string,
-): Promise<
-  | {
-      id: string;
-      clientId: string;
-      productId: string;
-      quantity: string;
-      unitPrice: string;
-      totalAmount: string;
-      status: PickupReservation["status"];
-    }
-  | undefined
-> {
-  return transaction("pickup_reservations")
-    .join(
-      "pickup_reservation_items",
-      "pickup_reservation_items.pickup_reservation_id",
-      "pickup_reservations.id",
-    )
+): Promise<LockedPickupReservation | undefined> {
+  const reservation = await transaction("pickup_reservations")
     .select([
       "pickup_reservations.id",
       "pickup_reservations.client_id as clientId",
       "pickup_reservations.total_amount as totalAmount",
       "pickup_reservations.status",
-      "pickup_reservation_items.product_id as productId",
-      "pickup_reservation_items.quantity",
-      "pickup_reservation_items.unit_price as unitPrice",
     ])
     .where("pickup_reservations.id", id)
     .forUpdate("pickup_reservations")
     .first();
+
+  if (!reservation) {
+    return undefined;
+  }
+
+  const items = await transaction("pickup_reservation_items")
+    .select([
+      "product_id as productId",
+      "quantity",
+      "unit_price as unitPrice",
+      "total_amount as totalAmount",
+      "position",
+    ])
+    .where("pickup_reservation_id", id)
+    .orderBy("position", "asc");
+
+  return { ...reservation, items };
 }
 
 export async function cancelPickupReservation(
   transaction: Knex.Transaction,
   id: string,
-  productId: string,
-  quantity: number,
+  items: Array<{ productId: string; quantity: number }>,
   cancelledByUserId: string,
   reason: string,
 ): Promise<PickupReservation> {
-  await transaction("products")
-    .where("id", productId)
-    .update({
-      reserved_stock: transaction.raw("reserved_stock - ?", [quantity]),
-      updated_at: transaction.fn.now(),
-    });
+  for (const item of items) {
+    await transaction("products")
+      .where("id", item.productId)
+      .update({
+        reserved_stock: transaction.raw("reserved_stock - ?", [item.quantity]),
+        updated_at: transaction.fn.now(),
+      });
+  }
 
   await transaction("pickup_reservations").where("id", id).update({
     status: "CANCELLED",
@@ -215,18 +270,63 @@ async function findPickupReservation(
     throw new Error("Pickup reservation was not found after operation");
   }
 
-  return reservation;
+  const [withItems] = await withPickupReservationItems(transaction, [reservation]);
+  return withItems;
 }
 
 function pickupReservationQuery(database: Knex | Knex.Transaction) {
   return database("pickup_reservations")
-    .join(
-      "pickup_reservation_items",
-      "pickup_reservation_items.pickup_reservation_id",
-      "pickup_reservations.id",
-    )
-    .join("products", "products.id", "pickup_reservation_items.product_id")
     .join("clients", "clients.id", "pickup_reservations.client_id")
     .join({ created_users: "users" }, "created_users.id", "pickup_reservations.created_by_user_id")
-    .select(pickupReservationColumns);
+    .select<PickupReservationRow[]>(pickupReservationColumns);
+}
+
+async function withPickupReservationItems(
+  database: Knex | Knex.Transaction,
+  reservations: PickupReservationRow[],
+): Promise<PickupReservation[]> {
+  if (reservations.length === 0) {
+    return [];
+  }
+
+  const reservationIds = reservations.map((reservation) => reservation.id);
+  const items = await database("pickup_reservation_items")
+    .join("products", "products.id", "pickup_reservation_items.product_id")
+    .select<PickupReservationItemRow[]>(pickupReservationItemColumns)
+    .whereIn("pickup_reservation_items.pickup_reservation_id", reservationIds)
+    .orderBy("pickup_reservation_items.position", "asc");
+
+  return reservations.map((reservation) => {
+    const reservationItems = items
+      .filter((item) => item.pickupReservationId === reservation.id)
+      .map(({ pickupReservationId: _pickupReservationId, ...item }) => item);
+    const firstItem = reservationItems[0];
+
+    return {
+      ...reservation,
+      productId: firstItem?.productId ?? "",
+      productName: firstItem?.productName ?? "",
+      quantity: firstItem?.quantity ?? "0.000",
+      unitPrice: firstItem?.unitPrice ?? "0.00",
+      items: reservationItems,
+    };
+  });
+}
+
+function aggregateReservationItems(items: Array<{ productId: string; quantity: number }>) {
+  return items.reduce<Array<{ productId: string; quantity: number }>>((aggregatedItems, item) => {
+    const existing = aggregatedItems.find((currentItem) => currentItem.productId === item.productId);
+
+    if (existing) {
+      existing.quantity += item.quantity;
+      return aggregatedItems;
+    }
+
+    aggregatedItems.push({
+      productId: item.productId,
+      quantity: item.quantity,
+    });
+
+    return aggregatedItems;
+  }, []);
 }

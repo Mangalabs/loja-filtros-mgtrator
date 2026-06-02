@@ -13,10 +13,42 @@ export const pickupReservationsRoutes = Router();
 const createPickupReservationSchema = z
   .object({
     clientId: z.uuid(),
-    productId: z.uuid(),
-    quantity: z.coerce.number().positive(),
+    productId: z.uuid().optional(),
+    quantity: z.coerce.number().positive().optional(),
+    items: z
+      .array(
+        z
+          .object({
+            productId: z.uuid(),
+            quantity: z.coerce.number().positive(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const hasItems = Boolean(value.items?.length);
+    const hasSingleItem = Boolean(value.productId && value.quantity);
+
+    if (!hasItems && !hasSingleItem) {
+      context.addIssue({
+        code: "custom",
+        message: "Informe ao menos um item para a reserva.",
+        path: ["items"],
+      });
+    }
+  })
+  .transform((value) => ({
+    clientId: value.clientId,
+    items: value.items ?? [
+      {
+        productId: value.productId as string,
+        quantity: value.quantity as number,
+      },
+    ],
+  }));
 
 const pickupReservationParamsSchema = z.object({
   id: z.uuid(),

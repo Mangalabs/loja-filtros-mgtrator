@@ -132,6 +132,15 @@ type PickupReservation = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  items: Array<{
+    id: string;
+    productId: string;
+    productName: string;
+    quantity: string;
+    unitPrice: string;
+    totalAmount: string;
+    position: number;
+  }>;
   saleId: string | null;
   completedAt: string | null;
   cancellationReason: string | null;
@@ -900,6 +909,7 @@ describe("catalog routes", () => {
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.status, "RESERVED");
     assert.equal(created.body.data?.totalAmount, "99.80");
+    assert.equal(created.body.data?.items.length, 1);
     assert.equal(repeatedOverAvailable.status, 422);
     assert.equal(repeatedOverAvailable.body.message, "Quantidade indisponivel para esta reserva.");
     assert.equal(reservedProduct.body.data?.reservedStock, "2.000");
@@ -985,6 +995,86 @@ describe("catalog routes", () => {
     assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
     assert.equal(updatedProduct.body.data?.availableStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
+  });
+
+  it("completes a multi-item pickup reservation as a sale", async () => {
+    const firstProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro retirada multi A", salePrice: 25 },
+    });
+    const secondProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro retirada multi B", salePrice: 60 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente retirada multi" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: firstProduct.body.data?.id,
+        quantity: 4,
+        reason: "Saldo para retirada multi A",
+      },
+    });
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: secondProduct.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para retirada multi B",
+      },
+    });
+
+    const reservation = await request<PickupReservation>("/pickup-reservations", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        items: [
+          { productId: firstProduct.body.data?.id, quantity: 2 },
+          { productId: secondProduct.body.data?.id, quantity: 1 },
+        ],
+      },
+    });
+    const firstReservedProduct = await request<Product>(`/products/${firstProduct.body.data?.id}`);
+    const secondReservedProduct = await request<Product>(`/products/${secondProduct.body.data?.id}`);
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
+    const boleto = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "BOLETO");
+    const completed = await request<PickupReservation>(`/pickup-reservations/${reservation.body.data?.id}/complete`, {
+      method: "PATCH",
+      body: { paymentMethodId: boleto?.id },
+    });
+    const sales = await request<Sale[]>("/sales");
+    const firstUpdatedProduct = await request<Product>(`/products/${firstProduct.body.data?.id}`);
+    const secondUpdatedProduct = await request<Product>(`/products/${secondProduct.body.data?.id}`);
+    const movements = await request<StockMovement[]>("/stock-movements");
+    const saleMovements = movements.body.data?.filter((movement) => movement.type === "SALE") ?? [];
+
+    assert.equal(reservation.status, 201);
+    assert.equal(reservation.body.data?.items.length, 2);
+    assert.equal(reservation.body.data?.totalAmount, "110.00");
+    assert.equal(firstReservedProduct.body.data?.reservedStock, "2.000");
+    assert.equal(secondReservedProduct.body.data?.reservedStock, "1.000");
+    assert.equal(completed.status, 200);
+    assert.equal(completed.body.data?.status, "COMPLETED");
+    assert.equal(sales.body.data?.length, 1);
+    assert.equal(sales.body.data?.[0]?.items.length, 2);
+    assert.equal(sales.body.data?.[0]?.totalAmount, "110.00");
+    assert.equal(firstUpdatedProduct.body.data?.currentStock, "2.000");
+    assert.equal(firstUpdatedProduct.body.data?.reservedStock, "0.000");
+    assert.equal(secondUpdatedProduct.body.data?.currentStock, "1.000");
+    assert.equal(secondUpdatedProduct.body.data?.reservedStock, "0.000");
+    assert.equal(saleMovements.length, 2);
+    assert.ok(saleMovements.some((movement) => movement.productName === "Filtro retirada multi A"));
+    assert.ok(saleMovements.some((movement) => movement.productName === "Filtro retirada multi B"));
   });
 
   it("creates and shows a multi-item quote without changing stock", async () => {
