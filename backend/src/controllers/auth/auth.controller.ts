@@ -16,6 +16,7 @@ export type CredentialsInput = {
 
 export type SetupInput = CredentialsInput & {
   name: string;
+  phone?: string | null;
 };
 
 const dummyPasswordHash = hashPassword("timing-check-password-not-used-for-login");
@@ -44,6 +45,7 @@ export async function setupInitialUser(input: SetupInput) {
       {
         name: input.name,
         email: input.email,
+        phone: input.phone,
         passwordHash,
       },
       transaction,
@@ -70,6 +72,7 @@ async function authenticatedResult(user: User) {
     id: user.id,
     name: user.name,
     email: user.email,
+    phone: user.phone,
     role: user.role,
     active: user.active,
   };

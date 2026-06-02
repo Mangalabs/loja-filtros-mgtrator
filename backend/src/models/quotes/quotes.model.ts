@@ -42,6 +42,8 @@ export type Quote = {
   validUntil: string | null;
   notes: string | null;
   createdByUserName: string;
+  createdByUserEmail: string;
+  createdByUserPhone: string | null;
   createdAt: Date;
   updatedAt: Date;
   items: QuoteItem[];
@@ -72,6 +74,8 @@ const quoteColumns = [
   "quotes.valid_until as validUntil",
   "quotes.notes",
   "users.name as createdByUserName",
+  "users.email as createdByUserEmail",
+  "users.phone as createdByUserPhone",
   "quotes.created_at as createdAt",
   "quotes.updated_at as updatedAt",
 ];

@@ -8,6 +8,7 @@ type Credentials = {
 
 type SetupInput = Credentials & {
   name: string;
+  phone?: string | null;
 };
 
 type AuthContextValue = {

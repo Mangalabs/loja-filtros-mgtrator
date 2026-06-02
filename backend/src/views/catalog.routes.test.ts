@@ -159,6 +159,7 @@ type User = {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   role: "ADMIN";
   active: boolean;
 };
@@ -302,6 +303,7 @@ describe("catalog routes", () => {
       body: {
         name: "Segundo usuario",
         email: "segundo@example.com",
+        phone: "85911110000",
         password: "senha-segura-789",
       },
     });
@@ -338,6 +340,7 @@ describe("catalog routes", () => {
     assert.equal(repeatedSetup.status, 403);
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.role, "ADMIN");
+    assert.equal(created.body.data?.phone, "85911110000");
     assert.equal(unauthenticatedCreate.status, 401);
     assert.equal(logout.status, 200);
     assert.equal(logout.cookie, "auth_token=");

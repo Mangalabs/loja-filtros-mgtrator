@@ -90,6 +90,7 @@ export type AuthUser = {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   role: "ADMIN";
   active: boolean;
 };
@@ -182,6 +183,8 @@ export type Quote = {
   validUntil: string | null;
   notes: string | null;
   createdByUserName: string;
+  createdByUserEmail: string;
+  createdByUserPhone: string | null;
   createdAt: string;
   updatedAt: string;
   items: Array<{

@@ -5,6 +5,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   role: "ADMIN";
   active: boolean;
 };
@@ -16,12 +17,13 @@ export type UserWithPassword = User & {
 export type UserCreateInput = {
   name: string;
   email: string;
+  phone?: string | null;
   passwordHash: string;
 };
 
 type Database = Knex | Knex.Transaction;
 
-const userColumns = ["id", "name", "email", "role", "active"];
+const userColumns = ["id", "name", "email", "phone", "role", "active"];
 
 export async function hasUsers(database: Database = db): Promise<boolean> {
   const user = await database("users").select("id").first();
@@ -37,6 +39,7 @@ export async function createUser(
     .insert({
       name: input.name,
       email: input.email,
+      phone: input.phone,
       password_hash: input.passwordHash,
     })
     .returning(userColumns);

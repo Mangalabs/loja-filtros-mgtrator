@@ -23,8 +23,8 @@ export function quotePdfHtml(quote: Quote) {
             <section class="seller-box">
               <h1>ORCAMENTO</h1>
               <p><strong>Vendedor:</strong> ${escapeHtml(quote.createdByUserName)}</p>
-              <p><strong>Contato:</strong> A configurar</p>
-              <p><strong>Email:</strong> A configurar</p>
+              <p><strong>Contato:</strong> ${escapeHtml(quote.createdByUserPhone ?? "Nao informado")}</p>
+              <p><strong>Email:</strong> ${escapeHtml(quote.createdByUserEmail)}</p>
             </section>
 
             <section class="store-address">

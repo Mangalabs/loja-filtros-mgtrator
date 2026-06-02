@@ -25,6 +25,7 @@ const credentialsSchema = z
 const setupSchema = credentialsSchema
   .extend({
     name: z.string().trim().min(1).max(160),
+    phone: optionalText(32),
   })
   .strict();
 
@@ -93,4 +94,11 @@ function cookieOptions() {
     secure: env.nodeEnv === "production",
     path: "/",
   };
+}
+
+function optionalText(max: number) {
+  return z
+    .union([z.string().trim().min(1).max(max), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional();
 }

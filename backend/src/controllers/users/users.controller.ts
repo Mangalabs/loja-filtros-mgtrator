@@ -9,6 +9,7 @@ export async function storeUser(input: StoreUserInput) {
   const user = await createUser({
     name: input.name,
     email: input.email,
+    phone: input.phone,
     passwordHash: await hashPassword(input.password),
   });
 

@@ -1202,7 +1202,7 @@ function LoginPage({
 }: {
   requiresSetup: boolean;
   onLogin: (credentials: { email: string; password: string }) => Promise<void>;
-  onSetup: (input: { name: string; email: string; password: string }) => Promise<void>;
+  onSetup: (input: { name: string; email: string; phone?: string | null; password: string }) => Promise<void>;
 }) {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1223,6 +1223,7 @@ function LoginPage({
         await onSetup({
           ...credentials,
           name: String(form.get("name") ?? "").trim(),
+          phone: nullableFormValue(form, "phone"),
         });
       } else {
         await onLogin(credentials);
@@ -1253,6 +1254,7 @@ function LoginPage({
         {message ? <AppMessage kind="error" message={message} onClose={() => setMessage("")} /> : null}
         <form className="login-form" onSubmit={submit}>
           {requiresSetup ? <input name="name" placeholder="Nome do administrador" required /> : null}
+          {requiresSetup ? <input name="phone" placeholder="Telefone/WhatsApp comercial" /> : null}
           <input name="email" type="email" placeholder="Email" required />
           <input name="password" type="password" minLength={12} placeholder="Senha" required />
           <PrimaryButton icon={<ShieldCheck size={17} />} type="submit" disabled={submitting}>
