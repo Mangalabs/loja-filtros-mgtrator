@@ -1,21 +1,12 @@
 import {
-  ArrowDownToLine,
   AlertTriangle,
-  ArrowLeftRight,
   Banknote,
-  CreditCard,
-  Filter,
-  List as ListIcon,
   LogOut,
   PackagePlus,
   RefreshCcw,
-  SlidersHorizontal,
   Tags,
   Truck,
-  UserRound,
   ShieldCheck,
-  ShoppingCart,
-  Send,
 } from "lucide-react";
 import IconButton from "@mui/material/IconButton";
 import { useEffect, useMemo, useState } from "react";
@@ -40,12 +31,12 @@ import {
 } from "./api";
 import { useAuth } from "./auth/AuthContext";
 import { LoginPage } from "./auth/LoginPage";
-import { AppMessage, ConfirmationDialog, Metric, NavButton, NavSection } from "./components/shell";
+import { AppSidebar } from "./components/AppSidebar";
+import { AppMessage, ConfirmationDialog, Metric } from "./components/shell";
 import { SecondaryButton } from "./components/ui";
 import {
   findActiveNavSection,
   navSectionsStorageKey,
-  navSectionViews,
   readInitialOpenNavSections,
   viewTitles,
   type LoadState,
@@ -279,189 +270,21 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     setOpenNavSections((current) => ({ ...current, [section]: !current[section] }));
   }
 
-  function isNavSectionActive(section: NavSectionKey) {
-    return navSectionViews[section].includes(view);
-  }
-
   const activeTitle = viewTitles[view];
 
   // Layout principal: sidebar, topo, resumo e selecao da tela ativa.
   return (
     <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand-block">
-          <Filter size={28} />
-          <div>
-            <strong>Filtros MG</strong>
-            <span>Operacao da filial</span>
-          </div>
-        </div>
-
-        <nav className="nav-list" aria-label="Navegacao principal">
-          <NavSection
-            active={isNavSectionActive("products")}
-            icon={<PackagePlus size={17} />}
-            open={openNavSections.products}
-            title="Produtos"
-            onToggle={() => toggleNavSection("products")}
-          >
-            <NavButton active={view === "products"} icon={<ListIcon size={18} />} onClick={() => setView("products")}>
-              Lista de produtos
-            </NavButton>
-            <NavButton
-              active={view === "new-product"}
-              icon={<PackagePlus size={18} />}
-              onClick={() => {
-                setSelectedProduct(undefined);
-                setView("new-product");
-              }}
-            >
-              Novo produto
-            </NavButton>
-          </NavSection>
-
-          <NavSection
-            active={isNavSectionActive("catalog")}
-            icon={<Tags size={17} />}
-            open={openNavSections.catalog}
-            title="Cadastros"
-            onToggle={() => toggleNavSection("catalog")}
-          >
-            <NavButton active={view === "brands"} icon={<Tags size={18} />} onClick={() => setView("brands")}>
-              Fabricantes
-            </NavButton>
-            <NavButton active={view === "clients"} icon={<UserRound size={18} />} onClick={() => setView("clients")}>
-              Clientes
-            </NavButton>
-          </NavSection>
-
-          <NavSection
-            active={isNavSectionActive("stock")}
-            icon={<ArrowLeftRight size={17} />}
-            open={openNavSections.stock}
-            title="Estoque"
-            onToggle={() => toggleNavSection("stock")}
-          >
-            <NavButton
-              active={view === "stock-entries"}
-              icon={<ArrowDownToLine size={18} />}
-              onClick={() => setView("stock-entries")}
-            >
-              Entrada manual
-            </NavButton>
-            <NavButton
-              active={view === "stock-adjustments"}
-              icon={<SlidersHorizontal size={18} />}
-              onClick={() => setView("stock-adjustments")}
-            >
-              Ajuste manual
-            </NavButton>
-            <NavButton
-              active={view === "low-stock"}
-              icon={<AlertTriangle size={18} />}
-              onClick={() => setView("low-stock")}
-            >
-              Reposicao
-            </NavButton>
-            <NavButton
-              active={view === "stock-movements"}
-              icon={<ArrowLeftRight size={18} />}
-              onClick={() => setView("stock-movements")}
-            >
-              Historico
-            </NavButton>
-          </NavSection>
-
-          <NavSection
-            active={isNavSectionActive("suppliers")}
-            icon={<Truck size={17} />}
-            open={openNavSections.suppliers}
-            title="Fornecedores"
-            onToggle={() => toggleNavSection("suppliers")}
-          >
-            <NavButton active={view === "suppliers"} icon={<Truck size={18} />} onClick={() => setView("suppliers")}>
-              Cadastro
-            </NavButton>
-          </NavSection>
-
-          <NavSection
-            active={isNavSectionActive("finance")}
-            icon={<CreditCard size={17} />}
-            open={openNavSections.finance}
-            title="Financeiro"
-            onToggle={() => toggleNavSection("finance")}
-          >
-            <NavButton
-              active={view === "payment-methods"}
-              icon={<CreditCard size={18} />}
-              onClick={() => setView("payment-methods")}
-            >
-              Formas de pagamento
-            </NavButton>
-          </NavSection>
-
-          <NavSection
-            active={isNavSectionActive("cash")}
-            icon={<Banknote size={17} />}
-            open={openNavSections.cash}
-            title="Caixa"
-            onToggle={() => toggleNavSection("cash")}
-          >
-            <NavButton
-              active={view === "cash-register"}
-              icon={<Banknote size={18} />}
-              onClick={() => setView("cash-register")}
-            >
-              Abertura
-            </NavButton>
-          </NavSection>
-
-          <NavSection
-            active={isNavSectionActive("reports")}
-            icon={<SlidersHorizontal size={17} />}
-            open={openNavSections.reports}
-            title="Relatorios"
-            onToggle={() => toggleNavSection("reports")}
-          >
-            <NavButton
-              active={view === "reports"}
-              icon={<SlidersHorizontal size={18} />}
-              onClick={() => setView("reports")}
-            >
-              Gerencial
-            </NavButton>
-          </NavSection>
-
-          <NavSection
-            active={isNavSectionActive("sales")}
-            icon={<ShoppingCart size={17} />}
-            open={openNavSections.sales}
-            title="Vendas"
-            onToggle={() => toggleNavSection("sales")}
-          >
-            <NavButton active={view === "quotes"} icon={<ListIcon size={18} />} onClick={() => setView("quotes")}>
-              Orcamentos
-            </NavButton>
-            <NavButton active={view === "sales"} icon={<ShoppingCart size={18} />} onClick={() => setView("sales")}>
-              Balcao
-            </NavButton>
-            <NavButton
-              active={view === "shipping-orders"}
-              icon={<Send size={18} />}
-              onClick={() => setView("shipping-orders")}
-            >
-              Para envio
-            </NavButton>
-            <NavButton
-              active={view === "pickup-reservations"}
-              icon={<PackagePlus size={18} />}
-              onClick={() => setView("pickup-reservations")}
-            >
-              Retirada
-            </NavButton>
-          </NavSection>
-        </nav>
-      </aside>
+      <AppSidebar
+        openSections={openNavSections}
+        view={view}
+        onNewProduct={() => {
+          setSelectedProduct(undefined);
+          setView("new-product");
+        }}
+        onSelectView={setView}
+        onToggleSection={toggleNavSection}
+      />
 
       <section className="workspace">
         <header className="topbar">
