@@ -7,6 +7,7 @@ import { AppViewRenderer } from "./components/AppViewRenderer";
 import { AppWorkspaceHeader } from "./components/AppWorkspaceHeader";
 import { AppMessage, ConfirmationDialog } from "./components/shell";
 import { useCatalogData } from "./hooks/useCatalogData";
+import { useConfirmation } from "./hooks/useConfirmation";
 import { useNavigationState } from "./hooks/useNavigationState";
 import {
   viewTitles,
@@ -17,13 +18,6 @@ import { useFinanceActions } from "./views/finance/useFinanceActions";
 import { useQuoteActions } from "./views/quotes/useQuoteActions";
 import { useSalesActions } from "./views/sales/useSalesActions";
 import { useStockActions } from "./views/stock/useStockActions";
-
-type ConfirmationState = {
-  confirmLabel?: string;
-  message: string;
-  resolve: (confirmed: boolean) => void;
-  title: string;
-};
 
 // Entrada da aplicacao: decide entre autenticacao/setup e area autenticada.
 export function App() {
@@ -45,7 +39,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   const [view, setView] = useState<View>("products");
   const [selectedProduct, setSelectedProduct] = useState<Product>();
   const [selectedClient, setSelectedClient] = useState<Client>();
-  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
+  const { closeConfirmation, confirmation, requestConfirmation } = useConfirmation();
   const {
     brands,
     cashRegister,
@@ -72,17 +66,6 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     suppliers,
   } = useCatalogData();
   const { openNavSections, toggleNavSection } = useNavigationState(view);
-
-  function requestConfirmation(message: string, title = "Confirmar acao", confirmLabel = "Confirmar") {
-    return new Promise<boolean>((resolve) => {
-      setConfirmation({ confirmLabel, message, resolve, title });
-    });
-  }
-
-  function closeConfirmation(confirmed: boolean) {
-    confirmation?.resolve(confirmed);
-    setConfirmation(null);
-  }
 
   const catalogActions = useCatalogActions({
     loadCatalog,
