@@ -60,7 +60,8 @@ import { ClientsPage, NamedEntityPage, ProductForm, ProductsPage, SuppliersPage 
 import { useCatalogActions } from "./views/catalog/useCatalogActions";
 import { CashRegisterPage, PaymentMethodsPage } from "./views/finance/FinancePages";
 import { useFinanceActions } from "./views/finance/useFinanceActions";
-import { QuotesPage, type QuoteDraftInput } from "./views/quotes/QuotesPage";
+import { QuotesPage } from "./views/quotes/QuotesPage";
+import { useQuoteActions } from "./views/quotes/useQuoteActions";
 import { ReportsPage } from "./views/reports/ReportsPage";
 import {
   PickupReservationsPage,
@@ -270,36 +271,18 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
 
   const financeActions = useFinanceActions({ loadCatalog, requestConfirmation, runAction });
 
+  const quoteActions = useQuoteActions({
+    loadCatalog,
+    requestConfirmation,
+    runAction,
+    showShippingOrders: () => setView("shipping-orders"),
+  });
+
   // Acoes de vendas, orcamentos, envio e retirada.
   async function createSale(input: SaleDraftInput) {
     return runAction(async () => {
       await apiPost("/sales", input);
       await loadCatalog();
-    });
-  }
-
-  async function createQuote(input: QuoteDraftInput) {
-    return runAction(async () => {
-      await apiPost("/quotes", input);
-      await loadCatalog();
-    });
-  }
-
-  async function createShippingOrderFromQuote(quote: Quote) {
-    if (
-      !(await requestConfirmation(
-        `Enviar o orcamento de ${quote.clientName} para a fila de pedidos para envio?`,
-        "Enviar para envio?",
-        "Enviar para envio",
-      ))
-    ) {
-      return;
-    }
-
-    await runAction(async () => {
-      await apiPost(`/quotes/${quote.id}/shipping-order`, {});
-      await loadCatalog();
-      setView("shipping-orders");
     });
   }
 
@@ -785,8 +768,8 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             clients={clients}
             products={products}
             quotes={quotes}
-            onSubmit={createQuote}
-            onCreateShippingOrder={(quote) => void createShippingOrderFromQuote(quote)}
+            onSubmit={quoteActions.createQuote}
+            onCreateShippingOrder={(quote) => void quoteActions.createShippingOrderFromQuote(quote)}
           />
         ) : null}
 
