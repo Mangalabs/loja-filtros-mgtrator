@@ -21,6 +21,7 @@ import {
 import { useAuth } from "./auth/AuthContext";
 import { LoginPage } from "./auth/LoginPage";
 import { AppSidebar } from "./components/AppSidebar";
+import { AppViewRenderer } from "./components/AppViewRenderer";
 import { AppWorkspaceHeader } from "./components/AppWorkspaceHeader";
 import { AppMessage, ConfirmationDialog } from "./components/shell";
 import {
@@ -32,25 +33,10 @@ import {
   type NavSectionKey,
   type View,
 } from "./navigation";
-import { ClientsPage, NamedEntityPage, ProductForm, ProductsPage, SuppliersPage } from "./views/catalog/CatalogPages";
 import { useCatalogActions } from "./views/catalog/useCatalogActions";
-import { CashRegisterPage, PaymentMethodsPage } from "./views/finance/FinancePages";
 import { useFinanceActions } from "./views/finance/useFinanceActions";
-import { QuotesPage } from "./views/quotes/QuotesPage";
 import { useQuoteActions } from "./views/quotes/useQuoteActions";
-import { ReportsPage } from "./views/reports/ReportsPage";
-import {
-  PickupReservationsPage,
-  SalesPage,
-  ShippingOrdersPage,
-} from "./views/sales/SalesPages";
 import { useSalesActions } from "./views/sales/useSalesActions";
-import {
-  LowStockPage,
-  StockAdjustmentsPage,
-  StockEntriesPage,
-  StockMovementsPage,
-} from "./views/stock/StockPages";
 import { useStockActions } from "./views/stock/useStockActions";
 
 type ConfirmationState = {
@@ -308,145 +294,40 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           onConfirm={() => closeConfirmation(true)}
         />
 
-        {view === "products" ? (
-          <ProductsPage
-            products={filteredProducts}
-            search={search}
-            state={state}
-            onSearchChange={setSearch}
-            onEdit={catalogActions.editProduct}
-            onChangeStatus={(product) => void catalogActions.changeProductStatus(product)}
-          />
-        ) : null}
-
-        {view === "new-product" ? (
-          <ProductForm brands={brands} onSubmit={catalogActions.createProduct} submitLabel="Cadastrar produto" />
-        ) : null}
-
-        {view === "edit-product" && selectedProduct ? (
-          <ProductForm
-            key={selectedProduct.id}
-            brands={brands}
-            product={selectedProduct}
-            onSubmit={catalogActions.updateProduct}
-            onCancel={() => setView("products")}
-            submitLabel="Salvar alteracoes"
-          />
-        ) : null}
-
-        {view === "stock-entries" ? (
-          <StockEntriesPage
-            entries={stockEntries}
-            products={products}
-            suppliers={suppliers}
-            onSubmit={stockActions.createStockEntry}
-          />
-        ) : null}
-
-        {view === "stock-adjustments" ? (
-          <StockAdjustmentsPage
-            adjustments={stockAdjustments}
-            products={products}
-            onSubmit={stockActions.createStockAdjustment}
-          />
-        ) : null}
-
-        {view === "low-stock" ? (
-          <LowStockPage products={lowStockProducts} />
-        ) : null}
-
-        {view === "stock-movements" ? (
-          <StockMovementsPage movements={stockMovements} />
-        ) : null}
-
-        {view === "payment-methods" ? (
-          <PaymentMethodsPage
-            paymentMethods={paymentMethods}
-            onChangeStatus={(paymentMethod) => void financeActions.changePaymentMethodStatus(paymentMethod)}
-          />
-        ) : null}
-
-        {view === "cash-register" ? (
-          <CashRegisterPage
-            session={cashRegister}
-            user={user}
-            onOpen={financeActions.openCashRegister}
-            onClose={financeActions.closeCashRegister}
-          />
-        ) : null}
-
-        {view === "reports" ? <ReportsPage overview={reportsOverview} /> : null}
-
-        {view === "quotes" ? (
-          <QuotesPage
-            clients={clients}
-            products={products}
-            quotes={quotes}
-            onSubmit={quoteActions.createQuote}
-            onCreateShippingOrder={(quote) => void quoteActions.createShippingOrderFromQuote(quote)}
-          />
-        ) : null}
-
-        {view === "sales" ? (
-          <SalesPage
-            cashRegister={cashRegister}
-            clients={clients}
-            paymentMethods={paymentMethods}
-            products={products}
-            sales={sales}
-            onSubmit={salesActions.createSale}
-          />
-        ) : null}
-
-        {view === "shipping-orders" ? (
-          <ShippingOrdersPage
-            cashRegister={cashRegister}
-            paymentMethods={paymentMethods}
-            orders={shippingOrders}
-            onOpenQuotes={() => setView("quotes")}
-            onApprove={(order) => void salesActions.approveShippingOrder(order)}
-            onSeparate={(order) => void salesActions.separateShippingOrder(order)}
-            onComplete={(event, order) => void salesActions.completeShippingOrder(event, order)}
-            onCancel={(event, order) => void salesActions.cancelShippingOrder(event, order)}
-          />
-        ) : null}
-
-        {view === "pickup-reservations" ? (
-          <PickupReservationsPage
-            cashRegister={cashRegister}
-            clients={clients}
-            paymentMethods={paymentMethods}
-            products={products}
-            reservations={pickupReservations}
-            onSubmit={salesActions.createPickupReservation}
-            onComplete={(event, reservation) => void salesActions.completePickupReservation(event, reservation)}
-            onCancel={(event, reservation) => void salesActions.cancelPickupReservation(event, reservation)}
-          />
-        ) : null}
-
-        {view === "brands" ? (
-          <NamedEntityPage
-            title="Fabricantes"
-            fieldName="brandName"
-            items={brands}
-            onSubmit={(event) => void catalogActions.createNamedEntity(event, "/brands", "brandName")}
-          />
-        ) : null}
-
-        {view === "clients" ? (
-          <ClientsPage
-            clients={clients}
-            selectedClient={selectedClient}
-            onSubmit={catalogActions.saveClient}
-            onEdit={setSelectedClient}
-            onCancel={() => setSelectedClient(undefined)}
-            onChangeStatus={(client) => void catalogActions.changeClientStatus(client)}
-          />
-        ) : null}
-
-        {view === "suppliers" ? (
-          <SuppliersPage suppliers={suppliers} onSubmit={catalogActions.createSupplier} />
-        ) : null}
+        <AppViewRenderer
+          brands={brands}
+          cashRegister={cashRegister}
+          catalogActions={catalogActions}
+          clients={clients}
+          financeActions={financeActions}
+          filteredProducts={filteredProducts}
+          lowStockProducts={lowStockProducts}
+          paymentMethods={paymentMethods}
+          pickupReservations={pickupReservations}
+          products={products}
+          quoteActions={quoteActions}
+          quotes={quotes}
+          reportsOverview={reportsOverview}
+          sales={sales}
+          salesActions={salesActions}
+          search={search}
+          selectedClient={selectedClient}
+          selectedProduct={selectedProduct}
+          shippingOrders={shippingOrders}
+          state={state}
+          stockActions={stockActions}
+          stockAdjustments={stockAdjustments}
+          stockEntries={stockEntries}
+          stockMovements={stockMovements}
+          suppliers={suppliers}
+          user={user}
+          view={view}
+          onCancelClient={() => setSelectedClient(undefined)}
+          onCancelProductEdit={() => setView("products")}
+          onOpenQuotes={() => setView("quotes")}
+          onSearchChange={setSearch}
+          onSelectClient={setSelectedClient}
+        />
       </section>
     </main>
   );
