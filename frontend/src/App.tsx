@@ -18,11 +18,9 @@ import {
   Send,
 } from "lucide-react";
 import IconButton from "@mui/material/IconButton";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   apiGet,
-  apiPatch,
-  apiPost,
   type ApiResult,
   type AuthUser,
   type CashRegisterSession,
@@ -54,8 +52,6 @@ import {
   type NavSectionKey,
   type View,
 } from "./navigation";
-import { formatQuantity } from "./utils/format";
-import { nullableFormValue } from "./utils/forms";
 import { ClientsPage, NamedEntityPage, ProductForm, ProductsPage, SuppliersPage } from "./views/catalog/CatalogPages";
 import { useCatalogActions } from "./views/catalog/useCatalogActions";
 import { CashRegisterPage, PaymentMethodsPage } from "./views/finance/FinancePages";
@@ -67,9 +63,8 @@ import {
   PickupReservationsPage,
   SalesPage,
   ShippingOrdersPage,
-  type PickupReservationDraftInput,
-  type SaleDraftInput,
 } from "./views/sales/SalesPages";
+import { useSalesActions } from "./views/sales/useSalesActions";
 import {
   LowStockPage,
   StockAdjustmentsPage,
@@ -278,152 +273,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     showShippingOrders: () => setView("shipping-orders"),
   });
 
-  // Acoes de vendas, orcamentos, envio e retirada.
-  async function createSale(input: SaleDraftInput) {
-    return runAction(async () => {
-      await apiPost("/sales", input);
-      await loadCatalog();
-    });
-  }
-
-  async function approveShippingOrder(order: ShippingOrder) {
-    const orderQuantity = order.items.reduce((sum, item) => sum + Number(item.quantity), 0);
-
-    if (
-      !(await requestConfirmation(
-        `Aprovar o pedido de ${order.clientName} e reservar ${formatQuantity(String(orderQuantity))} item(ns)?`,
-        "Aprovar pedido?",
-        "Aprovar e reservar",
-      ))
-    ) {
-      return;
-    }
-
-    await runAction(async () => {
-      await apiPatch(`/shipping-orders/${order.id}/approve`, {});
-      await loadCatalog();
-    });
-  }
-
-  async function cancelShippingOrder(event: FormEvent<HTMLFormElement>, order: ShippingOrder) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-
-    if (
-      !(await requestConfirmation(
-        `Cancelar o pedido de ${order.clientName}? A reserva sera liberada, se existir.`,
-        "Cancelar pedido?",
-        "Cancelar pedido",
-      ))
-    ) {
-      return;
-    }
-
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPatch(`/shipping-orders/${order.id}/cancel`, {
-        reason: String(form.get("shippingCancellationReason") ?? "").trim(),
-      });
-      await loadCatalog();
-    });
-  }
-
-  async function separateShippingOrder(order: ShippingOrder) {
-    if (
-      !(await requestConfirmation(
-        `Confirmar separacao do pedido de ${order.clientName}?`,
-        "Confirmar separacao?",
-        "Confirmar",
-      ))
-    ) {
-      return;
-    }
-
-    await runAction(async () => {
-      await apiPatch(`/shipping-orders/${order.id}/separate`, {});
-      await loadCatalog();
-    });
-  }
-
-  async function completeShippingOrder(event: FormEvent<HTMLFormElement>, order: ShippingOrder) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-
-    if (
-      !(await requestConfirmation(
-        `Concluir o pedido de ${order.clientName} como venda e baixar o estoque?`,
-        "Concluir venda?",
-        "Concluir venda",
-      ))
-    ) {
-      return;
-    }
-
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPatch(`/shipping-orders/${order.id}/complete`, {
-        paymentMethodId: String(form.get("shippingPaymentMethodId") ?? ""),
-      });
-      await loadCatalog();
-    });
-  }
-
-  async function createPickupReservation(input: PickupReservationDraftInput) {
-    return runAction(async () => {
-      await apiPost("/pickup-reservations", input);
-      await loadCatalog();
-    });
-  }
-
-  async function cancelPickupReservation(event: FormEvent<HTMLFormElement>, reservation: PickupReservation) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-
-    if (
-      !(await requestConfirmation(
-        `Cancelar a reserva de ${reservation.clientName}? O estoque reservado sera liberado.`,
-        "Cancelar reserva?",
-        "Cancelar reserva",
-      ))
-    ) {
-      return;
-    }
-
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPatch(`/pickup-reservations/${reservation.id}/cancel`, {
-        reason: String(form.get("pickupCancellationReason") ?? "").trim(),
-      });
-      await loadCatalog();
-    });
-  }
-
-  async function completePickupReservation(event: FormEvent<HTMLFormElement>, reservation: PickupReservation) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-
-    if (
-      !(await requestConfirmation(
-        `Concluir a reserva de ${reservation.clientName} como venda e baixar o estoque?`,
-        "Concluir retirada?",
-        "Concluir venda",
-      ))
-    ) {
-      return;
-    }
-
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPatch(`/pickup-reservations/${reservation.id}/complete`, {
-        paymentMethodId: String(form.get("pickupPaymentMethodId") ?? ""),
-      });
-      await loadCatalog();
-    });
-  }
+  const salesActions = useSalesActions({ loadCatalog, requestConfirmation, runAction });
 
   function toggleNavSection(section: NavSectionKey) {
     setOpenNavSections((current) => ({ ...current, [section]: !current[section] }));
@@ -780,7 +630,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             paymentMethods={paymentMethods}
             products={products}
             sales={sales}
-            onSubmit={createSale}
+            onSubmit={salesActions.createSale}
           />
         ) : null}
 
@@ -790,10 +640,10 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             paymentMethods={paymentMethods}
             orders={shippingOrders}
             onOpenQuotes={() => setView("quotes")}
-            onApprove={(order) => void approveShippingOrder(order)}
-            onSeparate={(order) => void separateShippingOrder(order)}
-            onComplete={(event, order) => void completeShippingOrder(event, order)}
-            onCancel={(event, order) => void cancelShippingOrder(event, order)}
+            onApprove={(order) => void salesActions.approveShippingOrder(order)}
+            onSeparate={(order) => void salesActions.separateShippingOrder(order)}
+            onComplete={(event, order) => void salesActions.completeShippingOrder(event, order)}
+            onCancel={(event, order) => void salesActions.cancelShippingOrder(event, order)}
           />
         ) : null}
 
@@ -804,9 +654,9 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             paymentMethods={paymentMethods}
             products={products}
             reservations={pickupReservations}
-            onSubmit={createPickupReservation}
-            onComplete={(event, reservation) => void completePickupReservation(event, reservation)}
-            onCancel={(event, reservation) => void cancelPickupReservation(event, reservation)}
+            onSubmit={salesActions.createPickupReservation}
+            onComplete={(event, reservation) => void salesActions.completePickupReservation(event, reservation)}
+            onCancel={(event, reservation) => void salesActions.cancelPickupReservation(event, reservation)}
           />
         ) : null}
 
