@@ -1,14 +1,3 @@
-import {
-  AlertTriangle,
-  Banknote,
-  LogOut,
-  PackagePlus,
-  RefreshCcw,
-  Tags,
-  Truck,
-  ShieldCheck,
-} from "lucide-react";
-import IconButton from "@mui/material/IconButton";
 import { useEffect, useMemo, useState } from "react";
 import {
   apiGet,
@@ -32,8 +21,8 @@ import {
 import { useAuth } from "./auth/AuthContext";
 import { LoginPage } from "./auth/LoginPage";
 import { AppSidebar } from "./components/AppSidebar";
-import { AppMessage, ConfirmationDialog, Metric } from "./components/shell";
-import { SecondaryButton } from "./components/ui";
+import { AppWorkspaceHeader } from "./components/AppWorkspaceHeader";
+import { AppMessage, ConfirmationDialog } from "./components/shell";
 import {
   findActiveNavSection,
   navSectionsStorageKey,
@@ -287,37 +276,20 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
       />
 
       <section className="workspace">
-        <header className="topbar">
-          <div>
-            <h1>{activeTitle.title}</h1>
-            <p>{activeTitle.description}</p>
-          </div>
-          <div className="topbar-actions">
-            <button
-              className={cashRegister ? "cash-status-button open" : "cash-status-button closed"}
-              title="Ir para caixa"
-              type="button"
-              onClick={() => setView("cash-register")}
-            >
-              <Banknote size={17} />
-              <span>Caixa</span>
-              <strong>{cashRegister ? "Aberto" : "Fechado"}</strong>
-            </button>
-            <div className="signed-user">
-              <ShieldCheck size={17} />
-              <div>
-                <strong>{user.name}</strong>
-                <span>{user.email}</span>
-              </div>
-            </div>
-            <IconButton color="success" onClick={() => void loadCatalog()} title="Atualizar">
-              <RefreshCcw size={18} />
-            </IconButton>
-            <SecondaryButton icon={<LogOut size={17} />} type="button" onClick={onLogout}>
-              Sair
-            </SecondaryButton>
-          </div>
-        </header>
+        <AppWorkspaceHeader
+          activeDescription={activeTitle.description}
+          activeTitle={activeTitle.title}
+          brandCount={brands.length}
+          cashRegister={cashRegister}
+          lowStockCount={lowStockProducts.length}
+          productCount={products.length}
+          supplierCount={suppliers.length}
+          user={user}
+          view={view}
+          onLogout={onLogout}
+          onRefresh={() => void loadCatalog()}
+          onSelectView={setView}
+        />
 
         {message ? (
           <AppMessage
@@ -335,37 +307,6 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           onCancel={() => closeConfirmation(false)}
           onConfirm={() => closeConfirmation(true)}
         />
-
-        <section className="summary-grid">
-          <Metric
-            active={view === "products"}
-            icon={<PackagePlus size={18} />}
-            label="Produtos"
-            value={products.length}
-            onClick={() => setView("products")}
-          />
-          <Metric
-            active={view === "brands"}
-            icon={<Tags size={18} />}
-            label="Fabricantes"
-            value={brands.length}
-            onClick={() => setView("brands")}
-          />
-          <Metric
-            active={view === "suppliers"}
-            icon={<Truck size={18} />}
-            label="Fornecedores"
-            value={suppliers.length}
-            onClick={() => setView("suppliers")}
-          />
-          <Metric
-            active={view === "low-stock"}
-            icon={<AlertTriangle size={18} />}
-            label="Reposicao"
-            value={lowStockProducts.length}
-            onClick={() => setView("low-stock")}
-          />
-        </section>
 
         {view === "products" ? (
           <ProductsPage
