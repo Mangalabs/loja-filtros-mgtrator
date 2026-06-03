@@ -49,6 +49,7 @@ import {
   type PickupReservation,
   type Product,
   type Quote,
+  type ReportsOverview,
   type Sale,
   type ShippingOrder,
   type StockAdjustment,
@@ -61,6 +62,7 @@ import { PrimaryButton, SecondaryButton, StatusChip, TableActionButton } from ".
 import { formatCurrency, formatDateTime, formatQuantity } from "./utils/format";
 import { CashRegisterPage, PaymentMethodsPage } from "./views/finance/FinancePages";
 import { QuotesPage, type QuoteDraftInput } from "./views/quotes/QuotesPage";
+import { ReportsPage } from "./views/reports/ReportsPage";
 import {
   PickupReservationsPage,
   SalesPage,
@@ -87,6 +89,7 @@ type View =
   | "low-stock"
   | "payment-methods"
   | "cash-register"
+  | "reports"
   | "quotes"
   | "sales"
   | "shipping-orders"
@@ -101,6 +104,7 @@ type NavSectionKey =
   | "suppliers"
   | "finance"
   | "cash"
+  | "reports"
   | "sales";
 type ConfirmationState = {
   confirmLabel?: string;
@@ -115,6 +119,7 @@ const navSectionViews: Record<NavSectionKey, View[]> = {
   suppliers: ["suppliers"],
   finance: ["payment-methods"],
   cash: ["cash-register"],
+  reports: ["reports"],
   sales: ["quotes", "sales", "shipping-orders", "pickup-reservations"],
 };
 
@@ -125,6 +130,7 @@ const initialOpenNavSections: Record<NavSectionKey, boolean> = {
   suppliers: true,
   finance: true,
   cash: true,
+  reports: true,
   sales: true,
 };
 const navSectionsStorageKey = "loja-filtros.nav-sections";
@@ -198,6 +204,10 @@ const viewTitles: Record<View, { title: string; description: string }> = {
     title: "Caixa",
     description: "Abra o caixa da filial antes de iniciar operacoes de venda.",
   },
+  reports: {
+    title: "Relatorios",
+    description: "Acompanhe indicadores operacionais e pendencias da filial.",
+  },
   quotes: {
     title: "Orcamentos",
     description: "Monte orcamentos com cliente, multiplos produtos e valores personalizados.",
@@ -256,6 +266,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [cashRegister, setCashRegister] = useState<CashRegisterSession | null>(null);
+  const [reportsOverview, setReportsOverview] = useState<ReportsOverview | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [shippingOrders, setShippingOrders] = useState<ShippingOrder[]>([]);
@@ -286,6 +297,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
         lowStockResult,
         paymentMethodsResult,
         cashRegisterResult,
+        reportsOverviewResult,
         quotesResult,
         salesResult,
         shippingOrdersResult,
@@ -302,6 +314,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           apiGet<ApiResult<Product[]>>("/products/low-stock"),
           apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
           apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
+          apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
           apiGet<ApiResult<Quote[]>>("/quotes"),
           apiGet<ApiResult<Sale[]>>("/sales"),
           apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
@@ -318,6 +331,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
       setLowStockProducts(lowStockResult.data);
       setPaymentMethods(paymentMethodsResult.data);
       setCashRegister(cashRegisterResult.data);
+      setReportsOverview(reportsOverviewResult.data);
       setQuotes(quotesResult.data);
       setSales(salesResult.data);
       setShippingOrders(shippingOrdersResult.data);
@@ -947,6 +961,22 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           </NavSection>
 
           <NavSection
+            active={isNavSectionActive("reports")}
+            icon={<SlidersHorizontal size={17} />}
+            open={openNavSections.reports}
+            title="Relatorios"
+            onToggle={() => toggleNavSection("reports")}
+          >
+            <NavButton
+              active={view === "reports"}
+              icon={<SlidersHorizontal size={18} />}
+              onClick={() => setView("reports")}
+            >
+              Gerencial
+            </NavButton>
+          </NavSection>
+
+          <NavSection
             active={isNavSectionActive("sales")}
             icon={<ShoppingCart size={17} />}
             open={openNavSections.sales}
@@ -1124,6 +1154,8 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             onClose={closeCashRegister}
           />
         ) : null}
+
+        {view === "reports" ? <ReportsPage overview={reportsOverview} /> : null}
 
         {view === "quotes" ? (
           <QuotesPage

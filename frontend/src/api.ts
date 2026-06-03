@@ -119,6 +119,19 @@ export type CashRegisterSession = {
   }>;
 };
 
+export type ReportsOverview = {
+  salesCount: number;
+  salesTotalAmount: string;
+  lowStockProductsCount: number;
+  openShippingOrdersCount: number;
+  openPickupReservationsCount: number;
+  openCashRegister: {
+    id: string;
+    openedByUserName: string;
+    openedAt: string;
+  } | null;
+};
+
 export type Sale = {
   id: string;
   productId: string;
