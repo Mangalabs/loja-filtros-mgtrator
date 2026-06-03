@@ -59,6 +59,7 @@ import { nullableFormValue } from "./utils/forms";
 import { ClientsPage, NamedEntityPage, ProductForm, ProductsPage, SuppliersPage } from "./views/catalog/CatalogPages";
 import { useCatalogActions } from "./views/catalog/useCatalogActions";
 import { CashRegisterPage, PaymentMethodsPage } from "./views/finance/FinancePages";
+import { useFinanceActions } from "./views/finance/useFinanceActions";
 import { QuotesPage, type QuoteDraftInput } from "./views/quotes/QuotesPage";
 import { ReportsPage } from "./views/reports/ReportsPage";
 import {
@@ -267,47 +268,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
 
   const stockActions = useStockActions({ loadCatalog, runAction });
 
-  // Acoes financeiras e de caixa.
-  async function openCashRegister(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPost("/cash-register/open", {
-        openingBalance: Number(form.get("openingBalance") || 0),
-      });
-
-      formElement.reset();
-      await loadCatalog();
-    });
-  }
-
-  async function closeCashRegister(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-
-    if (
-      !(await requestConfirmation(
-        "Depois disso, novas vendas exigirao uma nova abertura.",
-        "Fechar caixa?",
-        "Fechar caixa",
-      ))
-    ) {
-      return;
-    }
-
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPatch("/cash-register/close", {
-        closingBalance: Number(form.get("closingBalance") || 0),
-      });
-
-      formElement.reset();
-      await loadCatalog();
-    });
-  }
+  const financeActions = useFinanceActions({ loadCatalog, requestConfirmation, runAction });
 
   // Acoes de vendas, orcamentos, envio e retirada.
   async function createSale(input: SaleDraftInput) {
@@ -476,27 +437,6 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     await runAction(async () => {
       await apiPatch(`/pickup-reservations/${reservation.id}/complete`, {
         paymentMethodId: String(form.get("pickupPaymentMethodId") ?? ""),
-      });
-      await loadCatalog();
-    });
-  }
-
-  // Acoes de status e navegacao local.
-  async function changePaymentMethodStatus(paymentMethod: PaymentMethod) {
-    const nextStatus = paymentMethod.active ? "inativar" : "ativar";
-
-    if (
-      !(await requestConfirmation(
-        `Confirmar ${nextStatus} a forma de pagamento "${paymentMethod.name}"?`,
-        "Alterar forma de pagamento?",
-      ))
-    ) {
-      return;
-    }
-
-    await runAction(async () => {
-      await apiPatch(`/payment-methods/${paymentMethod.id}/status`, {
-        active: !paymentMethod.active,
       });
       await loadCatalog();
     });
@@ -825,7 +765,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
         {view === "payment-methods" ? (
           <PaymentMethodsPage
             paymentMethods={paymentMethods}
-            onChangeStatus={(paymentMethod) => void changePaymentMethodStatus(paymentMethod)}
+            onChangeStatus={(paymentMethod) => void financeActions.changePaymentMethodStatus(paymentMethod)}
           />
         ) : null}
 
@@ -833,8 +773,8 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           <CashRegisterPage
             session={cashRegister}
             user={user}
-            onOpen={openCashRegister}
-            onClose={closeCashRegister}
+            onOpen={financeActions.openCashRegister}
+            onClose={financeActions.closeCashRegister}
           />
         ) : null}
 
