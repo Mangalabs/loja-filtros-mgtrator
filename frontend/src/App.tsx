@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { AuthUser, Client, Product } from "./api";
 import { useAuth } from "./auth/AuthContext";
 import { LoginPage } from "./auth/LoginPage";
@@ -7,12 +7,9 @@ import { AppViewRenderer } from "./components/AppViewRenderer";
 import { AppWorkspaceHeader } from "./components/AppWorkspaceHeader";
 import { AppMessage, ConfirmationDialog } from "./components/shell";
 import { useCatalogData } from "./hooks/useCatalogData";
+import { useNavigationState } from "./hooks/useNavigationState";
 import {
-  findActiveNavSection,
-  navSectionsStorageKey,
-  readInitialOpenNavSections,
   viewTitles,
-  type NavSectionKey,
   type View,
 } from "./navigation";
 import { useCatalogActions } from "./views/catalog/useCatalogActions";
@@ -48,8 +45,6 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   const [view, setView] = useState<View>("products");
   const [selectedProduct, setSelectedProduct] = useState<Product>();
   const [selectedClient, setSelectedClient] = useState<Client>();
-  const [openNavSections, setOpenNavSections] =
-    useState<Record<NavSectionKey, boolean>>(readInitialOpenNavSections);
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
   const {
     brands,
@@ -76,26 +71,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     stockMovements,
     suppliers,
   } = useCatalogData();
-
-  useEffect(() => {
-    window.localStorage.setItem(navSectionsStorageKey, JSON.stringify(openNavSections));
-  }, [openNavSections]);
-
-  useEffect(() => {
-    const activeSection = findActiveNavSection(view);
-
-    if (!activeSection) {
-      return;
-    }
-
-    setOpenNavSections((current) => {
-      if (current[activeSection]) {
-        return current;
-      }
-
-      return { ...current, [activeSection]: true };
-    });
-  }, [view]);
+  const { openNavSections, toggleNavSection } = useNavigationState(view);
 
   function requestConfirmation(message: string, title = "Confirmar acao", confirmLabel = "Confirmar") {
     return new Promise<boolean>((resolve) => {
@@ -132,10 +108,6 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   });
 
   const salesActions = useSalesActions({ loadCatalog, requestConfirmation, runAction });
-
-  function toggleNavSection(section: NavSectionKey) {
-    setOpenNavSections((current) => ({ ...current, [section]: !current[section] }));
-  }
 
   const activeTitle = viewTitles[view];
 
