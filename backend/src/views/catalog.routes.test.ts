@@ -218,6 +218,19 @@ type CashRegisterSession = {
   }>;
 };
 
+type ReportsOverview = {
+  salesCount: number;
+  salesTotalAmount: string;
+  lowStockProductsCount: number;
+  openShippingOrdersCount: number;
+  openPickupReservationsCount: number;
+  openCashRegister: {
+    id: string;
+    openedByUserName: string;
+    openedAt: string;
+  } | null;
+};
+
 let server: Server;
 let baseUrl: string;
 let authCookie: string;
@@ -547,6 +560,74 @@ describe("catalog routes", () => {
     assert.equal(listed.body.data?.length, 1);
     assert.equal(updatedProduct.body.data?.currentStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
+  });
+
+  it("returns a management reports overview", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro relatorio", salePrice: 10, minimumStock: 5 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente relatorio" },
+    });
+    const initial = await request<ReportsOverview>("/reports/overview");
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 3,
+        reason: "Saldo para relatorio",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
+    const pix = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "PIX");
+
+    await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+      },
+    });
+    await request("/pickup-reservations", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 1,
+      },
+    });
+    await request("/shipping-orders", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 1,
+      },
+    });
+
+    const overview = await request<ReportsOverview>("/reports/overview");
+
+    assert.equal(initial.status, 200);
+    assert.equal(initial.body.data?.salesCount, 0);
+    assert.equal(initial.body.data?.salesTotalAmount, "0.00");
+    assert.equal(initial.body.data?.openCashRegister, null);
+    assert.equal(overview.status, 200);
+    assert.equal(overview.body.data?.salesCount, 1);
+    assert.equal(overview.body.data?.salesTotalAmount, "10.00");
+    assert.equal(overview.body.data?.lowStockProductsCount, 1);
+    assert.equal(overview.body.data?.openPickupReservationsCount, 1);
+    assert.equal(overview.body.data?.openShippingOrdersCount, 1);
+    assert.equal(overview.body.data?.openCashRegister?.openedByUserName, "Administrador de teste");
   });
 
   it("creates a shipping quote and reserves its item after approval", async () => {

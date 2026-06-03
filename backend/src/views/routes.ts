@@ -10,6 +10,7 @@ import { pickupReservationsRoutes } from "./pickup-reservations/pickup-reservati
 import { productGroupsRoutes } from "./product-groups/product-groups.routes.js";
 import { productsRoutes } from "./products/products.routes.js";
 import { quotesRoutes } from "./quotes/quotes.routes.js";
+import { reportsRoutes } from "./reports/reports.routes.js";
 import { rootRoutes } from "./root/root.routes.js";
 import { salesRoutes } from "./sales/sales.routes.js";
 import { shippingOrdersRoutes } from "./shipping-orders/shipping-orders.routes.js";
@@ -32,6 +33,7 @@ export function registerRoutes(app: Express): void {
   app.use(productGroupsRoutes);
   app.use(productsRoutes);
   app.use(quotesRoutes);
+  app.use(reportsRoutes);
   app.use(salesRoutes);
   app.use(shippingOrdersRoutes);
   app.use(stockAdjustmentsRoutes);

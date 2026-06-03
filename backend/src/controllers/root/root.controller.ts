@@ -22,6 +22,7 @@ export function showApiInfo() {
         "/quotes",
         "/quotes/:id/pdf",
         "/quotes/:id/shipping-order",
+        "/reports/overview",
         "/products",
         "/products/low-stock",
         "/payment-methods",
