@@ -23,7 +23,6 @@ import {
   apiGet,
   apiPatch,
   apiPost,
-  apiPut,
   type ApiResult,
   type AuthUser,
   type CashRegisterSession,
@@ -45,8 +44,20 @@ import { useAuth } from "./auth/AuthContext";
 import { LoginPage } from "./auth/LoginPage";
 import { AppMessage, ConfirmationDialog, Metric, NavButton, NavSection } from "./components/shell";
 import { SecondaryButton } from "./components/ui";
+import {
+  findActiveNavSection,
+  navSectionsStorageKey,
+  navSectionViews,
+  readInitialOpenNavSections,
+  viewTitles,
+  type LoadState,
+  type NavSectionKey,
+  type View,
+} from "./navigation";
 import { formatQuantity } from "./utils/format";
+import { nullableFormValue } from "./utils/forms";
 import { ClientsPage, NamedEntityPage, ProductForm, ProductsPage, SuppliersPage } from "./views/catalog/CatalogPages";
+import { useCatalogActions } from "./views/catalog/useCatalogActions";
 import { CashRegisterPage, PaymentMethodsPage } from "./views/finance/FinancePages";
 import { QuotesPage, type QuoteDraftInput } from "./views/quotes/QuotesPage";
 import { ReportsPage } from "./views/reports/ReportsPage";
@@ -63,166 +74,13 @@ import {
   StockEntriesPage,
   StockMovementsPage,
 } from "./views/stock/StockPages";
+import { useStockActions } from "./views/stock/useStockActions";
 
-// Tipos e configuracoes de navegacao do shell principal.
-type LoadState = "idle" | "loading" | "ready" | "error";
-type View =
-  | "products"
-  | "new-product"
-  | "edit-product"
-  | "stock-entries"
-  | "stock-adjustments"
-  | "stock-movements"
-  | "low-stock"
-  | "payment-methods"
-  | "cash-register"
-  | "reports"
-  | "quotes"
-  | "sales"
-  | "shipping-orders"
-  | "pickup-reservations"
-  | "brands"
-  | "clients"
-  | "suppliers";
-type NavSectionKey =
-  | "products"
-  | "catalog"
-  | "stock"
-  | "suppliers"
-  | "finance"
-  | "cash"
-  | "reports"
-  | "sales";
 type ConfirmationState = {
   confirmLabel?: string;
   message: string;
   resolve: (confirmed: boolean) => void;
   title: string;
-};
-const navSectionViews: Record<NavSectionKey, View[]> = {
-  products: ["products", "new-product", "edit-product"],
-  catalog: ["brands", "clients"],
-  stock: ["stock-entries", "stock-adjustments", "stock-movements", "low-stock"],
-  suppliers: ["suppliers"],
-  finance: ["payment-methods"],
-  cash: ["cash-register"],
-  reports: ["reports"],
-  sales: ["quotes", "sales", "shipping-orders", "pickup-reservations"],
-};
-
-const initialOpenNavSections: Record<NavSectionKey, boolean> = {
-  products: true,
-  catalog: true,
-  stock: true,
-  suppliers: true,
-  finance: true,
-  cash: true,
-  reports: true,
-  sales: true,
-};
-const navSectionsStorageKey = "loja-filtros.nav-sections";
-
-function findActiveNavSection(view: View) {
-  return (Object.keys(navSectionViews) as NavSectionKey[]).find((section) =>
-    navSectionViews[section].includes(view),
-  );
-}
-
-function readInitialOpenNavSections() {
-  if (typeof window === "undefined") {
-    return initialOpenNavSections;
-  }
-
-  const storedValue = window.localStorage.getItem(navSectionsStorageKey);
-
-  if (!storedValue) {
-    return initialOpenNavSections;
-  }
-
-  try {
-    const parsedValue = JSON.parse(storedValue) as Partial<Record<NavSectionKey, boolean>>;
-
-    return (Object.keys(initialOpenNavSections) as NavSectionKey[]).reduce(
-      (sections, section) => ({
-        ...sections,
-        [section]: typeof parsedValue[section] === "boolean" ? parsedValue[section] : sections[section],
-      }),
-      { ...initialOpenNavSections },
-    );
-  } catch {
-    return initialOpenNavSections;
-  }
-}
-
-const viewTitles: Record<View, { title: string; description: string }> = {
-  products: {
-    title: "Produtos",
-    description: "Consulte e acompanhe o catalogo da filial.",
-  },
-  "new-product": {
-    title: "Novo produto",
-    description: "Cadastre filtros com codigos, fabricante, locacao e dados fiscais.",
-  },
-  "edit-product": {
-    title: "Editar produto",
-    description: "Atualize os dados cadastrais do produto selecionado.",
-  },
-  "stock-entries": {
-    title: "Entrada de mercadoria",
-    description: "Registre produtos recebidos e atualize o estoque da filial.",
-  },
-  "stock-adjustments": {
-    title: "Ajuste de estoque",
-    description: "Corrija divergencias de saldo com motivo registrado.",
-  },
-  "stock-movements": {
-    title: "Historico de estoque",
-    description: "Acompanhe entradas e ajustes que alteraram o saldo da filial.",
-  },
-  "low-stock": {
-    title: "Reposicao",
-    description: "Consulte produtos ativos que atingiram o estoque minimo.",
-  },
-  "payment-methods": {
-    title: "Formas de pagamento",
-    description: "Configure as formas disponiveis para o futuro fechamento de vendas.",
-  },
-  "cash-register": {
-    title: "Caixa",
-    description: "Abra o caixa da filial antes de iniciar operacoes de venda.",
-  },
-  reports: {
-    title: "Relatorios",
-    description: "Acompanhe indicadores operacionais e pendencias da filial.",
-  },
-  quotes: {
-    title: "Orcamentos",
-    description: "Monte orcamentos com cliente, multiplos produtos e valores personalizados.",
-  },
-  sales: {
-    title: "Venda de balcao",
-    description: "Registre a venda imediata de um produto com baixa de estoque.",
-  },
-  "shipping-orders": {
-    title: "Pedidos para envio",
-    description: "Registre orcamentos aprovados pelo cliente e separe os produtos para envio.",
-  },
-  "pickup-reservations": {
-    title: "Reservas para retirada",
-    description: "Reserve produtos para clientes retirarem na loja e conclua a venda no caixa.",
-  },
-  brands: {
-    title: "Fabricantes",
-    description: "Cadastre os fabricantes usados no catalogo de produtos.",
-  },
-  clients: {
-    title: "Clientes",
-    description: "Cadastre clientes para reservas e futuros documentos fiscais.",
-  },
-  suppliers: {
-    title: "Fornecedores",
-    description: "Mantenha fornecedores disponiveis para compras e produtos.",
-  },
 };
 
 // Entrada da aplicacao: decide entre autenticacao/setup e area autenticada.
@@ -395,140 +253,19 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
     setConfirmation(null);
   }
 
-  // Acoes de cadastro e catalogo.
-  async function createNamedEntity(
-    event: FormEvent<HTMLFormElement>,
-    path: string,
-    fieldName: string,
-  ) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-    const name = String(form.get(fieldName) ?? "").trim();
+  const catalogActions = useCatalogActions({
+    loadCatalog,
+    requestConfirmation,
+    runAction,
+    selectedClient,
+    selectedProduct,
+    setSelectedClient,
+    setSelectedProduct,
+    showEditProduct: () => setView("edit-product"),
+    showProducts: () => setView("products"),
+  });
 
-    if (!name) {
-      return;
-    }
-
-    await runAction(async () => {
-      await apiPost(path, { name });
-      formElement.reset();
-      await loadCatalog();
-    });
-  }
-
-  async function createSupplier(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPost("/suppliers", {
-        name: String(form.get("supplierName") ?? "").trim(),
-        document: optionalFormValue(form, "supplierDocument"),
-        phone: optionalFormValue(form, "supplierPhone"),
-        email: optionalFormValue(form, "supplierEmail"),
-      });
-
-      formElement.reset();
-      await loadCatalog();
-    });
-  }
-
-  async function saveClient(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-    const body = {
-      personType: String(form.get("clientPersonType") ?? "PF"),
-      name: String(form.get("clientName") ?? "").trim(),
-      document: nullableFormValue(form, "clientDocument"),
-      phone: nullableFormValue(form, "clientPhone"),
-      email: nullableFormValue(form, "clientEmail"),
-    };
-
-    await runAction(async () => {
-      if (selectedClient) {
-        await apiPut(`/clients/${selectedClient.id}`, body);
-      } else {
-        await apiPost("/clients", body);
-      }
-
-      formElement.reset();
-      setSelectedClient(undefined);
-      await loadCatalog();
-    });
-  }
-
-  async function createProduct(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPost("/products", {
-        ...productFormBody(form),
-      });
-
-      formElement.reset();
-      await loadCatalog();
-      setView("products");
-    });
-  }
-
-  async function updateProduct(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!selectedProduct) {
-      return;
-    }
-
-    const form = new FormData(event.currentTarget);
-
-    await runAction(async () => {
-      await apiPut(`/products/${selectedProduct.id}`, productFormBody(form));
-      await loadCatalog();
-      setSelectedProduct(undefined);
-      setView("products");
-    });
-  }
-
-  // Acoes de estoque.
-  async function createStockEntry(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPost("/stock-entries", {
-        productId: String(form.get("entryProductId") ?? ""),
-        supplierId: String(form.get("entrySupplierId") ?? ""),
-        quantity: Number(form.get("entryQuantity")),
-        unitCost: Number(form.get("entryUnitCost")),
-        notes: nullableFormValue(form, "entryNotes"),
-      });
-
-      formElement.reset();
-      await loadCatalog();
-    });
-  }
-
-  async function createStockAdjustment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-
-    await runAction(async () => {
-      await apiPost("/stock-adjustments", {
-        productId: String(form.get("adjustmentProductId") ?? ""),
-        quantity: Number(form.get("adjustmentQuantity")),
-        reason: String(form.get("adjustmentReason") ?? "").trim(),
-      });
-
-      formElement.reset();
-      await loadCatalog();
-    });
-  }
+  const stockActions = useStockActions({ loadCatalog, runAction });
 
   // Acoes financeiras e de caixa.
   async function openCashRegister(event: FormEvent<HTMLFormElement>) {
@@ -745,24 +482,6 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
   }
 
   // Acoes de status e navegacao local.
-  async function changeProductStatus(product: Product) {
-    const nextStatus = product.active ? "inativar" : "ativar";
-
-    if (
-      !(await requestConfirmation(
-        `Confirmar ${nextStatus} o produto "${product.name}"?`,
-        "Alterar status do produto?",
-      ))
-    ) {
-      return;
-    }
-
-    await runAction(async () => {
-      await apiPatch(`/products/${product.id}/status`, { active: !product.active });
-      await loadCatalog();
-    });
-  }
-
   async function changePaymentMethodStatus(paymentMethod: PaymentMethod) {
     const nextStatus = paymentMethod.active ? "inativar" : "ativar";
 
@@ -781,29 +500,6 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
       });
       await loadCatalog();
     });
-  }
-
-  async function changeClientStatus(client: Client) {
-    const nextStatus = client.active ? "inativar" : "ativar";
-
-    if (
-      !(await requestConfirmation(
-        `Confirmar ${nextStatus} o cliente "${client.name}"?`,
-        "Alterar status do cliente?",
-      ))
-    ) {
-      return;
-    }
-
-    await runAction(async () => {
-      await apiPatch(`/clients/${client.id}/status`, { active: !client.active });
-      await loadCatalog();
-    });
-  }
-
-  function editProduct(product: Product) {
-    setSelectedProduct(product);
-    setView("edit-product");
   }
 
   function toggleNavSection(section: NavSectionKey) {
@@ -1081,13 +777,13 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             search={search}
             state={state}
             onSearchChange={setSearch}
-            onEdit={editProduct}
-            onChangeStatus={(product) => void changeProductStatus(product)}
+            onEdit={catalogActions.editProduct}
+            onChangeStatus={(product) => void catalogActions.changeProductStatus(product)}
           />
         ) : null}
 
         {view === "new-product" ? (
-          <ProductForm brands={brands} onSubmit={createProduct} submitLabel="Cadastrar produto" />
+          <ProductForm brands={brands} onSubmit={catalogActions.createProduct} submitLabel="Cadastrar produto" />
         ) : null}
 
         {view === "edit-product" && selectedProduct ? (
@@ -1095,7 +791,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             key={selectedProduct.id}
             brands={brands}
             product={selectedProduct}
-            onSubmit={updateProduct}
+            onSubmit={catalogActions.updateProduct}
             onCancel={() => setView("products")}
             submitLabel="Salvar alteracoes"
           />
@@ -1106,7 +802,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             entries={stockEntries}
             products={products}
             suppliers={suppliers}
-            onSubmit={createStockEntry}
+            onSubmit={stockActions.createStockEntry}
           />
         ) : null}
 
@@ -1114,7 +810,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           <StockAdjustmentsPage
             adjustments={stockAdjustments}
             products={products}
-            onSubmit={createStockAdjustment}
+            onSubmit={stockActions.createStockAdjustment}
           />
         ) : null}
 
@@ -1196,7 +892,7 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
             title="Fabricantes"
             fieldName="brandName"
             items={brands}
-            onSubmit={(event) => void createNamedEntity(event, "/brands", "brandName")}
+            onSubmit={(event) => void catalogActions.createNamedEntity(event, "/brands", "brandName")}
           />
         ) : null}
 
@@ -1204,45 +900,17 @@ function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => 
           <ClientsPage
             clients={clients}
             selectedClient={selectedClient}
-            onSubmit={saveClient}
+            onSubmit={catalogActions.saveClient}
             onEdit={setSelectedClient}
             onCancel={() => setSelectedClient(undefined)}
-            onChangeStatus={(client) => void changeClientStatus(client)}
+            onChangeStatus={(client) => void catalogActions.changeClientStatus(client)}
           />
         ) : null}
 
         {view === "suppliers" ? (
-          <SuppliersPage suppliers={suppliers} onSubmit={createSupplier} />
+          <SuppliersPage suppliers={suppliers} onSubmit={catalogActions.createSupplier} />
         ) : null}
       </section>
     </main>
   );
-}
-
-// Helpers de formulario usados pelas acoes que ainda vivem no shell.
-function optionalFormValue(form: FormData, key: string): string | undefined {
-  const value = String(form.get(key) ?? "").trim();
-  return value ? value : undefined;
-}
-
-function nullableFormValue(form: FormData, key: string): string | null {
-  return optionalFormValue(form, key) ?? null;
-}
-
-function productFormBody(form: FormData) {
-  return {
-    name: String(form.get("productName") ?? "").trim(),
-    internalCode: nullableFormValue(form, "internalCode"),
-    barcode: nullableFormValue(form, "barcode"),
-    brandId: nullableFormValue(form, "brandId"),
-    unit: String(form.get("unit") ?? "UN").trim(),
-    location: nullableFormValue(form, "location"),
-    costPrice: Number(form.get("costPrice") || 0),
-    salePrice: Number(form.get("salePrice") || 0),
-    minimumStock: Number(form.get("minimumStock") || 0),
-    ncm: nullableFormValue(form, "ncm"),
-    cest: nullableFormValue(form, "cest"),
-    origin: nullableFormValue(form, "origin"),
-    description: nullableFormValue(form, "description"),
-  };
 }
