@@ -1,4 +1,5 @@
 import puppeteer from "puppeteer";
+import { env } from "../../config/env.js";
 import type { Quote } from "../../models/quotes/quotes.model.js";
 import { quotePdfHtml } from "./templates/quote-pdf-template.js";
 
@@ -9,7 +10,7 @@ export async function generateQuotePdf(quote: Quote): Promise<Buffer> {
 
   try {
     const page = await browser.newPage();
-    await page.setContent(quotePdfHtml(quote), { waitUntil: "load" });
+    await page.setContent(quotePdfHtml(quote, env.quotePdfStore), { waitUntil: "load" });
     const pdf = await page.pdf({
       format: "A4",
       landscape: true,

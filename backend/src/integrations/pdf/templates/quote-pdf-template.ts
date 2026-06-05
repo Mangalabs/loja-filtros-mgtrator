@@ -1,7 +1,17 @@
 import type { Quote, QuoteItem } from "../../../models/quotes/quotes.model.js";
 
-export function quotePdfHtml(quote: Quote) {
+export type QuotePdfStore = {
+  name: string;
+  address: string;
+  city: string;
+  document: string;
+  phone: string | null;
+  email: string | null;
+};
+
+export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
   const rows = quote.items.map((item, index) => quoteItemRow(item, index)).join("");
+  const storeContact = [store.phone, store.email].filter(Boolean).join(" | ");
 
   return `
     <!doctype html>
@@ -28,10 +38,11 @@ export function quotePdfHtml(quote: Quote) {
             </section>
 
             <section class="store-address">
-              <strong>Filtros MG</strong>
-              <span>Endereco da loja a configurar</span>
-              <span>Cidade/UF a configurar</span>
-              <span>Documento comercial sem valor fiscal</span>
+              <strong>${escapeHtml(store.name)}</strong>
+              <span>${escapeHtml(store.address)}</span>
+              <span>${escapeHtml(store.city)}</span>
+              <span>${escapeHtml(store.document)}</span>
+              ${storeContact ? `<span>${escapeHtml(storeContact)}</span>` : ""}
             </section>
           </header>
 
