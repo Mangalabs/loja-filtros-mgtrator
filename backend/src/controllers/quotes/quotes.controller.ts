@@ -2,10 +2,12 @@ import { db } from "../../database/knex.js";
 import { generateQuotePdf } from "../../integrations/pdf/quote-pdf.js";
 import {
   activeQuoteClientExists,
+  cancelQuote,
   getQuoteById,
   insertQuote,
   listActiveQuoteProducts,
   listQuotes,
+  lockQuoteForCancellation,
   type QuoteInput,
 } from "../../models/quotes/quotes.model.js";
 import {
@@ -113,6 +115,10 @@ export async function createShippingOrderFromQuote(id: string, createdByUserId: 
       throw new AppError("Orcamento sem itens nao pode gerar pedido de envio.", 422);
     }
 
+    if (quote.status === "CANCELLED") {
+      throw new AppError("Orcamento cancelado nao pode gerar pedido de envio.", 409);
+    }
+
     return insertShippingOrderFromQuote(transaction, quote, createdByUserId);
   });
 
@@ -120,5 +126,33 @@ export async function createShippingOrderFromQuote(id: string, createdByUserId: 
     code: 201,
     status: "success",
     data: order,
+  };
+}
+
+export async function cancelDraftQuote(id: string, reason: string, cancelledByUserId: string) {
+  const quote = await db.transaction(async (transaction) => {
+    const currentQuote = await lockQuoteForCancellation(transaction, id);
+
+    if (!currentQuote) {
+      throw new AppError("Orcamento nao encontrado.", 404);
+    }
+
+    if (currentQuote.status === "CANCELLED") {
+      throw new AppError("Este orcamento ja foi cancelado.", 409);
+    }
+
+    const existingOrder = await findShippingOrderByQuoteId(transaction, id);
+
+    if (existingOrder) {
+      throw new AppError("Orcamento enviado para pedido de envio deve seguir o fluxo do pedido.", 409);
+    }
+
+    return cancelQuote(transaction, id, cancelledByUserId, reason);
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: quote,
   };
 }

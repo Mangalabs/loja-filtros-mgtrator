@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  cancelDraftQuote,
   createShippingOrderFromQuote,
   indexQuotes,
   showQuote,
@@ -44,6 +45,10 @@ const quoteParamsSchema = z.object({
   id: z.uuid(),
 });
 
+const cancelQuoteSchema = z.object({
+  reason: z.string().trim().min(1).max(500),
+});
+
 quotesRoutes.get("/quotes", async (_request, response) => {
   response.status(200).json(await indexQuotes());
 });
@@ -77,4 +82,12 @@ quotesRoutes.post("/quotes/:id/shipping-order", async (request, response) => {
   const userId = response.locals.authenticatedUser.id as string;
 
   response.status(201).json(await createShippingOrderFromQuote(id, userId));
+});
+
+quotesRoutes.patch("/quotes/:id/cancel", async (request, response) => {
+  const { id } = quoteParamsSchema.parse(request.params);
+  const body = validateBody(request, cancelQuoteSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(200).json(await cancelDraftQuote(id, body.reason, userId));
 });

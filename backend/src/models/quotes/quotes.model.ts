@@ -37,10 +37,13 @@ export type Quote = {
   clientPhone: string | null;
   clientDocument: string | null;
   clientEmail: string | null;
-  status: "DRAFT";
+  status: "DRAFT" | "CANCELLED";
   totalAmount: string;
   validUntil: string | null;
   notes: string | null;
+  cancelledByUserName: string | null;
+  cancelledAt: Date | null;
+  cancellationReason: string | null;
   shippingOrderId: string | null;
   shippingOrderStatus: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED" | null;
   createdByUserName: string;
@@ -63,6 +66,10 @@ type QuoteRow = Omit<Quote, "items">;
 type QuoteItemRow = QuoteItem & {
   quoteId: string;
 };
+type LockedQuote = {
+  id: string;
+  status: Quote["status"];
+};
 
 const quoteColumns = [
   "quotes.id",
@@ -75,11 +82,14 @@ const quoteColumns = [
   "quotes.total_amount as totalAmount",
   "quotes.valid_until as validUntil",
   "quotes.notes",
+  "cancelled_users.name as cancelledByUserName",
+  "quotes.cancelled_at as cancelledAt",
+  "quotes.cancellation_reason as cancellationReason",
   "shipping_orders.id as shippingOrderId",
   "shipping_orders.status as shippingOrderStatus",
-  "users.name as createdByUserName",
-  "users.email as createdByUserEmail",
-  "users.phone as createdByUserPhone",
+  "created_users.name as createdByUserName",
+  "created_users.email as createdByUserEmail",
+  "created_users.phone as createdByUserPhone",
   "quotes.created_at as createdAt",
   "quotes.updated_at as updatedAt",
 ];
@@ -185,10 +195,41 @@ export async function insertQuote(
   return withItems;
 }
 
+export async function lockQuoteForCancellation(
+  transaction: Knex.Transaction,
+  id: string,
+): Promise<LockedQuote | undefined> {
+  return transaction("quotes").select(["id", "status"]).where("id", id).forUpdate().first();
+}
+
+export async function cancelQuote(
+  transaction: Knex.Transaction,
+  id: string,
+  cancelledByUserId: string,
+  reason: string,
+): Promise<Quote> {
+  await transaction("quotes").where("id", id).update({
+    status: "CANCELLED",
+    cancelled_by_user_id: cancelledByUserId,
+    cancelled_at: transaction.fn.now(),
+    cancellation_reason: reason,
+    updated_at: transaction.fn.now(),
+  });
+
+  const quote = await getQuoteById(id, transaction);
+
+  if (!quote) {
+    throw new Error("Quote was not found after cancellation");
+  }
+
+  return quote;
+}
+
 function quoteQuery(database: Knex | Knex.Transaction) {
   return database("quotes")
     .join("clients", "clients.id", "quotes.client_id")
-    .join("users", "users.id", "quotes.created_by_user_id")
+    .join({ created_users: "users" }, "created_users.id", "quotes.created_by_user_id")
+    .leftJoin({ cancelled_users: "users" }, "cancelled_users.id", "quotes.cancelled_by_user_id")
     .leftJoin("shipping_orders", "shipping_orders.quote_id", "quotes.id")
     .select<QuoteRow[]>(quoteColumns);
 }

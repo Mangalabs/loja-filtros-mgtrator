@@ -151,10 +151,13 @@ type Quote = {
   id: string;
   clientName: string;
   clientPhone: string | null;
-  status: "DRAFT";
+  status: "DRAFT" | "CANCELLED";
   totalAmount: string;
   validUntil: string | null;
   notes: string | null;
+  cancelledByUserName: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
   shippingOrderId: string | null;
   shippingOrderStatus: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED" | null;
   createdByUserName: string;
@@ -1262,6 +1265,73 @@ describe("catalog routes", () => {
     assert.equal(listedShippingOrders.body.data?.[0]?.items.length, 2);
     assert.equal(unchangedProduct.body.data?.currentStock, "2.000");
     assert.equal(unchangedProduct.body.data?.reservedStock, "0.000");
+  });
+
+  it("cancels a draft quote before it becomes a shipping order", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro quote cancelado", salePrice: 60 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente cancela orcamento" },
+    });
+    const draft = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+    const sentQuote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+
+    await request(`/quotes/${sentQuote.body.data?.id}/shipping-order`, {
+      method: "POST",
+      body: {},
+    });
+
+    const cancelled = await request<Quote>(`/quotes/${draft.body.data?.id}/cancel`, {
+      method: "PATCH",
+      body: { reason: "Cliente recusou a proposta" },
+    });
+    const repeatedCancellation = await request(`/quotes/${draft.body.data?.id}/cancel`, {
+      method: "PATCH",
+      body: { reason: "Tentativa repetida" },
+    });
+    const shippingOrderAfterCancellation = await request(`/quotes/${draft.body.data?.id}/shipping-order`, {
+      method: "POST",
+      body: {},
+    });
+    const cancellationAfterShippingOrder = await request(`/quotes/${sentQuote.body.data?.id}/cancel`, {
+      method: "PATCH",
+      body: { reason: "Pedido ja enviado" },
+    });
+    const listed = await request<Quote[]>("/quotes");
+
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(cancelled.body.data?.cancellationReason, "Cliente recusou a proposta");
+    assert.ok(cancelled.body.data?.cancelledAt);
+    assert.equal(cancelled.body.data?.cancelledByUserName, "Administrador de teste");
+    assert.equal(repeatedCancellation.status, 409);
+    assert.equal(repeatedCancellation.body.message, "Este orcamento ja foi cancelado.");
+    assert.equal(shippingOrderAfterCancellation.status, 409);
+    assert.equal(
+      shippingOrderAfterCancellation.body.message,
+      "Orcamento cancelado nao pode gerar pedido de envio.",
+    );
+    assert.equal(cancellationAfterShippingOrder.status, 409);
+    assert.equal(
+      cancellationAfterShippingOrder.body.message,
+      "Orcamento enviado para pedido de envio deve seguir o fluxo do pedido.",
+    );
+    assert.ok(listed.body.data?.some((quote) => quote.status === "CANCELLED"));
   });
 
   it("rejects quotes with unavailable products or empty items", async () => {
