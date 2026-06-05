@@ -250,6 +250,7 @@ export function QuotesPage({
               <tr>
                 <th>Data</th>
                 <th>Cliente</th>
+                <th>Vendedor</th>
                 <th>Itens</th>
                 <th>Validade</th>
                 <th>Total</th>
@@ -262,6 +263,7 @@ export function QuotesPage({
                 <tr key={quote.id}>
                   <td>{formatDateTime(quote.createdAt)}</td>
                   <td>{quote.clientName}</td>
+                  <td>{quote.createdByUserName}</td>
                   <td>
                     {quote.items.length} item(ns)
                     <span className='table-note'>
@@ -277,6 +279,11 @@ export function QuotesPage({
                       label={quoteStatusPresentation(quote).label}
                       tone={quoteStatusPresentation(quote).tone}
                     />
+                    {quote.cancelledByUserName ? (
+                      <div className='table-note'>
+                        Cancelado por {quote.cancelledByUserName}
+                      </div>
+                    ) : null}
                     {quote.cancellationReason ? (
                       <div className='table-note'>
                         {quote.cancellationReason}
@@ -326,7 +333,7 @@ export function QuotesPage({
               ))}
               {quotes.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>Nenhum orcamento salvo.</td>
+                  <td colSpan={8}>Nenhum orcamento salvo.</td>
                 </tr>
               ) : null}
             </tbody>
