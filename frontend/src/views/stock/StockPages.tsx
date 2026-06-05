@@ -20,6 +20,7 @@ import {
   formatQuantity,
   formatSignedQuantity,
 } from "../../utils/format";
+import { productDisplayName } from "../../utils/productDisplay";
 
 export function StockEntriesPage({
   entries,
@@ -47,7 +48,8 @@ export function StockEntriesPage({
             .filter((product) => product.active)
             .map((product) => (
               <option key={product.id} value={product.id}>
-                {product.name} - estoque {formatQuantity(product.currentStock)}
+                {productDisplayName(product)} - estoque{" "}
+                {formatQuantity(product.currentStock)}
               </option>
             ))}
         </select>
@@ -155,8 +157,9 @@ export function StockAdjustmentsPage({
           </option>
           {products.map((product) => (
             <option key={product.id} value={product.id}>
-              {product.name} - fisico {formatQuantity(product.currentStock)} -
-              reservado {formatQuantity(product.reservedStock)}
+              {productDisplayName(product)} - fisico{" "}
+              {formatQuantity(product.currentStock)} - reservado{" "}
+              {formatQuantity(product.reservedStock)}
               {product.active ? "" : " (inativo)"}
             </option>
           ))}
@@ -250,7 +253,7 @@ export function LowStockPage({ products }: { products: Product[] }) {
           <tbody>
             {products.map((product) => (
               <tr key={product.id}>
-                <td>{product.name}</td>
+                <td>{productDisplayName(product)}</td>
                 <td>{product.brandName ?? "-"}</td>
                 <td>{product.location ?? "-"}</td>
                 <td className="stock-warning">

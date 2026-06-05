@@ -12,6 +12,7 @@ export type QuoteInput = {
   clientId: string
   validUntil?: string | null
   notes?: string | null
+  showBrand?: boolean
   items: QuoteItemInput[]
 }
 
@@ -38,6 +39,7 @@ export type Quote = {
   clientDocument: string | null
   clientEmail: string | null
   status: 'DRAFT' | 'CANCELLED'
+  showBrand: boolean
   totalAmount: string
   validUntil: string | null
   notes: string | null
@@ -85,6 +87,7 @@ const quoteColumns = [
   'clients.document as clientDocument',
   'clients.email as clientEmail',
   'quotes.status',
+  'quotes.show_brand as showBrand',
   'quotes.total_amount as totalAmount',
   'quotes.valid_until as validUntil',
   'quotes.notes',
@@ -178,6 +181,7 @@ export async function insertQuote(
       client_id: input.clientId,
       created_by_user_id: createdByUserId,
       status: 'DRAFT',
+      show_brand: input.showBrand ?? true,
       total_amount: totalAmount,
       valid_until: input.validUntil,
       notes: input.notes,

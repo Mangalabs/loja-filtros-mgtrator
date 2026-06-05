@@ -161,6 +161,7 @@ type Quote = {
   clientName: string;
   clientPhone: string | null;
   status: "DRAFT" | "CANCELLED";
+  showBrand: boolean;
   totalAmount: string;
   validUntil: string | null;
   notes: string | null;
@@ -1458,6 +1459,7 @@ describe("catalog routes", () => {
         clientId: client.body.data?.id,
         validUntil: "2026-06-30",
         notes: "Retirar condicoes no PDF depois",
+        showBrand: false,
         items: [
           {
             productId: firstProduct.body.data?.id,
@@ -1499,6 +1501,7 @@ describe("catalog routes", () => {
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.status, "DRAFT");
     assert.equal(created.body.data?.clientName, "Cliente orcamento");
+    assert.equal(created.body.data?.showBrand, false);
     assert.equal(created.body.data?.totalAmount, "170.00");
     assert.ok(created.body.data?.validUntil?.startsWith("2026-06-30"));
     assert.equal(created.body.data?.notes, "Retirar condicoes no PDF depois");
@@ -1519,9 +1522,11 @@ describe("catalog routes", () => {
     );
     assert.equal(created.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(shown.body.data?.items.length, 2);
+    assert.equal(shown.body.data?.showBrand, false);
     assert.equal(shown.body.data?.shippingOrderId, null);
     assert.equal(shown.body.data?.shippingOrderStatus, null);
     assert.equal(listed.body.data?.length, 1);
+    assert.equal(listed.body.data?.[0]?.showBrand, false);
     assert.equal(listed.body.data?.[0]?.shippingOrderId, null);
     assert.equal(pdf.status, 200);
     assert.equal(pdf.contentType, "application/pdf");

@@ -402,6 +402,21 @@ textarea {
   color: #65716c;
 }
 
+.checkbox-field {
+  align-items: center;
+  color: #65716c;
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+}
+
+.checkbox-field input {
+  accent-color: #1f4f3a;
+  height: auto;
+  width: auto;
+}
+
 input:disabled,
 select:disabled,
 textarea:disabled {

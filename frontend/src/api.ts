@@ -231,6 +231,7 @@ export type Quote = {
   clientDocument: string | null;
   clientEmail: string | null;
   status: "DRAFT" | "CANCELLED";
+  showBrand: boolean;
   totalAmount: string;
   validUntil: string | null;
   notes: string | null;

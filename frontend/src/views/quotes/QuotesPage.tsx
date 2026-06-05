@@ -8,6 +8,7 @@ import {
   TableActionButton,
 } from '../../components/ui'
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/format'
+import { productDisplayName } from '../../utils/productDisplay'
 
 type QuoteDraftItem = {
   productId: string
@@ -20,6 +21,7 @@ export type QuoteDraftInput = {
   clientId: string
   validUntil?: string | null
   notes?: string | null
+  showBrand?: boolean
   items: Array<{
     productId: string
     description?: string | null
@@ -46,6 +48,7 @@ export function QuotesPage({
   const [clientId, setClientId] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
+  const [showBrand, setShowBrand] = useState(true)
   const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
   const activeProducts = products.filter((product) => product.active)
   const quoteTotal = items.reduce((sum, item) => {
@@ -88,6 +91,7 @@ export function QuotesPage({
     setClientId('')
     setValidUntil('')
     setNotes('')
+    setShowBrand(true)
     setItems([emptyQuoteItem()])
   }
 
@@ -98,6 +102,7 @@ export function QuotesPage({
       clientId,
       validUntil: validUntil || null,
       notes: notes.trim() || null,
+      showBrand,
       items: items.map((item) => ({
         productId: item.productId,
         description: item.description.trim() || null,
@@ -158,6 +163,14 @@ export function QuotesPage({
           rows={3}
           onChange={(event) => setNotes(event.target.value)}
         />
+        <label className='checkbox-field'>
+          <input
+            checked={showBrand}
+            type='checkbox'
+            onChange={(event) => setShowBrand(event.target.checked)}
+          />
+          Exibir fabricante na coluna Marca do PDF
+        </label>
 
         <div className='quote-items'>
           {items.map((item, index) => (
@@ -183,7 +196,8 @@ export function QuotesPage({
                 </option>
                 {activeProducts.map((product) => (
                   <option key={product.id} value={product.id}>
-                    {product.name} - base {formatCurrency(product.salePrice)}
+                    {productDisplayName(product)} - base{' '}
+                    {formatCurrency(product.salePrice)}
                   </option>
                 ))}
               </select>

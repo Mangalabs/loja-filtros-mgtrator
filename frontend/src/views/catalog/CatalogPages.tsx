@@ -18,6 +18,7 @@ import {
   TableActionButton,
 } from "../../components/ui";
 import { formatQuantity } from "../../utils/format";
+import { productDisplayName } from "../../utils/productDisplay";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
@@ -92,7 +93,7 @@ function ProductTable({
         <tbody>
           {products.map((product) => (
             <tr key={product.id}>
-              <td>{product.name}</td>
+              <td>{productDisplayName(product)}</td>
               <td>{product.internalCode ?? "-"}</td>
               <td>{product.brandName ?? "-"}</td>
               <td>{product.unit}</td>

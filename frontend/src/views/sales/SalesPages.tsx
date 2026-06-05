@@ -21,6 +21,7 @@ import {
   formatDateTime,
   formatQuantity,
 } from '../../utils/format'
+import { productDisplayName } from '../../utils/productDisplay'
 
 type SaleDraftItem = {
   productId: string
@@ -151,8 +152,9 @@ export function SalesPage({
                 </option>
                 {availableProducts.map((product) => (
                   <option key={product.id} value={product.id}>
-                    {product.name} - {formatCurrency(product.salePrice)} -
-                    disponivel {formatQuantity(product.availableStock)}
+                    {productDisplayName(product)} -{' '}
+                    {formatCurrency(product.salePrice)} - disponivel{' '}
+                    {formatQuantity(product.availableStock)}
                   </option>
                 ))}
               </select>
@@ -619,8 +621,9 @@ export function PickupReservationsPage({
                 </option>
                 {availableProducts.map((product) => (
                   <option key={product.id} value={product.id}>
-                    {product.name} - {formatCurrency(product.salePrice)} -
-                    disponivel {formatQuantity(product.availableStock)}
+                    {productDisplayName(product)} -{' '}
+                    {formatCurrency(product.salePrice)} - disponivel{' '}
+                    {formatQuantity(product.availableStock)}
                   </option>
                 ))}
               </select>

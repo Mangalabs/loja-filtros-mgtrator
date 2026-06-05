@@ -23,6 +23,7 @@ const createQuoteSchema = z
       .union([z.string().trim().min(1).max(1000), z.literal(""), z.null()])
       .transform((value) => value || null)
       .optional(),
+    showBrand: z.boolean().optional(),
     items: z
       .array(
         z
