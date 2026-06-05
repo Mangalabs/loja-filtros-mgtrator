@@ -270,24 +270,16 @@ export function QuotesPage({
 }
 
 function quoteShippingStatusLabel(status: Quote["shippingOrderStatus"]) {
-  if (status === "APPROVED") {
-    return "Envio aprovado";
-  }
-
-  if (status === "SEPARATED") {
-    return "Separado para envio";
-  }
-
-  if (status === "COMPLETED") {
-    return "Venda concluida";
-  }
-
-  if (status === "CANCELLED") {
-    return "Envio cancelado";
-  }
-
-  return "Enviado p/ envio";
+  return quoteShippingStatusLabels[status ?? "QUOTED"];
 }
+
+const quoteShippingStatusLabels: Record<NonNullable<Quote["shippingOrderStatus"]>, string> = {
+  APPROVED: "Envio aprovado",
+  CANCELLED: "Envio cancelado",
+  COMPLETED: "Venda concluida",
+  QUOTED: "Enviado p/ envio",
+  SEPARATED: "Separado para envio",
+};
 
 function emptyQuoteItem(): QuoteDraftItem {
   return {
