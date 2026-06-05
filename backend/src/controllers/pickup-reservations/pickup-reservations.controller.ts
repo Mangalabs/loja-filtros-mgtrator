@@ -25,7 +25,10 @@ export async function indexPickupReservations() {
   };
 }
 
-export async function storePickupReservation(input: PickupReservationInput, createdByUserId: string) {
+export async function storePickupReservation(
+  input: PickupReservationInput,
+  createdByUserId: string,
+) {
   const reservation = await db.transaction(async (transaction) => {
     if (!(await activePickupClientExists(transaction, input.clientId))) {
       throw new AppError("Cliente informado nao disponivel.", 422);
@@ -44,16 +47,22 @@ export async function storePickupReservation(input: PickupReservationInput, crea
       const product = await lockPickupProduct(transaction, item.productId);
 
       if (!product || !product.active) {
-        throw new AppError("Produto informado nao disponivel para reserva.", 422);
+        throw new AppError(
+          "Produto informado nao disponivel para reserva.",
+          422,
+        );
       }
 
       reservationItems.push({
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: Number(product.salePrice),
-        totalAmount: Number((Number(product.salePrice) * item.quantity).toFixed(2)),
+        totalAmount: Number(
+          (Number(product.salePrice) * item.quantity).toFixed(2),
+        ),
         position: index + 1,
-        availableStock: Number(product.currentStock) - Number(product.reservedStock),
+        availableStock:
+          Number(product.currentStock) - Number(product.reservedStock),
       });
     }
 
@@ -64,10 +73,18 @@ export async function storePickupReservation(input: PickupReservationInput, crea
     }
 
     const totalAmount = Number(
-      reservationItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
+      reservationItems
+        .reduce((sum, item) => sum + item.totalAmount, 0)
+        .toFixed(2),
     );
 
-    return insertPickupReservation(transaction, input, createdByUserId, reservationItems, totalAmount);
+    return insertPickupReservation(
+      transaction,
+      input,
+      createdByUserId,
+      reservationItems,
+      totalAmount,
+    );
   });
 
   return {
@@ -77,7 +94,11 @@ export async function storePickupReservation(input: PickupReservationInput, crea
   };
 }
 
-export async function cancelOpenPickupReservation(id: string, reason: string, cancelledByUserId: string) {
+export async function cancelOpenPickupReservation(
+  id: string,
+  reason: string,
+  cancelledByUserId: string,
+) {
   const reservation = await db.transaction(async (transaction) => {
     const currentReservation = await lockPickupReservation(transaction, id);
 
@@ -90,7 +111,10 @@ export async function cancelOpenPickupReservation(id: string, reason: string, ca
     }
 
     if (currentReservation.status === "COMPLETED") {
-      throw new AppError("Reserva concluida nao pode ser cancelada por este fluxo.", 409);
+      throw new AppError(
+        "Reserva concluida nao pode ser cancelada por este fluxo.",
+        409,
+      );
     }
 
     const reservedItems = aggregatePickupItems(currentReservation.items);
@@ -99,7 +123,10 @@ export async function cancelOpenPickupReservation(id: string, reason: string, ca
       const product = await lockPickupProduct(transaction, item.productId);
 
       if (!product || Number(product.reservedStock) < item.quantity) {
-        throw new AppError("Reserva insuficiente para cancelar esta retirada.", 422);
+        throw new AppError(
+          "Reserva insuficiente para cancelar esta retirada.",
+          422,
+        );
       }
     }
 
@@ -132,7 +159,10 @@ export async function completeReservedPickup(
     }
 
     if (currentReservation.status === "CANCELLED") {
-      throw new AppError("Reserva cancelada nao pode ser concluida como venda.", 409);
+      throw new AppError(
+        "Reserva cancelada nao pode ser concluida como venda.",
+        409,
+      );
     }
 
     if (currentReservation.status === "COMPLETED") {
@@ -142,7 +172,10 @@ export async function completeReservedPickup(
     const cashRegister = await findOpenCashRegister(transaction);
 
     if (!cashRegister) {
-      throw new AppError("Abra o caixa antes de concluir a reserva para retirada.", 422);
+      throw new AppError(
+        "Abra o caixa antes de concluir a reserva para retirada.",
+        422,
+      );
     }
 
     if (!(await activePaymentMethodExists(transaction, paymentMethodId))) {
@@ -154,13 +187,24 @@ export async function completeReservedPickup(
     for (const item of reservedItems) {
       const product = await lockPickupProduct(transaction, item.productId);
 
-      if (!product || Number(product.reservedStock) < item.quantity || Number(product.currentStock) < item.quantity) {
-        throw new AppError("Reserva insuficiente para concluir esta venda.", 422);
+      if (
+        !product ||
+        Number(product.reservedStock) < item.quantity ||
+        Number(product.currentStock) < item.quantity
+      ) {
+        throw new AppError(
+          "Reserva insuficiente para concluir esta venda.",
+          422,
+        );
       }
     }
 
     for (const item of reservedItems) {
-      await releasePickupReservationStock(transaction, item.productId, item.quantity);
+      await releasePickupReservationStock(
+        transaction,
+        item.productId,
+        item.quantity,
+      );
     }
 
     const sale = await insertSale(
@@ -185,7 +229,12 @@ export async function completeReservedPickup(
       Number(currentReservation.totalAmount),
     );
 
-    return completePickupReservation(transaction, id, sale.id, completedByUserId);
+    return completePickupReservation(
+      transaction,
+      id,
+      sale.id,
+      completedByUserId,
+    );
   });
 
   return {
@@ -196,25 +245,30 @@ export async function completeReservedPickup(
 }
 
 function aggregatePickupItems(
-  items: Array<{ productId: string; quantity: number | string; availableStock?: number }>,
+  items: Array<{
+    productId: string;
+    quantity: number | string;
+    availableStock?: number;
+  }>,
 ) {
-  return items.reduce<Array<{ productId: string; quantity: number; availableStock: number }>>(
-    (aggregatedItems, item) => {
-      const existing = aggregatedItems.find((currentItem) => currentItem.productId === item.productId);
+  return items.reduce<
+    Array<{ productId: string; quantity: number; availableStock: number }>
+  >((aggregatedItems, item) => {
+    const existing = aggregatedItems.find(
+      (currentItem) => currentItem.productId === item.productId,
+    );
 
-      if (existing) {
-        existing.quantity += Number(item.quantity);
-        return aggregatedItems;
-      }
-
-      aggregatedItems.push({
-        productId: item.productId,
-        quantity: Number(item.quantity),
-        availableStock: item.availableStock ?? Number.POSITIVE_INFINITY,
-      });
-
+    if (existing) {
+      existing.quantity += Number(item.quantity);
       return aggregatedItems;
-    },
-    [],
-  );
+    }
+
+    aggregatedItems.push({
+      productId: item.productId,
+      quantity: Number(item.quantity),
+      availableStock: item.availableStock ?? Number.POSITIVE_INFINITY,
+    });
+
+    return aggregatedItems;
+  }, []);
 }

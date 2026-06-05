@@ -21,7 +21,9 @@ export async function listPaymentMethods(
         query.where("active", filters.active);
       }
     })
-    .orderByRaw("case code when 'PIX' then 1 when 'DEBIT' then 2 when 'BOLETO' then 3 else 4 end")
+    .orderByRaw(
+      "case code when 'PIX' then 1 when 'DEBIT' then 2 when 'BOLETO' then 3 else 4 end",
+    )
     .orderBy("name", "asc");
 }
 

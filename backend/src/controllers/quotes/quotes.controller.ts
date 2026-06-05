@@ -61,14 +61,22 @@ export async function storeQuote(input: QuoteInput, createdByUserId: string) {
     const products = await listActiveQuoteProducts(transaction, productIds);
 
     if (products.length !== productIds.length) {
-      throw new AppError("Um ou mais produtos informados nao estao disponiveis para orcamento.", 422);
+      throw new AppError(
+        "Um ou mais produtos informados nao estao disponiveis para orcamento.",
+        422,
+      );
     }
 
     const quoteItems = input.items.map((item, index) => {
-      const product = products.find((currentProduct) => currentProduct.id === item.productId);
+      const product = products.find(
+        (currentProduct) => currentProduct.id === item.productId,
+      );
 
       if (!product) {
-        throw new AppError("Produto informado nao disponivel para orcamento.", 422);
+        throw new AppError(
+          "Produto informado nao disponivel para orcamento.",
+          422,
+        );
       }
 
       const unitPrice = item.unitPrice ?? Number(product.salePrice);
@@ -76,7 +84,8 @@ export async function storeQuote(input: QuoteInput, createdByUserId: string) {
 
       return {
         productId: item.productId,
-        description: item.description?.trim() || product.description || product.name,
+        description:
+          item.description?.trim() || product.description || product.name,
         quantity: item.quantity,
         unitPrice,
         totalAmount,
@@ -87,7 +96,13 @@ export async function storeQuote(input: QuoteInput, createdByUserId: string) {
       quoteItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
     );
 
-    return insertQuote(transaction, input, createdByUserId, quoteItems, totalAmount);
+    return insertQuote(
+      transaction,
+      input,
+      createdByUserId,
+      quoteItems,
+      totalAmount,
+    );
   });
 
   return {
@@ -97,7 +112,10 @@ export async function storeQuote(input: QuoteInput, createdByUserId: string) {
   };
 }
 
-export async function createShippingOrderFromQuote(id: string, createdByUserId: string) {
+export async function createShippingOrderFromQuote(
+  id: string,
+  createdByUserId: string,
+) {
   const order = await db.transaction(async (transaction) => {
     const quote = await getQuoteById(id, transaction);
 
@@ -108,15 +126,24 @@ export async function createShippingOrderFromQuote(id: string, createdByUserId: 
     const existingOrder = await findShippingOrderByQuoteId(transaction, id);
 
     if (existingOrder) {
-      throw new AppError("Este orcamento ja foi enviado para pedidos de envio.", 409);
+      throw new AppError(
+        "Este orcamento ja foi enviado para pedidos de envio.",
+        409,
+      );
     }
 
     if (quote.items.length === 0) {
-      throw new AppError("Orcamento sem itens nao pode gerar pedido de envio.", 422);
+      throw new AppError(
+        "Orcamento sem itens nao pode gerar pedido de envio.",
+        422,
+      );
     }
 
     if (quote.status === "CANCELLED") {
-      throw new AppError("Orcamento cancelado nao pode gerar pedido de envio.", 409);
+      throw new AppError(
+        "Orcamento cancelado nao pode gerar pedido de envio.",
+        409,
+      );
     }
 
     return insertShippingOrderFromQuote(transaction, quote, createdByUserId);
@@ -129,7 +156,11 @@ export async function createShippingOrderFromQuote(id: string, createdByUserId: 
   };
 }
 
-export async function cancelDraftQuote(id: string, reason: string, cancelledByUserId: string) {
+export async function cancelDraftQuote(
+  id: string,
+  reason: string,
+  cancelledByUserId: string,
+) {
   const quote = await db.transaction(async (transaction) => {
     const currentQuote = await lockQuoteForCancellation(transaction, id);
 
@@ -144,7 +175,10 @@ export async function cancelDraftQuote(id: string, reason: string, cancelledByUs
     const existingOrder = await findShippingOrderByQuoteId(transaction, id);
 
     if (existingOrder) {
-      throw new AppError("Orcamento enviado para pedido de envio deve seguir o fluxo do pedido.", 409);
+      throw new AppError(
+        "Orcamento enviado para pedido de envio deve seguir o fluxo do pedido.",
+        409,
+      );
     }
 
     return cancelQuote(transaction, id, cancelledByUserId, reason);

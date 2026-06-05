@@ -1,4 +1,7 @@
-export function optionalFormValue(form: FormData, key: string): string | undefined {
+export function optionalFormValue(
+  form: FormData,
+  key: string,
+): string | undefined {
   const value = String(form.get(key) ?? "").trim();
   return value ? value : undefined;
 }

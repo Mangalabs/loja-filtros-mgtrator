@@ -17,15 +17,33 @@ import type {
 } from "../api";
 import type { LoadState, View } from "../navigation";
 import type { useCatalogActions } from "../views/catalog/useCatalogActions";
-import { ClientsPage, NamedEntityPage, ProductForm, ProductsPage, SuppliersPage } from "../views/catalog/CatalogPages";
-import { CashRegisterPage, PaymentMethodsPage } from "../views/finance/FinancePages";
+import {
+  ClientsPage,
+  NamedEntityPage,
+  ProductForm,
+  ProductsPage,
+  SuppliersPage,
+} from "../views/catalog/CatalogPages";
+import {
+  CashRegisterPage,
+  PaymentMethodsPage,
+} from "../views/finance/FinancePages";
 import type { useFinanceActions } from "../views/finance/useFinanceActions";
 import { QuotesPage } from "../views/quotes/QuotesPage";
 import type { useQuoteActions } from "../views/quotes/useQuoteActions";
 import { ReportsPage } from "../views/reports/ReportsPage";
-import { PickupReservationsPage, SalesPage, ShippingOrdersPage } from "../views/sales/SalesPages";
+import {
+  PickupReservationsPage,
+  SalesPage,
+  ShippingOrdersPage,
+} from "../views/sales/SalesPages";
 import type { useSalesActions } from "../views/sales/useSalesActions";
-import { LowStockPage, StockAdjustmentsPage, StockEntriesPage, StockMovementsPage } from "../views/stock/StockPages";
+import {
+  LowStockPage,
+  StockAdjustmentsPage,
+  StockEntriesPage,
+  StockMovementsPage,
+} from "../views/stock/StockPages";
 import type { useStockActions } from "../views/stock/useStockActions";
 
 type AppViewRendererProps = {
@@ -106,12 +124,18 @@ export function AppViewRenderer({
           state={state}
           onSearchChange={onSearchChange}
           onEdit={catalogActions.editProduct}
-          onChangeStatus={(product) => void catalogActions.changeProductStatus(product)}
+          onChangeStatus={(product) =>
+            void catalogActions.changeProductStatus(product)
+          }
         />
       ) : null}
 
       {view === "new-product" ? (
-        <ProductForm brands={brands} onSubmit={catalogActions.createProduct} submitLabel="Cadastrar produto" />
+        <ProductForm
+          brands={brands}
+          onSubmit={catalogActions.createProduct}
+          submitLabel="Cadastrar produto"
+        />
       ) : null}
 
       {view === "edit-product" && selectedProduct ? (
@@ -142,14 +166,20 @@ export function AppViewRenderer({
         />
       ) : null}
 
-      {view === "low-stock" ? <LowStockPage products={lowStockProducts} /> : null}
+      {view === "low-stock" ? (
+        <LowStockPage products={lowStockProducts} />
+      ) : null}
 
-      {view === "stock-movements" ? <StockMovementsPage movements={stockMovements} /> : null}
+      {view === "stock-movements" ? (
+        <StockMovementsPage movements={stockMovements} />
+      ) : null}
 
       {view === "payment-methods" ? (
         <PaymentMethodsPage
           paymentMethods={paymentMethods}
-          onChangeStatus={(paymentMethod) => void financeActions.changePaymentMethodStatus(paymentMethod)}
+          onChangeStatus={(paymentMethod) =>
+            void financeActions.changePaymentMethodStatus(paymentMethod)
+          }
         />
       ) : null}
 
@@ -170,8 +200,12 @@ export function AppViewRenderer({
           products={products}
           quotes={quotes}
           onSubmit={quoteActions.createQuote}
-          onCancelQuote={(event, quote) => void quoteActions.cancelQuote(event, quote)}
-          onCreateShippingOrder={(quote) => void quoteActions.createShippingOrderFromQuote(quote)}
+          onCancelQuote={(event, quote) =>
+            void quoteActions.cancelQuote(event, quote)
+          }
+          onCreateShippingOrder={(quote) =>
+            void quoteActions.createShippingOrderFromQuote(quote)
+          }
         />
       ) : null}
 
@@ -194,8 +228,12 @@ export function AppViewRenderer({
           onOpenQuotes={onOpenQuotes}
           onApprove={(order) => void salesActions.approveShippingOrder(order)}
           onSeparate={(order) => void salesActions.separateShippingOrder(order)}
-          onComplete={(event, order) => void salesActions.completeShippingOrder(event, order)}
-          onCancel={(event, order) => void salesActions.cancelShippingOrder(event, order)}
+          onComplete={(event, order) =>
+            void salesActions.completeShippingOrder(event, order)
+          }
+          onCancel={(event, order) =>
+            void salesActions.cancelShippingOrder(event, order)
+          }
         />
       ) : null}
 
@@ -207,8 +245,12 @@ export function AppViewRenderer({
           products={products}
           reservations={pickupReservations}
           onSubmit={salesActions.createPickupReservation}
-          onComplete={(event, reservation) => void salesActions.completePickupReservation(event, reservation)}
-          onCancel={(event, reservation) => void salesActions.cancelPickupReservation(event, reservation)}
+          onComplete={(event, reservation) =>
+            void salesActions.completePickupReservation(event, reservation)
+          }
+          onCancel={(event, reservation) =>
+            void salesActions.cancelPickupReservation(event, reservation)
+          }
         />
       ) : null}
 
@@ -217,7 +259,9 @@ export function AppViewRenderer({
           title="Fabricantes"
           fieldName="brandName"
           items={brands}
-          onSubmit={(event) => void catalogActions.createNamedEntity(event, "/brands", "brandName")}
+          onSubmit={(event) =>
+            void catalogActions.createNamedEntity(event, "/brands", "brandName")
+          }
         />
       ) : null}
 
@@ -228,11 +272,18 @@ export function AppViewRenderer({
           onSubmit={catalogActions.saveClient}
           onEdit={onSelectClient}
           onCancel={onCancelClient}
-          onChangeStatus={(client) => void catalogActions.changeClientStatus(client)}
+          onChangeStatus={(client) =>
+            void catalogActions.changeClientStatus(client)
+          }
         />
       ) : null}
 
-      {view === "suppliers" ? <SuppliersPage suppliers={suppliers} onSubmit={catalogActions.createSupplier} /> : null}
+      {view === "suppliers" ? (
+        <SuppliersPage
+          suppliers={suppliers}
+          onSubmit={catalogActions.createSupplier}
+        />
+      ) : null}
     </>
   );
 }

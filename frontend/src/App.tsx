@@ -1,9 +1,8 @@
-import { useAuth } from "./auth/AuthContext";
-import { AuthGate } from "./auth/AuthGate";
+import { useAuth } from './auth/AuthContext'
+import { AuthGate } from './auth/AuthGate'
 
-// Entrada da aplicacao: decide entre autenticacao/setup e area autenticada.
 export function App() {
-  const { loading, login, logout, requiresSetup, setup, user } = useAuth();
+  const { loading, login, logout, requiresSetup, setup, user } = useAuth()
 
   return (
     <AuthGate
@@ -14,5 +13,5 @@ export function App() {
       onLogout={() => void logout()}
       onSetup={setup}
     />
-  );
+  )
 }

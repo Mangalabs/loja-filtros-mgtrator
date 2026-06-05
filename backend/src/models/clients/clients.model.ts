@@ -33,7 +33,9 @@ const clientColumns = [
   "active",
 ];
 
-export async function listClients(filters: ClientListFilters): Promise<Client[]> {
+export async function listClients(
+  filters: ClientListFilters,
+): Promise<Client[]> {
   return db("clients")
     .select(clientColumns)
     .modify((query) => {
@@ -60,7 +62,10 @@ export async function createClient(input: ClientInput): Promise<Client> {
   return client;
 }
 
-export async function updateClient(id: string, input: ClientInput): Promise<Client | undefined> {
+export async function updateClient(
+  id: string,
+  input: ClientInput,
+): Promise<Client | undefined> {
   const [client] = await db("clients")
     .where("id", id)
     .update({

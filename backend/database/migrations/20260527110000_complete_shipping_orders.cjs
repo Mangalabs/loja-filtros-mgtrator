@@ -1,8 +1,17 @@
 exports.up = async function up(knex) {
-  await knex.schema.raw("alter table shipping_orders drop constraint shipping_orders_separation_check");
-  await knex.schema.raw("alter table shipping_orders drop constraint shipping_orders_status_check");
+  await knex.schema.raw(
+    "alter table shipping_orders drop constraint shipping_orders_separation_check",
+  );
+  await knex.schema.raw(
+    "alter table shipping_orders drop constraint shipping_orders_status_check",
+  );
   await knex.schema.alterTable("shipping_orders", (table) => {
-    table.uuid("sale_id").nullable().references("id").inTable("sales").onDelete("RESTRICT");
+    table
+      .uuid("sale_id")
+      .nullable()
+      .references("id")
+      .inTable("sales")
+      .onDelete("RESTRICT");
     table
       .uuid("completed_by_user_id")
       .nullable()
@@ -23,10 +32,18 @@ exports.up = async function up(knex) {
 };
 
 exports.down = async function down(knex) {
-  await knex.schema.raw("alter table shipping_orders drop constraint shipping_orders_completion_check");
-  await knex.schema.raw("alter table shipping_orders drop constraint shipping_orders_separation_check");
-  await knex.schema.raw("alter table shipping_orders drop constraint shipping_orders_status_check");
-  await knex("shipping_orders").where("status", "COMPLETED").update({ status: "SEPARATED" });
+  await knex.schema.raw(
+    "alter table shipping_orders drop constraint shipping_orders_completion_check",
+  );
+  await knex.schema.raw(
+    "alter table shipping_orders drop constraint shipping_orders_separation_check",
+  );
+  await knex.schema.raw(
+    "alter table shipping_orders drop constraint shipping_orders_status_check",
+  );
+  await knex("shipping_orders")
+    .where("status", "COMPLETED")
+    .update({ status: "SEPARATED" });
   await knex.schema.alterTable("shipping_orders", (table) => {
     table.dropColumn("sale_id");
     table.dropColumn("completed_by_user_id");

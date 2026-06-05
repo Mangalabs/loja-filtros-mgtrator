@@ -65,7 +65,10 @@ const saleItemColumns = [
   "sale_items.position",
 ];
 
-type SaleRow = Omit<Sale, "items" | "productId" | "productName" | "quantity" | "unitPrice">;
+type SaleRow = Omit<
+  Sale,
+  "items" | "productId" | "productName" | "quantity" | "unitPrice"
+>;
 type SaleItemRow = SaleItem & {
   saleId: string;
 };
@@ -78,7 +81,11 @@ export async function listSales(): Promise<Sale[]> {
 export async function findOpenCashRegister(
   transaction: Knex.Transaction,
 ): Promise<{ id: string } | undefined> {
-  return transaction("cash_register_sessions").select("id").where("status", "OPEN").forUpdate().first();
+  return transaction("cash_register_sessions")
+    .select("id")
+    .where("status", "OPEN")
+    .forUpdate()
+    .first();
 }
 
 export async function lockSaleProduct(
@@ -115,7 +122,10 @@ export async function activeClientExists(
   transaction: Knex.Transaction,
   clientId: string,
 ): Promise<boolean> {
-  const client = await transaction("clients").select("id").where({ id: clientId, active: true }).first();
+  const client = await transaction("clients")
+    .select("id")
+    .where({ id: clientId, active: true })
+    .first();
 
   return Boolean(client);
 }
@@ -179,7 +189,9 @@ export async function insertSale(
       });
   }
 
-  const sale = await saleQuery(transaction).where("sales.id", created.id).first();
+  const sale = await saleQuery(transaction)
+    .where("sales.id", created.id)
+    .first();
 
   if (!sale) {
     throw new Error("Sale was not found after creation");
@@ -192,7 +204,11 @@ export async function insertSale(
 function saleQuery(database: Knex | Knex.Transaction) {
   return database("sales")
     .join("sale_payments", "sale_payments.sale_id", "sales.id")
-    .join("payment_methods", "payment_methods.id", "sale_payments.payment_method_id")
+    .join(
+      "payment_methods",
+      "payment_methods.id",
+      "sale_payments.payment_method_id",
+    )
     .join("users", "users.id", "sales.created_by_user_id")
     .leftJoin("clients", "clients.id", "sales.client_id")
     .select<SaleRow[]>(saleColumns);
@@ -230,20 +246,27 @@ async function withSaleItems(
   });
 }
 
-function aggregateSaleItems(items: Array<{ productId: string; quantity: number }>) {
-  return items.reduce<Array<{ productId: string; quantity: number }>>((aggregatedItems, item) => {
-    const existing = aggregatedItems.find((currentItem) => currentItem.productId === item.productId);
+function aggregateSaleItems(
+  items: Array<{ productId: string; quantity: number }>,
+) {
+  return items.reduce<Array<{ productId: string; quantity: number }>>(
+    (aggregatedItems, item) => {
+      const existing = aggregatedItems.find(
+        (currentItem) => currentItem.productId === item.productId,
+      );
 
-    if (existing) {
-      existing.quantity += item.quantity;
+      if (existing) {
+        existing.quantity += item.quantity;
+        return aggregatedItems;
+      }
+
+      aggregatedItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+      });
+
       return aggregatedItems;
-    }
-
-    aggregatedItems.push({
-      productId: item.productId,
-      quantity: item.quantity,
-    });
-
-    return aggregatedItems;
-  }, []);
+    },
+    [],
+  );
 }

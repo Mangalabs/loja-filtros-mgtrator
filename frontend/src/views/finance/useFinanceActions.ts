@@ -3,11 +3,19 @@ import { apiPatch, apiPost, type PaymentMethod } from "../../api";
 
 type FinanceActionsOptions = {
   loadCatalog: () => Promise<void>;
-  requestConfirmation: (message: string, title?: string, confirmLabel?: string) => Promise<boolean>;
+  requestConfirmation: (
+    message: string,
+    title?: string,
+    confirmLabel?: string,
+  ) => Promise<boolean>;
   runAction: (action: () => Promise<void>) => Promise<boolean>;
 };
 
-export function useFinanceActions({ loadCatalog, requestConfirmation, runAction }: FinanceActionsOptions) {
+export function useFinanceActions({
+  loadCatalog,
+  requestConfirmation,
+  runAction,
+}: FinanceActionsOptions) {
   async function openCashRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;

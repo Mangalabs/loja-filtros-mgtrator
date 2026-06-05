@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
-import { indexBrands, storeBrand } from "../../controllers/brands/brands.controller.js";
+import {
+  indexBrands,
+  storeBrand,
+} from "../../controllers/brands/brands.controller.js";
 import { parseBooleanFilter } from "../../shared/http/query-params.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 

@@ -1,30 +1,32 @@
-import puppeteer from "puppeteer";
-import { env } from "../../config/env.js";
-import type { Quote } from "../../models/quotes/quotes.model.js";
-import { quotePdfHtml } from "./templates/quote-pdf-template.js";
+import puppeteer from 'puppeteer'
+import { env } from '../../config/env.js'
+import type { Quote } from '../../models/quotes/quotes.model.js'
+import { quotePdfHtml } from './templates/quote-pdf-template.js'
 
 export async function generateQuotePdf(quote: Quote): Promise<Buffer> {
   const browser = await puppeteer.launch({
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  })
 
   try {
-    const page = await browser.newPage();
-    await page.setContent(quotePdfHtml(quote, env.quotePdfStore), { waitUntil: "load" });
+    const page = await browser.newPage()
+    await page.setContent(quotePdfHtml(quote, env.quotePdfStore), {
+      waitUntil: 'load',
+    })
     const pdf = await page.pdf({
-      format: "A4",
+      format: 'A4',
       landscape: true,
       margin: {
-        top: "10mm",
-        right: "10mm",
-        bottom: "10mm",
-        left: "10mm",
+        top: '10mm',
+        right: '10mm',
+        bottom: '10mm',
+        left: '10mm',
       },
       printBackground: true,
-    });
+    })
 
-    return Buffer.from(pdf);
+    return Buffer.from(pdf)
   } finally {
-    await browser.close();
+    await browser.close()
   }
 }

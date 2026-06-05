@@ -159,7 +159,13 @@ type Quote = {
   cancelledAt: string | null;
   cancellationReason: string | null;
   shippingOrderId: string | null;
-  shippingOrderStatus: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED" | null;
+  shippingOrderStatus:
+    | "QUOTED"
+    | "APPROVED"
+    | "SEPARATED"
+    | "CANCELLED"
+    | "COMPLETED"
+    | null;
   createdByUserName: string;
   items: Array<{
     id: string;
@@ -365,7 +371,9 @@ describe("catalog routes", () => {
       },
     });
     const logout = await request("/auth/logout", { method: "POST" });
-    const storedAdministrator = await db("users").where("email", "admin@example.com").first();
+    const storedAdministrator = await db("users")
+      .where("email", "admin@example.com")
+      .first();
     const loginBody = login.body as ApiResponse<User> & {
       token?: string;
       data?: User & { passwordHash?: string };
@@ -395,12 +403,16 @@ describe("catalog routes", () => {
   });
 
   it("opens one cash register session for the authenticated user", async () => {
-    const empty = await request<CashRegisterSession | null>("/cash-register/current");
+    const empty = await request<CashRegisterSession | null>(
+      "/cash-register/current",
+    );
     const opened = await request<CashRegisterSession>("/cash-register/open", {
       method: "POST",
       body: { openingBalance: 150.5 },
     });
-    const current = await request<CashRegisterSession>("/cash-register/current");
+    const current = await request<CashRegisterSession>(
+      "/cash-register/current",
+    );
     const duplicate = await request("/cash-register/open", {
       method: "POST",
       body: { openingBalance: 0 },
@@ -428,8 +440,12 @@ describe("catalog routes", () => {
       method: "POST",
       body: { name: "Filtro para fechamento", salePrice: 29.9 },
     });
-    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
-    const pix = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "PIX");
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
 
     await request("/stock-adjustments", {
       method: "POST",
@@ -452,12 +468,16 @@ describe("catalog routes", () => {
       },
     });
 
-    const current = await request<CashRegisterSession | null>("/cash-register/current");
+    const current = await request<CashRegisterSession | null>(
+      "/cash-register/current",
+    );
     const closed = await request<CashRegisterSession>("/cash-register/close", {
       method: "PATCH",
       body: { closingBalance: 160 },
     });
-    const currentAfterClose = await request<CashRegisterSession | null>("/cash-register/current");
+    const currentAfterClose = await request<CashRegisterSession | null>(
+      "/cash-register/current",
+    );
     const saleAfterClose = await request("/sales", {
       method: "POST",
       body: {
@@ -472,10 +492,16 @@ describe("catalog routes", () => {
     });
 
     assert.equal(closeWithoutCash.status, 422);
-    assert.equal(closeWithoutCash.body.message, "Nao existe caixa aberto para fechamento.");
+    assert.equal(
+      closeWithoutCash.body.message,
+      "Nao existe caixa aberto para fechamento.",
+    );
     assert.equal(current.body.data?.salesTotal, "59.80");
     assert.equal(current.body.data?.expectedClosingBalance, "159.80");
-    assert.equal(current.body.data?.paymentSummary[0]?.paymentMethodCode, "PIX");
+    assert.equal(
+      current.body.data?.paymentSummary[0]?.paymentMethodCode,
+      "PIX",
+    );
     assert.equal(current.body.data?.paymentSummary[0]?.amount, "59.80");
     assert.equal(closed.status, 200);
     assert.equal(closed.body.data?.status, "CLOSED");
@@ -486,7 +512,10 @@ describe("catalog routes", () => {
     assert.equal(closed.body.data?.difference, "0.20");
     assert.equal(currentAfterClose.body.data, null);
     assert.equal(saleAfterClose.status, 422);
-    assert.equal(saleAfterClose.body.message, "Abra o caixa antes de registrar uma venda.");
+    assert.equal(
+      saleAfterClose.body.message,
+      "Abra o caixa antes de registrar uma venda.",
+    );
     assert.equal(reopened.status, 201);
   });
 
@@ -499,8 +528,12 @@ describe("catalog routes", () => {
       method: "POST",
       body: { personType: "PF", name: "Cliente da venda" },
     });
-    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
-    const pix = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "PIX");
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
 
     await request("/stock-adjustments", {
       method: "POST",
@@ -544,12 +577,19 @@ describe("catalog routes", () => {
       },
     });
     const listed = await request<Sale[]>("/sales");
-    const updatedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
     const movements = await request<StockMovement[]>("/stock-movements");
-    const saleMovement = movements.body.data?.find((movement) => movement.type === "SALE");
+    const saleMovement = movements.body.data?.find(
+      (movement) => movement.type === "SALE",
+    );
 
     assert.equal(withoutCash.status, 422);
-    assert.equal(withoutCash.body.message, "Abra o caixa antes de registrar uma venda.");
+    assert.equal(
+      withoutCash.body.message,
+      "Abra o caixa antes de registrar uma venda.",
+    );
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.productName, "Filtro para venda");
     assert.equal(created.body.data?.clientName, "Cliente da venda");
@@ -557,9 +597,15 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.quantity, "2.000");
     assert.equal(created.body.data?.unitPrice, "29.90");
     assert.equal(created.body.data?.totalAmount, "59.80");
-    assert.equal(created.body.data?.createdByUserName, "Administrador de teste");
+    assert.equal(
+      created.body.data?.createdByUserName,
+      "Administrador de teste",
+    );
     assert.equal(insufficient.status, 422);
-    assert.equal(insufficient.body.message, "Estoque insuficiente para concluir a venda.");
+    assert.equal(
+      insufficient.body.message,
+      "Estoque insuficiente para concluir a venda.",
+    );
     assert.equal(listed.body.data?.length, 1);
     assert.equal(updatedProduct.body.data?.currentStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
@@ -589,8 +635,12 @@ describe("catalog routes", () => {
       body: { openingBalance: 0 },
     });
 
-    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
-    const pix = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "PIX");
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
 
     await request("/sales", {
       method: "POST",
@@ -630,7 +680,10 @@ describe("catalog routes", () => {
     assert.equal(overview.body.data?.lowStockProductsCount, 1);
     assert.equal(overview.body.data?.openPickupReservationsCount, 1);
     assert.equal(overview.body.data?.openShippingOrdersCount, 1);
-    assert.equal(overview.body.data?.openCashRegister?.openedByUserName, "Administrador de teste");
+    assert.equal(
+      overview.body.data?.openCashRegister?.openedByUserName,
+      "Administrador de teste",
+    );
   });
 
   it("creates a shipping quote and reserves its item after approval", async () => {
@@ -640,7 +693,11 @@ describe("catalog routes", () => {
     });
     const client = await request<Client>("/clients", {
       method: "POST",
-      body: { personType: "PF", name: "Cliente WhatsApp", phone: "85999998888" },
+      body: {
+        personType: "PF",
+        name: "Cliente WhatsApp",
+        phone: "85999998888",
+      },
     });
 
     await request("/stock-adjustments", {
@@ -660,22 +717,34 @@ describe("catalog routes", () => {
         quantity: 2,
       },
     });
-    const beforeApproval = await request<Product>(`/products/${product.body.data?.id}`);
-    const approved = await request<ShippingOrder>(`/shipping-orders/${quoted.body.data?.id}/approve`, {
-      method: "PATCH",
-      body: {},
-    });
-    const repeatedApproval = await request(`/shipping-orders/${quoted.body.data?.id}/approve`, {
-      method: "PATCH",
-      body: {},
-    });
+    const beforeApproval = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+    const approved = await request<ShippingOrder>(
+      `/shipping-orders/${quoted.body.data?.id}/approve`,
+      {
+        method: "PATCH",
+        body: {},
+      },
+    );
+    const repeatedApproval = await request(
+      `/shipping-orders/${quoted.body.data?.id}/approve`,
+      {
+        method: "PATCH",
+        body: {},
+      },
+    );
 
     await request("/cash-register/open", {
       method: "POST",
       body: { openingBalance: 0 },
     });
-    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
-    const pix = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "PIX");
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
     const saleOverAvailable = await request("/sales", {
       method: "POST",
       body: {
@@ -693,34 +762,58 @@ describe("catalog routes", () => {
       },
     });
     const listed = await request<ShippingOrder[]>("/shipping-orders");
-    const afterApproval = await request<Product>(`/products/${product.body.data?.id}`);
+    const afterApproval = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
     const lowStock = await request<Product[]>("/products/low-stock");
-    const separated = await request<ShippingOrder>(`/shipping-orders/${quoted.body.data?.id}/separate`, {
-      method: "PATCH",
-      body: {},
-    });
-    const repeatedSeparation = await request(`/shipping-orders/${quoted.body.data?.id}/separate`, {
-      method: "PATCH",
-      body: {},
-    });
-    const approvalAfterSeparation = await request(`/shipping-orders/${quoted.body.data?.id}/approve`, {
-      method: "PATCH",
-      body: {},
-    });
-    const cancelled = await request<ShippingOrder>(`/shipping-orders/${quoted.body.data?.id}/cancel`, {
-      method: "PATCH",
-      body: { reason: "Cliente desistiu da compra" },
-    });
-    const repeatedCancellation = await request(`/shipping-orders/${quoted.body.data?.id}/cancel`, {
-      method: "PATCH",
-      body: { reason: "Tentativa repetida" },
-    });
-    const approvalAfterCancellation = await request(`/shipping-orders/${quoted.body.data?.id}/approve`, {
-      method: "PATCH",
-      body: {},
-    });
-    const afterCancellation = await request<Product>(`/products/${product.body.data?.id}`);
-    const lowStockAfterCancellation = await request<Product[]>("/products/low-stock");
+    const separated = await request<ShippingOrder>(
+      `/shipping-orders/${quoted.body.data?.id}/separate`,
+      {
+        method: "PATCH",
+        body: {},
+      },
+    );
+    const repeatedSeparation = await request(
+      `/shipping-orders/${quoted.body.data?.id}/separate`,
+      {
+        method: "PATCH",
+        body: {},
+      },
+    );
+    const approvalAfterSeparation = await request(
+      `/shipping-orders/${quoted.body.data?.id}/approve`,
+      {
+        method: "PATCH",
+        body: {},
+      },
+    );
+    const cancelled = await request<ShippingOrder>(
+      `/shipping-orders/${quoted.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Cliente desistiu da compra" },
+      },
+    );
+    const repeatedCancellation = await request(
+      `/shipping-orders/${quoted.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Tentativa repetida" },
+      },
+    );
+    const approvalAfterCancellation = await request(
+      `/shipping-orders/${quoted.body.data?.id}/approve`,
+      {
+        method: "PATCH",
+        body: {},
+      },
+    );
+    const afterCancellation = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+    const lowStockAfterCancellation = await request<Product[]>(
+      "/products/low-stock",
+    );
 
     assert.equal(quoted.status, 201);
     assert.equal(quoted.body.data?.status, "QUOTED");
@@ -736,7 +829,10 @@ describe("catalog routes", () => {
     assert.equal(approved.body.data?.status, "APPROVED");
     assert.equal(repeatedApproval.status, 409);
     assert.equal(saleOverAvailable.status, 422);
-    assert.equal(saleOverAvailable.body.message, "Estoque insuficiente para concluir a venda.");
+    assert.equal(
+      saleOverAvailable.body.message,
+      "Estoque insuficiente para concluir a venda.",
+    );
     assert.equal(adjustmentOverAvailable.status, 422);
     assert.equal(
       adjustmentOverAvailable.body.message,
@@ -759,7 +855,10 @@ describe("catalog routes", () => {
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
     assert.ok(cancelled.body.data?.separatedAt);
-    assert.equal(cancelled.body.data?.cancellationReason, "Cliente desistiu da compra");
+    assert.equal(
+      cancelled.body.data?.cancellationReason,
+      "Cliente desistiu da compra",
+    );
     assert.equal(repeatedCancellation.status, 409);
     assert.equal(approvalAfterCancellation.status, 409);
     assert.equal(
@@ -779,7 +878,11 @@ describe("catalog routes", () => {
     });
     const client = await request<Client>("/clients", {
       method: "POST",
-      body: { personType: "PF", name: "Cliente do envio", phone: "85988887777" },
+      body: {
+        personType: "PF",
+        name: "Cliente do envio",
+        phone: "85988887777",
+      },
     });
 
     await request("/stock-adjustments", {
@@ -809,37 +912,60 @@ describe("catalog routes", () => {
       body: {},
     });
 
-    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
-    const boleto = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "BOLETO");
-    const withoutCash = await request(`/shipping-orders/${quoted.body.data?.id}/complete`, {
-      method: "PATCH",
-      body: { paymentMethodId: boleto?.id },
-    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const boleto = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "BOLETO",
+    );
+    const withoutCash = await request(
+      `/shipping-orders/${quoted.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: boleto?.id },
+      },
+    );
 
     await request("/cash-register/open", {
       method: "POST",
       body: { openingBalance: 0 },
     });
 
-    const completed = await request<ShippingOrder>(`/shipping-orders/${quoted.body.data?.id}/complete`, {
-      method: "PATCH",
-      body: { paymentMethodId: boleto?.id },
-    });
-    const repeatedCompletion = await request(`/shipping-orders/${quoted.body.data?.id}/complete`, {
-      method: "PATCH",
-      body: { paymentMethodId: boleto?.id },
-    });
-    const cancellationAfterCompletion = await request(`/shipping-orders/${quoted.body.data?.id}/cancel`, {
-      method: "PATCH",
-      body: { reason: "Tentativa apos venda" },
-    });
+    const completed = await request<ShippingOrder>(
+      `/shipping-orders/${quoted.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: boleto?.id },
+      },
+    );
+    const repeatedCompletion = await request(
+      `/shipping-orders/${quoted.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: boleto?.id },
+      },
+    );
+    const cancellationAfterCompletion = await request(
+      `/shipping-orders/${quoted.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Tentativa apos venda" },
+      },
+    );
     const sales = await request<Sale[]>("/sales");
-    const updatedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
     const movements = await request<StockMovement[]>("/stock-movements");
-    const saleMovement = movements.body.data?.find((movement) => movement.type === "SALE");
+    const saleMovement = movements.body.data?.find(
+      (movement) => movement.type === "SALE",
+    );
 
     assert.equal(withoutCash.status, 422);
-    assert.equal(withoutCash.body.message, "Abra o caixa antes de concluir a venda para envio.");
+    assert.equal(
+      withoutCash.body.message,
+      "Abra o caixa antes de concluir a venda para envio.",
+    );
     assert.equal(completed.status, 200);
     assert.equal(completed.body.data?.status, "COMPLETED");
     assert.ok(completed.body.data?.saleId);
@@ -897,10 +1023,13 @@ describe("catalog routes", () => {
         ],
       },
     });
-    const shippingOrder = await request<ShippingOrder>(`/quotes/${quote.body.data?.id}/shipping-order`, {
-      method: "POST",
-      body: {},
-    });
+    const shippingOrder = await request<ShippingOrder>(
+      `/quotes/${quote.body.data?.id}/shipping-order`,
+      {
+        method: "POST",
+        body: {},
+      },
+    );
 
     await request(`/shipping-orders/${shippingOrder.body.data?.id}/approve`, {
       method: "PATCH",
@@ -915,34 +1044,60 @@ describe("catalog routes", () => {
       body: { openingBalance: 0 },
     });
 
-    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
-    const boleto = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "BOLETO");
-    const completed = await request<ShippingOrder>(`/shipping-orders/${shippingOrder.body.data?.id}/complete`, {
-      method: "PATCH",
-      body: { paymentMethodId: boleto?.id },
-    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const boleto = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "BOLETO",
+    );
+    const completed = await request<ShippingOrder>(
+      `/shipping-orders/${shippingOrder.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: boleto?.id },
+      },
+    );
     const sales = await request<Sale[]>("/sales");
-    const firstUpdatedProduct = await request<Product>(`/products/${firstProduct.body.data?.id}`);
-    const secondUpdatedProduct = await request<Product>(`/products/${secondProduct.body.data?.id}`);
+    const firstUpdatedProduct = await request<Product>(
+      `/products/${firstProduct.body.data?.id}`,
+    );
+    const secondUpdatedProduct = await request<Product>(
+      `/products/${secondProduct.body.data?.id}`,
+    );
     const movements = await request<StockMovement[]>("/stock-movements");
-    const saleMovements = movements.body.data?.filter((movement) => movement.type === "SALE") ?? [];
+    const saleMovements =
+      movements.body.data?.filter((movement) => movement.type === "SALE") ?? [];
 
     assert.equal(completed.status, 200);
     assert.equal(completed.body.data?.status, "COMPLETED");
     assert.equal(sales.body.data?.length, 1);
     assert.equal(sales.body.data?.[0]?.items.length, 2);
     assert.equal(sales.body.data?.[0]?.totalAmount, "155.00");
-    assert.equal(sales.body.data?.[0]?.items[0]?.productName, "Filtro envio multi A");
+    assert.equal(
+      sales.body.data?.[0]?.items[0]?.productName,
+      "Filtro envio multi A",
+    );
     assert.equal(sales.body.data?.[0]?.items[0]?.quantity, "2.000");
-    assert.equal(sales.body.data?.[0]?.items[1]?.productName, "Filtro envio multi B");
+    assert.equal(
+      sales.body.data?.[0]?.items[1]?.productName,
+      "Filtro envio multi B",
+    );
     assert.equal(sales.body.data?.[0]?.items[1]?.quantity, "1.000");
     assert.equal(firstUpdatedProduct.body.data?.currentStock, "3.000");
     assert.equal(firstUpdatedProduct.body.data?.reservedStock, "0.000");
     assert.equal(secondUpdatedProduct.body.data?.currentStock, "2.000");
     assert.equal(secondUpdatedProduct.body.data?.reservedStock, "0.000");
     assert.equal(saleMovements.length, 2);
-    assert.ok(saleMovements.some((movement) => movement.productName === "Filtro envio multi A"));
-    assert.ok(saleMovements.some((movement) => movement.productName === "Filtro envio multi B"));
+    assert.ok(
+      saleMovements.some(
+        (movement) => movement.productName === "Filtro envio multi A",
+      ),
+    );
+    assert.ok(
+      saleMovements.some(
+        (movement) => movement.productName === "Filtro envio multi B",
+      ),
+    );
   });
 
   it("creates and cancels a pickup reservation releasing reserved stock", async () => {
@@ -952,7 +1107,11 @@ describe("catalog routes", () => {
     });
     const client = await request<Client>("/clients", {
       method: "POST",
-      body: { personType: "PF", name: "Cliente retirada", phone: "85977776666" },
+      body: {
+        personType: "PF",
+        name: "Cliente retirada",
+        phone: "85977776666",
+      },
     });
 
     await request("/stock-adjustments", {
@@ -980,24 +1139,37 @@ describe("catalog routes", () => {
         quantity: 2,
       },
     });
-    const reservedProduct = await request<Product>(`/products/${product.body.data?.id}`);
-    const cancelled = await request<PickupReservation>(`/pickup-reservations/${created.body.data?.id}/cancel`, {
-      method: "PATCH",
-      body: { reason: "Cliente desistiu" },
-    });
-    const repeatedCancellation = await request(`/pickup-reservations/${created.body.data?.id}/cancel`, {
-      method: "PATCH",
-      body: { reason: "Tentativa repetida" },
-    });
+    const reservedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+    const cancelled = await request<PickupReservation>(
+      `/pickup-reservations/${created.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Cliente desistiu" },
+      },
+    );
+    const repeatedCancellation = await request(
+      `/pickup-reservations/${created.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Tentativa repetida" },
+      },
+    );
     const listed = await request<PickupReservation[]>("/pickup-reservations");
-    const releasedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const releasedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.status, "RESERVED");
     assert.equal(created.body.data?.totalAmount, "99.80");
     assert.equal(created.body.data?.items.length, 1);
     assert.equal(repeatedOverAvailable.status, 422);
-    assert.equal(repeatedOverAvailable.body.message, "Quantidade indisponivel para esta reserva.");
+    assert.equal(
+      repeatedOverAvailable.body.message,
+      "Quantidade indisponivel para esta reserva.",
+    );
     assert.equal(reservedProduct.body.data?.reservedStock, "2.000");
     assert.equal(reservedProduct.body.data?.availableStock, "1.000");
     assert.equal(cancelled.status, 200);
@@ -1028,45 +1200,71 @@ describe("catalog routes", () => {
       },
     });
 
-    const reservation = await request<PickupReservation>("/pickup-reservations", {
-      method: "POST",
-      body: {
-        clientId: client.body.data?.id,
-        productId: product.body.data?.id,
-        quantity: 2,
+    const reservation = await request<PickupReservation>(
+      "/pickup-reservations",
+      {
+        method: "POST",
+        body: {
+          clientId: client.body.data?.id,
+          productId: product.body.data?.id,
+          quantity: 2,
+        },
       },
-    });
-    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
-    const boleto = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "BOLETO");
-    const withoutCash = await request(`/pickup-reservations/${reservation.body.data?.id}/complete`, {
-      method: "PATCH",
-      body: { paymentMethodId: boleto?.id },
-    });
+    );
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const boleto = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "BOLETO",
+    );
+    const withoutCash = await request(
+      `/pickup-reservations/${reservation.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: boleto?.id },
+      },
+    );
 
     await request("/cash-register/open", {
       method: "POST",
       body: { openingBalance: 0 },
     });
 
-    const completed = await request<PickupReservation>(`/pickup-reservations/${reservation.body.data?.id}/complete`, {
-      method: "PATCH",
-      body: { paymentMethodId: boleto?.id },
-    });
-    const repeatedCompletion = await request(`/pickup-reservations/${reservation.body.data?.id}/complete`, {
-      method: "PATCH",
-      body: { paymentMethodId: boleto?.id },
-    });
-    const cancellationAfterCompletion = await request(`/pickup-reservations/${reservation.body.data?.id}/cancel`, {
-      method: "PATCH",
-      body: { reason: "Tentativa apos retirada" },
-    });
+    const completed = await request<PickupReservation>(
+      `/pickup-reservations/${reservation.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: boleto?.id },
+      },
+    );
+    const repeatedCompletion = await request(
+      `/pickup-reservations/${reservation.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: boleto?.id },
+      },
+    );
+    const cancellationAfterCompletion = await request(
+      `/pickup-reservations/${reservation.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Tentativa apos retirada" },
+      },
+    );
     const sales = await request<Sale[]>("/sales");
-    const updatedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
     const movements = await request<StockMovement[]>("/stock-movements");
-    const saleMovement = movements.body.data?.find((movement) => movement.type === "SALE");
+    const saleMovement = movements.body.data?.find(
+      (movement) => movement.type === "SALE",
+    );
 
     assert.equal(withoutCash.status, 422);
-    assert.equal(withoutCash.body.message, "Abra o caixa antes de concluir a reserva para retirada.");
+    assert.equal(
+      withoutCash.body.message,
+      "Abra o caixa antes de concluir a reserva para retirada.",
+    );
     assert.equal(completed.status, 200);
     assert.equal(completed.body.data?.status, "COMPLETED");
     assert.ok(completed.body.data?.saleId);
@@ -1114,35 +1312,54 @@ describe("catalog routes", () => {
       },
     });
 
-    const reservation = await request<PickupReservation>("/pickup-reservations", {
-      method: "POST",
-      body: {
-        clientId: client.body.data?.id,
-        items: [
-          { productId: firstProduct.body.data?.id, quantity: 2 },
-          { productId: secondProduct.body.data?.id, quantity: 1 },
-        ],
+    const reservation = await request<PickupReservation>(
+      "/pickup-reservations",
+      {
+        method: "POST",
+        body: {
+          clientId: client.body.data?.id,
+          items: [
+            { productId: firstProduct.body.data?.id, quantity: 2 },
+            { productId: secondProduct.body.data?.id, quantity: 1 },
+          ],
+        },
       },
-    });
-    const firstReservedProduct = await request<Product>(`/products/${firstProduct.body.data?.id}`);
-    const secondReservedProduct = await request<Product>(`/products/${secondProduct.body.data?.id}`);
+    );
+    const firstReservedProduct = await request<Product>(
+      `/products/${firstProduct.body.data?.id}`,
+    );
+    const secondReservedProduct = await request<Product>(
+      `/products/${secondProduct.body.data?.id}`,
+    );
 
     await request("/cash-register/open", {
       method: "POST",
       body: { openingBalance: 0 },
     });
 
-    const paymentMethods = await request<PaymentMethod[]>("/payment-methods?active=true");
-    const boleto = paymentMethods.body.data?.find((paymentMethod) => paymentMethod.code === "BOLETO");
-    const completed = await request<PickupReservation>(`/pickup-reservations/${reservation.body.data?.id}/complete`, {
-      method: "PATCH",
-      body: { paymentMethodId: boleto?.id },
-    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const boleto = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "BOLETO",
+    );
+    const completed = await request<PickupReservation>(
+      `/pickup-reservations/${reservation.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: boleto?.id },
+      },
+    );
     const sales = await request<Sale[]>("/sales");
-    const firstUpdatedProduct = await request<Product>(`/products/${firstProduct.body.data?.id}`);
-    const secondUpdatedProduct = await request<Product>(`/products/${secondProduct.body.data?.id}`);
+    const firstUpdatedProduct = await request<Product>(
+      `/products/${firstProduct.body.data?.id}`,
+    );
+    const secondUpdatedProduct = await request<Product>(
+      `/products/${secondProduct.body.data?.id}`,
+    );
     const movements = await request<StockMovement[]>("/stock-movements");
-    const saleMovements = movements.body.data?.filter((movement) => movement.type === "SALE") ?? [];
+    const saleMovements =
+      movements.body.data?.filter((movement) => movement.type === "SALE") ?? [];
 
     assert.equal(reservation.status, 201);
     assert.equal(reservation.body.data?.items.length, 2);
@@ -1159,8 +1376,16 @@ describe("catalog routes", () => {
     assert.equal(secondUpdatedProduct.body.data?.currentStock, "1.000");
     assert.equal(secondUpdatedProduct.body.data?.reservedStock, "0.000");
     assert.equal(saleMovements.length, 2);
-    assert.ok(saleMovements.some((movement) => movement.productName === "Filtro retirada multi A"));
-    assert.ok(saleMovements.some((movement) => movement.productName === "Filtro retirada multi B"));
+    assert.ok(
+      saleMovements.some(
+        (movement) => movement.productName === "Filtro retirada multi A",
+      ),
+    );
+    assert.ok(
+      saleMovements.some(
+        (movement) => movement.productName === "Filtro retirada multi B",
+      ),
+    );
   });
 
   it("creates and shows a multi-item quote without changing stock", async () => {
@@ -1178,7 +1403,11 @@ describe("catalog routes", () => {
     });
     const client = await request<Client>("/clients", {
       method: "POST",
-      body: { personType: "PF", name: "Cliente orcamento", phone: "85911112222" },
+      body: {
+        personType: "PF",
+        name: "Cliente orcamento",
+        phone: "85911112222",
+      },
     });
 
     await request("/stock-adjustments", {
@@ -1213,17 +1442,26 @@ describe("catalog routes", () => {
     const shown = await request<Quote>(`/quotes/${created.body.data?.id}`);
     const listed = await request<Quote[]>("/quotes");
     const pdf = await requestRaw(`/quotes/${created.body.data?.id}/pdf`);
-    const shippingOrder = await request<ShippingOrder>(`/quotes/${created.body.data?.id}/shipping-order`, {
-      method: "POST",
-      body: {},
-    });
-    const repeatedShippingOrder = await request(`/quotes/${created.body.data?.id}/shipping-order`, {
-      method: "POST",
-      body: {},
-    });
+    const shippingOrder = await request<ShippingOrder>(
+      `/quotes/${created.body.data?.id}/shipping-order`,
+      {
+        method: "POST",
+        body: {},
+      },
+    );
+    const repeatedShippingOrder = await request(
+      `/quotes/${created.body.data?.id}/shipping-order`,
+      {
+        method: "POST",
+        body: {},
+      },
+    );
     const listedAfterShippingOrder = await request<Quote[]>("/quotes");
-    const listedShippingOrders = await request<ShippingOrder[]>("/shipping-orders");
-    const unchangedProduct = await request<Product>(`/products/${firstProduct.body.data?.id}`);
+    const listedShippingOrders =
+      await request<ShippingOrder[]>("/shipping-orders");
+    const unchangedProduct = await request<Product>(
+      `/products/${firstProduct.body.data?.id}`,
+    );
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.status, "DRAFT");
@@ -1232,10 +1470,16 @@ describe("catalog routes", () => {
     assert.ok(created.body.data?.validUntil?.startsWith("2026-06-30"));
     assert.equal(created.body.data?.notes, "Retirar condicoes no PDF depois");
     assert.equal(created.body.data?.items.length, 2);
-    assert.equal(created.body.data?.items[0]?.description, "Filtro quote A promocional");
+    assert.equal(
+      created.body.data?.items[0]?.description,
+      "Filtro quote A promocional",
+    );
     assert.equal(created.body.data?.items[0]?.unitPrice, "45.00");
     assert.equal(created.body.data?.items[0]?.totalAmount, "90.00");
-    assert.equal(created.body.data?.items[1]?.description, "Descricao comercial quote B");
+    assert.equal(
+      created.body.data?.items[1]?.description,
+      "Descricao comercial quote B",
+    );
     assert.equal(created.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(shown.body.data?.items.length, 2);
     assert.equal(shown.body.data?.shippingOrderId, null);
@@ -1250,17 +1494,29 @@ describe("catalog routes", () => {
     assert.equal(shippingOrder.body.data?.clientName, "Cliente orcamento");
     assert.equal(shippingOrder.body.data?.totalAmount, "170.00");
     assert.equal(shippingOrder.body.data?.items.length, 2);
-    assert.equal(shippingOrder.body.data?.items[0]?.productName, "Filtro quote A");
+    assert.equal(
+      shippingOrder.body.data?.items[0]?.productName,
+      "Filtro quote A",
+    );
     assert.equal(shippingOrder.body.data?.items[0]?.quantity, "2.000");
-    assert.equal(shippingOrder.body.data?.items[1]?.productName, "Filtro quote B");
+    assert.equal(
+      shippingOrder.body.data?.items[1]?.productName,
+      "Filtro quote B",
+    );
     assert.equal(shippingOrder.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(repeatedShippingOrder.status, 409);
     assert.equal(
       repeatedShippingOrder.body.message,
       "Este orcamento ja foi enviado para pedidos de envio.",
     );
-    assert.equal(listedAfterShippingOrder.body.data?.[0]?.shippingOrderId, shippingOrder.body.data?.id);
-    assert.equal(listedAfterShippingOrder.body.data?.[0]?.shippingOrderStatus, "QUOTED");
+    assert.equal(
+      listedAfterShippingOrder.body.data?.[0]?.shippingOrderId,
+      shippingOrder.body.data?.id,
+    );
+    assert.equal(
+      listedAfterShippingOrder.body.data?.[0]?.shippingOrderStatus,
+      "QUOTED",
+    );
     assert.equal(listedShippingOrders.body.data?.length, 1);
     assert.equal(listedShippingOrders.body.data?.[0]?.items.length, 2);
     assert.equal(unchangedProduct.body.data?.currentStock, "2.000");
@@ -1296,31 +1552,52 @@ describe("catalog routes", () => {
       body: {},
     });
 
-    const cancelled = await request<Quote>(`/quotes/${draft.body.data?.id}/cancel`, {
-      method: "PATCH",
-      body: { reason: "Cliente recusou a proposta" },
-    });
-    const repeatedCancellation = await request(`/quotes/${draft.body.data?.id}/cancel`, {
-      method: "PATCH",
-      body: { reason: "Tentativa repetida" },
-    });
-    const shippingOrderAfterCancellation = await request(`/quotes/${draft.body.data?.id}/shipping-order`, {
-      method: "POST",
-      body: {},
-    });
-    const cancellationAfterShippingOrder = await request(`/quotes/${sentQuote.body.data?.id}/cancel`, {
-      method: "PATCH",
-      body: { reason: "Pedido ja enviado" },
-    });
+    const cancelled = await request<Quote>(
+      `/quotes/${draft.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Cliente recusou a proposta" },
+      },
+    );
+    const repeatedCancellation = await request(
+      `/quotes/${draft.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Tentativa repetida" },
+      },
+    );
+    const shippingOrderAfterCancellation = await request(
+      `/quotes/${draft.body.data?.id}/shipping-order`,
+      {
+        method: "POST",
+        body: {},
+      },
+    );
+    const cancellationAfterShippingOrder = await request(
+      `/quotes/${sentQuote.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Pedido ja enviado" },
+      },
+    );
     const listed = await request<Quote[]>("/quotes");
 
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
-    assert.equal(cancelled.body.data?.cancellationReason, "Cliente recusou a proposta");
+    assert.equal(
+      cancelled.body.data?.cancellationReason,
+      "Cliente recusou a proposta",
+    );
     assert.ok(cancelled.body.data?.cancelledAt);
-    assert.equal(cancelled.body.data?.cancelledByUserName, "Administrador de teste");
+    assert.equal(
+      cancelled.body.data?.cancelledByUserName,
+      "Administrador de teste",
+    );
     assert.equal(repeatedCancellation.status, 409);
-    assert.equal(repeatedCancellation.body.message, "Este orcamento ja foi cancelado.");
+    assert.equal(
+      repeatedCancellation.body.message,
+      "Este orcamento ja foi cancelado.",
+    );
     assert.equal(shippingOrderAfterCancellation.status, 409);
     assert.equal(
       shippingOrderAfterCancellation.body.message,
@@ -1400,7 +1677,10 @@ describe("catalog routes", () => {
     });
 
     assert.equal(duplicated.status, 409);
-    assert.equal(duplicated.body.message, "Ja existe um fabricante com esse nome.");
+    assert.equal(
+      duplicated.body.message,
+      "Ja existe um fabricante com esse nome.",
+    );
   });
 
   it("creates and lists product groups", async () => {
@@ -1450,13 +1730,20 @@ describe("catalog routes", () => {
 
   it("lists and deactivates the initial payment methods", async () => {
     const listed = await request<PaymentMethod[]>("/payment-methods");
-    const debit = listed.body.data?.find((paymentMethod) => paymentMethod.code === "DEBIT");
+    const debit = listed.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "DEBIT",
+    );
 
-    const deactivated = await request<PaymentMethod>(`/payment-methods/${debit?.id}/status`, {
-      method: "PATCH",
-      body: { active: false },
-    });
-    const active = await request<PaymentMethod[]>("/payment-methods?active=true");
+    const deactivated = await request<PaymentMethod>(
+      `/payment-methods/${debit?.id}/status`,
+      {
+        method: "PATCH",
+        body: { active: false },
+      },
+    );
+    const active = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
 
     assert.equal(listed.status, 200);
     assert.deepEqual(
@@ -1483,10 +1770,13 @@ describe("catalog routes", () => {
       },
     });
     const listed = await request<Client[]>("/clients?search=12345678900");
-    const deactivated = await request<Client>(`/clients/${created.body.data?.id}/status`, {
-      method: "PATCH",
-      body: { active: false },
-    });
+    const deactivated = await request<Client>(
+      `/clients/${created.body.data?.id}/status`,
+      {
+        method: "PATCH",
+        body: { active: false },
+      },
+    );
     const updated = await request<Client>(`/clients/${created.body.data?.id}`, {
       method: "PUT",
       body: {
@@ -1522,7 +1812,9 @@ describe("catalog routes", () => {
 
     assert.equal(response.status, 422);
     assert.equal(response.body.message, "Dados invalidos.");
-    assert.ok(response.body.errors?.some((error) => error.field === "personType"));
+    assert.ok(
+      response.body.errors?.some((error) => error.field === "personType"),
+    );
   });
 
   it("creates, lists, shows, updates, and deactivates products", async () => {
@@ -1557,18 +1849,24 @@ describe("catalog routes", () => {
 
     const listed = await request<Product[]>("/products?search=Wega");
     const shown = await request<Product>(`/products/${created.body.data?.id}`);
-    const updated = await request<Product>(`/products/${created.body.data?.id}`, {
-      method: "PUT",
-      body: {
-        name: "Filtro Wega FAP4040 Atualizado",
-        salePrice: 31.9,
-        location: "",
+    const updated = await request<Product>(
+      `/products/${created.body.data?.id}`,
+      {
+        method: "PUT",
+        body: {
+          name: "Filtro Wega FAP4040 Atualizado",
+          salePrice: 31.9,
+          location: "",
+        },
       },
-    });
-    const deactivated = await request<Product>(`/products/${created.body.data?.id}/status`, {
-      method: "PATCH",
-      body: { active: false },
-    });
+    );
+    const deactivated = await request<Product>(
+      `/products/${created.body.data?.id}/status`,
+      {
+        method: "PATCH",
+        body: { active: false },
+      },
+    );
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.brandId, brand.body.data?.id);
@@ -1582,12 +1880,18 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.ncm, "84212300");
     assert.equal(created.body.data?.cest, "0100100");
     assert.equal(created.body.data?.origin, "0");
-    assert.equal(created.body.data?.description, "Descricao comercial do filtro para orcamento");
+    assert.equal(
+      created.body.data?.description,
+      "Descricao comercial do filtro para orcamento",
+    );
     assert.equal(listed.status, 200);
     assert.equal(listed.body.data?.length, 1);
     assert.equal(shown.status, 200);
     assert.equal(shown.body.data?.internalCode, "FAP4040");
-    assert.equal(shown.body.data?.description, "Descricao comercial do filtro para orcamento");
+    assert.equal(
+      shown.body.data?.description,
+      "Descricao comercial do filtro para orcamento",
+    );
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.name, "Filtro Wega FAP4040 Atualizado");
     assert.equal(updated.body.data?.location, null);
@@ -1613,7 +1917,10 @@ describe("catalog routes", () => {
     });
 
     assert.equal(duplicated.status, 409);
-    assert.equal(duplicated.body.message, "Ja existe um produto com esse codigo de barras.");
+    assert.equal(
+      duplicated.body.message,
+      "Ja existe um produto com esse codigo de barras.",
+    );
   });
 
   it("lists only active products that require stock replenishment", async () => {
@@ -1686,7 +1993,9 @@ describe("catalog routes", () => {
       },
     });
     const listed = await request<StockEntry[]>("/stock-entries");
-    const updatedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
     const productSupplier = await db("product_suppliers")
       .where({
         product_id: product.body.data?.id,
@@ -1722,7 +2031,9 @@ describe("catalog routes", () => {
         unitCost: 11.5,
       },
     });
-    const unchangedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const unchangedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
     const entries = await request<StockEntry[]>("/stock-entries");
 
     assert.equal(response.status, 422);
@@ -1768,7 +2079,9 @@ describe("catalog routes", () => {
       },
     });
     const listed = await request<StockAdjustment[]>("/stock-adjustments");
-    const updatedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.productName, "Filtro para ajuste");
@@ -1810,8 +2123,12 @@ describe("catalog routes", () => {
     });
 
     const response = await request<StockMovement[]>("/stock-movements");
-    const entry = response.body.data?.find((movement) => movement.type === "ENTRY");
-    const adjustment = response.body.data?.find((movement) => movement.type === "ADJUSTMENT");
+    const entry = response.body.data?.find(
+      (movement) => movement.type === "ENTRY",
+    );
+    const adjustment = response.body.data?.find(
+      (movement) => movement.type === "ADJUSTMENT",
+    );
 
     assert.equal(response.status, 200);
     assert.equal(response.body.data?.length, 2);
@@ -1841,11 +2158,16 @@ describe("catalog routes", () => {
         reason: "Contagem fisica",
       },
     });
-    const unchangedProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const unchangedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
     const adjustments = await request<StockAdjustment[]>("/stock-adjustments");
 
     assert.equal(response.status, 422);
-    assert.equal(response.body.message, "Ajuste nao pode resultar em estoque negativo.");
+    assert.equal(
+      response.body.message,
+      "Ajuste nao pode resultar em estoque negativo.",
+    );
     assert.equal(unchangedProduct.body.data?.currentStock, "0.000");
     assert.equal(adjustments.body.data?.length, 0);
   });

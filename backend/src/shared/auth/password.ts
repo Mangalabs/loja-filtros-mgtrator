@@ -25,9 +25,18 @@ export async function hashPassword(password: string): Promise<string> {
   ].join("$");
 }
 
-export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
-  const [storedAlgorithm, rawCost, rawBlockSize, rawParallelization, rawSalt, rawKey] =
-    storedHash.split("$");
+export async function verifyPassword(
+  password: string,
+  storedHash: string,
+): Promise<boolean> {
+  const [
+    storedAlgorithm,
+    rawCost,
+    rawBlockSize,
+    rawParallelization,
+    rawSalt,
+    rawKey,
+  ] = storedHash.split("$");
 
   if (
     storedAlgorithm !== algorithm ||
@@ -48,7 +57,10 @@ export async function verifyPassword(password: string, storedHash: string): Prom
     p: Number(rawParallelization),
   });
 
-  return storedKey.length === derivedKey.length && timingSafeEqual(storedKey, derivedKey);
+  return (
+    storedKey.length === derivedKey.length &&
+    timingSafeEqual(storedKey, derivedKey)
+  );
 }
 
 function derivePasswordKey(

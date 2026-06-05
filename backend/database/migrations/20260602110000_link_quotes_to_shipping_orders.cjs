@@ -1,6 +1,11 @@
 exports.up = async function up(knex) {
   await knex.schema.alterTable("shipping_orders", (table) => {
-    table.uuid("quote_id").nullable().references("id").inTable("quotes").onDelete("SET NULL");
+    table
+      .uuid("quote_id")
+      .nullable()
+      .references("id")
+      .inTable("quotes")
+      .onDelete("SET NULL");
   });
 
   await knex.schema.alterTable("shipping_order_items", (table) => {
@@ -16,7 +21,9 @@ exports.up = async function up(knex) {
 };
 
 exports.down = async function down(knex) {
-  await knex.schema.raw("drop index if exists shipping_order_items_order_position_unique");
+  await knex.schema.raw(
+    "drop index if exists shipping_order_items_order_position_unique",
+  );
   await knex.schema.raw("drop index if exists shipping_orders_quote_id_unique");
 
   await knex.schema.alterTable("shipping_order_items", (table) => {

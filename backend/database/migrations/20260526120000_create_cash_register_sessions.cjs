@@ -9,7 +9,10 @@ exports.up = async function up(knex) {
       .onDelete("RESTRICT");
     table.decimal("opening_balance", 12, 2).notNullable();
     table.string("status", 20).notNullable().defaultTo("OPEN");
-    table.timestamp("opened_at", { useTz: true }).notNullable().defaultTo(knex.fn.now());
+    table
+      .timestamp("opened_at", { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
     table
       .uuid("closed_by_user_id")
       .nullable()
@@ -19,8 +22,16 @@ exports.up = async function up(knex) {
     table.decimal("closing_balance", 12, 2).nullable();
     table.timestamp("closed_at", { useTz: true }).nullable();
 
-    table.check("opening_balance >= 0", [], "cash_register_sessions_opening_balance_check");
-    table.check("status in ('OPEN', 'CLOSED')", [], "cash_register_sessions_status_check");
+    table.check(
+      "opening_balance >= 0",
+      [],
+      "cash_register_sessions_opening_balance_check",
+    );
+    table.check(
+      "status in ('OPEN', 'CLOSED')",
+      [],
+      "cash_register_sessions_status_check",
+    );
   });
 
   await knex.schema.raw(

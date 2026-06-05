@@ -1,8 +1,25 @@
-import { AlertTriangle, ArrowDownToLine, ArrowLeftRight, Plus, SlidersHorizontal } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowLeftRight,
+  Plus,
+  SlidersHorizontal,
+} from "lucide-react";
 import type { FormEvent } from "react";
-import type { Product, StockAdjustment, StockEntry, StockMovement, Supplier } from "../../api";
+import type {
+  Product,
+  StockAdjustment,
+  StockEntry,
+  StockMovement,
+  Supplier,
+} from "../../api";
 import { PrimaryButton } from "../../components/ui";
-import { formatCurrency, formatDateTime, formatQuantity, formatSignedQuantity } from "../../utils/format";
+import {
+  formatCurrency,
+  formatDateTime,
+  formatQuantity,
+  formatSignedQuantity,
+} from "../../utils/format";
 
 export function StockEntriesPage({
   entries,
@@ -26,27 +43,50 @@ export function StockEntriesPage({
           <option value="" disabled>
             Produto
           </option>
-          {products.filter((product) => product.active).map((product) => (
-            <option key={product.id} value={product.id}>
-              {product.name} - estoque {formatQuantity(product.currentStock)}
-            </option>
-          ))}
+          {products
+            .filter((product) => product.active)
+            .map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name} - estoque {formatQuantity(product.currentStock)}
+              </option>
+            ))}
         </select>
         <select name="entrySupplierId" defaultValue="" required>
           <option value="" disabled>
             Fornecedor
           </option>
-          {suppliers.filter((supplier) => supplier.active).map((supplier) => (
-            <option key={supplier.id} value={supplier.id}>
-              {supplier.name}
-            </option>
-          ))}
+          {suppliers
+            .filter((supplier) => supplier.active)
+            .map((supplier) => (
+              <option key={supplier.id} value={supplier.id}>
+                {supplier.name}
+              </option>
+            ))}
         </select>
         <div className="two-columns">
-          <input name="entryQuantity" type="number" min="0.001" step="0.001" placeholder="Quantidade" required />
-          <input name="entryUnitCost" type="number" min="0" step="0.01" placeholder="Custo unitario" required />
+          <input
+            name="entryQuantity"
+            type="number"
+            min="0.001"
+            step="0.001"
+            placeholder="Quantidade"
+            required
+          />
+          <input
+            name="entryUnitCost"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Custo unitario"
+            required
+          />
         </div>
-        <textarea name="entryNotes" maxLength={500} placeholder="Observacao (opcional)" rows={3} />
+        <textarea
+          name="entryNotes"
+          maxLength={500}
+          placeholder="Observacao (opcional)"
+          rows={3}
+        />
         <PrimaryButton icon={<Plus size={17} />} type="submit">
           Registrar entrada
         </PrimaryButton>
@@ -113,7 +153,8 @@ export function StockAdjustmentsPage({
           </option>
           {products.map((product) => (
             <option key={product.id} value={product.id}>
-              {product.name} - fisico {formatQuantity(product.currentStock)} - reservado {formatQuantity(product.reservedStock)}
+              {product.name} - fisico {formatQuantity(product.currentStock)} -
+              reservado {formatQuantity(product.reservedStock)}
               {product.active ? "" : " (inativo)"}
             </option>
           ))}
@@ -125,8 +166,16 @@ export function StockAdjustmentsPage({
           placeholder="Variacao de estoque (+ ou -)"
           required
         />
-        <p className="field-help">Use valor positivo para acrescentar ou negativo para retirar itens.</p>
-        <textarea name="adjustmentReason" maxLength={500} placeholder="Motivo do ajuste" rows={3} required />
+        <p className="field-help">
+          Use valor positivo para acrescentar ou negativo para retirar itens.
+        </p>
+        <textarea
+          name="adjustmentReason"
+          maxLength={500}
+          placeholder="Motivo do ajuste"
+          rows={3}
+          required
+        />
         <PrimaryButton icon={<Plus size={17} />} type="submit">
           Registrar ajuste
         </PrimaryButton>
@@ -175,7 +224,10 @@ export function LowStockPage({ products }: { products: Product[] }) {
       <div className="panel-header compact">
         <div>
           <h2>Produtos para reposicao</h2>
-          <span>Produtos ativos com saldo disponivel igual ou menor que o minimo definido.</span>
+          <span>
+            Produtos ativos com saldo disponivel igual ou menor que o minimo
+            definido.
+          </span>
         </div>
         <AlertTriangle size={18} />
       </div>
@@ -197,9 +249,18 @@ export function LowStockPage({ products }: { products: Product[] }) {
                 <td>{product.name}</td>
                 <td>{product.brandName ?? "-"}</td>
                 <td>{product.location ?? "-"}</td>
-                <td className="stock-warning">{formatQuantity(product.availableStock)}</td>
+                <td className="stock-warning">
+                  {formatQuantity(product.availableStock)}
+                </td>
                 <td>{formatQuantity(product.minimumStock)}</td>
-                <td>{formatQuantity(String(Number(product.minimumStock) - Number(product.availableStock)))}</td>
+                <td>
+                  {formatQuantity(
+                    String(
+                      Number(product.minimumStock) -
+                        Number(product.availableStock),
+                    ),
+                  )}
+                </td>
               </tr>
             ))}
             {products.length === 0 ? (
@@ -214,7 +275,11 @@ export function LowStockPage({ products }: { products: Product[] }) {
   );
 }
 
-export function StockMovementsPage({ movements }: { movements: StockMovement[] }) {
+export function StockMovementsPage({
+  movements,
+}: {
+  movements: StockMovement[];
+}) {
   return (
     <div className="panel wide">
       <div className="panel-header compact">
@@ -247,7 +312,9 @@ export function StockMovementsPage({ movements }: { movements: StockMovement[] }
                 <td>{formatSignedQuantity(movement.quantity)}</td>
                 <td>{movement.supplierName ?? "-"}</td>
                 <td>{movement.createdByUserName ?? "-"}</td>
-                <td>{movement.unitCost ? formatCurrency(movement.unitCost) : "-"}</td>
+                <td>
+                  {movement.unitCost ? formatCurrency(movement.unitCost) : "-"}
+                </td>
                 <td>{movement.notes ?? "-"}</td>
               </tr>
             ))}

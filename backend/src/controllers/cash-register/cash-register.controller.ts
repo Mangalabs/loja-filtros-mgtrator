@@ -17,8 +17,14 @@ export async function showCurrentCashRegister() {
   };
 }
 
-export async function openCashRegister(openedByUserId: string, openingBalance: number) {
-  const session = await createCashRegisterSession(openedByUserId, openingBalance);
+export async function openCashRegister(
+  openedByUserId: string,
+  openingBalance: number,
+) {
+  const session = await createCashRegisterSession(
+    openedByUserId,
+    openingBalance,
+  );
 
   return {
     code: 201,
@@ -27,7 +33,10 @@ export async function openCashRegister(openedByUserId: string, openingBalance: n
   };
 }
 
-export async function closeCurrentCashRegister(closedByUserId: string, closingBalance: number) {
+export async function closeCurrentCashRegister(
+  closedByUserId: string,
+  closingBalance: number,
+) {
   const session = await db.transaction(async (transaction) => {
     const currentSession = await lockOpenCashRegisterSession(transaction);
 
@@ -35,7 +44,12 @@ export async function closeCurrentCashRegister(closedByUserId: string, closingBa
       throw new AppError("Nao existe caixa aberto para fechamento.", 422);
     }
 
-    return closeCashRegisterSession(transaction, currentSession.id, closedByUserId, closingBalance);
+    return closeCashRegisterSession(
+      transaction,
+      currentSession.id,
+      closedByUserId,
+      closingBalance,
+    );
   });
 
   return {

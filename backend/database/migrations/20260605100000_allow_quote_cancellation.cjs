@@ -1,11 +1,18 @@
 exports.up = async function up(knex) {
   await knex.schema.alterTable("quotes", (table) => {
-    table.uuid("cancelled_by_user_id").nullable().references("id").inTable("users").onDelete("RESTRICT");
+    table
+      .uuid("cancelled_by_user_id")
+      .nullable()
+      .references("id")
+      .inTable("users")
+      .onDelete("RESTRICT");
     table.timestamp("cancelled_at", { useTz: true }).nullable();
     table.string("cancellation_reason", 500).nullable();
   });
 
-  await knex.schema.raw("alter table quotes drop constraint quotes_status_check");
+  await knex.schema.raw(
+    "alter table quotes drop constraint quotes_status_check",
+  );
   await knex.schema.raw(
     "alter table quotes add constraint quotes_status_check check (status in ('DRAFT', 'CANCELLED'))",
   );
@@ -15,17 +22,21 @@ exports.up = async function up(knex) {
 };
 
 exports.down = async function down(knex) {
-  await knex.schema.raw("alter table quotes drop constraint quotes_cancellation_check");
-  await knex("quotes")
-    .where("status", "CANCELLED")
-    .update({
-      status: "DRAFT",
-      cancelled_by_user_id: null,
-      cancelled_at: null,
-      cancellation_reason: null,
-    });
-  await knex.schema.raw("alter table quotes drop constraint quotes_status_check");
-  await knex.schema.raw("alter table quotes add constraint quotes_status_check check (status in ('DRAFT'))");
+  await knex.schema.raw(
+    "alter table quotes drop constraint quotes_cancellation_check",
+  );
+  await knex("quotes").where("status", "CANCELLED").update({
+    status: "DRAFT",
+    cancelled_by_user_id: null,
+    cancelled_at: null,
+    cancellation_reason: null,
+  });
+  await knex.schema.raw(
+    "alter table quotes drop constraint quotes_status_check",
+  );
+  await knex.schema.raw(
+    "alter table quotes add constraint quotes_status_check check (status in ('DRAFT'))",
+  );
 
   await knex.schema.alterTable("quotes", (table) => {
     table.dropColumn("cancellation_reason");

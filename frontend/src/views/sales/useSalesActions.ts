@@ -1,15 +1,28 @@
 import type { FormEvent } from "react";
-import { apiPatch, apiPost, type PickupReservation, type ShippingOrder } from "../../api";
+import {
+  apiPatch,
+  apiPost,
+  type PickupReservation,
+  type ShippingOrder,
+} from "../../api";
 import { formatQuantity } from "../../utils/format";
 import type { PickupReservationDraftInput, SaleDraftInput } from "./SalesPages";
 
 type SalesActionsOptions = {
   loadCatalog: () => Promise<void>;
-  requestConfirmation: (message: string, title?: string, confirmLabel?: string) => Promise<boolean>;
+  requestConfirmation: (
+    message: string,
+    title?: string,
+    confirmLabel?: string,
+  ) => Promise<boolean>;
   runAction: (action: () => Promise<void>) => Promise<boolean>;
 };
 
-export function useSalesActions({ loadCatalog, requestConfirmation, runAction }: SalesActionsOptions) {
+export function useSalesActions({
+  loadCatalog,
+  requestConfirmation,
+  runAction,
+}: SalesActionsOptions) {
   async function createSale(input: SaleDraftInput) {
     return runAction(async () => {
       await apiPost("/sales", input);
@@ -18,7 +31,10 @@ export function useSalesActions({ loadCatalog, requestConfirmation, runAction }:
   }
 
   async function approveShippingOrder(order: ShippingOrder) {
-    const orderQuantity = order.items.reduce((sum, item) => sum + Number(item.quantity), 0);
+    const orderQuantity = order.items.reduce(
+      (sum, item) => sum + Number(item.quantity),
+      0,
+    );
     const confirmed = await requestConfirmation(
       `Aprovar o pedido de ${order.clientName} e reservar ${formatQuantity(String(orderQuantity))} item(ns)?`,
       "Aprovar pedido?",
@@ -35,7 +51,10 @@ export function useSalesActions({ loadCatalog, requestConfirmation, runAction }:
     });
   }
 
-  async function cancelShippingOrder(event: FormEvent<HTMLFormElement>, order: ShippingOrder) {
+  async function cancelShippingOrder(
+    event: FormEvent<HTMLFormElement>,
+    order: ShippingOrder,
+  ) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const confirmed = await requestConfirmation(
@@ -75,7 +94,10 @@ export function useSalesActions({ loadCatalog, requestConfirmation, runAction }:
     });
   }
 
-  async function completeShippingOrder(event: FormEvent<HTMLFormElement>, order: ShippingOrder) {
+  async function completeShippingOrder(
+    event: FormEvent<HTMLFormElement>,
+    order: ShippingOrder,
+  ) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const confirmed = await requestConfirmation(
@@ -105,7 +127,10 @@ export function useSalesActions({ loadCatalog, requestConfirmation, runAction }:
     });
   }
 
-  async function cancelPickupReservation(event: FormEvent<HTMLFormElement>, reservation: PickupReservation) {
+  async function cancelPickupReservation(
+    event: FormEvent<HTMLFormElement>,
+    reservation: PickupReservation,
+  ) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const confirmed = await requestConfirmation(
@@ -128,7 +153,10 @@ export function useSalesActions({ loadCatalog, requestConfirmation, runAction }:
     });
   }
 
-  async function completePickupReservation(event: FormEvent<HTMLFormElement>, reservation: PickupReservation) {
+  async function completePickupReservation(
+    event: FormEvent<HTMLFormElement>,
+    reservation: PickupReservation,
+  ) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const confirmed = await requestConfirmation(

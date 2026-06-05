@@ -30,7 +30,9 @@ export async function issueAuthToken(user: AuthenticatedUser): Promise<string> {
     .sign(key);
 }
 
-export async function verifyAuthToken(token: string): Promise<AuthenticatedUser | undefined> {
+export async function verifyAuthToken(
+  token: string,
+): Promise<AuthenticatedUser | undefined> {
   try {
     const { payload } = await jwtVerify(token, key, {
       algorithms: ["HS256"],
@@ -42,7 +44,9 @@ export async function verifyAuthToken(token: string): Promise<AuthenticatedUser 
       typeof payload.sub !== "string" ||
       typeof payload.name !== "string" ||
       typeof payload.email !== "string" ||
-      (typeof payload.phone !== "string" && payload.phone !== null && typeof payload.phone !== "undefined") ||
+      (typeof payload.phone !== "string" &&
+        payload.phone !== null &&
+        typeof payload.phone !== "undefined") ||
       payload.role !== "ADMIN"
     ) {
       return undefined;

@@ -3,7 +3,9 @@ exports.up = async function up(knex) {
     table.integer("position").notNullable().defaultTo(1);
   });
 
-  await knex.schema.raw("create unique index sale_items_sale_position_unique on sale_items (sale_id, position)");
+  await knex.schema.raw(
+    "create unique index sale_items_sale_position_unique on sale_items (sale_id, position)",
+  );
 };
 
 exports.down = async function down(knex) {

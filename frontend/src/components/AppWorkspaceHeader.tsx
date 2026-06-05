@@ -1,5 +1,14 @@
 import IconButton from "@mui/material/IconButton";
-import { AlertTriangle, Banknote, LogOut, PackagePlus, RefreshCcw, ShieldCheck, Tags, Truck } from "lucide-react";
+import {
+  AlertTriangle,
+  Banknote,
+  LogOut,
+  PackagePlus,
+  RefreshCcw,
+  ShieldCheck,
+  Tags,
+  Truck,
+} from "lucide-react";
 import type { AuthUser, CashRegisterSession } from "../api";
 import type { View } from "../navigation";
 import { Metric } from "./shell";
@@ -41,7 +50,11 @@ export function AppWorkspaceHeader({
         </div>
         <div className="topbar-actions">
           <button
-            className={cashRegister ? "cash-status-button open" : "cash-status-button closed"}
+            className={
+              cashRegister
+                ? "cash-status-button open"
+                : "cash-status-button closed"
+            }
             title="Ir para caixa"
             type="button"
             onClick={() => onSelectView("cash-register")}
@@ -60,7 +73,11 @@ export function AppWorkspaceHeader({
           <IconButton color="success" onClick={onRefresh} title="Atualizar">
             <RefreshCcw size={18} />
           </IconButton>
-          <SecondaryButton icon={<LogOut size={17} />} type="button" onClick={onLogout}>
+          <SecondaryButton
+            icon={<LogOut size={17} />}
+            type="button"
+            onClick={onLogout}
+          >
             Sair
           </SecondaryButton>
         </div>

@@ -78,7 +78,10 @@ const shippingOrderItemColumns = [
   "shipping_order_items.position",
 ];
 
-type ShippingOrderRow = Omit<ShippingOrder, "items" | "productId" | "productName" | "quantity" | "unitPrice">;
+type ShippingOrderRow = Omit<
+  ShippingOrder,
+  "items" | "productId" | "productName" | "quantity" | "unitPrice"
+>;
 type ShippingOrderItemRow = ShippingOrderItem & {
   shippingOrderId: string;
 };
@@ -100,7 +103,10 @@ type LockedShippingOrder = {
 };
 
 export async function listShippingOrders(): Promise<ShippingOrder[]> {
-  const orders = await shippingOrderQuery(db).orderBy("shipping_orders.created_at", "desc");
+  const orders = await shippingOrderQuery(db).orderBy(
+    "shipping_orders.created_at",
+    "desc",
+  );
   return withShippingOrderItems(db, orders);
 }
 
@@ -108,7 +114,10 @@ export async function activeShippingClientExists(
   transaction: Knex.Transaction,
   clientId: string,
 ): Promise<boolean> {
-  const client = await transaction("clients").select("id").where({ id: clientId, active: true }).first();
+  const client = await transaction("clients")
+    .select("id")
+    .where({ id: clientId, active: true })
+    .first();
 
   return Boolean(client);
 }
@@ -160,7 +169,9 @@ export async function findShippingOrderByQuoteId(
   transaction: Knex.Transaction,
   quoteId: string,
 ): Promise<ShippingOrder | undefined> {
-  const order = await shippingOrderQuery(transaction).where("shipping_orders.quote_id", quoteId).first();
+  const order = await shippingOrderQuery(transaction)
+    .where("shipping_orders.quote_id", quoteId)
+    .first();
 
   if (!order) {
     return undefined;
@@ -268,7 +279,9 @@ export async function cancelShippingOrder(
       await transaction("products")
         .where("id", item.productId)
         .update({
-          reserved_stock: transaction.raw("reserved_stock - ?", [item.quantity]),
+          reserved_stock: transaction.raw("reserved_stock - ?", [
+            item.quantity,
+          ]),
           updated_at: transaction.fn.now(),
         });
     }
@@ -331,7 +344,9 @@ async function findShippingOrder(
   transaction: Knex.Transaction,
   id: string,
 ): Promise<ShippingOrder> {
-  const order = await shippingOrderQuery(transaction).where("shipping_orders.id", id).first();
+  const order = await shippingOrderQuery(transaction)
+    .where("shipping_orders.id", id)
+    .first();
 
   if (!order) {
     throw new Error("Shipping order was not found after operation");
@@ -344,7 +359,11 @@ async function findShippingOrder(
 function shippingOrderQuery(database: Knex | Knex.Transaction) {
   return database("shipping_orders")
     .join("clients", "clients.id", "shipping_orders.client_id")
-    .join({ created_users: "users" }, "created_users.id", "shipping_orders.created_by_user_id")
+    .join(
+      { created_users: "users" },
+      "created_users.id",
+      "shipping_orders.created_by_user_id",
+    )
     .select<ShippingOrderRow[]>(shippingOrderColumns);
 }
 

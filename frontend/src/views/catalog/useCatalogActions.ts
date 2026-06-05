@@ -1,11 +1,21 @@
 import type { FormEvent } from "react";
-import { apiPatch, apiPost, apiPut, type Client, type Product } from "../../api";
+import {
+  apiPatch,
+  apiPost,
+  apiPut,
+  type Client,
+  type Product,
+} from "../../api";
 import { nullableFormValue, optionalFormValue } from "../../utils/forms";
 import { productFormBody } from "./productFormBody";
 
 type CatalogActionsOptions = {
   loadCatalog: () => Promise<void>;
-  requestConfirmation: (message: string, title?: string, confirmLabel?: string) => Promise<boolean>;
+  requestConfirmation: (
+    message: string,
+    title?: string,
+    confirmLabel?: string,
+  ) => Promise<boolean>;
   runAction: (action: () => Promise<void>) => Promise<boolean>;
   selectedClient?: Client;
   selectedProduct?: Product;
@@ -131,7 +141,9 @@ export function useCatalogActions({
     }
 
     await runAction(async () => {
-      await apiPatch(`/products/${product.id}/status`, { active: !product.active });
+      await apiPatch(`/products/${product.id}/status`, {
+        active: !product.active,
+      });
       await loadCatalog();
     });
   }
@@ -148,7 +160,9 @@ export function useCatalogActions({
     }
 
     await runAction(async () => {
-      await apiPatch(`/clients/${client.id}/status`, { active: !client.active });
+      await apiPatch(`/clients/${client.id}/status`, {
+        active: !client.active,
+      });
       await loadCatalog();
     });
   }

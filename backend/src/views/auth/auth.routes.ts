@@ -17,7 +17,10 @@ export const authRoutes = Router();
 
 const credentialsSchema = z
   .object({
-    email: z.email().max(160).transform((email) => email.trim().toLowerCase()),
+    email: z
+      .email()
+      .max(160)
+      .transform((email) => email.trim().toLowerCase()),
     password: z.string().min(12).max(128),
   })
   .strict();
@@ -47,21 +50,29 @@ authRoutes.get("/auth/setup", async (_request, response) => {
   response.status(200).json(await showSetupStatus());
 });
 
-authRoutes.post("/auth/setup", authenticationRateLimit, async (request, response) => {
-  const body = validateBody(request, setupSchema);
-  const result = await setupInitialUser(body);
+authRoutes.post(
+  "/auth/setup",
+  authenticationRateLimit,
+  async (request, response) => {
+    const body = validateBody(request, setupSchema);
+    const result = await setupInitialUser(body);
 
-  setAuthCookie(response, result.token);
-  response.status(201).json({ ...result.response, code: 201 });
-});
+    setAuthCookie(response, result.token);
+    response.status(201).json({ ...result.response, code: 201 });
+  },
+);
 
-authRoutes.post("/auth/login", authenticationRateLimit, async (request, response) => {
-  const body = validateBody(request, credentialsSchema);
-  const result = await authenticateUser(body);
+authRoutes.post(
+  "/auth/login",
+  authenticationRateLimit,
+  async (request, response) => {
+    const body = validateBody(request, credentialsSchema);
+    const result = await authenticateUser(body);
 
-  setAuthCookie(response, result.token);
-  response.status(200).json(result.response);
-});
+    setAuthCookie(response, result.token);
+    response.status(200).json(result.response);
+  },
+);
 
 authRoutes.get("/auth/session", requireAuthentication, (_request, response) => {
   response.status(200).json({

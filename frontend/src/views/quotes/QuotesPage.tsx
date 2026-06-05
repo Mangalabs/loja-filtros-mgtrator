@@ -1,27 +1,32 @@
-import { List as ListIcon, Plus } from "lucide-react";
-import { FormEvent, useState } from "react";
-import type { Client, Product, Quote } from "../../api";
-import { PrimaryButton, SecondaryButton, StatusChip, TableActionButton } from "../../components/ui";
-import { formatCurrency, formatDate, formatDateTime } from "../../utils/format";
+import { List as ListIcon, Plus } from 'lucide-react'
+import { FormEvent, useState } from 'react'
+import type { Client, Product, Quote } from '../../api'
+import {
+  PrimaryButton,
+  SecondaryButton,
+  StatusChip,
+  TableActionButton,
+} from '../../components/ui'
+import { formatCurrency, formatDate, formatDateTime } from '../../utils/format'
 
 type QuoteDraftItem = {
-  productId: string;
-  description: string;
-  quantity: string;
-  unitPrice: string;
-};
+  productId: string
+  description: string
+  quantity: string
+  unitPrice: string
+}
 
 export type QuoteDraftInput = {
-  clientId: string;
-  validUntil?: string | null;
-  notes?: string | null;
+  clientId: string
+  validUntil?: string | null
+  notes?: string | null
   items: Array<{
-    productId: string;
-    description?: string | null;
-    quantity: number;
-    unitPrice?: number | null;
-  }>;
-};
+    productId: string
+    description?: string | null
+    quantity: number
+    unitPrice?: number | null
+  }>
+}
 
 export function QuotesPage({
   clients,
@@ -31,58 +36,63 @@ export function QuotesPage({
   onCancelQuote,
   onCreateShippingOrder,
 }: {
-  clients: Client[];
-  products: Product[];
-  quotes: Quote[];
-  onSubmit: (input: QuoteDraftInput) => Promise<boolean>;
-  onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void;
-  onCreateShippingOrder: (quote: Quote) => void;
+  clients: Client[]
+  products: Product[]
+  quotes: Quote[]
+  onSubmit: (input: QuoteDraftInput) => Promise<boolean>
+  onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void
+  onCreateShippingOrder: (quote: Quote) => void
 }) {
-  const [clientId, setClientId] = useState("");
-  const [validUntil, setValidUntil] = useState("");
-  const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()]);
-  const activeProducts = products.filter((product) => product.active);
+  const [clientId, setClientId] = useState('')
+  const [validUntil, setValidUntil] = useState('')
+  const [notes, setNotes] = useState('')
+  const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
+  const activeProducts = products.filter((product) => product.active)
   const quoteTotal = items.reduce((sum, item) => {
-    return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0);
-  }, 0);
+    return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0)
+  }, 0)
 
   function updateItem(index: number, changes: Partial<QuoteDraftItem>) {
     setItems((currentItems) =>
       currentItems.map((item, itemIndex) => {
         if (itemIndex !== index) {
-          return item;
+          return item
         }
 
         if (changes.productId) {
-          const product = activeProducts.find((currentProduct) => currentProduct.id === changes.productId);
+          const product = activeProducts.find(
+            (currentProduct) => currentProduct.id === changes.productId,
+          )
 
           return {
             ...item,
             ...changes,
-            description: product?.description ?? product?.name ?? item.description,
+            description:
+              product?.description ?? product?.name ?? item.description,
             unitPrice: product?.salePrice ?? item.unitPrice,
-          };
+          }
         }
 
-        return { ...item, ...changes };
+        return { ...item, ...changes }
       }),
-    );
+    )
   }
 
   function removeItem(index: number) {
-    setItems((currentItems) => currentItems.filter((_item, itemIndex) => itemIndex !== index));
+    setItems((currentItems) =>
+      currentItems.filter((_item, itemIndex) => itemIndex !== index),
+    )
   }
 
   function resetQuoteForm() {
-    setClientId("");
-    setValidUntil("");
-    setNotes("");
-    setItems([emptyQuoteItem()]);
+    setClientId('')
+    setValidUntil('')
+    setNotes('')
+    setItems([emptyQuoteItem()])
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+    event.preventDefault()
 
     const saved = await onSubmit({
       clientId,
@@ -92,41 +102,51 @@ export function QuotesPage({
         productId: item.productId,
         description: item.description.trim() || null,
         quantity: Number(item.quantity),
-        unitPrice: item.unitPrice === "" ? null : Number(item.unitPrice),
+        unitPrice: item.unitPrice === '' ? null : Number(item.unitPrice),
       })),
-    });
+    })
 
     if (saved) {
-      resetQuoteForm();
+      resetQuoteForm()
     }
   }
 
   return (
-    <section className="layout-grid stock-entry-layout">
-      <form className="panel form-panel" onSubmit={submit}>
-        <div className="panel-header compact">
+    <section className='layout-grid stock-entry-layout'>
+      <form className='panel form-panel' onSubmit={submit}>
+        <div className='panel-header compact'>
           <div>
             <h2>Novo orcamento</h2>
             <span>Monte itens, valores e dados comerciais antes do PDF.</span>
           </div>
           <ListIcon size={18} />
         </div>
-        <select value={clientId} onChange={(event) => setClientId(event.target.value)} required>
-          <option value="" disabled>
+        <select
+          value={clientId}
+          onChange={(event) => setClientId(event.target.value)}
+          required>
+          <option value='' disabled>
             Cliente
           </option>
-          {clients.filter((client) => client.active).map((client) => (
-            <option key={client.id} value={client.id}>
-              {client.name}{client.phone ? ` - ${client.phone}` : ""}
-            </option>
-          ))}
+          {clients
+            .filter((client) => client.active)
+            .map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+                {client.phone ? ` - ${client.phone}` : ''}
+              </option>
+            ))}
         </select>
-        <div className="two-columns">
-          <label className="field-label">
+        <div className='two-columns'>
+          <label className='field-label'>
             Validade
-            <input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
+            <input
+              type='date'
+              value={validUntil}
+              onChange={(event) => setValidUntil(event.target.value)}
+            />
           </label>
-          <label className="field-label">
+          <label className='field-label'>
             Total
             <input value={formatCurrency(quoteTotal)} disabled />
           </label>
@@ -134,28 +154,31 @@ export function QuotesPage({
         <textarea
           value={notes}
           maxLength={1000}
-          placeholder="Observacoes do orcamento"
+          placeholder='Observacoes do orcamento'
           rows={3}
           onChange={(event) => setNotes(event.target.value)}
         />
 
-        <div className="quote-items">
+        <div className='quote-items'>
           {items.map((item, index) => (
-            <div className="quote-item-row" key={index}>
-              <div className="panel-header compact">
+            <div className='quote-item-row' key={index}>
+              <div className='panel-header compact'>
                 <strong>Item {index + 1}</strong>
                 {items.length > 1 ? (
-                  <TableActionButton type="button" onClick={() => removeItem(index)}>
+                  <TableActionButton
+                    type='button'
+                    onClick={() => removeItem(index)}>
                     Remover
                   </TableActionButton>
                 ) : null}
               </div>
               <select
                 value={item.productId}
-                onChange={(event) => updateItem(index, { productId: event.target.value })}
-                required
-              >
-                <option value="" disabled>
+                onChange={(event) =>
+                  updateItem(index, { productId: event.target.value })
+                }
+                required>
+                <option value='' disabled>
                   Produto
                 </option>
                 {activeProducts.map((product) => (
@@ -166,28 +189,34 @@ export function QuotesPage({
               </select>
               <input
                 value={item.description}
-                placeholder="Descricao no orcamento"
+                placeholder='Descricao no orcamento'
                 maxLength={500}
-                onChange={(event) => updateItem(index, { description: event.target.value })}
+                onChange={(event) =>
+                  updateItem(index, { description: event.target.value })
+                }
                 required
               />
-              <div className="two-columns">
+              <div className='two-columns'>
                 <input
                   value={item.quantity}
-                  type="number"
-                  min="0.001"
-                  step="0.001"
-                  placeholder="Quantidade"
-                  onChange={(event) => updateItem(index, { quantity: event.target.value })}
+                  type='number'
+                  min='0.001'
+                  step='0.001'
+                  placeholder='Quantidade'
+                  onChange={(event) =>
+                    updateItem(index, { quantity: event.target.value })
+                  }
                   required
                 />
                 <input
                   value={item.unitPrice}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Valor unitario"
-                  onChange={(event) => updateItem(index, { unitPrice: event.target.value })}
+                  type='number'
+                  min='0'
+                  step='0.01'
+                  placeholder='Valor unitario'
+                  onChange={(event) =>
+                    updateItem(index, { unitPrice: event.target.value })
+                  }
                   required
                 />
               </div>
@@ -195,23 +224,27 @@ export function QuotesPage({
           ))}
         </div>
 
-        <SecondaryButton type="button" onClick={() => setItems((currentItems) => [...currentItems, emptyQuoteItem()])}>
+        <SecondaryButton
+          type='button'
+          onClick={() =>
+            setItems((currentItems) => [...currentItems, emptyQuoteItem()])
+          }>
           Adicionar item
         </SecondaryButton>
-        <PrimaryButton icon={<Plus size={17} />} type="submit">
+        <PrimaryButton icon={<Plus size={17} />} type='submit'>
           Salvar orcamento
         </PrimaryButton>
       </form>
 
-      <div className="panel wide">
-        <div className="panel-header compact">
+      <div className='panel wide'>
+        <div className='panel-header compact'>
           <div>
             <h2>Orcamentos salvos</h2>
             <span>{quotes.length} registros</span>
           </div>
-          <StatusChip label="PDF disponivel" tone="success" />
+          <StatusChip label='PDF disponivel' tone='success' />
         </div>
-        <div className="table-shell">
+        <div className='table-shell'>
           <table>
             <thead>
               <tr>
@@ -231,46 +264,60 @@ export function QuotesPage({
                   <td>{quote.clientName}</td>
                   <td>
                     {quote.items.length} item(ns)
-                    <span className="table-note">
-                      {quote.items.map((item) => item.description).join(", ")}
+                    <span className='table-note'>
+                      {quote.items.map((item) => item.description).join(', ')}
                     </span>
                   </td>
-                  <td>{quote.validUntil ? formatDate(quote.validUntil) : "-"}</td>
+                  <td>
+                    {quote.validUntil ? formatDate(quote.validUntil) : '-'}
+                  </td>
                   <td>{formatCurrency(quote.totalAmount)}</td>
                   <td>
                     <StatusChip
                       label={quoteStatusPresentation(quote).label}
                       tone={quoteStatusPresentation(quote).tone}
                     />
-                    {quote.cancellationReason ? <div className="table-note">{quote.cancellationReason}</div> : null}
+                    {quote.cancellationReason ? (
+                      <div className='table-note'>
+                        {quote.cancellationReason}
+                      </div>
+                    ) : null}
                   </td>
                   <td>
                     <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
                       Baixar PDF
                     </TableActionButton>
                     {quote.shippingOrderId ? (
-                      <span className="table-note">Pedido para envio criado</span>
+                      <span className='table-note'>
+                        Pedido para envio criado
+                      </span>
                     ) : (
-                      <div className="shipping-order-actions">
-                        {quote.status === "DRAFT" ? (
-                          <TableActionButton type="button" onClick={() => onCreateShippingOrder(quote)}>
+                      <div className='shipping-order-actions'>
+                        {quote.status === 'DRAFT' ? (
+                          <TableActionButton
+                            type='button'
+                            onClick={() => onCreateShippingOrder(quote)}>
                             Enviar p/ envio
                           </TableActionButton>
                         ) : null}
-                        {quote.status === "DRAFT" ? (
-                          <form className="cancel-order-form" onSubmit={(event) => onCancelQuote(event, quote)}>
+                        {quote.status === 'DRAFT' ? (
+                          <form
+                            className='cancel-order-form'
+                            onSubmit={(event) => onCancelQuote(event, quote)}>
                             <input
-                              name="quoteCancellationReason"
+                              name='quoteCancellationReason'
                               maxLength={500}
-                              placeholder="Motivo do cancelamento"
+                              placeholder='Motivo do cancelamento'
                               required
                             />
-                            <TableActionButton type="submit">
+                            <TableActionButton type='submit'>
                               Cancelar
                             </TableActionButton>
                           </form>
                         ) : (
-                          <span className="table-note">Orcamento cancelado</span>
+                          <span className='table-note'>
+                            Orcamento cancelado
+                          </span>
                         )}
                       </div>
                     )}
@@ -287,67 +334,77 @@ export function QuotesPage({
         </div>
       </div>
     </section>
-  );
+  )
 }
 
-function quoteShippingStatusLabel(status: Quote["shippingOrderStatus"]) {
-  return quoteShippingStatusLabels[status ?? "QUOTED"];
+function quoteShippingStatusLabel(status: Quote['shippingOrderStatus']) {
+  return quoteShippingStatusLabels[status ?? 'QUOTED']
 }
 
-const quoteShippingStatusLabels: Record<NonNullable<Quote["shippingOrderStatus"]>, string> = {
-  APPROVED: "Envio aprovado",
-  CANCELLED: "Envio cancelado",
-  COMPLETED: "Venda concluida",
-  QUOTED: "Enviado p/ envio",
-  SEPARATED: "Separado para envio",
-};
+const quoteShippingStatusLabels: Record<
+  NonNullable<Quote['shippingOrderStatus']>,
+  string
+> = {
+  APPROVED: 'Envio aprovado',
+  CANCELLED: 'Envio cancelado',
+  COMPLETED: 'Venda concluida',
+  QUOTED: 'Enviado p/ envio',
+  SEPARATED: 'Separado para envio',
+}
 
 type QuoteStatusPresentation = {
-  label: string;
-  tone: "neutral" | "success" | "warning";
-};
-
-function quoteStatusPresentation(quote: Quote): QuoteStatusPresentation {
-  return quoteStatusPresentationStrategies.find((strategy) => strategy.matches(quote))?.present(quote) ?? quoteStatusPresentations.DRAFT;
+  label: string
+  tone: 'neutral' | 'success' | 'warning'
 }
 
-const quoteStatusPresentations: Record<"CANCELLED" | "DRAFT", QuoteStatusPresentation> = {
+function quoteStatusPresentation(quote: Quote): QuoteStatusPresentation {
+  return (
+    quoteStatusPresentationStrategies
+      .find((strategy) => strategy.matches(quote))
+      ?.present(quote) ?? quoteStatusPresentations.DRAFT
+  )
+}
+
+const quoteStatusPresentations: Record<
+  'CANCELLED' | 'DRAFT',
+  QuoteStatusPresentation
+> = {
   CANCELLED: {
-    label: "Cancelado",
-    tone: "neutral",
+    label: 'Cancelado',
+    tone: 'neutral',
   },
   DRAFT: {
-    label: "Rascunho",
-    tone: "warning",
+    label: 'Rascunho',
+    tone: 'warning',
   },
-};
+}
 
 const quoteStatusPresentationStrategies: Array<{
-  matches: (quote: Quote) => boolean;
-  present: (quote: Quote) => QuoteStatusPresentation;
+  matches: (quote: Quote) => boolean
+  present: (quote: Quote) => QuoteStatusPresentation
 }> = [
   {
     matches: (quote) => Boolean(quote.shippingOrderId),
     present: (quote) => ({
       label: quoteShippingStatusLabel(quote.shippingOrderStatus),
-      tone: "success",
+      tone: 'success',
     }),
   },
   {
-    matches: (quote) => quote.status === "CANCELLED",
+    matches: (quote) => quote.status === 'CANCELLED',
     present: () => quoteStatusPresentations.CANCELLED,
   },
   {
     matches: () => true,
     present: () => quoteStatusPresentations.DRAFT,
   },
-];
+]
 
 function emptyQuoteItem(): QuoteDraftItem {
   return {
-    productId: "",
-    description: "",
-    quantity: "1",
-    unitPrice: "",
-  };
+    productId: '',
+    description: '',
+    quantity: '1',
+    unitPrice: '',
+  }
 }

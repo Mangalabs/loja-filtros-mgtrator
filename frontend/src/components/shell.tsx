@@ -30,7 +30,9 @@ export function NavSection({
     <div className="nav-section">
       <button
         aria-expanded={open}
-        className={active ? "nav-section-trigger active" : "nav-section-trigger"}
+        className={
+          active ? "nav-section-trigger active" : "nav-section-trigger"
+        }
         type="button"
         onClick={onToggle}
       >
@@ -86,7 +88,12 @@ export function AppMessage({
       severity={kind === "error" ? "error" : "success"}
       variant="outlined"
       action={
-        <IconButton aria-label="Fechar mensagem" color="inherit" size="small" onClick={onClose}>
+        <IconButton
+          aria-label="Fechar mensagem"
+          color="inherit"
+          size="small"
+          onClick={onClose}
+        >
           <X size={16} />
         </IconButton>
       }
@@ -122,13 +129,20 @@ export function ConfirmationDialog({
     >
       <DialogTitle id="confirmation-dialog-title">{title}</DialogTitle>
       <DialogContent>
-        <DialogContentText id="confirmation-dialog-description">{message}</DialogContentText>
+        <DialogContentText id="confirmation-dialog-description">
+          {message}
+        </DialogContentText>
       </DialogContent>
       <DialogActions>
         <Button color="inherit" onClick={onCancel}>
           Voltar
         </Button>
-        <Button variant="contained" color="success" onClick={onConfirm} autoFocus>
+        <Button
+          variant="contained"
+          color="success"
+          onClick={onConfirm}
+          autoFocus
+        >
           {confirmLabel}
         </Button>
       </DialogActions>
@@ -151,7 +165,9 @@ export function Metric({
 }) {
   return (
     <ButtonBase
-      className={active ? "metric metric-button active" : "metric metric-button"}
+      className={
+        active ? "metric metric-button active" : "metric metric-button"
+      }
       focusRipple
       onClick={onClick}
     >

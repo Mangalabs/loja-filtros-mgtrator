@@ -8,9 +8,15 @@ type ConfirmationState = {
 };
 
 export function useConfirmation() {
-  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(
+    null,
+  );
 
-  function requestConfirmation(message: string, title = "Confirmar acao", confirmLabel = "Confirmar") {
+  function requestConfirmation(
+    message: string,
+    title = "Confirmar acao",
+    confirmLabel = "Confirmar",
+  ) {
     return new Promise<boolean>((resolve) => {
       setConfirmation({ confirmLabel, message, resolve, title });
     });

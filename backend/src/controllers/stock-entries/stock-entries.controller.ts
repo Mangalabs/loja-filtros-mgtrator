@@ -20,7 +20,10 @@ export async function indexStockEntries() {
   };
 }
 
-export async function storeStockEntry(input: StockEntryInput, createdByUserId: string) {
+export async function storeStockEntry(
+  input: StockEntryInput,
+  createdByUserId: string,
+) {
   const entry = await db.transaction(async (transaction) => {
     if (!(await lockProduct(transaction, input.productId))) {
       throw new AppError("Produto informado nao encontrado.", 422);

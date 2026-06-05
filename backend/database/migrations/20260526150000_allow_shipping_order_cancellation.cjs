@@ -1,5 +1,7 @@
 exports.up = async function up(knex) {
-  await knex.schema.raw("alter table shipping_orders drop constraint shipping_orders_status_check");
+  await knex.schema.raw(
+    "alter table shipping_orders drop constraint shipping_orders_status_check",
+  );
   await knex.schema.alterTable("shipping_orders", (table) => {
     table
       .uuid("cancelled_by_user_id")
@@ -20,8 +22,12 @@ exports.up = async function up(knex) {
 
 exports.down = async function down(knex) {
   await knex("shipping_orders").where("status", "CANCELLED").del();
-  await knex.schema.raw("alter table shipping_orders drop constraint shipping_orders_cancellation_check");
-  await knex.schema.raw("alter table shipping_orders drop constraint shipping_orders_status_check");
+  await knex.schema.raw(
+    "alter table shipping_orders drop constraint shipping_orders_cancellation_check",
+  );
+  await knex.schema.raw(
+    "alter table shipping_orders drop constraint shipping_orders_status_check",
+  );
   await knex.schema.alterTable("shipping_orders", (table) => {
     table.dropColumn("cancelled_by_user_id");
     table.dropColumn("cancelled_at");

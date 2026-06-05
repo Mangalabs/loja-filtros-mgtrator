@@ -8,11 +8,15 @@ import {
 } from "../navigation";
 
 export function useNavigationState(view: View) {
-  const [openNavSections, setOpenNavSections] =
-    useState<Record<NavSectionKey, boolean>>(readInitialOpenNavSections);
+  const [openNavSections, setOpenNavSections] = useState<
+    Record<NavSectionKey, boolean>
+  >(readInitialOpenNavSections);
 
   useEffect(() => {
-    window.localStorage.setItem(navSectionsStorageKey, JSON.stringify(openNavSections));
+    window.localStorage.setItem(
+      navSectionsStorageKey,
+      JSON.stringify(openNavSections),
+    );
   }, [openNavSections]);
 
   useEffect(() => {
@@ -32,7 +36,10 @@ export function useNavigationState(view: View) {
   }, [view]);
 
   function toggleNavSection(section: NavSectionKey) {
-    setOpenNavSections((current) => ({ ...current, [section]: !current[section] }));
+    setOpenNavSections((current) => ({
+      ...current,
+      [section]: !current[section],
+    }));
   }
 
   return {

@@ -50,7 +50,9 @@ export type ProductCreateInput = {
 
 export type ProductUpdateInput = Partial<ProductCreateInput>;
 
-export async function listProducts(filters: ProductListFilters): Promise<ProductListItem[]> {
+export async function listProducts(
+  filters: ProductListFilters,
+): Promise<ProductListItem[]> {
   const offset = (filters.page - 1) * filters.limit;
 
   const rows = await db("products")
@@ -71,7 +73,9 @@ export async function listProducts(filters: ProductListFilters): Promise<Product
       "products.minimum_stock as minimumStock",
       "products.current_stock as currentStock",
       "products.reserved_stock as reservedStock",
-      db.raw("products.current_stock - products.reserved_stock as ??", ["availableStock"]),
+      db.raw("products.current_stock - products.reserved_stock as ??", [
+        "availableStock",
+      ]),
       "products.ncm",
       "products.cest",
       "products.origin",
@@ -120,7 +124,9 @@ export async function listLowStockProducts(): Promise<ProductListItem[]> {
       "products.minimum_stock as minimumStock",
       "products.current_stock as currentStock",
       "products.reserved_stock as reservedStock",
-      db.raw("products.current_stock - products.reserved_stock as ??", ["availableStock"]),
+      db.raw("products.current_stock - products.reserved_stock as ??", [
+        "availableStock",
+      ]),
       "products.ncm",
       "products.cest",
       "products.origin",
@@ -129,12 +135,16 @@ export async function listLowStockProducts(): Promise<ProductListItem[]> {
     ])
     .where("products.active", true)
     .andWhere("products.minimum_stock", ">", 0)
-    .andWhereRaw("products.current_stock - products.reserved_stock <= products.minimum_stock")
+    .andWhereRaw(
+      "products.current_stock - products.reserved_stock <= products.minimum_stock",
+    )
     .orderByRaw("products.current_stock - products.reserved_stock asc")
     .orderBy("products.name", "asc");
 }
 
-export async function createProduct(input: ProductCreateInput): Promise<ProductListItem> {
+export async function createProduct(
+  input: ProductCreateInput,
+): Promise<ProductListItem> {
   const [created] = await db("products")
     .insert({
       name: input.name,
@@ -164,7 +174,9 @@ export async function createProduct(input: ProductCreateInput): Promise<ProductL
   return product;
 }
 
-export async function getProductById(id: string): Promise<ProductListItem | undefined> {
+export async function getProductById(
+  id: string,
+): Promise<ProductListItem | undefined> {
   return findProductById(id);
 }
 
@@ -220,7 +232,9 @@ export async function updateProductStatus(
   return findProductById(updated.id);
 }
 
-async function findProductById(id: string): Promise<ProductListItem | undefined> {
+async function findProductById(
+  id: string,
+): Promise<ProductListItem | undefined> {
   return db("products")
     .leftJoin("brands", "brands.id", "products.brand_id")
     .leftJoin("product_groups", "product_groups.id", "products.group_id")
@@ -239,7 +253,9 @@ async function findProductById(id: string): Promise<ProductListItem | undefined>
       "products.minimum_stock as minimumStock",
       "products.current_stock as currentStock",
       "products.reserved_stock as reservedStock",
-      db.raw("products.current_stock - products.reserved_stock as ??", ["availableStock"]),
+      db.raw("products.current_stock - products.reserved_stock as ??", [
+        "availableStock",
+      ]),
       "products.ncm",
       "products.cest",
       "products.origin",

@@ -10,7 +10,9 @@ export type QuotePdfStore = {
 };
 
 export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
-  const rows = quote.items.map((item, index) => quoteItemRow(item, index)).join("");
+  const rows = quote.items
+    .map((item, index) => quoteItemRow(item, index))
+    .join("");
   const storeContact = [store.phone, store.email].filter(Boolean).join(" | ");
 
   return `
@@ -116,7 +118,10 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
 }
 
 function quoteItemRow(item: QuoteItem, index: number) {
-  const delivery = Number(item.productAvailableStock) >= Number(item.quantity) ? "IMEDIATA" : "NEGATIVO";
+  const delivery =
+    Number(item.productAvailableStock) >= Number(item.quantity)
+      ? "IMEDIATA"
+      : "NEGATIVO";
 
   return `
     <tr>

@@ -17,7 +17,10 @@ exports.up = async function up(knex) {
     table.decimal("quantity", 12, 3).notNullable();
     table.decimal("unit_cost", 12, 2).notNullable();
     table.text("notes");
-    table.timestamp("created_at", { useTz: true }).notNullable().defaultTo(knex.fn.now());
+    table
+      .timestamp("created_at", { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
 
     table.index(["product_id", "created_at"]);
   });

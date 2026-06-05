@@ -7,7 +7,10 @@ type StockActionsOptions = {
   runAction: (action: () => Promise<void>) => Promise<boolean>;
 };
 
-export function useStockActions({ loadCatalog, runAction }: StockActionsOptions) {
+export function useStockActions({
+  loadCatalog,
+  runAction,
+}: StockActionsOptions) {
   async function createStockEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;

@@ -1,4 +1,10 @@
-import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { apiGet, apiPost, type ApiResult, type AuthUser } from "../api";
 
 type Credentials = {
@@ -38,7 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRequiresSetup(false);
     } catch {
       try {
-        const setupStatus = await apiGet<ApiResult<{ requiresSetup: boolean }>>("/auth/setup");
+        const setupStatus =
+          await apiGet<ApiResult<{ requiresSetup: boolean }>>("/auth/setup");
         setRequiresSetup(setupStatus.data.requiresSetup);
       } catch {
         setRequiresSetup(false);
@@ -51,7 +58,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function login(credentials: Credentials) {
-    const session = await apiPost<ApiResult<AuthUser>>("/auth/login", credentials);
+    const session = await apiPost<ApiResult<AuthUser>>(
+      "/auth/login",
+      credentials,
+    );
     setUser(session.data);
     setRequiresSetup(false);
   }
@@ -69,7 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, requiresSetup, login, setup, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, requiresSetup, login, setup, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

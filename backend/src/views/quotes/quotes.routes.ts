@@ -29,7 +29,11 @@ const createQuoteSchema = z
           .object({
             productId: z.uuid(),
             description: z
-              .union([z.string().trim().min(1).max(500), z.literal(""), z.null()])
+              .union([
+                z.string().trim().min(1).max(500),
+                z.literal(""),
+                z.null(),
+              ])
               .transform((value) => value || null)
               .optional(),
             quantity: z.coerce.number().positive(),

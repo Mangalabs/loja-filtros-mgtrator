@@ -25,16 +25,23 @@ export function useCatalogData() {
   const [clients, setClients] = useState<Client[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
-  const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([]);
+  const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>(
+    [],
+  );
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [cashRegister, setCashRegister] = useState<CashRegisterSession | null>(null);
-  const [reportsOverview, setReportsOverview] = useState<ReportsOverview | null>(null);
+  const [cashRegister, setCashRegister] = useState<CashRegisterSession | null>(
+    null,
+  );
+  const [reportsOverview, setReportsOverview] =
+    useState<ReportsOverview | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [shippingOrders, setShippingOrders] = useState<ShippingOrder[]>([]);
-  const [pickupReservations, setPickupReservations] = useState<PickupReservation[]>([]);
+  const [pickupReservations, setPickupReservations] = useState<
+    PickupReservation[]
+  >([]);
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -60,24 +67,23 @@ export function useCatalogData() {
         salesResult,
         shippingOrdersResult,
         pickupReservationsResult,
-      ] =
-        await Promise.all([
-          apiGet<ApiResult<Product[]>>("/products"),
-          apiGet<ApiResult<NamedEntity[]>>("/brands"),
-          apiGet<ApiResult<Client[]>>("/clients"),
-          apiGet<ApiResult<Supplier[]>>("/suppliers"),
-          apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
-          apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments"),
-          apiGet<ApiResult<StockMovement[]>>("/stock-movements"),
-          apiGet<ApiResult<Product[]>>("/products/low-stock"),
-          apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
-          apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
-          apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
-          apiGet<ApiResult<Quote[]>>("/quotes"),
-          apiGet<ApiResult<Sale[]>>("/sales"),
-          apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
-          apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
-        ]);
+      ] = await Promise.all([
+        apiGet<ApiResult<Product[]>>("/products"),
+        apiGet<ApiResult<NamedEntity[]>>("/brands"),
+        apiGet<ApiResult<Client[]>>("/clients"),
+        apiGet<ApiResult<Supplier[]>>("/suppliers"),
+        apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
+        apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments"),
+        apiGet<ApiResult<StockMovement[]>>("/stock-movements"),
+        apiGet<ApiResult<Product[]>>("/products/low-stock"),
+        apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
+        apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
+        apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+        apiGet<ApiResult<Quote[]>>("/quotes"),
+        apiGet<ApiResult<Sale[]>>("/sales"),
+        apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
+        apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
+      ]);
 
       setProducts(productsResult.data);
       setBrands(brandsResult.data);
@@ -113,7 +119,13 @@ export function useCatalogData() {
     }
 
     return products.filter((product) => {
-      return [product.name, product.internalCode, product.barcode, product.brandName, product.location]
+      return [
+        product.name,
+        product.internalCode,
+        product.barcode,
+        product.brandName,
+        product.location,
+      ]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(term));
     });

@@ -3,7 +3,12 @@ import { ZodError } from "zod";
 import { isDatabaseError } from "../database/database-error.js";
 import { AppError } from "../errors/app-error.js";
 
-export const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
+export const errorHandler: ErrorRequestHandler = (
+  error,
+  _request,
+  response,
+  _next,
+) => {
   if (error instanceof AppError) {
     response.status(error.statusCode).json({
       code: error.statusCode,
@@ -66,12 +71,15 @@ function getUniqueConstraintMessage(constraint?: string) {
   const messages: Record<string, string> = {
     brands_name_unique: "Ja existe um fabricante com esse nome.",
     product_groups_name_unique: "Ja existe um grupo de produto com esse nome.",
-    products_barcode_unique_not_empty: "Ja existe um produto com esse codigo de barras.",
+    products_barcode_unique_not_empty:
+      "Ja existe um produto com esse codigo de barras.",
     users_email_unique: "Ja existe um usuario com esse email.",
     cash_register_sessions_one_open_unique: "Ja existe um caixa aberto.",
   };
 
-  return constraint ? messages[constraint] ?? "Registro duplicado." : "Registro duplicado.";
+  return constraint
+    ? (messages[constraint] ?? "Registro duplicado.")
+    : "Registro duplicado.";
 }
 
 function getForeignKeyConstraintMessage(constraint?: string) {
@@ -79,12 +87,13 @@ function getForeignKeyConstraintMessage(constraint?: string) {
     products_brand_id_foreign: "Fabricante informado nao encontrado.",
     products_group_id_foreign: "Grupo de produto informado nao encontrado.",
     product_suppliers_product_id_foreign: "Produto informado nao encontrado.",
-    product_suppliers_supplier_id_foreign: "Fornecedor informado nao encontrado.",
+    product_suppliers_supplier_id_foreign:
+      "Fornecedor informado nao encontrado.",
     stock_movements_product_id_foreign: "Produto informado nao encontrado.",
     stock_movements_supplier_id_foreign: "Fornecedor informado nao encontrado.",
   };
 
   return constraint
-    ? messages[constraint] ?? "Registro relacionado nao encontrado."
+    ? (messages[constraint] ?? "Registro relacionado nao encontrado.")
     : "Registro relacionado nao encontrado.";
 }

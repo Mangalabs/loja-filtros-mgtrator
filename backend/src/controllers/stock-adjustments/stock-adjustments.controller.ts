@@ -18,7 +18,10 @@ export async function indexStockAdjustments() {
   };
 }
 
-export async function storeStockAdjustment(input: StockAdjustmentInput, createdByUserId: string) {
+export async function storeStockAdjustment(
+  input: StockAdjustmentInput,
+  createdByUserId: string,
+) {
   const adjustment = await db.transaction(async (transaction) => {
     const product = await lockProductStock(transaction, input.productId);
 
@@ -30,11 +33,21 @@ export async function storeStockAdjustment(input: StockAdjustmentInput, createdB
       throw new AppError("Ajuste nao pode resultar em estoque negativo.", 422);
     }
 
-    if (Number(product.currentStock) + input.quantity < Number(product.reservedStock)) {
-      throw new AppError("Ajuste nao pode retirar quantidade reservada para separacao.", 422);
+    if (
+      Number(product.currentStock) + input.quantity <
+      Number(product.reservedStock)
+    ) {
+      throw new AppError(
+        "Ajuste nao pode retirar quantidade reservada para separacao.",
+        422,
+      );
     }
 
-    const created = await insertStockAdjustment(transaction, input, createdByUserId);
+    const created = await insertStockAdjustment(
+      transaction,
+      input,
+      createdByUserId,
+    );
     await applyStockAdjustment(transaction, input);
 
     return created;

@@ -1,4 +1,7 @@
-import { createUser, type UserCreateInput } from "../../models/users/users.model.js";
+import {
+  createUser,
+  type UserCreateInput,
+} from "../../models/users/users.model.js";
 import { hashPassword } from "../../shared/auth/password.js";
 
 export type StoreUserInput = Omit<UserCreateInput, "passwordHash"> & {

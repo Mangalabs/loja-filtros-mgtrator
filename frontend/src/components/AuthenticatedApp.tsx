@@ -14,11 +14,18 @@ import { AppViewRenderer } from "./AppViewRenderer";
 import { AppWorkspaceHeader } from "./AppWorkspaceHeader";
 import { AppMessage, ConfirmationDialog } from "./shell";
 
-export function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+export function AuthenticatedApp({
+  user,
+  onLogout,
+}: {
+  user: AuthUser;
+  onLogout: () => void;
+}) {
   const [view, setView] = useState<View>("products");
   const [selectedProduct, setSelectedProduct] = useState<Product>();
   const [selectedClient, setSelectedClient] = useState<Client>();
-  const { closeConfirmation, confirmation, requestConfirmation } = useConfirmation();
+  const { closeConfirmation, confirmation, requestConfirmation } =
+    useConfirmation();
   const {
     brands,
     cashRegister,
@@ -60,7 +67,11 @@ export function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout:
 
   const stockActions = useStockActions({ loadCatalog, runAction });
 
-  const financeActions = useFinanceActions({ loadCatalog, requestConfirmation, runAction });
+  const financeActions = useFinanceActions({
+    loadCatalog,
+    requestConfirmation,
+    runAction,
+  });
 
   const quoteActions = useQuoteActions({
     loadCatalog,
@@ -69,7 +80,11 @@ export function AuthenticatedApp({ user, onLogout }: { user: AuthUser; onLogout:
     showShippingOrders: () => setView("shipping-orders"),
   });
 
-  const salesActions = useSalesActions({ loadCatalog, requestConfirmation, runAction });
+  const salesActions = useSalesActions({
+    loadCatalog,
+    requestConfirmation,
+    runAction,
+  });
 
   const activeTitle = viewTitles[view];
 

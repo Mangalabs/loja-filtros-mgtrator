@@ -19,7 +19,9 @@ export type SetupInput = CredentialsInput & {
   phone?: string | null;
 };
 
-const dummyPasswordHash = hashPassword("timing-check-password-not-used-for-login");
+const dummyPasswordHash = hashPassword(
+  "timing-check-password-not-used-for-login",
+);
 
 export async function showSetupStatus() {
   return {
@@ -35,7 +37,9 @@ export async function setupInitialUser(input: SetupInput) {
   const passwordHash = await hashPassword(input.password);
 
   const user = await db.transaction(async (transaction) => {
-    await transaction.raw("select pg_advisory_xact_lock(hashtext('users-bootstrap'))");
+    await transaction.raw(
+      "select pg_advisory_xact_lock(hashtext('users-bootstrap'))",
+    );
 
     if (await hasUsers(transaction)) {
       throw new AppError("Configuracao inicial ja foi concluida.", 403);

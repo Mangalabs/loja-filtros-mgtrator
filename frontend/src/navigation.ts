@@ -71,12 +71,17 @@ export function readInitialOpenNavSections() {
   }
 
   try {
-    const parsedValue = JSON.parse(storedValue) as Partial<Record<NavSectionKey, boolean>>;
+    const parsedValue = JSON.parse(storedValue) as Partial<
+      Record<NavSectionKey, boolean>
+    >;
 
     return (Object.keys(initialOpenNavSections) as NavSectionKey[]).reduce(
       (sections, section) => ({
         ...sections,
-        [section]: typeof parsedValue[section] === "boolean" ? parsedValue[section] : sections[section],
+        [section]:
+          typeof parsedValue[section] === "boolean"
+            ? parsedValue[section]
+            : sections[section],
       }),
       { ...initialOpenNavSections },
     );
@@ -85,73 +90,84 @@ export function readInitialOpenNavSections() {
   }
 }
 
-export const viewTitles: Record<View, { title: string; description: string }> = {
-  products: {
-    title: "Produtos",
-    description: "Consulte e acompanhe o catalogo da filial.",
-  },
-  "new-product": {
-    title: "Novo produto",
-    description: "Cadastre filtros com codigos, fabricante, locacao e dados fiscais.",
-  },
-  "edit-product": {
-    title: "Editar produto",
-    description: "Atualize os dados cadastrais do produto selecionado.",
-  },
-  "stock-entries": {
-    title: "Entrada de mercadoria",
-    description: "Registre produtos recebidos e atualize o estoque da filial.",
-  },
-  "stock-adjustments": {
-    title: "Ajuste de estoque",
-    description: "Corrija divergencias de saldo com motivo registrado.",
-  },
-  "stock-movements": {
-    title: "Historico de estoque",
-    description: "Acompanhe entradas e ajustes que alteraram o saldo da filial.",
-  },
-  "low-stock": {
-    title: "Reposicao",
-    description: "Consulte produtos ativos que atingiram o estoque minimo.",
-  },
-  "payment-methods": {
-    title: "Formas de pagamento",
-    description: "Configure as formas disponiveis para o futuro fechamento de vendas.",
-  },
-  "cash-register": {
-    title: "Caixa",
-    description: "Abra o caixa da filial antes de iniciar operacoes de venda.",
-  },
-  reports: {
-    title: "Relatorios",
-    description: "Acompanhe indicadores operacionais e pendencias da filial.",
-  },
-  quotes: {
-    title: "Orcamentos",
-    description: "Monte orcamentos com cliente, multiplos produtos e valores personalizados.",
-  },
-  sales: {
-    title: "Venda de balcao",
-    description: "Registre a venda imediata de um produto com baixa de estoque.",
-  },
-  "shipping-orders": {
-    title: "Pedidos para envio",
-    description: "Registre orcamentos aprovados pelo cliente e separe os produtos para envio.",
-  },
-  "pickup-reservations": {
-    title: "Reservas para retirada",
-    description: "Reserve produtos para clientes retirarem na loja e conclua a venda no caixa.",
-  },
-  brands: {
-    title: "Fabricantes",
-    description: "Cadastre os fabricantes usados no catalogo de produtos.",
-  },
-  clients: {
-    title: "Clientes",
-    description: "Cadastre clientes para reservas e futuros documentos fiscais.",
-  },
-  suppliers: {
-    title: "Fornecedores",
-    description: "Mantenha fornecedores disponiveis para compras e produtos.",
-  },
-};
+export const viewTitles: Record<View, { title: string; description: string }> =
+  {
+    products: {
+      title: "Produtos",
+      description: "Consulte e acompanhe o catalogo da filial.",
+    },
+    "new-product": {
+      title: "Novo produto",
+      description:
+        "Cadastre filtros com codigos, fabricante, locacao e dados fiscais.",
+    },
+    "edit-product": {
+      title: "Editar produto",
+      description: "Atualize os dados cadastrais do produto selecionado.",
+    },
+    "stock-entries": {
+      title: "Entrada de mercadoria",
+      description:
+        "Registre produtos recebidos e atualize o estoque da filial.",
+    },
+    "stock-adjustments": {
+      title: "Ajuste de estoque",
+      description: "Corrija divergencias de saldo com motivo registrado.",
+    },
+    "stock-movements": {
+      title: "Historico de estoque",
+      description:
+        "Acompanhe entradas e ajustes que alteraram o saldo da filial.",
+    },
+    "low-stock": {
+      title: "Reposicao",
+      description: "Consulte produtos ativos que atingiram o estoque minimo.",
+    },
+    "payment-methods": {
+      title: "Formas de pagamento",
+      description:
+        "Configure as formas disponiveis para o futuro fechamento de vendas.",
+    },
+    "cash-register": {
+      title: "Caixa",
+      description:
+        "Abra o caixa da filial antes de iniciar operacoes de venda.",
+    },
+    reports: {
+      title: "Relatorios",
+      description: "Acompanhe indicadores operacionais e pendencias da filial.",
+    },
+    quotes: {
+      title: "Orcamentos",
+      description:
+        "Monte orcamentos com cliente, multiplos produtos e valores personalizados.",
+    },
+    sales: {
+      title: "Venda de balcao",
+      description:
+        "Registre a venda imediata de um produto com baixa de estoque.",
+    },
+    "shipping-orders": {
+      title: "Pedidos para envio",
+      description:
+        "Registre orcamentos aprovados pelo cliente e separe os produtos para envio.",
+    },
+    "pickup-reservations": {
+      title: "Reservas para retirada",
+      description:
+        "Reserve produtos para clientes retirarem na loja e conclua a venda no caixa.",
+    },
+    brands: {
+      title: "Fabricantes",
+      description: "Cadastre os fabricantes usados no catalogo de produtos.",
+    },
+    clients: {
+      title: "Clientes",
+      description:
+        "Cadastre clientes para reservas e futuros documentos fiscais.",
+    },
+    suppliers: {
+      title: "Fornecedores",
+      description: "Mantenha fornecedores disponiveis para compras e produtos.",
+    },
+  };

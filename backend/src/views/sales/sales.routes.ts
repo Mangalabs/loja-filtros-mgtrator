@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
-import { indexSales, storeSale } from "../../controllers/sales/sales.controller.js";
+import {
+  indexSales,
+  storeSale,
+} from "../../controllers/sales/sales.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const salesRoutes = Router();

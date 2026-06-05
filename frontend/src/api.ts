@@ -229,7 +229,13 @@ export type Quote = {
   cancelledAt: string | null;
   cancellationReason: string | null;
   shippingOrderId: string | null;
-  shippingOrderStatus: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED" | null;
+  shippingOrderStatus:
+    | "QUOTED"
+    | "APPROVED"
+    | "SEPARATED"
+    | "CANCELLED"
+    | "COMPLETED"
+    | null;
   createdByUserName: string;
   createdByUserEmail: string;
   createdByUserPhone: string | null;
@@ -270,7 +276,11 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return apiWrite<T>(path, "PATCH", body);
 }
 
-async function apiWrite<T>(path: string, method: "POST" | "PUT" | "PATCH", body: unknown): Promise<T> {
+async function apiWrite<T>(
+  path: string,
+  method: "POST" | "PUT" | "PATCH",
+  body: unknown,
+): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method,
     credentials: "same-origin",

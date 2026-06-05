@@ -43,32 +43,50 @@ shippingOrdersRoutes.post("/shipping-orders", async (request, response) => {
   response.status(201).json(await storeShippingOrder(body, userId));
 });
 
-shippingOrdersRoutes.patch("/shipping-orders/:id/approve", async (request, response) => {
-  const { id } = shippingOrderParamsSchema.parse(request.params);
-  const userId = response.locals.authenticatedUser.id as string;
+shippingOrdersRoutes.patch(
+  "/shipping-orders/:id/approve",
+  async (request, response) => {
+    const { id } = shippingOrderParamsSchema.parse(request.params);
+    const userId = response.locals.authenticatedUser.id as string;
 
-  response.status(200).json(await approveQuotedShippingOrder(id, userId));
-});
+    response.status(200).json(await approveQuotedShippingOrder(id, userId));
+  },
+);
 
-shippingOrdersRoutes.patch("/shipping-orders/:id/cancel", async (request, response) => {
-  const { id } = shippingOrderParamsSchema.parse(request.params);
-  const body = validateBody(request, cancelShippingOrderSchema);
-  const userId = response.locals.authenticatedUser.id as string;
+shippingOrdersRoutes.patch(
+  "/shipping-orders/:id/cancel",
+  async (request, response) => {
+    const { id } = shippingOrderParamsSchema.parse(request.params);
+    const body = validateBody(request, cancelShippingOrderSchema);
+    const userId = response.locals.authenticatedUser.id as string;
 
-  response.status(200).json(await cancelOpenShippingOrder(id, body.reason, userId));
-});
+    response
+      .status(200)
+      .json(await cancelOpenShippingOrder(id, body.reason, userId));
+  },
+);
 
-shippingOrdersRoutes.patch("/shipping-orders/:id/separate", async (request, response) => {
-  const { id } = shippingOrderParamsSchema.parse(request.params);
-  const userId = response.locals.authenticatedUser.id as string;
+shippingOrdersRoutes.patch(
+  "/shipping-orders/:id/separate",
+  async (request, response) => {
+    const { id } = shippingOrderParamsSchema.parse(request.params);
+    const userId = response.locals.authenticatedUser.id as string;
 
-  response.status(200).json(await confirmShippingOrderSeparation(id, userId));
-});
+    response.status(200).json(await confirmShippingOrderSeparation(id, userId));
+  },
+);
 
-shippingOrdersRoutes.patch("/shipping-orders/:id/complete", async (request, response) => {
-  const { id } = shippingOrderParamsSchema.parse(request.params);
-  const body = validateBody(request, completeShippingOrderSchema);
-  const userId = response.locals.authenticatedUser.id as string;
+shippingOrdersRoutes.patch(
+  "/shipping-orders/:id/complete",
+  async (request, response) => {
+    const { id } = shippingOrderParamsSchema.parse(request.params);
+    const body = validateBody(request, completeShippingOrderSchema);
+    const userId = response.locals.authenticatedUser.id as string;
 
-  response.status(200).json(await completeSeparatedShippingOrder(id, body.paymentMethodId, userId));
-});
+    response
+      .status(200)
+      .json(
+        await completeSeparatedShippingOrder(id, body.paymentMethodId, userId),
+      );
+  },
+);

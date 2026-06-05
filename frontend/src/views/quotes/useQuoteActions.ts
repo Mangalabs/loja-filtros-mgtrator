@@ -1,13 +1,17 @@
-import type { FormEvent } from "react";
-import { apiPatch, apiPost, type Quote } from "../../api";
-import type { QuoteDraftInput } from "./QuotesPage";
+import type { FormEvent } from 'react'
+import { apiPatch, apiPost, type Quote } from '../../api'
+import type { QuoteDraftInput } from './QuotesPage'
 
 type QuoteActionsOptions = {
-  loadCatalog: () => Promise<void>;
-  requestConfirmation: (message: string, title?: string, confirmLabel?: string) => Promise<boolean>;
-  runAction: (action: () => Promise<void>) => Promise<boolean>;
-  showShippingOrders: () => void;
-};
+  loadCatalog: () => Promise<void>
+  requestConfirmation: (
+    message: string,
+    title?: string,
+    confirmLabel?: string,
+  ) => Promise<boolean>
+  runAction: (action: () => Promise<void>) => Promise<boolean>
+  showShippingOrders: () => void
+}
 
 export function useQuoteActions({
   loadCatalog,
@@ -17,55 +21,55 @@ export function useQuoteActions({
 }: QuoteActionsOptions) {
   async function createQuote(input: QuoteDraftInput) {
     return runAction(async () => {
-      await apiPost("/quotes", input);
-      await loadCatalog();
-    });
+      await apiPost('/quotes', input)
+      await loadCatalog()
+    })
   }
 
   async function createShippingOrderFromQuote(quote: Quote) {
     const confirmed = await requestConfirmation(
       `Enviar o orcamento de ${quote.clientName} para a fila de pedidos para envio?`,
-      "Enviar para envio?",
-      "Enviar para envio",
-    );
+      'Enviar para envio?',
+      'Enviar para envio',
+    )
 
     if (!confirmed) {
-      return;
+      return
     }
 
     await runAction(async () => {
-      await apiPost(`/quotes/${quote.id}/shipping-order`, {});
-      await loadCatalog();
-      showShippingOrders();
-    });
+      await apiPost(`/quotes/${quote.id}/shipping-order`, {})
+      await loadCatalog()
+      showShippingOrders()
+    })
   }
 
   async function cancelQuote(event: FormEvent<HTMLFormElement>, quote: Quote) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
+    event.preventDefault()
+    const formElement = event.currentTarget
     const confirmed = await requestConfirmation(
       `Cancelar o orcamento de ${quote.clientName}?`,
-      "Cancelar orcamento?",
-      "Cancelar orcamento",
-    );
+      'Cancelar orcamento?',
+      'Cancelar orcamento',
+    )
 
     if (!confirmed) {
-      return;
+      return
     }
 
-    const form = new FormData(formElement);
+    const form = new FormData(formElement)
 
     await runAction(async () => {
       await apiPatch(`/quotes/${quote.id}/cancel`, {
-        reason: String(form.get("quoteCancellationReason") ?? "").trim(),
-      });
-      await loadCatalog();
-    });
+        reason: String(form.get('quoteCancellationReason') ?? '').trim(),
+      })
+      await loadCatalog()
+    })
   }
 
   return {
     cancelQuote,
     createQuote,
     createShippingOrderFromQuote,
-  };
+  }
 }

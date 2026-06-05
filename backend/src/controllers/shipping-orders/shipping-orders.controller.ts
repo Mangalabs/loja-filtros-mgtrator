@@ -27,7 +27,10 @@ export async function indexShippingOrders() {
   };
 }
 
-export async function storeShippingOrder(input: ShippingOrderInput, createdByUserId: string) {
+export async function storeShippingOrder(
+  input: ShippingOrderInput,
+  createdByUserId: string,
+) {
   const order = await db.transaction(async (transaction) => {
     if (!(await activeShippingClientExists(transaction, input.clientId))) {
       throw new AppError("Cliente informado nao disponivel.", 422);
@@ -36,17 +39,29 @@ export async function storeShippingOrder(input: ShippingOrderInput, createdByUse
     const product = await lockReservableProduct(transaction, input.productId);
 
     if (!product || !product.active) {
-      throw new AppError("Produto informado nao disponivel para orcamento.", 422);
+      throw new AppError(
+        "Produto informado nao disponivel para orcamento.",
+        422,
+      );
     }
 
-    if (Number(product.currentStock) - Number(product.reservedStock) < input.quantity) {
+    if (
+      Number(product.currentStock) - Number(product.reservedStock) <
+      input.quantity
+    ) {
       throw new AppError("Quantidade indisponivel para este orcamento.", 422);
     }
 
     const unitPrice = Number(product.salePrice);
     const totalAmount = Number((unitPrice * input.quantity).toFixed(2));
 
-    return insertShippingOrder(transaction, input, createdByUserId, unitPrice, totalAmount);
+    return insertShippingOrder(
+      transaction,
+      input,
+      createdByUserId,
+      unitPrice,
+      totalAmount,
+    );
   });
 
   return {
@@ -56,7 +71,10 @@ export async function storeShippingOrder(input: ShippingOrderInput, createdByUse
   };
 }
 
-export async function approveQuotedShippingOrder(id: string, approvedByUserId: string) {
+export async function approveQuotedShippingOrder(
+  id: string,
+  approvedByUserId: string,
+) {
   const order = await db.transaction(async (transaction) => {
     const quotedOrder = await lockShippingOrder(transaction, id);
 
@@ -65,7 +83,10 @@ export async function approveQuotedShippingOrder(id: string, approvedByUserId: s
     }
 
     if (quotedOrder.status === "CANCELLED") {
-      throw new AppError("Pedido cancelado nao pode ser aprovado para separacao.", 409);
+      throw new AppError(
+        "Pedido cancelado nao pode ser aprovado para separacao.",
+        409,
+      );
     }
 
     if (quotedOrder.status === "APPROVED") {
@@ -86,15 +107,29 @@ export async function approveQuotedShippingOrder(id: string, approvedByUserId: s
       const product = await lockReservableProduct(transaction, item.productId);
 
       if (!product || !product.active) {
-        throw new AppError("Produto informado nao disponivel para separacao.", 422);
+        throw new AppError(
+          "Produto informado nao disponivel para separacao.",
+          422,
+        );
       }
 
-      if (Number(product.currentStock) - Number(product.reservedStock) < item.quantity) {
-        throw new AppError("Estoque insuficiente para separar este pedido.", 422);
+      if (
+        Number(product.currentStock) - Number(product.reservedStock) <
+        item.quantity
+      ) {
+        throw new AppError(
+          "Estoque insuficiente para separar este pedido.",
+          422,
+        );
       }
     }
 
-    return approveShippingOrder(transaction, id, reservedItems, approvedByUserId);
+    return approveShippingOrder(
+      transaction,
+      id,
+      reservedItems,
+      approvedByUserId,
+    );
   });
 
   return {
@@ -104,7 +139,11 @@ export async function approveQuotedShippingOrder(id: string, approvedByUserId: s
   };
 }
 
-export async function cancelOpenShippingOrder(id: string, reason: string, cancelledByUserId: string) {
+export async function cancelOpenShippingOrder(
+  id: string,
+  reason: string,
+  cancelledByUserId: string,
+) {
   const order = await db.transaction(async (transaction) => {
     const currentOrder = await lockShippingOrder(transaction, id);
 
@@ -117,12 +156,18 @@ export async function cancelOpenShippingOrder(id: string, reason: string, cancel
     }
 
     if (currentOrder.status === "COMPLETED") {
-      throw new AppError("Venda concluida nao pode ser cancelada por este fluxo.", 409);
+      throw new AppError(
+        "Venda concluida nao pode ser cancelada por este fluxo.",
+        409,
+      );
     }
 
     const reservedItems = aggregateShippingItems(currentOrder.items);
 
-    if (currentOrder.status === "APPROVED" || currentOrder.status === "SEPARATED") {
+    if (
+      currentOrder.status === "APPROVED" ||
+      currentOrder.status === "SEPARATED"
+    ) {
       for (const item of reservedItems) {
         await lockReservableProduct(transaction, item.productId);
       }
@@ -145,7 +190,10 @@ export async function cancelOpenShippingOrder(id: string, reason: string, cancel
   };
 }
 
-export async function confirmShippingOrderSeparation(id: string, separatedByUserId: string) {
+export async function confirmShippingOrderSeparation(
+  id: string,
+  separatedByUserId: string,
+) {
   const order = await db.transaction(async (transaction) => {
     const currentOrder = await lockShippingOrder(transaction, id);
 
@@ -154,7 +202,10 @@ export async function confirmShippingOrderSeparation(id: string, separatedByUser
     }
 
     if (currentOrder.status === "QUOTED") {
-      throw new AppError("Aprove o orcamento antes de confirmar a separacao.", 409);
+      throw new AppError(
+        "Aprove o orcamento antes de confirmar a separacao.",
+        409,
+      );
     }
 
     if (currentOrder.status === "CANCELLED") {
@@ -192,13 +243,19 @@ export async function completeSeparatedShippingOrder(
     }
 
     if (currentOrder.status !== "SEPARATED") {
-      throw new AppError("Confirme a separacao antes de concluir a venda para envio.", 409);
+      throw new AppError(
+        "Confirme a separacao antes de concluir a venda para envio.",
+        409,
+      );
     }
 
     const cashRegister = await findOpenCashRegister(transaction);
 
     if (!cashRegister) {
-      throw new AppError("Abra o caixa antes de concluir a venda para envio.", 422);
+      throw new AppError(
+        "Abra o caixa antes de concluir a venda para envio.",
+        422,
+      );
     }
 
     if (!(await activePaymentMethodExists(transaction, paymentMethodId))) {
@@ -210,13 +267,24 @@ export async function completeSeparatedShippingOrder(
     for (const item of reservedItems) {
       const product = await lockReservableProduct(transaction, item.productId);
 
-      if (!product || Number(product.reservedStock) < item.quantity || Number(product.currentStock) < item.quantity) {
-        throw new AppError("Reserva insuficiente para concluir esta venda.", 422);
+      if (
+        !product ||
+        Number(product.reservedStock) < item.quantity ||
+        Number(product.currentStock) < item.quantity
+      ) {
+        throw new AppError(
+          "Reserva insuficiente para concluir esta venda.",
+          422,
+        );
       }
     }
 
     for (const item of reservedItems) {
-      await releaseShippingOrderReservation(transaction, item.productId, item.quantity);
+      await releaseShippingOrderReservation(
+        transaction,
+        item.productId,
+        item.quantity,
+      );
     }
 
     const sale = await insertSale(
@@ -251,20 +319,27 @@ export async function completeSeparatedShippingOrder(
   };
 }
 
-function aggregateShippingItems(items: Array<{ productId: string; quantity: string }>) {
-  return items.reduce<Array<{ productId: string; quantity: number }>>((aggregatedItems, item) => {
-    const existing = aggregatedItems.find((currentItem) => currentItem.productId === item.productId);
+function aggregateShippingItems(
+  items: Array<{ productId: string; quantity: string }>,
+) {
+  return items.reduce<Array<{ productId: string; quantity: number }>>(
+    (aggregatedItems, item) => {
+      const existing = aggregatedItems.find(
+        (currentItem) => currentItem.productId === item.productId,
+      );
 
-    if (existing) {
-      existing.quantity += Number(item.quantity);
+      if (existing) {
+        existing.quantity += Number(item.quantity);
+        return aggregatedItems;
+      }
+
+      aggregatedItems.push({
+        productId: item.productId,
+        quantity: Number(item.quantity),
+      });
+
       return aggregatedItems;
-    }
-
-    aggregatedItems.push({
-      productId: item.productId,
-      quantity: Number(item.quantity),
-    });
-
-    return aggregatedItems;
-  }, []);
+    },
+    [],
+  );
 }

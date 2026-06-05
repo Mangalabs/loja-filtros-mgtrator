@@ -44,11 +44,20 @@ const authStateStrategies: AuthStateStrategy[] = [
   },
 ];
 
-const authStateRenderers: Record<AuthGateState, (props: AuthGateProps) => ReactNode> = {
+const authStateRenderers: Record<
+  AuthGateState,
+  (props: AuthGateProps) => ReactNode
+> = {
   anonymous: ({ onLogin, onSetup, requiresSetup }) => (
-    <LoginPage requiresSetup={requiresSetup} onLogin={onLogin} onSetup={onSetup} />
+    <LoginPage
+      requiresSetup={requiresSetup}
+      onLogin={onLogin}
+      onSetup={onSetup}
+    />
   ),
-  authenticated: ({ onLogout, user }) => <AuthenticatedApp user={user!} onLogout={onLogout} />,
+  authenticated: ({ onLogout, user }) => (
+    <AuthenticatedApp user={user!} onLogout={onLogout} />
+  ),
   loading: () => <div className="auth-loading">Validando sessao...</div>,
 };
 
@@ -58,5 +67,8 @@ export function AuthGate(props: AuthGateProps) {
 }
 
 function resolveAuthState(props: AuthGateProps) {
-  return authStateStrategies.find((strategy) => strategy.matches(props))?.state ?? "anonymous";
+  return (
+    authStateStrategies.find((strategy) => strategy.matches(props))?.state ??
+    "anonymous"
+  );
 }

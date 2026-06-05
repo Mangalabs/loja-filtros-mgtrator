@@ -98,7 +98,10 @@ type LockedPickupReservation = {
 };
 
 export async function listPickupReservations(): Promise<PickupReservation[]> {
-  const reservations = await pickupReservationQuery(db).orderBy("pickup_reservations.created_at", "desc");
+  const reservations = await pickupReservationQuery(db).orderBy(
+    "pickup_reservations.created_at",
+    "desc",
+  );
   return withPickupReservationItems(db, reservations);
 }
 
@@ -106,7 +109,10 @@ export async function activePickupClientExists(
   transaction: Knex.Transaction,
   clientId: string,
 ): Promise<boolean> {
-  const client = await transaction("clients").select("id").where({ id: clientId, active: true }).first();
+  const client = await transaction("clients")
+    .select("id")
+    .where({ id: clientId, active: true })
+    .first();
 
   return Boolean(client);
 }
@@ -264,20 +270,28 @@ async function findPickupReservation(
   transaction: Knex.Transaction,
   id: string,
 ): Promise<PickupReservation> {
-  const reservation = await pickupReservationQuery(transaction).where("pickup_reservations.id", id).first();
+  const reservation = await pickupReservationQuery(transaction)
+    .where("pickup_reservations.id", id)
+    .first();
 
   if (!reservation) {
     throw new Error("Pickup reservation was not found after operation");
   }
 
-  const [withItems] = await withPickupReservationItems(transaction, [reservation]);
+  const [withItems] = await withPickupReservationItems(transaction, [
+    reservation,
+  ]);
   return withItems;
 }
 
 function pickupReservationQuery(database: Knex | Knex.Transaction) {
   return database("pickup_reservations")
     .join("clients", "clients.id", "pickup_reservations.client_id")
-    .join({ created_users: "users" }, "created_users.id", "pickup_reservations.created_by_user_id")
+    .join(
+      { created_users: "users" },
+      "created_users.id",
+      "pickup_reservations.created_by_user_id",
+    )
     .select<PickupReservationRow[]>(pickupReservationColumns);
 }
 
@@ -313,20 +327,27 @@ async function withPickupReservationItems(
   });
 }
 
-function aggregateReservationItems(items: Array<{ productId: string; quantity: number }>) {
-  return items.reduce<Array<{ productId: string; quantity: number }>>((aggregatedItems, item) => {
-    const existing = aggregatedItems.find((currentItem) => currentItem.productId === item.productId);
+function aggregateReservationItems(
+  items: Array<{ productId: string; quantity: number }>,
+) {
+  return items.reduce<Array<{ productId: string; quantity: number }>>(
+    (aggregatedItems, item) => {
+      const existing = aggregatedItems.find(
+        (currentItem) => currentItem.productId === item.productId,
+      );
 
-    if (existing) {
-      existing.quantity += item.quantity;
+      if (existing) {
+        existing.quantity += item.quantity;
+        return aggregatedItems;
+      }
+
+      aggregatedItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+      });
+
       return aggregatedItems;
-    }
-
-    aggregatedItems.push({
-      productId: item.productId,
-      quantity: item.quantity,
-    });
-
-    return aggregatedItems;
-  }, []);
+    },
+    [],
+  );
 }

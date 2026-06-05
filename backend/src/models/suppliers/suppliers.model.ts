@@ -22,7 +22,9 @@ export type SupplierCreateInput = {
   active?: boolean;
 };
 
-export async function listSuppliers(filters: SupplierListFilters): Promise<Supplier[]> {
+export async function listSuppliers(
+  filters: SupplierListFilters,
+): Promise<Supplier[]> {
   return db("suppliers")
     .select(["id", "name", "document", "email", "phone", "active"])
     .modify((query) => {
@@ -41,7 +43,9 @@ export async function listSuppliers(filters: SupplierListFilters): Promise<Suppl
     .orderBy("name", "asc");
 }
 
-export async function createSupplier(input: SupplierCreateInput): Promise<Supplier> {
+export async function createSupplier(
+  input: SupplierCreateInput,
+): Promise<Supplier> {
   const [supplier] = await db("suppliers")
     .insert({
       name: input.name,

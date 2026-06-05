@@ -10,7 +10,12 @@ export function LoginPage({
 }: {
   requiresSetup: boolean;
   onLogin: (credentials: { email: string; password: string }) => Promise<void>;
-  onSetup: (input: { name: string; email: string; phone?: string | null; password: string }) => Promise<void>;
+  onSetup: (input: {
+    name: string;
+    email: string;
+    phone?: string | null;
+    password: string;
+  }) => Promise<void>;
 }) {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -59,17 +64,43 @@ export function LoginPage({
             ? "Crie o administrador inicial para proteger a operacao."
             : "Informe seus dados para acessar o sistema."}
         </p>
-        {message ? <AppMessage kind="error" message={message} onClose={() => setMessage("")} /> : null}
+        {message ? (
+          <AppMessage
+            kind="error"
+            message={message}
+            onClose={() => setMessage("")}
+          />
+        ) : null}
         <form className="login-form" onSubmit={submit}>
-          {requiresSetup ? <input name="name" placeholder="Nome do administrador" required /> : null}
-          {requiresSetup ? <input name="phone" placeholder="Telefone/WhatsApp comercial" /> : null}
+          {requiresSetup ? (
+            <input name="name" placeholder="Nome do administrador" required />
+          ) : null}
+          {requiresSetup ? (
+            <input name="phone" placeholder="Telefone/WhatsApp comercial" />
+          ) : null}
           <input name="email" type="email" placeholder="Email" required />
-          <input name="password" type="password" minLength={12} placeholder="Senha" required />
-          <PrimaryButton icon={<ShieldCheck size={17} />} type="submit" disabled={submitting}>
-            {submitting ? "Aguarde..." : requiresSetup ? "Criar administrador" : "Entrar"}
+          <input
+            name="password"
+            type="password"
+            minLength={12}
+            placeholder="Senha"
+            required
+          />
+          <PrimaryButton
+            icon={<ShieldCheck size={17} />}
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting
+              ? "Aguarde..."
+              : requiresSetup
+                ? "Criar administrador"
+                : "Entrar"}
           </PrimaryButton>
         </form>
-        {requiresSetup ? <small>A senha deve conter pelo menos 12 caracteres.</small> : null}
+        {requiresSetup ? (
+          <small>A senha deve conter pelo menos 12 caracteres.</small>
+        ) : null}
       </section>
     </main>
   );

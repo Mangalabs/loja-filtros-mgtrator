@@ -6,8 +6,14 @@ exports.up = async function up(knex) {
     table.text("password_hash").notNullable();
     table.string("role", 20).notNullable().defaultTo("ADMIN");
     table.boolean("active").notNullable().defaultTo(true);
-    table.timestamp("created_at", { useTz: true }).notNullable().defaultTo(knex.fn.now());
-    table.timestamp("updated_at", { useTz: true }).notNullable().defaultTo(knex.fn.now());
+    table
+      .timestamp("created_at", { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
+    table
+      .timestamp("updated_at", { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
 
     table.unique(["email"]);
     table.check("role in ('ADMIN')", [], "users_role_check");

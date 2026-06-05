@@ -38,7 +38,9 @@ const sessionColumns = [
   "cash_register_sessions.closed_at as closedAt",
 ];
 
-export async function getCurrentCashRegisterSession(): Promise<CashRegisterSession | undefined> {
+export async function getCurrentCashRegisterSession(): Promise<
+  CashRegisterSession | undefined
+> {
   const session = await sessionQuery(db)
     .where("cash_register_sessions.status", "OPEN")
     .first();
@@ -92,7 +94,9 @@ export async function closeCashRegisterSession(
     closed_at: transaction.fn.now(),
   });
 
-  const session = await sessionQuery(transaction).where("cash_register_sessions.id", id).first();
+  const session = await sessionQuery(transaction)
+    .where("cash_register_sessions.id", id)
+    .first();
 
   if (!session) {
     throw new Error("Cash register session was not found after closing");
@@ -103,8 +107,16 @@ export async function closeCashRegisterSession(
 
 function sessionQuery(database: Knex | Knex.Transaction) {
   return database("cash_register_sessions")
-    .join({ opened_users: "users" }, "opened_users.id", "cash_register_sessions.opened_by_user_id")
-    .leftJoin({ closed_users: "users" }, "closed_users.id", "cash_register_sessions.closed_by_user_id")
+    .join(
+      { opened_users: "users" },
+      "opened_users.id",
+      "cash_register_sessions.opened_by_user_id",
+    )
+    .leftJoin(
+      { closed_users: "users" },
+      "closed_users.id",
+      "cash_register_sessions.closed_by_user_id",
+    )
     .select(sessionColumns);
 }
 
@@ -120,9 +132,12 @@ async function withCashRegisterTotals(
     (total, payment) => total + toCents(payment.amount),
     0,
   );
-  const expectedClosingBalanceInCents = toCents(session.openingBalance) + salesTotalInCents;
+  const expectedClosingBalanceInCents =
+    toCents(session.openingBalance) + salesTotalInCents;
   const difference =
-    session.closingBalance === null ? null : toCents(session.closingBalance) - expectedClosingBalanceInCents;
+    session.closingBalance === null
+      ? null
+      : toCents(session.closingBalance) - expectedClosingBalanceInCents;
 
   return {
     ...session,
@@ -139,16 +154,26 @@ async function listPaymentSummary(
 ): Promise<CashRegisterPaymentSummary[]> {
   return database("sale_payments")
     .join("sales", "sales.id", "sale_payments.sale_id")
-    .join("payment_methods", "payment_methods.id", "sale_payments.payment_method_id")
+    .join(
+      "payment_methods",
+      "payment_methods.id",
+      "sale_payments.payment_method_id",
+    )
     .where("sales.cash_register_session_id", cashRegisterSessionId)
-    .groupBy(["payment_methods.id", "payment_methods.name", "payment_methods.code"])
+    .groupBy([
+      "payment_methods.id",
+      "payment_methods.name",
+      "payment_methods.code",
+    ])
     .select([
       "payment_methods.id as paymentMethodId",
       "payment_methods.name as paymentMethodName",
       "payment_methods.code as paymentMethodCode",
       database.raw("sum(sale_payments.amount)::numeric(12, 2) as amount"),
     ])
-    .orderByRaw("case payment_methods.code when 'PIX' then 1 when 'DEBIT' then 2 when 'BOLETO' then 3 else 4 end")
+    .orderByRaw(
+      "case payment_methods.code when 'PIX' then 1 when 'DEBIT' then 2 when 'BOLETO' then 3 else 4 end",
+    )
     .orderBy("payment_methods.name", "asc");
 }
 

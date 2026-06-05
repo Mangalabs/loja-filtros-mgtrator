@@ -25,10 +25,13 @@ paymentMethodsRoutes.get("/payment-methods", async (request, response) => {
   response.status(200).json(result);
 });
 
-paymentMethodsRoutes.patch("/payment-methods/:id/status", async (request, response) => {
-  const { id } = paymentMethodParamsSchema.parse(request.params);
-  const body = validateBody(request, updatePaymentMethodStatusSchema);
-  const result = await changePaymentMethodStatus(id, body.active);
+paymentMethodsRoutes.patch(
+  "/payment-methods/:id/status",
+  async (request, response) => {
+    const { id } = paymentMethodParamsSchema.parse(request.params);
+    const body = validateBody(request, updatePaymentMethodStatusSchema);
+    const result = await changePaymentMethodStatus(id, body.active);
 
-  response.status(200).json(result);
-});
+    response.status(200).json(result);
+  },
+);

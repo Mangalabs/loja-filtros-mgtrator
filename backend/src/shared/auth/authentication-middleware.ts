@@ -5,8 +5,14 @@ import { verifyAuthToken, type AuthenticatedUser } from "./token.js";
 
 export const authCookieName = "auth_token";
 
-export const requireAuthentication: RequestHandler = async (request, response, next) => {
-  const token = readBearerToken(request.headers.authorization) ?? readCookieToken(request.headers.cookie);
+export const requireAuthentication: RequestHandler = async (
+  request,
+  response,
+  next,
+) => {
+  const token =
+    readBearerToken(request.headers.authorization) ??
+    readCookieToken(request.headers.cookie);
 
   if (!token) {
     next(new AppError("Autenticacao necessaria.", 401));

@@ -9,7 +9,9 @@ exports.up = async function up(knex) {
 };
 
 exports.down = async function down(knex) {
-  await knex.schema.raw("drop index if exists pickup_reservation_items_reservation_position_unique");
+  await knex.schema.raw(
+    "drop index if exists pickup_reservation_items_reservation_position_unique",
+  );
 
   await knex.schema.alterTable("pickup_reservation_items", (table) => {
     table.dropColumn("position");

@@ -52,10 +52,18 @@ export function AppSidebar({
           title="Produtos"
           onToggle={() => onToggleSection("products")}
         >
-          <NavButton active={view === "products"} icon={<ListIcon size={18} />} onClick={() => onSelectView("products")}>
+          <NavButton
+            active={view === "products"}
+            icon={<ListIcon size={18} />}
+            onClick={() => onSelectView("products")}
+          >
             Lista de produtos
           </NavButton>
-          <NavButton active={view === "new-product"} icon={<PackagePlus size={18} />} onClick={onNewProduct}>
+          <NavButton
+            active={view === "new-product"}
+            icon={<PackagePlus size={18} />}
+            onClick={onNewProduct}
+          >
             Novo produto
           </NavButton>
         </NavSection>
@@ -67,10 +75,18 @@ export function AppSidebar({
           title="Cadastros"
           onToggle={() => onToggleSection("catalog")}
         >
-          <NavButton active={view === "brands"} icon={<Tags size={18} />} onClick={() => onSelectView("brands")}>
+          <NavButton
+            active={view === "brands"}
+            icon={<Tags size={18} />}
+            onClick={() => onSelectView("brands")}
+          >
             Fabricantes
           </NavButton>
-          <NavButton active={view === "clients"} icon={<UserRound size={18} />} onClick={() => onSelectView("clients")}>
+          <NavButton
+            active={view === "clients"}
+            icon={<UserRound size={18} />}
+            onClick={() => onSelectView("clients")}
+          >
             Clientes
           </NavButton>
         </NavSection>
@@ -119,7 +135,11 @@ export function AppSidebar({
           title="Fornecedores"
           onToggle={() => onToggleSection("suppliers")}
         >
-          <NavButton active={view === "suppliers"} icon={<Truck size={18} />} onClick={() => onSelectView("suppliers")}>
+          <NavButton
+            active={view === "suppliers"}
+            icon={<Truck size={18} />}
+            onClick={() => onSelectView("suppliers")}
+          >
             Cadastro
           </NavButton>
         </NavSection>
@@ -147,7 +167,11 @@ export function AppSidebar({
           title="Caixa"
           onToggle={() => onToggleSection("cash")}
         >
-          <NavButton active={view === "cash-register"} icon={<Banknote size={18} />} onClick={() => onSelectView("cash-register")}>
+          <NavButton
+            active={view === "cash-register"}
+            icon={<Banknote size={18} />}
+            onClick={() => onSelectView("cash-register")}
+          >
             Abertura
           </NavButton>
         </NavSection>
@@ -159,7 +183,11 @@ export function AppSidebar({
           title="Relatorios"
           onToggle={() => onToggleSection("reports")}
         >
-          <NavButton active={view === "reports"} icon={<SlidersHorizontal size={18} />} onClick={() => onSelectView("reports")}>
+          <NavButton
+            active={view === "reports"}
+            icon={<SlidersHorizontal size={18} />}
+            onClick={() => onSelectView("reports")}
+          >
             Gerencial
           </NavButton>
         </NavSection>
@@ -171,13 +199,25 @@ export function AppSidebar({
           title="Vendas"
           onToggle={() => onToggleSection("sales")}
         >
-          <NavButton active={view === "quotes"} icon={<ListIcon size={18} />} onClick={() => onSelectView("quotes")}>
+          <NavButton
+            active={view === "quotes"}
+            icon={<ListIcon size={18} />}
+            onClick={() => onSelectView("quotes")}
+          >
             Orcamentos
           </NavButton>
-          <NavButton active={view === "sales"} icon={<ShoppingCart size={18} />} onClick={() => onSelectView("sales")}>
+          <NavButton
+            active={view === "sales"}
+            icon={<ShoppingCart size={18} />}
+            onClick={() => onSelectView("sales")}
+          >
             Balcao
           </NavButton>
-          <NavButton active={view === "shipping-orders"} icon={<Send size={18} />} onClick={() => onSelectView("shipping-orders")}>
+          <NavButton
+            active={view === "shipping-orders"}
+            icon={<Send size={18} />}
+            onClick={() => onSelectView("shipping-orders")}
+          >
             Para envio
           </NavButton>
           <NavButton

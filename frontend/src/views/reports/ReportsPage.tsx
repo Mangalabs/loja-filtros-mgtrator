@@ -1,10 +1,20 @@
-import { AlertTriangle, Banknote, PackagePlus, Send, ShoppingCart } from "lucide-react";
+import {
+  AlertTriangle,
+  Banknote,
+  PackagePlus,
+  Send,
+  ShoppingCart,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import type { ReportsOverview } from "../../api";
 import { StatusChip } from "../../components/ui";
 import { formatCurrency, formatDateTime } from "../../utils/format";
 
-export function ReportsPage({ overview }: { overview: ReportsOverview | null }) {
+export function ReportsPage({
+  overview,
+}: {
+  overview: ReportsOverview | null;
+}) {
   if (!overview) {
     return (
       <div className="panel wide">
@@ -36,7 +46,9 @@ export function ReportsPage({ overview }: { overview: ReportsOverview | null }) 
             </div>
             <div>
               <span>Abertura</span>
-              <strong>{formatDateTime(overview.openCashRegister.openedAt)}</strong>
+              <strong>
+                {formatDateTime(overview.openCashRegister.openedAt)}
+              </strong>
             </div>
           </div>
         ) : (
@@ -84,7 +96,15 @@ export function ReportsPage({ overview }: { overview: ReportsOverview | null }) 
   );
 }
 
-function ReportMetric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function ReportMetric({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
     <div>
       <span>

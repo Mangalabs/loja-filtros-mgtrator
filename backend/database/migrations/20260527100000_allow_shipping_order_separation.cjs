@@ -1,5 +1,7 @@
 exports.up = async function up(knex) {
-  await knex.schema.raw("alter table shipping_orders drop constraint shipping_orders_status_check");
+  await knex.schema.raw(
+    "alter table shipping_orders drop constraint shipping_orders_status_check",
+  );
   await knex.schema.alterTable("shipping_orders", (table) => {
     table
       .uuid("separated_by_user_id")
@@ -18,9 +20,15 @@ exports.up = async function up(knex) {
 };
 
 exports.down = async function down(knex) {
-  await knex.schema.raw("alter table shipping_orders drop constraint shipping_orders_separation_check");
-  await knex("shipping_orders").where("status", "SEPARATED").update({ status: "APPROVED" });
-  await knex.schema.raw("alter table shipping_orders drop constraint shipping_orders_status_check");
+  await knex.schema.raw(
+    "alter table shipping_orders drop constraint shipping_orders_separation_check",
+  );
+  await knex("shipping_orders")
+    .where("status", "SEPARATED")
+    .update({ status: "APPROVED" });
+  await knex.schema.raw(
+    "alter table shipping_orders drop constraint shipping_orders_status_check",
+  );
   await knex.schema.alterTable("shipping_orders", (table) => {
     table.dropColumn("separated_by_user_id");
     table.dropColumn("separated_at");

@@ -11,7 +11,9 @@ const testDatabaseUrl =
 const nodeEnv = process.env.NODE_ENV ?? "development";
 const jwtSecret =
   process.env.JWT_SECRET ??
-  (nodeEnv === "test" ? "loja-filtros-integration-tests-only-jwt-secret" : undefined);
+  (nodeEnv === "test"
+    ? "loja-filtros-integration-tests-only-jwt-secret"
+    : undefined);
 
 if (!jwtSecret || jwtSecret.length < 32) {
   throw new Error("JWT_SECRET must be configured with at least 32 characters.");
@@ -33,9 +35,18 @@ export const env = {
   jwtSecret,
   quotePdfStore: {
     name: envOrDefault(process.env.QUOTE_PDF_STORE_NAME, "Filtros MG"),
-    address: envOrDefault(process.env.QUOTE_PDF_STORE_ADDRESS, "Endereco da loja a configurar"),
-    city: envOrDefault(process.env.QUOTE_PDF_STORE_CITY, "Cidade/UF a configurar"),
-    document: envOrDefault(process.env.QUOTE_PDF_STORE_DOCUMENT, "Documento comercial sem valor fiscal"),
+    address: envOrDefault(
+      process.env.QUOTE_PDF_STORE_ADDRESS,
+      "Endereco da loja a configurar",
+    ),
+    city: envOrDefault(
+      process.env.QUOTE_PDF_STORE_CITY,
+      "Cidade/UF a configurar",
+    ),
+    document: envOrDefault(
+      process.env.QUOTE_PDF_STORE_DOCUMENT,
+      "Documento comercial sem valor fiscal",
+    ),
     phone: optionalEnv(process.env.QUOTE_PDF_STORE_PHONE),
     email: optionalEnv(process.env.QUOTE_PDF_STORE_EMAIL),
   },

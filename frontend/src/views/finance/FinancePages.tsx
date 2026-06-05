@@ -1,7 +1,11 @@
 import { Banknote, CreditCard, Plus, Power, PowerOff } from "lucide-react";
 import type { FormEvent } from "react";
 import type { AuthUser, CashRegisterSession, PaymentMethod } from "../../api";
-import { PrimaryButton, StatusChip, TableActionButton } from "../../components/ui";
+import {
+  PrimaryButton,
+  StatusChip,
+  TableActionButton,
+} from "../../components/ui";
 import { formatCurrency, formatDateTime } from "../../utils/format";
 
 export function PaymentMethodsPage({
@@ -16,7 +20,10 @@ export function PaymentMethodsPage({
       <div className="panel-header compact">
         <div>
           <h2>Formas configuradas</h2>
-          <span>Credito sera incluido somente depois que suas regras forem definidas.</span>
+          <span>
+            Credito sera incluido somente depois que suas regras forem
+            definidas.
+          </span>
         </div>
         <CreditCard size={18} />
       </div>
@@ -43,7 +50,13 @@ export function PaymentMethodsPage({
                 </td>
                 <td>
                   <TableActionButton
-                    icon={paymentMethod.active ? <PowerOff size={14} /> : <Power size={14} />}
+                    icon={
+                      paymentMethod.active ? (
+                        <PowerOff size={14} />
+                      ) : (
+                        <Power size={14} />
+                      )
+                    }
                     type="button"
                     onClick={() => onChangeStatus(paymentMethod)}
                   >
@@ -120,11 +133,16 @@ export function CashRegisterPage({
                 <span>{formatCurrency(payment.amount)}</span>
               </div>
             ))}
-            {session.paymentSummary.length === 0 ? <span className="empty-text">Nenhuma venda registrada.</span> : null}
+            {session.paymentSummary.length === 0 ? (
+              <span className="empty-text">Nenhuma venda registrada.</span>
+            ) : null}
           </div>
           <label className="field-label">
             Saldo esperado
-            <input value={formatCurrency(session.expectedClosingBalance)} disabled />
+            <input
+              value={formatCurrency(session.expectedClosingBalance)}
+              disabled
+            />
           </label>
           <label className="field-label">
             Valor conferido
@@ -160,7 +178,14 @@ export function CashRegisterPage({
       </label>
       <label className="field-label">
         Saldo inicial
-        <input name="openingBalance" type="number" min="0" step="0.01" defaultValue="0.00" required />
+        <input
+          name="openingBalance"
+          type="number"
+          min="0"
+          step="0.01"
+          defaultValue="0.00"
+          required
+        />
       </label>
       <PrimaryButton icon={<Plus size={17} />} type="submit">
         Abrir caixa

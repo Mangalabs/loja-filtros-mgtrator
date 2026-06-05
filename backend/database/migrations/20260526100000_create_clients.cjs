@@ -7,10 +7,20 @@ exports.up = async function up(knex) {
     table.string("email", 160);
     table.string("phone", 32);
     table.boolean("active").notNullable().defaultTo(true);
-    table.timestamp("created_at", { useTz: true }).notNullable().defaultTo(knex.fn.now());
-    table.timestamp("updated_at", { useTz: true }).notNullable().defaultTo(knex.fn.now());
+    table
+      .timestamp("created_at", { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
+    table
+      .timestamp("updated_at", { useTz: true })
+      .notNullable()
+      .defaultTo(knex.fn.now());
 
-    table.check("person_type in ('PF', 'PJ', 'ES')", [], "clients_person_type_check");
+    table.check(
+      "person_type in ('PF', 'PJ', 'ES')",
+      [],
+      "clients_person_type_check",
+    );
     table.index(["name"]);
     table.index(["document"]);
   });

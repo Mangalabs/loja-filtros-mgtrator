@@ -47,13 +47,17 @@ export async function createUser(
   return user;
 }
 
-export async function findUserByEmail(email: string): Promise<UserWithPassword | undefined> {
+export async function findUserByEmail(
+  email: string,
+): Promise<UserWithPassword | undefined> {
   return db("users")
     .select([...userColumns, "password_hash as passwordHash"])
     .where("email", email)
     .first();
 }
 
-export async function findActiveUserById(id: string): Promise<User | undefined> {
+export async function findActiveUserById(
+  id: string,
+): Promise<User | undefined> {
   return db("users").select(userColumns).where({ id, active: true }).first();
 }

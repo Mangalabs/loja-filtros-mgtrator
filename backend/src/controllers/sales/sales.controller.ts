@@ -46,9 +46,12 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: Number(product.salePrice),
-        totalAmount: Number((Number(product.salePrice) * item.quantity).toFixed(2)),
+        totalAmount: Number(
+          (Number(product.salePrice) * item.quantity).toFixed(2),
+        ),
         position: index + 1,
-        availableStock: Number(product.currentStock) - Number(product.reservedStock),
+        availableStock:
+          Number(product.currentStock) - Number(product.reservedStock),
       });
     }
 
@@ -58,11 +61,16 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
       }
     }
 
-    if (!(await activePaymentMethodExists(transaction, input.paymentMethodId))) {
+    if (
+      !(await activePaymentMethodExists(transaction, input.paymentMethodId))
+    ) {
       throw new AppError("Forma de pagamento informada nao disponivel.", 422);
     }
 
-    if (input.clientId && !(await activeClientExists(transaction, input.clientId))) {
+    if (
+      input.clientId &&
+      !(await activeClientExists(transaction, input.clientId))
+    ) {
       throw new AppError("Cliente informado nao disponivel.", 422);
     }
 
@@ -90,23 +98,24 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
 function aggregateSaleItems(
   items: Array<{ productId: string; quantity: number; availableStock: number }>,
 ) {
-  return items.reduce<Array<{ productId: string; quantity: number; availableStock: number }>>(
-    (aggregatedItems, item) => {
-      const existing = aggregatedItems.find((currentItem) => currentItem.productId === item.productId);
+  return items.reduce<
+    Array<{ productId: string; quantity: number; availableStock: number }>
+  >((aggregatedItems, item) => {
+    const existing = aggregatedItems.find(
+      (currentItem) => currentItem.productId === item.productId,
+    );
 
-      if (existing) {
-        existing.quantity += item.quantity;
-        return aggregatedItems;
-      }
-
-      aggregatedItems.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        availableStock: item.availableStock,
-      });
-
+    if (existing) {
+      existing.quantity += item.quantity;
       return aggregatedItems;
-    },
-    [],
-  );
+    }
+
+    aggregatedItems.push({
+      productId: item.productId,
+      quantity: item.quantity,
+      availableStock: item.availableStock,
+    });
+
+    return aggregatedItems;
+  }, []);
 }

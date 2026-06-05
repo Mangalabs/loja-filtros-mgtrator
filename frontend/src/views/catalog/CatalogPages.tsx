@@ -1,7 +1,22 @@
-import { PackagePlus, Pencil, Plus, Power, PowerOff, Tags, Truck, UserRound, X } from "lucide-react";
+import {
+  PackagePlus,
+  Pencil,
+  Plus,
+  Power,
+  PowerOff,
+  Tags,
+  Truck,
+  UserRound,
+  X,
+} from "lucide-react";
 import type { FormEvent } from "react";
 import type { Client, NamedEntity, Product, Supplier } from "../../api";
-import { PrimaryButton, SecondaryButton, StatusChip, TableActionButton } from "../../components/ui";
+import {
+  PrimaryButton,
+  SecondaryButton,
+  StatusChip,
+  TableActionButton,
+} from "../../components/ui";
 import { formatQuantity } from "../../utils/format";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
@@ -26,7 +41,9 @@ export function ProductsPage({
       <div className="panel-header">
         <div>
           <h2>Lista de produtos</h2>
-          <span>{state === "loading" ? "Carregando..." : "Dados do backend"}</span>
+          <span>
+            {state === "loading" ? "Carregando..." : "Dados do backend"}
+          </span>
         </div>
         <input
           className="search"
@@ -36,7 +53,11 @@ export function ProductsPage({
         />
       </div>
 
-      <ProductTable products={products} onEdit={onEdit} onChangeStatus={onChangeStatus} />
+      <ProductTable
+        products={products}
+        onEdit={onEdit}
+        onChangeStatus={onChangeStatus}
+      />
     </div>
   );
 }
@@ -81,15 +102,28 @@ function ProductTable({
               <td>{formatQuantity(product.availableStock)}</td>
               <td>R$ {product.salePrice}</td>
               <td>
-                <StatusChip label={product.active ? "Ativo" : "Inativo"} tone={product.active ? "success" : "neutral"} />
+                <StatusChip
+                  label={product.active ? "Ativo" : "Inativo"}
+                  tone={product.active ? "success" : "neutral"}
+                />
               </td>
               <td>
                 <div className="table-actions">
-                  <TableActionButton icon={<Pencil size={15} />} type="button" onClick={() => onEdit(product)}>
+                  <TableActionButton
+                    icon={<Pencil size={15} />}
+                    type="button"
+                    onClick={() => onEdit(product)}
+                  >
                     Editar
                   </TableActionButton>
                   <TableActionButton
-                    icon={product.active ? <PowerOff size={15} /> : <Power size={15} />}
+                    icon={
+                      product.active ? (
+                        <PowerOff size={15} />
+                      ) : (
+                        <Power size={15} />
+                      )
+                    }
                     type="button"
                     onClick={() => onChangeStatus(product)}
                   >
@@ -129,10 +163,23 @@ export function ProductForm({
         <h2>{product ? "Editar produto" : "Dados do produto"}</h2>
         {product ? <Pencil size={18} /> : <PackagePlus size={18} />}
       </div>
-      <input name="productName" placeholder="Nome do produto" defaultValue={product?.name} required />
+      <input
+        name="productName"
+        placeholder="Nome do produto"
+        defaultValue={product?.name}
+        required
+      />
       <div className="two-columns">
-        <input name="internalCode" placeholder="Codigo interno" defaultValue={product?.internalCode ?? ""} />
-        <input name="barcode" placeholder="Codigo de barras" defaultValue={product?.barcode ?? ""} />
+        <input
+          name="internalCode"
+          placeholder="Codigo interno"
+          defaultValue={product?.internalCode ?? ""}
+        />
+        <input
+          name="barcode"
+          placeholder="Codigo de barras"
+          defaultValue={product?.barcode ?? ""}
+        />
       </div>
       <div className="two-columns">
         <select name="brandId" defaultValue={product?.brandId ?? ""}>
@@ -143,7 +190,11 @@ export function ProductForm({
             </option>
           ))}
         </select>
-        <input name="location" placeholder="Locacao" defaultValue={product?.location ?? ""} />
+        <input
+          name="location"
+          placeholder="Locacao"
+          defaultValue={product?.location ?? ""}
+        />
       </div>
       <div className="three-columns">
         <select name="unit" defaultValue={product?.unit ?? "UN"}>
@@ -151,16 +202,43 @@ export function ProductForm({
           <option value="KIT">KIT - Kit</option>
           <option value="CJ">CJ - Conjunto</option>
         </select>
-        <input name="costPrice" type="number" step="0.01" placeholder="Custo" defaultValue={product?.costPrice} />
-        <input name="salePrice" type="number" step="0.01" placeholder="Venda" defaultValue={product?.salePrice} />
+        <input
+          name="costPrice"
+          type="number"
+          step="0.01"
+          placeholder="Custo"
+          defaultValue={product?.costPrice}
+        />
+        <input
+          name="salePrice"
+          type="number"
+          step="0.01"
+          placeholder="Venda"
+          defaultValue={product?.salePrice}
+        />
       </div>
       <div className="three-columns">
-        <input name="minimumStock" type="number" step="0.001" placeholder="Estoque min." defaultValue={product?.minimumStock} />
+        <input
+          name="minimumStock"
+          type="number"
+          step="0.001"
+          placeholder="Estoque min."
+          defaultValue={product?.minimumStock}
+        />
         <input name="ncm" placeholder="NCM" defaultValue={product?.ncm ?? ""} />
-        <input name="cest" placeholder="CEST" defaultValue={product?.cest ?? ""} />
+        <input
+          name="cest"
+          placeholder="CEST"
+          defaultValue={product?.cest ?? ""}
+        />
       </div>
       <div className="two-columns">
-        <input name="origin" maxLength={2} placeholder="Origem fiscal" defaultValue={product?.origin ?? ""} />
+        <input
+          name="origin"
+          maxLength={2}
+          placeholder="Origem fiscal"
+          defaultValue={product?.origin ?? ""}
+        />
         <input
           name="description"
           maxLength={1000}
@@ -170,11 +248,18 @@ export function ProductForm({
       </div>
       <div className="form-actions">
         {onCancel ? (
-          <SecondaryButton icon={<X size={17} />} type="button" onClick={onCancel}>
+          <SecondaryButton
+            icon={<X size={17} />}
+            type="button"
+            onClick={onCancel}
+          >
             Cancelar
           </SecondaryButton>
         ) : null}
-        <PrimaryButton icon={product ? <Pencil size={17} /> : <Plus size={17} />} type="submit">
+        <PrimaryButton
+          icon={product ? <Pencil size={17} /> : <Plus size={17} />}
+          type="submit"
+        >
           {submitLabel}
         </PrimaryButton>
       </div>
@@ -224,7 +309,9 @@ function EntityList({ title, items }: { title: string; items: NamedEntity[] }) {
           <span>{item.active ? "Ativo" : "Inativo"}</span>
         </div>
       ))}
-      {items.length === 0 ? <p className="empty-text">Nenhum registro cadastrado.</p> : null}
+      {items.length === 0 ? (
+        <p className="empty-text">Nenhum registro cadastrado.</p>
+      ) : null}
     </div>
   );
 }
@@ -308,20 +395,41 @@ export function ClientsPage({
 }) {
   return (
     <section className="layout-grid">
-      <form key={selectedClient?.id ?? "new"} className="panel form-panel" onSubmit={onSubmit}>
+      <form
+        key={selectedClient?.id ?? "new"}
+        className="panel form-panel"
+        onSubmit={onSubmit}
+      >
         <div className="panel-header compact">
           <h2>{selectedClient ? "Editar cliente" : "Novo cliente"}</h2>
           <UserRound size={18} />
         </div>
-        <select name="clientPersonType" defaultValue={selectedClient?.personType ?? "PF"} required>
+        <select
+          name="clientPersonType"
+          defaultValue={selectedClient?.personType ?? "PF"}
+          required
+        >
           <option value="PF">Pessoa fisica</option>
           <option value="PJ">Pessoa juridica</option>
           <option value="ES">Estrangeiro</option>
         </select>
-        <input name="clientName" placeholder="Nome" defaultValue={selectedClient?.name} required />
-        <input name="clientDocument" placeholder="CPF/CNPJ" defaultValue={selectedClient?.document ?? ""} />
+        <input
+          name="clientName"
+          placeholder="Nome"
+          defaultValue={selectedClient?.name}
+          required
+        />
+        <input
+          name="clientDocument"
+          placeholder="CPF/CNPJ"
+          defaultValue={selectedClient?.document ?? ""}
+        />
         <div className="two-columns">
-          <input name="clientPhone" placeholder="Telefone" defaultValue={selectedClient?.phone ?? ""} />
+          <input
+            name="clientPhone"
+            placeholder="Telefone"
+            defaultValue={selectedClient?.phone ?? ""}
+          />
           <input
             name="clientEmail"
             type="email"
@@ -366,14 +474,27 @@ export function ClientsPage({
                   <td>{client.document ?? "-"}</td>
                   <td>{client.phone ?? "-"}</td>
                   <td>
-                    <StatusChip label={client.active ? "Ativo" : "Inativo"} tone={client.active ? "success" : "neutral"} />
+                    <StatusChip
+                      label={client.active ? "Ativo" : "Inativo"}
+                      tone={client.active ? "success" : "neutral"}
+                    />
                   </td>
                   <td className="table-actions">
-                    <TableActionButton icon={<Pencil size={14} />} type="button" onClick={() => onEdit(client)}>
+                    <TableActionButton
+                      icon={<Pencil size={14} />}
+                      type="button"
+                      onClick={() => onEdit(client)}
+                    >
                       Editar
                     </TableActionButton>
                     <TableActionButton
-                      icon={client.active ? <PowerOff size={14} /> : <Power size={14} />}
+                      icon={
+                        client.active ? (
+                          <PowerOff size={14} />
+                        ) : (
+                          <Power size={14} />
+                        )
+                      }
                       type="button"
                       onClick={() => onChangeStatus(client)}
                     >
