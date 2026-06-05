@@ -23,7 +23,9 @@ export type PickupReservation = {
   createdByUserName: string;
   createdAt: Date;
   saleId: string | null;
+  completedByUserName: string | null;
   completedAt: Date | null;
+  cancelledByUserName: string | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
   status: "RESERVED" | "CANCELLED" | "COMPLETED";
@@ -56,7 +58,9 @@ const pickupReservationColumns = [
   "created_users.name as createdByUserName",
   "pickup_reservations.created_at as createdAt",
   "pickup_reservations.sale_id as saleId",
+  "completed_users.name as completedByUserName",
   "pickup_reservations.completed_at as completedAt",
+  "cancelled_users.name as cancelledByUserName",
   "pickup_reservations.cancelled_at as cancelledAt",
   "pickup_reservations.cancellation_reason as cancellationReason",
   "pickup_reservations.status",
@@ -291,6 +295,16 @@ function pickupReservationQuery(database: Knex | Knex.Transaction) {
       { created_users: "users" },
       "created_users.id",
       "pickup_reservations.created_by_user_id",
+    )
+    .leftJoin(
+      { completed_users: "users" },
+      "completed_users.id",
+      "pickup_reservations.completed_by_user_id",
+    )
+    .leftJoin(
+      { cancelled_users: "users" },
+      "cancelled_users.id",
+      "pickup_reservations.cancelled_by_user_id",
     )
     .select<PickupReservationRow[]>(pickupReservationColumns);
 }

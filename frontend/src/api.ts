@@ -179,10 +179,14 @@ export type ShippingOrder = {
   }>;
   createdByUserName: string;
   createdAt: string;
+  approvedByUserName: string | null;
   approvedAt: string | null;
+  separatedByUserName: string | null;
   separatedAt: string | null;
   saleId: string | null;
+  completedByUserName: string | null;
   completedAt: string | null;
+  cancelledByUserName: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
   status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED";
@@ -210,7 +214,9 @@ export type PickupReservation = {
   createdByUserName: string;
   createdAt: string;
   saleId: string | null;
+  completedByUserName: string | null;
   completedAt: string | null;
+  cancelledByUserName: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
   status: "RESERVED" | "CANCELLED" | "COMPLETED";

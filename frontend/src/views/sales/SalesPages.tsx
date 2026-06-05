@@ -393,6 +393,11 @@ export function ShippingOrdersPage({
                       label={shippingOrderStatusLabel(order.status)}
                       tone={shippingOrderStatusTone(order.status)}
                     />
+                    {shippingOrderAuditNotes(order).map((note) => (
+                      <div className='table-note' key={note}>
+                        {note}
+                      </div>
+                    ))}
                     {order.cancellationReason ? (
                       <div className='table-note'>
                         {order.cancellationReason}
@@ -706,6 +711,11 @@ export function PickupReservationsPage({
                       label={pickupReservationStatusLabel(reservation.status)}
                       tone={pickupReservationStatusTone(reservation.status)}
                     />
+                    {pickupReservationAuditNotes(reservation).map((note) => (
+                      <div className='table-note' key={note}>
+                        {note}
+                      </div>
+                    ))}
                     {reservation.cancellationReason ? (
                       <div className='table-note'>
                         {reservation.cancellationReason}
@@ -778,6 +788,32 @@ export function PickupReservationsPage({
       </div>
     </section>
   )
+}
+
+function shippingOrderAuditNotes(order: ShippingOrder) {
+  return [
+    order.approvedByUserName ? `Aprovado por ${order.approvedByUserName}` : null,
+    order.separatedByUserName
+      ? `Separado por ${order.separatedByUserName}`
+      : null,
+    order.completedByUserName
+      ? `Concluido por ${order.completedByUserName}`
+      : null,
+    order.cancelledByUserName
+      ? `Cancelado por ${order.cancelledByUserName}`
+      : null,
+  ].filter((note): note is string => Boolean(note))
+}
+
+function pickupReservationAuditNotes(reservation: PickupReservation) {
+  return [
+    reservation.completedByUserName
+      ? `Concluida por ${reservation.completedByUserName}`
+      : null,
+    reservation.cancelledByUserName
+      ? `Cancelada por ${reservation.cancelledByUserName}`
+      : null,
+  ].filter((note): note is string => Boolean(note))
 }
 
 function shippingOrderStatusLabel(status: ShippingOrder['status']) {

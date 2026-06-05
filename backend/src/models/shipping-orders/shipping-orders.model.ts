@@ -22,10 +22,14 @@ export type ShippingOrder = {
   items: ShippingOrderItem[];
   createdByUserName: string;
   createdAt: Date;
+  approvedByUserName: string | null;
   approvedAt: Date | null;
+  separatedByUserName: string | null;
   separatedAt: Date | null;
   saleId: string | null;
+  completedByUserName: string | null;
   completedAt: Date | null;
+  cancelledByUserName: string | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
   status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED";
@@ -58,10 +62,14 @@ const shippingOrderColumns = [
   "shipping_orders.total_amount as totalAmount",
   "created_users.name as createdByUserName",
   "shipping_orders.created_at as createdAt",
+  "approved_users.name as approvedByUserName",
   "shipping_orders.approved_at as approvedAt",
+  "separated_users.name as separatedByUserName",
   "shipping_orders.separated_at as separatedAt",
   "shipping_orders.sale_id as saleId",
+  "completed_users.name as completedByUserName",
   "shipping_orders.completed_at as completedAt",
+  "cancelled_users.name as cancelledByUserName",
   "shipping_orders.cancelled_at as cancelledAt",
   "shipping_orders.cancellation_reason as cancellationReason",
   "shipping_orders.status",
@@ -363,6 +371,26 @@ function shippingOrderQuery(database: Knex | Knex.Transaction) {
       { created_users: "users" },
       "created_users.id",
       "shipping_orders.created_by_user_id",
+    )
+    .leftJoin(
+      { approved_users: "users" },
+      "approved_users.id",
+      "shipping_orders.approved_by_user_id",
+    )
+    .leftJoin(
+      { separated_users: "users" },
+      "separated_users.id",
+      "shipping_orders.separated_by_user_id",
+    )
+    .leftJoin(
+      { completed_users: "users" },
+      "completed_users.id",
+      "shipping_orders.completed_by_user_id",
+    )
+    .leftJoin(
+      { cancelled_users: "users" },
+      "cancelled_users.id",
+      "shipping_orders.cancelled_by_user_id",
     )
     .select<ShippingOrderRow[]>(shippingOrderColumns);
 }

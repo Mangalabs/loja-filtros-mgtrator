@@ -119,9 +119,13 @@ type ShippingOrder = {
     totalAmount: string;
     position: number;
   }>;
+  approvedByUserName: string | null;
   separatedAt: string | null;
+  separatedByUserName: string | null;
   saleId: string | null;
+  completedByUserName: string | null;
   completedAt: string | null;
+  cancelledByUserName: string | null;
   cancellationReason: string | null;
   status: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED";
 };
@@ -144,7 +148,9 @@ type PickupReservation = {
     position: number;
   }>;
   saleId: string | null;
+  completedByUserName: string | null;
   completedAt: string | null;
+  cancelledByUserName: string | null;
   cancellationReason: string | null;
   status: "RESERVED" | "CANCELLED" | "COMPLETED";
 };
@@ -829,6 +835,10 @@ describe("catalog routes", () => {
     assert.equal(beforeApproval.body.data?.reservedStock, "0.000");
     assert.equal(approved.status, 200);
     assert.equal(approved.body.data?.status, "APPROVED");
+    assert.equal(
+      approved.body.data?.approvedByUserName,
+      "Administrador de teste",
+    );
     assert.equal(repeatedApproval.status, 409);
     assert.equal(saleOverAvailable.status, 422);
     assert.equal(
@@ -848,6 +858,10 @@ describe("catalog routes", () => {
     assert.equal(separated.status, 200);
     assert.equal(separated.body.data?.status, "SEPARATED");
     assert.ok(separated.body.data?.separatedAt);
+    assert.equal(
+      separated.body.data?.separatedByUserName,
+      "Administrador de teste",
+    );
     assert.equal(repeatedSeparation.status, 409);
     assert.equal(approvalAfterSeparation.status, 409);
     assert.equal(
@@ -857,6 +871,10 @@ describe("catalog routes", () => {
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
     assert.ok(cancelled.body.data?.separatedAt);
+    assert.equal(
+      cancelled.body.data?.cancelledByUserName,
+      "Administrador de teste",
+    );
     assert.equal(
       cancelled.body.data?.cancellationReason,
       "Cliente desistiu da compra",
@@ -972,6 +990,10 @@ describe("catalog routes", () => {
     assert.equal(completed.body.data?.status, "COMPLETED");
     assert.ok(completed.body.data?.saleId);
     assert.ok(completed.body.data?.completedAt);
+    assert.equal(
+      completed.body.data?.completedByUserName,
+      "Administrador de teste",
+    );
     assert.equal(repeatedCompletion.status, 409);
     assert.equal(cancellationAfterCompletion.status, 409);
     assert.equal(sales.body.data?.length, 1);
@@ -1176,6 +1198,10 @@ describe("catalog routes", () => {
     assert.equal(reservedProduct.body.data?.availableStock, "1.000");
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(
+      cancelled.body.data?.cancelledByUserName,
+      "Administrador de teste",
+    );
     assert.equal(cancelled.body.data?.cancellationReason, "Cliente desistiu");
     assert.equal(repeatedCancellation.status, 409);
     assert.equal(listed.body.data?.length, 1);
@@ -1271,6 +1297,10 @@ describe("catalog routes", () => {
     assert.equal(completed.body.data?.status, "COMPLETED");
     assert.ok(completed.body.data?.saleId);
     assert.ok(completed.body.data?.completedAt);
+    assert.equal(
+      completed.body.data?.completedByUserName,
+      "Administrador de teste",
+    );
     assert.equal(repeatedCompletion.status, 409);
     assert.equal(cancellationAfterCompletion.status, 409);
     assert.equal(sales.body.data?.length, 1);
