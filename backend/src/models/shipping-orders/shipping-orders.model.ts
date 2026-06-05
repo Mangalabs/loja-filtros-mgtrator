@@ -39,6 +39,7 @@ export type ShippingOrderItem = {
   id: string;
   productId: string;
   productName: string;
+  description: string | null;
   quantity: string;
   unitPrice: string;
   totalAmount: string;
@@ -80,6 +81,7 @@ const shippingOrderItemColumns = [
   "shipping_order_items.shipping_order_id as shippingOrderId",
   "shipping_order_items.product_id as productId",
   "products.name as productName",
+  "shipping_order_items.description",
   "shipping_order_items.quantity",
   "shipping_order_items.unit_price as unitPrice",
   "shipping_order_items.total_amount as totalAmount",
@@ -210,6 +212,7 @@ export async function insertShippingOrderFromQuote(
       quantity: item.quantity,
       unit_price: item.unitPrice,
       total_amount: item.totalAmount,
+      description: item.description,
       position: item.position,
     })),
   );

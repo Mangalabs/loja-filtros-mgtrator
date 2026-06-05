@@ -373,7 +373,9 @@ export function ShippingOrdersPage({
                       <span className='table-note'>Origem: orcamento</span>
                     ) : null}
                     <span className='table-note'>
-                      {order.items.map((item) => item.productName).join(', ')}
+                      {order.items
+                        .map((item) => item.description ?? item.productName)
+                        .join(', ')}
                     </span>
                   </td>
                   <td>

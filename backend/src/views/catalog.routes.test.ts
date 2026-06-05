@@ -114,6 +114,7 @@ type ShippingOrder = {
     id: string;
     productId: string;
     productName: string;
+    description: string | null;
     quantity: string;
     unitPrice: string;
     totalAmount: string;
@@ -1538,6 +1539,10 @@ describe("catalog routes", () => {
     assert.equal(
       shippingOrder.body.data?.items[1]?.productName,
       "Filtro quote B - fabricante interno",
+    );
+    assert.equal(
+      shippingOrder.body.data?.items[1]?.description,
+      "Descricao comercial limpa para o cliente",
     );
     assert.equal(shippingOrder.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(repeatedShippingOrder.status, 409);

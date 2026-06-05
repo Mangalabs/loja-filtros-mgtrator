@@ -172,6 +172,7 @@ export type ShippingOrder = {
     id: string;
     productId: string;
     productName: string;
+    description: string | null;
     quantity: string;
     unitPrice: string;
     totalAmount: string;
