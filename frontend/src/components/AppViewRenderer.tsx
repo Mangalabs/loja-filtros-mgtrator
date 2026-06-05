@@ -170,6 +170,7 @@ export function AppViewRenderer({
           products={products}
           quotes={quotes}
           onSubmit={quoteActions.createQuote}
+          onCancelQuote={(event, quote) => void quoteActions.cancelQuote(event, quote)}
           onCreateShippingOrder={(quote) => void quoteActions.createShippingOrderFromQuote(quote)}
         />
       ) : null}

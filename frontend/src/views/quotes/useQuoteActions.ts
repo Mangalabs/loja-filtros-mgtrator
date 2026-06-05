@@ -1,4 +1,5 @@
-import { apiPost, type Quote } from "../../api";
+import type { FormEvent } from "react";
+import { apiPatch, apiPost, type Quote } from "../../api";
 import type { QuoteDraftInput } from "./QuotesPage";
 
 type QuoteActionsOptions = {
@@ -39,7 +40,31 @@ export function useQuoteActions({
     });
   }
 
+  async function cancelQuote(event: FormEvent<HTMLFormElement>, quote: Quote) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const confirmed = await requestConfirmation(
+      `Cancelar o orcamento de ${quote.clientName}?`,
+      "Cancelar orcamento?",
+      "Cancelar orcamento",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const form = new FormData(formElement);
+
+    await runAction(async () => {
+      await apiPatch(`/quotes/${quote.id}/cancel`, {
+        reason: String(form.get("quoteCancellationReason") ?? "").trim(),
+      });
+      await loadCatalog();
+    });
+  }
+
   return {
+    cancelQuote,
     createQuote,
     createShippingOrderFromQuote,
   };

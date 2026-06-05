@@ -28,12 +28,14 @@ export function QuotesPage({
   products,
   quotes,
   onSubmit,
+  onCancelQuote,
   onCreateShippingOrder,
 }: {
   clients: Client[];
   products: Product[];
   quotes: Quote[];
   onSubmit: (input: QuoteDraftInput) => Promise<boolean>;
+  onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void;
   onCreateShippingOrder: (quote: Quote) => void;
 }) {
   const [clientId, setClientId] = useState("");
@@ -236,11 +238,11 @@ export function QuotesPage({
                   <td>{quote.validUntil ? formatDate(quote.validUntil) : "-"}</td>
                   <td>{formatCurrency(quote.totalAmount)}</td>
                   <td>
-                    {quote.shippingOrderId ? (
-                      <StatusChip label={quoteShippingStatusLabel(quote.shippingOrderStatus)} tone="success" />
-                    ) : (
-                      <StatusChip label="Rascunho" tone="warning" />
-                    )}
+                    <StatusChip
+                      label={quoteStatusPresentation(quote).label}
+                      tone={quoteStatusPresentation(quote).tone}
+                    />
+                    {quote.cancellationReason ? <div className="table-note">{quote.cancellationReason}</div> : null}
                   </td>
                   <td>
                     <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
@@ -249,9 +251,28 @@ export function QuotesPage({
                     {quote.shippingOrderId ? (
                       <span className="table-note">Pedido para envio criado</span>
                     ) : (
-                      <TableActionButton type="button" onClick={() => onCreateShippingOrder(quote)}>
-                        Enviar p/ envio
-                      </TableActionButton>
+                      <div className="shipping-order-actions">
+                        {quote.status === "DRAFT" ? (
+                          <TableActionButton type="button" onClick={() => onCreateShippingOrder(quote)}>
+                            Enviar p/ envio
+                          </TableActionButton>
+                        ) : null}
+                        {quote.status === "DRAFT" ? (
+                          <form className="cancel-order-form" onSubmit={(event) => onCancelQuote(event, quote)}>
+                            <input
+                              name="quoteCancellationReason"
+                              maxLength={500}
+                              placeholder="Motivo do cancelamento"
+                              required
+                            />
+                            <TableActionButton type="submit">
+                              Cancelar
+                            </TableActionButton>
+                          </form>
+                        ) : (
+                          <span className="table-note">Orcamento cancelado</span>
+                        )}
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -280,6 +301,47 @@ const quoteShippingStatusLabels: Record<NonNullable<Quote["shippingOrderStatus"]
   QUOTED: "Enviado p/ envio",
   SEPARATED: "Separado para envio",
 };
+
+type QuoteStatusPresentation = {
+  label: string;
+  tone: "neutral" | "success" | "warning";
+};
+
+function quoteStatusPresentation(quote: Quote): QuoteStatusPresentation {
+  return quoteStatusPresentationStrategies.find((strategy) => strategy.matches(quote))?.present(quote) ?? quoteStatusPresentations.DRAFT;
+}
+
+const quoteStatusPresentations: Record<"CANCELLED" | "DRAFT", QuoteStatusPresentation> = {
+  CANCELLED: {
+    label: "Cancelado",
+    tone: "neutral",
+  },
+  DRAFT: {
+    label: "Rascunho",
+    tone: "warning",
+  },
+};
+
+const quoteStatusPresentationStrategies: Array<{
+  matches: (quote: Quote) => boolean;
+  present: (quote: Quote) => QuoteStatusPresentation;
+}> = [
+  {
+    matches: (quote) => Boolean(quote.shippingOrderId),
+    present: (quote) => ({
+      label: quoteShippingStatusLabel(quote.shippingOrderStatus),
+      tone: "success",
+    }),
+  },
+  {
+    matches: (quote) => quote.status === "CANCELLED",
+    present: () => quoteStatusPresentations.CANCELLED,
+  },
+  {
+    matches: () => true,
+    present: () => quoteStatusPresentations.DRAFT,
+  },
+];
 
 function emptyQuoteItem(): QuoteDraftItem {
   return {

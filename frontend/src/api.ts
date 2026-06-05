@@ -221,10 +221,13 @@ export type Quote = {
   clientPhone: string | null;
   clientDocument: string | null;
   clientEmail: string | null;
-  status: "DRAFT";
+  status: "DRAFT" | "CANCELLED";
   totalAmount: string;
   validUntil: string | null;
   notes: string | null;
+  cancelledByUserName: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
   shippingOrderId: string | null;
   shippingOrderStatus: "QUOTED" | "APPROVED" | "SEPARATED" | "CANCELLED" | "COMPLETED" | null;
   createdByUserName: string;
