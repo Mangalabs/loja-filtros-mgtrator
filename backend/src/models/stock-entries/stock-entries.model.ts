@@ -15,6 +15,7 @@ export type StockEntry = {
   productName: string
   supplierId: string
   supplierName: string
+  createdByUserName: string | null
   quantity: string
   unitCost: string
   notes: string | null
@@ -25,6 +26,7 @@ export async function listStockEntries(): Promise<StockEntry[]> {
   return db('stock_movements')
     .join('products', 'products.id', 'stock_movements.product_id')
     .join('suppliers', 'suppliers.id', 'stock_movements.supplier_id')
+    .leftJoin('users', 'users.id', 'stock_movements.created_by_user_id')
     .where('stock_movements.type', 'ENTRY')
     .select([
       'stock_movements.id',
@@ -32,6 +34,7 @@ export async function listStockEntries(): Promise<StockEntry[]> {
       'products.name as productName',
       'stock_movements.supplier_id as supplierId',
       'suppliers.name as supplierName',
+      'users.name as createdByUserName',
       'stock_movements.quantity',
       'stock_movements.unit_cost as unitCost',
       'stock_movements.notes',
@@ -128,12 +131,14 @@ async function findStockEntryById(
   return transaction('stock_movements')
     .join('products', 'products.id', 'stock_movements.product_id')
     .join('suppliers', 'suppliers.id', 'stock_movements.supplier_id')
+    .leftJoin('users', 'users.id', 'stock_movements.created_by_user_id')
     .select([
       'stock_movements.id',
       'stock_movements.product_id as productId',
       'products.name as productName',
       'stock_movements.supplier_id as supplierId',
       'suppliers.name as supplierName',
+      'users.name as createdByUserName',
       'stock_movements.quantity',
       'stock_movements.unit_cost as unitCost',
       'stock_movements.notes',

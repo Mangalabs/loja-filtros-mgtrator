@@ -11,6 +11,7 @@ export type StockAdjustment = {
   id: string
   productId: string
   productName: string
+  createdByUserName: string | null
   quantity: string
   reason: string
   createdAt: Date
@@ -25,11 +26,13 @@ export type LockedProductStock = {
 export async function listStockAdjustments(): Promise<StockAdjustment[]> {
   return db('stock_movements')
     .join('products', 'products.id', 'stock_movements.product_id')
+    .leftJoin('users', 'users.id', 'stock_movements.created_by_user_id')
     .where('stock_movements.type', 'ADJUSTMENT')
     .select([
       'stock_movements.id',
       'stock_movements.product_id as productId',
       'products.name as productName',
+      'users.name as createdByUserName',
       'stock_movements.quantity',
       'stock_movements.notes as reason',
       'stock_movements.created_at as createdAt',
@@ -94,10 +97,12 @@ async function findStockAdjustmentById(
 ): Promise<StockAdjustment | undefined> {
   return transaction('stock_movements')
     .join('products', 'products.id', 'stock_movements.product_id')
+    .leftJoin('users', 'users.id', 'stock_movements.created_by_user_id')
     .select([
       'stock_movements.id',
       'stock_movements.product_id as productId',
       'products.name as productName',
+      'users.name as createdByUserName',
       'stock_movements.quantity',
       'stock_movements.notes as reason',
       'stock_movements.created_at as createdAt',

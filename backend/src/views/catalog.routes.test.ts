@@ -51,6 +51,7 @@ type StockEntry = {
   productName: string;
   supplierId: string;
   supplierName: string;
+  createdByUserName: string | null;
   quantity: string;
   unitCost: string;
   notes: string | null;
@@ -60,6 +61,7 @@ type StockAdjustment = {
   id: string;
   productId: string;
   productName: string;
+  createdByUserName: string | null;
   quantity: string;
   reason: string;
 };
@@ -2006,11 +2008,16 @@ describe("catalog routes", () => {
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.productName, "Filtro para entrada");
     assert.equal(created.body.data?.supplierName, "Distribuidora de Filtros");
+    assert.equal(created.body.data?.createdByUserName, "Administrador de teste");
     assert.equal(created.body.data?.quantity, "12.500");
     assert.equal(created.body.data?.unitCost, "14.90");
     assert.equal(created.body.data?.notes, "Recebimento inicial");
     assert.equal(listed.status, 200);
     assert.equal(listed.body.data?.length, 1);
+    assert.equal(
+      listed.body.data?.[0]?.createdByUserName,
+      "Administrador de teste",
+    );
     assert.equal(updatedProduct.body.data?.currentStock, "12.500");
     assert.equal(updatedProduct.body.data?.costPrice, "14.90");
     assert.equal(productSupplier?.last_cost_price, "14.90");
@@ -2085,11 +2092,16 @@ describe("catalog routes", () => {
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.productName, "Filtro para ajuste");
+    assert.equal(created.body.data?.createdByUserName, "Administrador de teste");
     assert.equal(created.body.data?.quantity, "-3.000");
     assert.equal(created.body.data?.reason, "Item avariado no estoque");
     assert.equal(increased.status, 201);
     assert.equal(increased.body.data?.quantity, "2.000");
     assert.equal(listed.body.data?.length, 2);
+    assert.equal(
+      listed.body.data?.[0]?.createdByUserName,
+      "Administrador de teste",
+    );
     assert.equal(updatedProduct.body.data?.currentStock, "9.000");
   });
 

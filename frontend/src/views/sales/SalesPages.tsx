@@ -239,6 +239,7 @@ export function SalesPage({
                 <th>Total</th>
                 <th>Pagamento</th>
                 <th>Cliente</th>
+                <th>Operador</th>
               </tr>
             </thead>
             <tbody>
@@ -264,11 +265,12 @@ export function SalesPage({
                   <td>{formatCurrency(sale.totalAmount)}</td>
                   <td>{sale.paymentMethodName}</td>
                   <td>{sale.clientName ?? 'Nao identificado'}</td>
+                  <td>{sale.createdByUserName}</td>
                 </tr>
               ))}
               {sales.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>Nenhuma venda registrada.</td>
+                  <td colSpan={7}>Nenhuma venda registrada.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -355,6 +357,7 @@ export function ShippingOrdersPage({
                 <th>Produto</th>
                 <th>Qtd.</th>
                 <th>Total</th>
+                <th>Operador</th>
                 <th>Status</th>
                 <th>Acoes</th>
               </tr>
@@ -384,6 +387,7 @@ export function ShippingOrdersPage({
                     )}
                   </td>
                   <td>{formatCurrency(order.totalAmount)}</td>
+                  <td>{order.createdByUserName}</td>
                   <td>
                     <StatusChip
                       label={shippingOrderStatusLabel(order.status)}
@@ -467,7 +471,7 @@ export function ShippingOrdersPage({
               ))}
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>Nenhum orcamento para envio registrado.</td>
+                  <td colSpan={8}>Nenhum orcamento para envio registrado.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -667,6 +671,7 @@ export function PickupReservationsPage({
                 <th>Produto</th>
                 <th>Qtd.</th>
                 <th>Total</th>
+                <th>Operador</th>
                 <th>Status</th>
                 <th>Acoes</th>
               </tr>
@@ -695,6 +700,7 @@ export function PickupReservationsPage({
                     )}
                   </td>
                   <td>{formatCurrency(reservation.totalAmount)}</td>
+                  <td>{reservation.createdByUserName}</td>
                   <td>
                     <StatusChip
                       label={pickupReservationStatusLabel(reservation.status)}
@@ -763,7 +769,7 @@ export function PickupReservationsPage({
               ))}
               {reservations.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>Nenhuma reserva para retirada registrada.</td>
+                  <td colSpan={8}>Nenhuma reserva para retirada registrada.</td>
                 </tr>
               ) : null}
             </tbody>

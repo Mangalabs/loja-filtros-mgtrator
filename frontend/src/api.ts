@@ -52,6 +52,7 @@ export type StockEntry = {
   productName: string;
   supplierId: string;
   supplierName: string;
+  createdByUserName: string | null;
   quantity: string;
   unitCost: string;
   notes: string | null;
@@ -62,6 +63,7 @@ export type StockAdjustment = {
   id: string;
   productId: string;
   productName: string;
+  createdByUserName: string | null;
   quantity: string;
   reason: string;
   createdAt: string;

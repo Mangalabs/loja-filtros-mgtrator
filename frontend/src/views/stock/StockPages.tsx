@@ -104,6 +104,7 @@ export function StockEntriesPage({
                 <th>Data</th>
                 <th>Produto</th>
                 <th>Fornecedor</th>
+                <th>Operador</th>
                 <th>Qtd.</th>
                 <th>Custo un.</th>
               </tr>
@@ -114,13 +115,14 @@ export function StockEntriesPage({
                   <td>{formatDateTime(entry.createdAt)}</td>
                   <td>{entry.productName}</td>
                   <td>{entry.supplierName}</td>
+                  <td>{entry.createdByUserName ?? "-"}</td>
                   <td>{formatQuantity(entry.quantity)}</td>
                   <td>{formatCurrency(entry.unitCost)}</td>
                 </tr>
               ))}
               {entries.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>Nenhuma entrada registrada.</td>
+                  <td colSpan={6}>Nenhuma entrada registrada.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -192,6 +194,7 @@ export function StockAdjustmentsPage({
               <tr>
                 <th>Data</th>
                 <th>Produto</th>
+                <th>Operador</th>
                 <th>Variacao</th>
                 <th>Motivo</th>
               </tr>
@@ -201,13 +204,14 @@ export function StockAdjustmentsPage({
                 <tr key={adjustment.id}>
                   <td>{formatDateTime(adjustment.createdAt)}</td>
                   <td>{adjustment.productName}</td>
+                  <td>{adjustment.createdByUserName ?? "-"}</td>
                   <td>{formatSignedQuantity(adjustment.quantity)}</td>
                   <td>{adjustment.reason}</td>
                 </tr>
               ))}
               {adjustments.length === 0 ? (
                 <tr>
-                  <td colSpan={4}>Nenhum ajuste registrado.</td>
+                  <td colSpan={5}>Nenhum ajuste registrado.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -331,13 +335,11 @@ export function StockMovementsPage({
 }
 
 function movementTypeLabel(type: StockMovement["type"]) {
-  if (type === "ENTRY") {
-    return "Entrada";
-  }
-
-  if (type === "SALE") {
-    return "Venda";
-  }
-
-  return "Ajuste";
+  return movementTypeLabels[type];
 }
+
+const movementTypeLabels: Record<StockMovement["type"], string> = {
+  ADJUSTMENT: "Ajuste",
+  ENTRY: "Entrada",
+  SALE: "Venda",
+};
