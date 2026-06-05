@@ -189,7 +189,7 @@ export function QuotesPage({
               </select>
               <input
                 value={item.description}
-                placeholder='Descricao no orcamento'
+                placeholder='Descricao comercial que sai no orcamento'
                 maxLength={500}
                 onChange={(event) =>
                   updateItem(index, { description: event.target.value })

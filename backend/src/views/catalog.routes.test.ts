@@ -1420,7 +1420,7 @@ describe("catalog routes", () => {
     );
   });
 
-  it("creates and shows a multi-item quote without changing stock", async () => {
+  it("creates and shows a multi-item quote using commercial descriptions", async () => {
     const firstProduct = await request<Product>("/products", {
       method: "POST",
       body: { name: "Filtro quote A", salePrice: 50 },
@@ -1428,9 +1428,9 @@ describe("catalog routes", () => {
     const secondProduct = await request<Product>("/products", {
       method: "POST",
       body: {
-        name: "Filtro quote B",
+        name: "Filtro quote B - fabricante interno",
         salePrice: 80,
-        description: "Descricao comercial quote B",
+        description: "Descricao comercial limpa para o cliente",
       },
     });
     const client = await request<Client>("/clients", {
@@ -1510,7 +1510,11 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.items[0]?.totalAmount, "90.00");
     assert.equal(
       created.body.data?.items[1]?.description,
-      "Descricao comercial quote B",
+      "Descricao comercial limpa para o cliente",
+    );
+    assert.equal(
+      created.body.data?.items[1]?.productName,
+      "Filtro quote B - fabricante interno",
     );
     assert.equal(created.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(shown.body.data?.items.length, 2);
@@ -1533,7 +1537,7 @@ describe("catalog routes", () => {
     assert.equal(shippingOrder.body.data?.items[0]?.quantity, "2.000");
     assert.equal(
       shippingOrder.body.data?.items[1]?.productName,
-      "Filtro quote B",
+      "Filtro quote B - fabricante interno",
     );
     assert.equal(shippingOrder.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(repeatedShippingOrder.status, 409);
