@@ -12,7 +12,7 @@ import {
 import { getPickupReservationById } from "../../models/pickup-reservations/pickup-reservations.model.js";
 import { getSaleById } from "../../models/sales/sales.model.js";
 import { getShippingOrderById } from "../../models/shipping-orders/shipping-orders.model.js";
-import { AppError } from "../../shared/errors/app-error.js";
+import { AppError, type AppErrorDetail } from "../../shared/errors/app-error.js";
 
 export async function indexFiscalDocuments() {
   return {
@@ -142,6 +142,7 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       environment: env.fiscal.environment,
       sale,
     };
+    ensureFiscalReadiness(requestPayload.sale);
     const result = await provider.issue(requestPayload);
 
     return insertFiscalDocument(transaction, {
@@ -173,4 +174,126 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
 
 function fiscalReference(sourceType: FiscalDocumentSourceType, sourceId: string) {
   return `${sourceType}-${sourceId}`;
+}
+
+type FiscalSale = IssueFiscalDocumentInput extends never
+  ? never
+  : NonNullable<Awaited<ReturnType<typeof getSaleById>>>;
+
+function ensureFiscalReadiness(sale: FiscalSale) {
+  if (env.fiscal.provider !== "focus") {
+    return;
+  }
+
+  const errors = fiscalReadinessErrors(sale);
+
+  if (errors.length > 0) {
+    throw new AppError(
+      "Dados fiscais incompletos para emissao da NF-e.",
+      422,
+      errors,
+    );
+  }
+}
+
+function fiscalReadinessErrors(sale: FiscalSale): AppErrorDetail[] {
+  return [
+    ...requiredClientFiscalFields(sale),
+    ...sale.items.flatMap((item, index) =>
+      requiredItemFiscalFields(item, index + 1),
+    ),
+  ];
+}
+
+function requiredClientFiscalFields(sale: FiscalSale): AppErrorDetail[] {
+  const documentFieldByPersonType: Record<string, string | null> = {
+    ES: null,
+    PF: "clientDocument",
+    PJ: "clientDocument",
+  };
+  const fieldChecks: Array<[string, unknown, string]> = [
+    ["clientName", sale.clientName, "Nome do cliente e obrigatorio."],
+    [
+      documentFieldByPersonType[sale.clientPersonType ?? "PF"] ??
+        "clientDocument",
+      documentFieldByPersonType[sale.clientPersonType ?? "PF"]
+        ? sale.clientDocument
+        : true,
+      "CPF/CNPJ do cliente e obrigatorio.",
+    ],
+    [
+      "clientAddressStreet",
+      sale.clientAddressStreet,
+      "Logradouro do cliente e obrigatorio.",
+    ],
+    [
+      "clientAddressNumber",
+      sale.clientAddressNumber,
+      "Numero do endereco do cliente e obrigatorio.",
+    ],
+    [
+      "clientAddressDistrict",
+      sale.clientAddressDistrict,
+      "Bairro do cliente e obrigatorio.",
+    ],
+    [
+      "clientAddressCity",
+      sale.clientAddressCity,
+      "Cidade do cliente e obrigatoria.",
+    ],
+    ["clientAddressState", sale.clientAddressState, "UF do cliente e obrigatoria."],
+    [
+      "clientAddressZipCode",
+      sale.clientAddressZipCode,
+      "CEP do cliente e obrigatorio.",
+    ],
+  ];
+
+  return missingFieldDetails(fieldChecks);
+}
+
+function requiredItemFiscalFields(
+  item: FiscalSale["items"][number],
+  position: number,
+): AppErrorDetail[] {
+  const fieldChecks: Array<[string, unknown, string]> = [
+    [
+      `items.${position}.productNcm`,
+      item.productNcm,
+      `NCM do item ${position} e obrigatorio.`,
+    ],
+    [
+      `items.${position}.productCfop`,
+      item.productCfop,
+      `CFOP do item ${position} e obrigatorio.`,
+    ],
+    [
+      `items.${position}.productOrigin`,
+      item.productOrigin,
+      `Origem fiscal do item ${position} e obrigatoria.`,
+    ],
+    [
+      `items.${position}.productIcmsCst`,
+      item.productIcmsCst,
+      `CST/CSOSN ICMS do item ${position} e obrigatorio.`,
+    ],
+    [
+      `items.${position}.productPisCst`,
+      item.productPisCst,
+      `CST PIS do item ${position} e obrigatorio.`,
+    ],
+    [
+      `items.${position}.productCofinsCst`,
+      item.productCofinsCst,
+      `CST COFINS do item ${position} e obrigatorio.`,
+    ],
+  ];
+
+  return missingFieldDetails(fieldChecks);
+}
+
+function missingFieldDetails(fieldChecks: Array<[string, unknown, string]>) {
+  return fieldChecks
+    .filter(([, value]) => !value)
+    .map(([field, _value, message]) => ({ field, message }));
 }

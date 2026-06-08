@@ -338,8 +338,18 @@ async function parseResponse<T>(response: Response): Promise<T> {
   const payload = await response.json();
 
   if (!response.ok) {
-    throw new Error(payload.message ?? "Erro ao comunicar com o backend");
+    throw new Error(errorMessage(payload));
   }
 
   return payload;
+}
+
+function errorMessage(payload: {
+  message?: string;
+  errors?: Array<{ message: string }>;
+}) {
+  const details = payload.errors?.map((error) => error.message).join(" ");
+  return [payload.message ?? "Erro ao comunicar com o backend", details]
+    .filter(Boolean)
+    .join(" ");
 }
