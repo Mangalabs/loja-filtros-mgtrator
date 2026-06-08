@@ -3,7 +3,6 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import type {
   CashRegisterSession,
   Client,
-  FiscalDocument,
   PaymentMethod,
   PickupReservation,
   Product,
@@ -57,18 +56,14 @@ export function SalesPage({
   paymentMethods,
   products,
   sales,
-  fiscalDocuments,
   onSubmit,
-  onIssueFiscalDocument,
 }: {
   cashRegister: CashRegisterSession | null
   clients: Client[]
-  fiscalDocuments: FiscalDocument[]
   paymentMethods: PaymentMethod[]
   products: Product[]
   sales: Sale[]
   onSubmit: (input: SaleDraftInput) => Promise<boolean>
-  onIssueFiscalDocument: (sale: Sale) => void
 }) {
   const [clientId, setClientId] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('')
@@ -246,58 +241,38 @@ export function SalesPage({
                 <th>Total</th>
                 <th>Pagamento</th>
                 <th>Cliente</th>
-                <th>Fiscal</th>
                 <th>Operador</th>
               </tr>
             </thead>
             <tbody>
-              {sales.map((sale) => {
-                const fiscalDocument = fiscalDocuments.find(
-                  (document) =>
-                    document.sourceType === 'SALE' &&
-                    document.sourceId === sale.id,
-                )
-
-                return (
-                  <tr key={sale.id}>
-                    <td>{formatDateTime(sale.createdAt)}</td>
-                    <td>
-                      {sale.items.length} item(ns)
-                      <span className='table-note'>
-                        {sale.items.map((item) => item.productName).join(', ')}
-                      </span>
-                    </td>
-                    <td>
-                      {formatQuantity(
-                        String(
-                          sale.items.reduce(
-                            (sum, item) => sum + Number(item.quantity),
-                            0,
-                          ),
+              {sales.map((sale) => (
+                <tr key={sale.id}>
+                  <td>{formatDateTime(sale.createdAt)}</td>
+                  <td>
+                    {sale.items.length} item(ns)
+                    <span className='table-note'>
+                      {sale.items.map((item) => item.productName).join(', ')}
+                    </span>
+                  </td>
+                  <td>
+                    {formatQuantity(
+                      String(
+                        sale.items.reduce(
+                          (sum, item) => sum + Number(item.quantity),
+                          0,
                         ),
-                      )}
-                    </td>
-                    <td>{formatCurrency(sale.totalAmount)}</td>
-                    <td>{sale.paymentMethodName}</td>
-                    <td>{sale.clientName ?? 'Nao identificado'}</td>
-                    <td>
-                      {fiscalDocument ? (
-                        <FiscalDocumentStatus document={fiscalDocument} />
-                      ) : (
-                        <TableActionButton
-                          type='button'
-                          onClick={() => onIssueFiscalDocument(sale)}>
-                          Emitir NF-e
-                        </TableActionButton>
-                      )}
-                    </td>
-                    <td>{sale.createdByUserName}</td>
-                  </tr>
-                )
-              })}
+                      ),
+                    )}
+                  </td>
+                  <td>{formatCurrency(sale.totalAmount)}</td>
+                  <td>{sale.paymentMethodName}</td>
+                  <td>{sale.clientName ?? 'Nao identificado'}</td>
+                  <td>{sale.createdByUserName}</td>
+                </tr>
+              ))}
               {sales.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>Nenhuma venda registrada.</td>
+                  <td colSpan={7}>Nenhuma venda registrada.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -306,41 +281,6 @@ export function SalesPage({
       </div>
     </section>
   )
-}
-
-function FiscalDocumentStatus({ document }: { document: FiscalDocument }) {
-  return (
-    <>
-      <StatusChip
-        label={fiscalDocumentStatusLabel(document.status)}
-        tone={fiscalDocumentStatusTone(document.status)}
-      />
-      <span className='table-note'>
-        {document.documentType} {document.number ? `#${document.number}` : ''}
-      </span>
-    </>
-  )
-}
-
-function fiscalDocumentStatusLabel(status: FiscalDocument['status']) {
-  return fiscalDocumentStatusPresentations[status].label
-}
-
-function fiscalDocumentStatusTone(
-  status: FiscalDocument['status'],
-): StatusTone {
-  return fiscalDocumentStatusPresentations[status].tone
-}
-
-const fiscalDocumentStatusPresentations: Record<
-  FiscalDocument['status'],
-  { label: string; tone: StatusTone }
-> = {
-  AUTHORIZED: { label: 'NF autorizada', tone: 'success' },
-  CANCELLED: { label: 'NF cancelada', tone: 'neutral' },
-  PENDING: { label: 'NF pendente', tone: 'warning' },
-  PROCESSING: { label: 'NF processando', tone: 'warning' },
-  REJECTED: { label: 'NF rejeitada', tone: 'neutral' },
 }
 
 function emptySaleItem(): SaleDraftItem {

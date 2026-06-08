@@ -188,7 +188,15 @@ export function AppViewRenderer({
       ) : null}
 
       {view === "fiscal-documents" ? (
-        <FiscalDocumentsPage fiscalDocuments={fiscalDocuments} />
+        <FiscalDocumentsPage
+          fiscalDocuments={fiscalDocuments}
+          pickupReservations={pickupReservations}
+          sales={sales}
+          shippingOrders={shippingOrders}
+          onIssueSaleFiscalDocument={(sale) =>
+            void salesActions.issueSaleFiscalDocument(sale)
+          }
+        />
       ) : null}
 
       {view === "cash-register" ? (
@@ -222,12 +230,8 @@ export function AppViewRenderer({
           cashRegister={cashRegister}
           clients={clients}
           paymentMethods={paymentMethods}
-          fiscalDocuments={fiscalDocuments}
           products={products}
           sales={sales}
-          onIssueFiscalDocument={(sale) =>
-            void salesActions.issueSaleFiscalDocument(sale)
-          }
           onSubmit={salesActions.createSale}
         />
       ) : null}

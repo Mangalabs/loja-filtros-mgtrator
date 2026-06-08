@@ -6,6 +6,9 @@ import type {
   CashRegisterSession,
   FiscalDocument,
   PaymentMethod,
+  PickupReservation,
+  Sale,
+  ShippingOrder,
 } from "../../api";
 import {
   PrimaryButton,
@@ -81,23 +84,92 @@ export function PaymentMethodsPage({
 
 export function FiscalDocumentsPage({
   fiscalDocuments,
+  pickupReservations,
+  sales,
+  shippingOrders,
+  onIssueSaleFiscalDocument,
 }: {
   fiscalDocuments: FiscalDocument[];
+  pickupReservations: PickupReservation[];
+  sales: Sale[];
+  shippingOrders: ShippingOrder[];
+  onIssueSaleFiscalDocument: (sale: Sale) => void;
 }) {
+  const fiscalRequests = fiscalRequestFactories.flatMap((factory) =>
+    factory({ fiscalDocuments, pickupReservations, sales, shippingOrders }),
+  );
+
   return (
-    <div className="panel wide">
-      <div className="panel-header compact">
-        <div>
-          <h2>Notas emitidas</h2>
-          <span>
-            Acompanhe o retorno do provedor fiscal e os documentos vinculados
-            as vendas.
-          </span>
+    <section className="layout-grid stock-entry-layout">
+      <div className="panel wide">
+        <div className="panel-header compact">
+          <div>
+            <h2>Fila de emissao</h2>
+            <span>
+              Centralize a emissao fiscal de balcao, envio e retirada.
+            </span>
+          </div>
+          <FileText size={18} />
         </div>
-        <FileText size={18} />
+        <div className="table-shell">
+          <table>
+            <thead>
+              <tr>
+                <th>Origem</th>
+                <th>Cliente</th>
+                <th>Total</th>
+                <th>Status fiscal</th>
+                <th>Operador</th>
+                <th>Acoes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fiscalRequests.map((request) => (
+                <tr key={`${request.sourceType}-${request.sourceId}`}>
+                  <td>
+                    <strong>{request.sourceLabel}</strong>
+                    <span className="table-note">{request.sourceId}</span>
+                  </td>
+                  <td>{request.clientName}</td>
+                  <td>{formatCurrency(request.totalAmount)}</td>
+                  <td>
+                    {request.document ? (
+                      <FiscalDocumentStatus document={request.document} />
+                    ) : (
+                      <StatusChip label={request.pendingLabel} tone="warning" />
+                    )}
+                  </td>
+                  <td>{request.operatorName}</td>
+                  <td>
+                    <FiscalRequestAction
+                      request={request}
+                      onIssueSaleFiscalDocument={onIssueSaleFiscalDocument}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {fiscalRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={6}>Nenhuma venda disponivel para emissao.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div className="table-shell">
-        <table>
+
+      <div className="panel wide">
+        <div className="panel-header compact">
+          <div>
+            <h2>Notas emitidas</h2>
+            <span>
+              Acompanhe o retorno do provedor fiscal e os documentos gerados.
+            </span>
+          </div>
+          <FileText size={18} />
+        </div>
+        <div className="table-shell">
+          <table>
           <thead>
             <tr>
               <th>Documento</th>
@@ -159,9 +231,125 @@ export function FiscalDocumentsPage({
               </tr>
             ) : null}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
-    </div>
+    </section>
+  );
+}
+
+type FiscalRequest = {
+  sourceType: FiscalDocument["sourceType"];
+  sourceId: string;
+  sourceLabel: string;
+  pendingLabel: string;
+  clientName: string;
+  totalAmount: string;
+  operatorName: string;
+  sale?: Sale;
+  document?: FiscalDocument;
+};
+
+type FiscalRequestFactoryInput = {
+  fiscalDocuments: FiscalDocument[];
+  pickupReservations: PickupReservation[];
+  sales: Sale[];
+  shippingOrders: ShippingOrder[];
+};
+
+function FiscalRequestAction({
+  request,
+  onIssueSaleFiscalDocument,
+}: {
+  request: FiscalRequest;
+  onIssueSaleFiscalDocument: (sale: Sale) => void;
+}) {
+  const canIssueSale = Boolean(request.sale && !request.document);
+
+  return canIssueSale ? (
+    <TableActionButton
+      type="button"
+      onClick={() => request.sale && onIssueSaleFiscalDocument(request.sale)}
+    >
+      Emitir NF-e
+    </TableActionButton>
+  ) : (
+    <span className="table-note">
+      {request.document ? "Documento registrado" : "Emissao futura"}
+    </span>
+  );
+}
+
+const fiscalRequestFactories: Array<
+  (input: FiscalRequestFactoryInput) => FiscalRequest[]
+> = [
+  ({ fiscalDocuments, sales }) =>
+    sales.map((sale) => ({
+      sourceType: "SALE",
+      sourceId: sale.id,
+      sourceLabel: "Balcao",
+      pendingLabel: "Pendente",
+      clientName: sale.clientName ?? "Nao identificado",
+      totalAmount: sale.totalAmount,
+      operatorName: sale.createdByUserName,
+      sale,
+      document: findFiscalDocument(fiscalDocuments, "SALE", sale.id),
+    })),
+  ({ fiscalDocuments, shippingOrders }) =>
+    shippingOrders
+      .filter((order) => order.status === "COMPLETED")
+      .map((order) => ({
+        sourceType: "SHIPPING_ORDER",
+        sourceId: order.id,
+        sourceLabel: "Envio",
+        pendingLabel: "Aguardando endpoint",
+        clientName: order.clientName,
+        totalAmount: order.totalAmount,
+        operatorName: order.completedByUserName ?? order.createdByUserName,
+        document: findFiscalDocument(fiscalDocuments, "SHIPPING_ORDER", order.id),
+      })),
+  ({ fiscalDocuments, pickupReservations }) =>
+    pickupReservations
+      .filter((reservation) => reservation.status === "COMPLETED")
+      .map((reservation) => ({
+        sourceType: "PICKUP_RESERVATION",
+        sourceId: reservation.id,
+        sourceLabel: "Retirada",
+        pendingLabel: "Aguardando endpoint",
+        clientName: reservation.clientName,
+        totalAmount: reservation.totalAmount,
+        operatorName:
+          reservation.completedByUserName ?? reservation.createdByUserName,
+        document: findFiscalDocument(
+          fiscalDocuments,
+          "PICKUP_RESERVATION",
+          reservation.id,
+        ),
+      })),
+];
+
+function findFiscalDocument(
+  fiscalDocuments: FiscalDocument[],
+  sourceType: FiscalDocument["sourceType"],
+  sourceId: string,
+) {
+  return fiscalDocuments.find(
+    (document) =>
+      document.sourceType === sourceType && document.sourceId === sourceId,
+  );
+}
+
+function FiscalDocumentStatus({ document }: { document: FiscalDocument }) {
+  return (
+    <>
+      <StatusChip
+        label={fiscalDocumentStatusLabel(document.status)}
+        tone={fiscalDocumentStatusTone(document.status)}
+      />
+      <span className="table-note">
+        {document.documentType} {document.number ? `#${document.number}` : ""}
+      </span>
+    </>
   );
 }
 
