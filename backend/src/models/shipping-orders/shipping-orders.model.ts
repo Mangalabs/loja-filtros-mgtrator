@@ -191,6 +191,22 @@ export async function findShippingOrderByQuoteId(
   return withItems;
 }
 
+export async function getShippingOrderById(
+  id: string,
+  database: Knex | Knex.Transaction = db,
+): Promise<ShippingOrder | undefined> {
+  const order = await shippingOrderQuery(database)
+    .where("shipping_orders.id", id)
+    .first();
+
+  if (!order) {
+    return undefined;
+  }
+
+  const [withItems] = await withShippingOrderItems(database, [order]);
+  return withItems;
+}
+
 export async function insertShippingOrderFromQuote(
   transaction: Knex.Transaction,
   quote: Quote,

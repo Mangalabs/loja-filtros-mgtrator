@@ -87,13 +87,19 @@ export function FiscalDocumentsPage({
   pickupReservations,
   sales,
   shippingOrders,
+  onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
+  onIssueShippingOrderFiscalDocument,
 }: {
   fiscalDocuments: FiscalDocument[];
   pickupReservations: PickupReservation[];
   sales: Sale[];
   shippingOrders: ShippingOrder[];
+  onIssuePickupReservationFiscalDocument: (
+    reservation: PickupReservation,
+  ) => void;
   onIssueSaleFiscalDocument: (sale: Sale) => void;
+  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void;
 }) {
   const fiscalRequests = fiscalRequestFactories.flatMap((factory) =>
     factory({ fiscalDocuments, pickupReservations, sales, shippingOrders }),
@@ -143,7 +149,13 @@ export function FiscalDocumentsPage({
                   <td>
                     <FiscalRequestAction
                       request={request}
+                      onIssuePickupReservationFiscalDocument={
+                        onIssuePickupReservationFiscalDocument
+                      }
                       onIssueSaleFiscalDocument={onIssueSaleFiscalDocument}
+                      onIssueShippingOrderFiscalDocument={
+                        onIssueShippingOrderFiscalDocument
+                      }
                     />
                   </td>
                 </tr>
@@ -247,6 +259,8 @@ type FiscalRequest = {
   totalAmount: string;
   operatorName: string;
   sale?: Sale;
+  shippingOrder?: ShippingOrder;
+  pickupReservation?: PickupReservation;
   document?: FiscalDocument;
 };
 
@@ -259,18 +273,25 @@ type FiscalRequestFactoryInput = {
 
 function FiscalRequestAction({
   request,
+  onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
+  onIssueShippingOrderFiscalDocument,
 }: {
   request: FiscalRequest;
+  onIssuePickupReservationFiscalDocument: (
+    reservation: PickupReservation,
+  ) => void;
   onIssueSaleFiscalDocument: (sale: Sale) => void;
+  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void;
 }) {
-  const canIssueSale = Boolean(request.sale && !request.document);
+  const action = fiscalRequestAction(request, {
+    onIssuePickupReservationFiscalDocument,
+    onIssueSaleFiscalDocument,
+    onIssueShippingOrderFiscalDocument,
+  });
 
-  return canIssueSale ? (
-    <TableActionButton
-      type="button"
-      onClick={() => request.sale && onIssueSaleFiscalDocument(request.sale)}
-    >
+  return action ? (
+    <TableActionButton type="button" onClick={action}>
       Emitir NF-e
     </TableActionButton>
   ) : (
@@ -278,6 +299,44 @@ function FiscalRequestAction({
       {request.document ? "Documento registrado" : "Emissao futura"}
     </span>
   );
+}
+
+type FiscalRequestActionHandlers = {
+  onIssuePickupReservationFiscalDocument: (
+    reservation: PickupReservation,
+  ) => void;
+  onIssueSaleFiscalDocument: (sale: Sale) => void;
+  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void;
+};
+
+function fiscalRequestAction(
+  request: FiscalRequest,
+  handlers: FiscalRequestActionHandlers,
+) {
+  const actions: Partial<
+    Record<FiscalDocument["sourceType"], (() => void) | undefined>
+  > = {
+    PICKUP_RESERVATION:
+      request.pickupReservation && !request.document
+        ? () =>
+            handlers.onIssuePickupReservationFiscalDocument(
+              request.pickupReservation as PickupReservation,
+            )
+        : undefined,
+    SALE:
+      request.sale && !request.document
+        ? () => handlers.onIssueSaleFiscalDocument(request.sale as Sale)
+        : undefined,
+    SHIPPING_ORDER:
+      request.shippingOrder && !request.document
+        ? () =>
+            handlers.onIssueShippingOrderFiscalDocument(
+              request.shippingOrder as ShippingOrder,
+            )
+        : undefined,
+  };
+
+  return actions[request.sourceType];
 }
 
 const fiscalRequestFactories: Array<
@@ -306,6 +365,7 @@ const fiscalRequestFactories: Array<
         clientName: order.clientName,
         totalAmount: order.totalAmount,
         operatorName: order.completedByUserName ?? order.createdByUserName,
+        shippingOrder: order,
         document: findFiscalDocument(fiscalDocuments, "SHIPPING_ORDER", order.id),
       })),
   ({ fiscalDocuments, pickupReservations }) =>
@@ -320,6 +380,7 @@ const fiscalRequestFactories: Array<
         totalAmount: reservation.totalAmount,
         operatorName:
           reservation.completedByUserName ?? reservation.createdByUserName,
+        pickupReservation: reservation,
         document: findFiscalDocument(
           fiscalDocuments,
           "PICKUP_RESERVATION",

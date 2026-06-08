@@ -196,6 +196,12 @@ export function AppViewRenderer({
           onIssueSaleFiscalDocument={(sale) =>
             void salesActions.issueSaleFiscalDocument(sale)
           }
+          onIssueShippingOrderFiscalDocument={(order) =>
+            void salesActions.issueShippingOrderFiscalDocument(order)
+          }
+          onIssuePickupReservationFiscalDocument={(reservation) =>
+            void salesActions.issuePickupReservationFiscalDocument(reservation)
+          }
         />
       ) : null}
 

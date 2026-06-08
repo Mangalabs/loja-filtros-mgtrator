@@ -2,7 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   indexFiscalDocuments,
+  issuePickupReservationFiscalDocument,
   issueSaleFiscalDocument,
+  issueShippingOrderFiscalDocument,
   showFiscalDocument,
 } from "../../controllers/fiscal-documents/fiscal-documents.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
@@ -14,6 +16,14 @@ const fiscalDocumentParamsSchema = z.object({
 });
 
 const saleParamsSchema = z.object({
+  id: z.uuid(),
+});
+
+const shippingOrderParamsSchema = z.object({
+  id: z.uuid(),
+});
+
+const pickupReservationParamsSchema = z.object({
   id: z.uuid(),
 });
 
@@ -49,5 +59,43 @@ fiscalDocumentsRoutes.post(
     response
       .status(201)
       .json(await issueSaleFiscalDocument(id, userId, body.documentType));
+  },
+);
+
+fiscalDocumentsRoutes.post(
+  "/shipping-orders/:id/fiscal-documents",
+  async (request, response) => {
+    const { id } = shippingOrderParamsSchema.parse(request.params);
+    const body = validateBody(request, issueFiscalDocumentSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+
+    response
+      .status(201)
+      .json(
+        await issueShippingOrderFiscalDocument(
+          id,
+          userId,
+          body.documentType,
+        ),
+      );
+  },
+);
+
+fiscalDocumentsRoutes.post(
+  "/pickup-reservations/:id/fiscal-documents",
+  async (request, response) => {
+    const { id } = pickupReservationParamsSchema.parse(request.params);
+    const body = validateBody(request, issueFiscalDocumentSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+
+    response
+      .status(201)
+      .json(
+        await issuePickupReservationFiscalDocument(
+          id,
+          userId,
+          body.documentType,
+        ),
+      );
   },
 );

@@ -1115,10 +1115,21 @@ describe("catalog routes", () => {
     assert.equal(sales.body.data?.[0]?.clientName, "Cliente do envio");
     assert.equal(sales.body.data?.[0]?.paymentMethodName, "Boleto");
     assert.equal(sales.body.data?.[0]?.totalAmount, "139.80");
+    const fiscalDocument = await request<FiscalDocument>(
+      `/shipping-orders/${completed.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
+
     assert.equal(updatedProduct.body.data?.currentStock, "2.000");
     assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
     assert.equal(updatedProduct.body.data?.availableStock, "2.000");
     assert.equal(saleMovement?.quantity, "-2.000");
+    assert.equal(fiscalDocument.status, 201);
+    assert.equal(fiscalDocument.body.data?.sourceType, "SHIPPING_ORDER");
+    assert.equal(fiscalDocument.body.data?.sourceId, completed.body.data?.id);
   });
 
   it("completes a multi-item quoted shipping order as a sale", async () => {
@@ -1402,6 +1413,13 @@ describe("catalog routes", () => {
     const saleMovement = movements.body.data?.find(
       (movement) => movement.type === "SALE",
     );
+    const fiscalDocument = await request<FiscalDocument>(
+      `/pickup-reservations/${completed.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
 
     assert.equal(withoutCash.status, 422);
     assert.equal(
@@ -1426,6 +1444,9 @@ describe("catalog routes", () => {
     assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
     assert.equal(updatedProduct.body.data?.availableStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
+    assert.equal(fiscalDocument.status, 201);
+    assert.equal(fiscalDocument.body.data?.sourceType, "PICKUP_RESERVATION");
+    assert.equal(fiscalDocument.body.data?.sourceId, completed.body.data?.id);
   });
 
   it("completes a multi-item pickup reservation as a sale", async () => {

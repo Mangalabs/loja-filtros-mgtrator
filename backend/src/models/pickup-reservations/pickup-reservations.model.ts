@@ -215,6 +215,24 @@ export async function lockPickupReservation(
   return { ...reservation, items };
 }
 
+export async function getPickupReservationById(
+  id: string,
+  database: Knex | Knex.Transaction = db,
+): Promise<PickupReservation | undefined> {
+  const reservation = await pickupReservationQuery(database)
+    .where("pickup_reservations.id", id)
+    .first();
+
+  if (!reservation) {
+    return undefined;
+  }
+
+  const [withItems] = await withPickupReservationItems(database, [
+    reservation,
+  ]);
+  return withItems;
+}
+
 export async function cancelPickupReservation(
   transaction: Knex.Transaction,
   id: string,

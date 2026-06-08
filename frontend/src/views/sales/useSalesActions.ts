@@ -50,6 +50,46 @@ export function useSalesActions({
     });
   }
 
+  async function issueShippingOrderFiscalDocument(order: ShippingOrder) {
+    const confirmed = await requestConfirmation(
+      `Emitir NF-e para o pedido de envio de ${order.clientName} no valor de ${order.totalAmount}?`,
+      "Emitir NF-e?",
+      "Emitir NF-e",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPost(`/shipping-orders/${order.id}/fiscal-documents`, {
+        documentType: "NFE",
+      });
+      await loadCatalog();
+    });
+  }
+
+  async function issuePickupReservationFiscalDocument(
+    reservation: PickupReservation,
+  ) {
+    const confirmed = await requestConfirmation(
+      `Emitir NF-e para a retirada de ${reservation.clientName} no valor de ${reservation.totalAmount}?`,
+      "Emitir NF-e?",
+      "Emitir NF-e",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPost(`/pickup-reservations/${reservation.id}/fiscal-documents`, {
+        documentType: "NFE",
+      });
+      await loadCatalog();
+    });
+  }
+
   async function approveShippingOrder(order: ShippingOrder) {
     const orderQuantity = order.items.reduce(
       (sum, item) => sum + Number(item.quantity),
@@ -207,7 +247,9 @@ export function useSalesActions({
     completeShippingOrder,
     createPickupReservation,
     createSale,
+    issuePickupReservationFiscalDocument,
     issueSaleFiscalDocument,
+    issueShippingOrderFiscalDocument,
     separateShippingOrder,
   };
 }
