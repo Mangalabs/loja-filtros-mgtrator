@@ -31,7 +31,7 @@ const pickupReservationParamsSchema = z.object({
 
 const issueFiscalDocumentSchema = z
   .object({
-    documentType: z.enum(["NFE", "NFCE"]).default("NFE"),
+    documentType: z.literal("NFE").default("NFE"),
   })
   .strict();
 

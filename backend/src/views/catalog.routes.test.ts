@@ -708,6 +708,13 @@ describe("catalog routes", () => {
         body: { documentType: "NFE" },
       },
     );
+    const unsupportedDocumentType = await request(
+      `/sales/${sale.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFCE" },
+      },
+    );
     const listed = await request<FiscalDocument[]>("/fiscal-documents");
     const shown = await request<FiscalDocument>(
       `/fiscal-documents/${issued.body.data?.id}`,
@@ -753,6 +760,7 @@ describe("catalog routes", () => {
       duplicated.body.message,
       "Documento fiscal ja emitido para esta venda.",
     );
+    assert.equal(unsupportedDocumentType.status, 422);
     assert.equal(listed.body.data?.length, 1);
     assert.equal(shown.body.data?.id, issued.body.data?.id);
     assert.equal(synced.status, 200);
