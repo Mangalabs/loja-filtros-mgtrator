@@ -1,0 +1,298 @@
+import { env } from "../../../config/env.js";
+import { AppError } from "../../../shared/errors/app-error.js";
+import type {
+  FiscalIssueRequest,
+  FiscalIssueResult,
+  FiscalProvider,
+  FiscalProviderStatus,
+} from "../fiscal-provider.js";
+
+type FocusResponsePayload = Record<string, unknown>;
+
+type FocusNfePayload = {
+  natureza_operacao: string;
+  data_emissao: string;
+  tipo_documento: 1;
+  local_destino: 1;
+  finalidade_emissao: 1;
+  consumidor_final: 1;
+  presenca_comprador: 1;
+  cnpj_emitente?: string;
+  nome_destinatario: string;
+  cpf_destinatario?: string;
+  cnpj_destinatario?: string;
+  inscricao_estadual_destinatario?: string;
+  indicador_inscricao_estadual_destinatario: 1 | 2 | 9;
+  logradouro_destinatario?: string;
+  numero_destinatario?: string;
+  complemento_destinatario?: string;
+  bairro_destinatario?: string;
+  municipio_destinatario?: string;
+  uf_destinatario?: string;
+  cep_destinatario?: string;
+  telefone_destinatario?: string;
+  email_destinatario?: string;
+  valor_total: number;
+  valor_produtos: number;
+  modalidade_frete: 9;
+  items: FocusNfeItemPayload[];
+};
+
+type FocusNfeItemPayload = {
+  numero_item: number;
+  codigo_produto: string;
+  descricao: string;
+  codigo_ncm?: string;
+  cfop: string;
+  unidade_comercial: string;
+  quantidade_comercial: number;
+  valor_unitario_comercial: number;
+  valor_bruto: number;
+  unidade_tributavel: string;
+  quantidade_tributavel: number;
+  valor_unitario_tributavel: number;
+};
+
+export class FocusFiscalProvider implements FiscalProvider {
+  async issue(request: FiscalIssueRequest): Promise<FiscalIssueResult> {
+    ensureFocusConfiguration();
+
+    const response = await fetch(focusNfeUrl(request.reference), {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: focusAuthorizationHeader(env.fiscal.focus.token),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildFocusNfePayload(request)),
+    });
+    const responsePayload = await readFocusResponse(response);
+    const status = focusStatusFromResponse(response, responsePayload);
+
+    return {
+      provider: "FOCUS",
+      status,
+      accessKey: focusString(responsePayload.chave_nfe),
+      providerReference:
+        focusString(responsePayload.ref) ??
+        focusString(responsePayload.referencia) ??
+        request.reference,
+      number: focusNumber(responsePayload.numero),
+      series: focusNumber(responsePayload.serie),
+      xmlUrl: focusString(responsePayload.caminho_xml_nota_fiscal),
+      pdfUrl: focusString(responsePayload.caminho_danfe),
+      rejectionReason:
+        status === "REJECTED" ? focusRejectionReason(responsePayload) : null,
+      responsePayload,
+    };
+  }
+}
+
+function ensureFocusConfiguration() {
+  const missingFields = [
+    ["FOCUS_NFE_TOKEN", env.fiscal.focus.token],
+    ["FOCUS_NFE_COMPANY_CNPJ", env.fiscal.focus.companyCnpj],
+  ]
+    .filter((field): field is [string, null] => !field[1])
+    .map(([field]) => field);
+
+  if (missingFields.length > 0) {
+    throw new AppError(
+      `Integracao Focus NFe sem configuracao: ${missingFields.join(", ")}.`,
+      503,
+    );
+  }
+}
+
+function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
+  const totalAmount = moneyNumber(request.sale.totalAmount);
+
+  return {
+    natureza_operacao: "Venda de mercadoria",
+    data_emissao: new Date().toISOString(),
+    tipo_documento: 1,
+    local_destino: 1,
+    finalidade_emissao: 1,
+    consumidor_final: 1,
+    presenca_comprador: 1,
+    cnpj_emitente: digits(env.fiscal.focus.companyCnpj),
+    nome_destinatario: request.sale.clientName ?? "Consumidor final",
+    ...focusCustomerDocument(request),
+    inscricao_estadual_destinatario:
+      request.sale.clientStateRegistration ?? undefined,
+    indicador_inscricao_estadual_destinatario: focusCustomerStateRegistrationIndicator(request),
+    logradouro_destinatario: request.sale.clientAddressStreet ?? undefined,
+    numero_destinatario: request.sale.clientAddressNumber ?? undefined,
+    complemento_destinatario: request.sale.clientAddressComplement ?? undefined,
+    bairro_destinatario: request.sale.clientAddressDistrict ?? undefined,
+    municipio_destinatario: request.sale.clientAddressCity ?? undefined,
+    uf_destinatario: request.sale.clientAddressState?.toUpperCase(),
+    cep_destinatario: digits(request.sale.clientAddressZipCode),
+    telefone_destinatario: digits(request.sale.clientPhone),
+    email_destinatario: request.sale.clientEmail ?? undefined,
+    valor_total: totalAmount,
+    valor_produtos: totalAmount,
+    modalidade_frete: 9,
+    items: request.sale.items.map(focusNfeItemPayload),
+  };
+}
+
+function focusCustomerDocument(request: FiscalIssueRequest) {
+  const document = digits(request.sale.clientDocument);
+  const documentFields: Record<string, Record<string, string | undefined>> = {
+    ES: {},
+    PF: { cpf_destinatario: document },
+    PJ: { cnpj_destinatario: document },
+  };
+
+  return documentFields[request.sale.clientPersonType ?? "PF"];
+}
+
+function focusCustomerStateRegistrationIndicator(
+  request: FiscalIssueRequest,
+): 1 | 2 | 9 {
+  const indicator = Number(request.sale.clientStateRegistrationIndicator ?? 9);
+  const indicators: Record<number, 1 | 2 | 9> = {
+    1: 1,
+    2: 2,
+    9: 9,
+  };
+
+  return indicators[indicator] ?? 9;
+}
+
+function focusNfeItemPayload(
+  item: FiscalIssueRequest["sale"]["items"][number],
+): FocusNfeItemPayload {
+  const quantity = quantityNumber(item.quantity);
+  const unitPrice = moneyNumber(item.unitPrice);
+
+  return {
+    numero_item: item.position,
+    codigo_produto: item.productInternalCode ?? item.productId,
+    descricao: item.productName,
+    codigo_ncm: item.productNcm ?? undefined,
+    cfop: "5102",
+    unidade_comercial: focusProductUnit(item.productUnit),
+    quantidade_comercial: quantity,
+    valor_unitario_comercial: unitPrice,
+    valor_bruto: moneyNumber(item.totalAmount),
+    unidade_tributavel: focusProductUnit(item.productUnit),
+    quantidade_tributavel: quantity,
+    valor_unitario_tributavel: unitPrice,
+  };
+}
+
+function focusNfeUrl(reference: string) {
+  const url = new URL(focusBaseUrl());
+  url.searchParams.set("ref", reference);
+  return url;
+}
+
+function focusBaseUrl() {
+  const baseUrl = env.fiscal.focus.baseUrl.replace(/\/$/, "");
+  const path = baseUrl.endsWith("/v2/nfe") ? "" : "/v2/nfe";
+
+  return `${baseUrl}${path}`;
+}
+
+function focusAuthorizationHeader(token: string | null) {
+  return `Basic ${Buffer.from(`${token ?? ""}:`).toString("base64")}`;
+}
+
+async function readFocusResponse(
+  response: Response,
+): Promise<FocusResponsePayload> {
+  const text = await response.text();
+
+  if (!text.trim()) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text) as FocusResponsePayload;
+  } catch {
+    return { raw: text };
+  }
+}
+
+function focusStatusFromResponse(
+  response: Response,
+  payload: FocusResponsePayload,
+): FiscalProviderStatus {
+  const statusByHttpStatus: Record<number, FiscalProviderStatus> = {
+    201: "AUTHORIZED",
+    202: "PROCESSING",
+    400: "REJECTED",
+    415: "REJECTED",
+    422: "REJECTED",
+  };
+  const mappedStatus = statusByHttpStatus[response.status];
+
+  if (mappedStatus) {
+    return mappedStatus;
+  }
+
+  if (response.status === 401) {
+    throw new AppError("Token da Focus NFe nao autorizado.", 502);
+  }
+
+  if (!response.ok) {
+    throw new AppError(focusRejectionReason(payload), 502);
+  }
+
+  return "PROCESSING";
+}
+
+function focusRejectionReason(payload: FocusResponsePayload) {
+  return (
+    focusMessage(payload.mensagem) ??
+    focusMessage(payload.erros) ??
+    focusMessage(payload.status) ??
+    "Retorno da Focus NFe nao autorizado."
+  );
+}
+
+function focusString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function focusNumber(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function focusMessage(value: unknown) {
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+
+  if (Array.isArray(value) && value.length > 0) {
+    return value.map(String).join("; ");
+  }
+
+  return value && typeof value === "object" ? JSON.stringify(value) : null;
+}
+
+function focusProductUnit(unit: string) {
+  const unitByProductUnit: Record<string, string> = {
+    CJ: "CJ",
+    KIT: "KIT",
+    UN: "UN",
+  };
+
+  return unitByProductUnit[unit] ?? "UN";
+}
+
+function moneyNumber(value: string) {
+  return Number(Number(value).toFixed(2));
+}
+
+function quantityNumber(value: string) {
+  return Number(Number(value).toFixed(3));
+}
+
+function digits(value: string | null) {
+  const normalized = value?.replace(/\D/g, "");
+  return normalized || undefined;
+}

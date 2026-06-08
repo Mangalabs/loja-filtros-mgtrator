@@ -18,7 +18,20 @@ export type Sale = {
   unitPrice: string;
   totalAmount: string;
   items: SaleItem[];
+  clientPersonType: "PF" | "PJ" | "ES" | null;
   clientName: string | null;
+  clientDocument: string | null;
+  clientEmail: string | null;
+  clientPhone: string | null;
+  clientStateRegistration: string | null;
+  clientStateRegistrationIndicator: "1" | "2" | "9" | null;
+  clientAddressStreet: string | null;
+  clientAddressNumber: string | null;
+  clientAddressComplement: string | null;
+  clientAddressDistrict: string | null;
+  clientAddressCity: string | null;
+  clientAddressState: string | null;
+  clientAddressZipCode: string | null;
   paymentMethodName: string;
   createdByUserName: string;
   createdAt: Date;
@@ -28,7 +41,10 @@ export type Sale = {
 export type SaleItem = {
   id: string;
   productId: string;
+  productInternalCode: string | null;
   productName: string;
+  productNcm: string | null;
+  productUnit: string;
   quantity: string;
   unitPrice: string;
   totalAmount: string;
@@ -47,7 +63,20 @@ export type SaleProduct = {
 const saleColumns = [
   "sales.id",
   "sales.total_amount as totalAmount",
+  "clients.person_type as clientPersonType",
   "clients.name as clientName",
+  "clients.document as clientDocument",
+  "clients.email as clientEmail",
+  "clients.phone as clientPhone",
+  "clients.state_registration as clientStateRegistration",
+  "clients.state_registration_indicator as clientStateRegistrationIndicator",
+  "clients.address_street as clientAddressStreet",
+  "clients.address_number as clientAddressNumber",
+  "clients.address_complement as clientAddressComplement",
+  "clients.address_district as clientAddressDistrict",
+  "clients.address_city as clientAddressCity",
+  "clients.address_state as clientAddressState",
+  "clients.address_zip_code as clientAddressZipCode",
   "payment_methods.name as paymentMethodName",
   "users.name as createdByUserName",
   "sales.created_at as createdAt",
@@ -58,7 +87,10 @@ const saleItemColumns = [
   "sale_items.id",
   "sale_items.sale_id as saleId",
   "sale_items.product_id as productId",
+  "products.internal_code as productInternalCode",
   "products.name as productName",
+  "products.ncm as productNcm",
+  "products.unit as productUnit",
   "sale_items.quantity",
   "sale_items.unit_price as unitPrice",
   "sale_items.total_amount as totalAmount",
@@ -76,6 +108,20 @@ type SaleItemRow = SaleItem & {
 export async function listSales(): Promise<Sale[]> {
   const sales = await saleQuery(db).orderBy("sales.created_at", "desc");
   return withSaleItems(db, sales);
+}
+
+export async function getSaleById(
+  id: string,
+  database: Knex | Knex.Transaction = db,
+): Promise<Sale | undefined> {
+  const sale = await saleQuery(database).where("sales.id", id).first();
+
+  if (!sale) {
+    return undefined;
+  }
+
+  const [withItems] = await withSaleItems(database, [sale]);
+  return withItems;
 }
 
 export async function findOpenCashRegister(

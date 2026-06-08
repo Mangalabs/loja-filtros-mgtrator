@@ -1,0 +1,53 @@
+import { Router } from "express";
+import { z } from "zod";
+import {
+  indexFiscalDocuments,
+  issueSaleFiscalDocument,
+  showFiscalDocument,
+} from "../../controllers/fiscal-documents/fiscal-documents.controller.js";
+import { validateBody } from "../../shared/validation/validate-request.js";
+
+export const fiscalDocumentsRoutes = Router();
+
+const fiscalDocumentParamsSchema = z.object({
+  id: z.uuid(),
+});
+
+const saleParamsSchema = z.object({
+  id: z.uuid(),
+});
+
+const issueFiscalDocumentSchema = z
+  .object({
+    documentType: z.enum(["NFE", "NFCE"]).default("NFE"),
+  })
+  .strict();
+
+fiscalDocumentsRoutes.get(
+  "/fiscal-documents",
+  async (_request, response) => {
+    response.status(200).json(await indexFiscalDocuments());
+  },
+);
+
+fiscalDocumentsRoutes.get(
+  "/fiscal-documents/:id",
+  async (request, response) => {
+    const { id } = fiscalDocumentParamsSchema.parse(request.params);
+
+    response.status(200).json(await showFiscalDocument(id));
+  },
+);
+
+fiscalDocumentsRoutes.post(
+  "/sales/:id/fiscal-documents",
+  async (request, response) => {
+    const { id } = saleParamsSchema.parse(request.params);
+    const body = validateBody(request, issueFiscalDocumentSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+
+    response
+      .status(201)
+      .json(await issueSaleFiscalDocument(id, userId, body.documentType));
+  },
+);

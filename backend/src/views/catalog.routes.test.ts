@@ -203,6 +203,15 @@ type Client = {
   document: string | null;
   email: string | null;
   phone: string | null;
+  stateRegistration: string | null;
+  stateRegistrationIndicator: "1" | "2" | "9" | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  addressDistrict: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressZipCode: string | null;
   active: boolean;
 };
 
@@ -248,6 +257,24 @@ type ReportsOverview = {
     openedByUserName: string;
     openedAt: string;
   } | null;
+};
+
+type FiscalDocument = {
+  id: string;
+  sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
+  sourceId: string;
+  documentType: "NFE" | "NFCE";
+  provider: "MOCK" | "FOCUS";
+  environment: "HOMOLOGATION" | "PRODUCTION";
+  status: "PENDING" | "PROCESSING" | "AUTHORIZED" | "REJECTED" | "CANCELLED";
+  accessKey: string | null;
+  providerReference: string | null;
+  number: number | null;
+  series: number | null;
+  xmlUrl: string | null;
+  pdfUrl: string | null;
+  rejectionReason: string | null;
+  issuedByUserName: string;
 };
 
 let server: Server;
@@ -298,7 +325,7 @@ before(async () => {
 
 beforeEach(async () => {
   await db.raw(
-    "truncate table cash_register_sessions, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
+    "truncate table fiscal_documents, cash_register_sessions, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
   await db("payment_methods").update({ active: true });
 });
@@ -619,6 +646,88 @@ describe("catalog routes", () => {
     assert.equal(listed.body.data?.length, 1);
     assert.equal(updatedProduct.body.data?.currentStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
+  });
+
+  it("issues a mock fiscal document for a completed sale", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro com nota", salePrice: 35 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente fiscal",
+        document: "12345678901",
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para nota fiscal",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+      },
+    });
+    const issued = await request<FiscalDocument>(
+      `/sales/${sale.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
+    const duplicated = await request(
+      `/sales/${sale.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
+    const listed = await request<FiscalDocument[]>("/fiscal-documents");
+    const shown = await request<FiscalDocument>(
+      `/fiscal-documents/${issued.body.data?.id}`,
+    );
+
+    assert.equal(issued.status, 201);
+    assert.equal(issued.body.data?.sourceType, "SALE");
+    assert.equal(issued.body.data?.sourceId, sale.body.data?.id);
+    assert.equal(issued.body.data?.documentType, "NFE");
+    assert.equal(issued.body.data?.provider, "MOCK");
+    assert.equal(issued.body.data?.environment, "HOMOLOGATION");
+    assert.equal(issued.body.data?.status, "AUTHORIZED");
+    assert.equal(
+      issued.body.data?.providerReference,
+      `SALE-${sale.body.data?.id}`,
+    );
+    assert.equal(issued.body.data?.issuedByUserName, "Administrador de teste");
+    assert.equal(duplicated.status, 409);
+    assert.equal(
+      duplicated.body.message,
+      "Documento fiscal ja emitido para esta venda.",
+    );
+    assert.equal(listed.body.data?.length, 1);
+    assert.equal(shown.body.data?.id, issued.body.data?.id);
   });
 
   it("returns a management reports overview", async () => {
@@ -1813,6 +1922,13 @@ describe("catalog routes", () => {
         document: "12345678900",
         email: "ana@example.com",
         phone: "85999990000",
+        stateRegistrationIndicator: "9",
+        addressStreet: "Rua Fiscal",
+        addressNumber: "123",
+        addressDistrict: "Centro",
+        addressCity: "Araguaina",
+        addressState: "TO",
+        addressZipCode: "77800000",
       },
     });
     const listed = await request<Client[]>("/clients?search=12345678900");
@@ -1831,6 +1947,15 @@ describe("catalog routes", () => {
         document: "",
         email: "",
         phone: "8533330000",
+        stateRegistration: "123456789",
+        stateRegistrationIndicator: "1",
+        addressStreet: "Avenida Atualizada",
+        addressNumber: "456",
+        addressComplement: "Sala 2",
+        addressDistrict: "Vila Nova",
+        addressCity: "Fortaleza",
+        addressState: "CE",
+        addressZipCode: "60000000",
       },
     });
     const active = await request<Client[]>("/clients?active=true");
@@ -1844,6 +1969,10 @@ describe("catalog routes", () => {
     assert.equal(updated.body.data?.name, "Ana Filtros LTDA");
     assert.equal(updated.body.data?.document, null);
     assert.equal(updated.body.data?.email, null);
+    assert.equal(updated.body.data?.stateRegistration, "123456789");
+    assert.equal(updated.body.data?.stateRegistrationIndicator, "1");
+    assert.equal(updated.body.data?.addressCity, "Fortaleza");
+    assert.equal(updated.body.data?.addressState, "CE");
     assert.equal(deactivated.status, 200);
     assert.equal(deactivated.body.data?.active, false);
     assert.equal(updated.body.data?.active, false);

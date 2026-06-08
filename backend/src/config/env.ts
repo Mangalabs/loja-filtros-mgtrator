@@ -27,6 +27,26 @@ function envOrDefault(value: string | undefined, fallback: string) {
   return value?.trim() || fallback;
 }
 
+function fiscalProvider(value: string | undefined) {
+  const provider = envOrDefault(value, "mock").toLowerCase();
+  const providers: Record<string, "mock" | "focus"> = {
+    focus: "focus",
+    mock: "mock",
+  };
+
+  return providers[provider] ?? "mock";
+}
+
+function fiscalEnvironment(value: string | undefined) {
+  const environment = envOrDefault(value, "homologation").toLowerCase();
+  const environments: Record<string, "HOMOLOGATION" | "PRODUCTION"> = {
+    homologation: "HOMOLOGATION",
+    production: "PRODUCTION",
+  };
+
+  return environments[environment] ?? "HOMOLOGATION";
+}
+
 export const env = {
   nodeEnv,
   host: process.env.HOST ?? "127.0.0.1",
@@ -49,5 +69,17 @@ export const env = {
     ),
     phone: optionalEnv(process.env.QUOTE_PDF_STORE_PHONE),
     email: optionalEnv(process.env.QUOTE_PDF_STORE_EMAIL),
+  },
+  fiscal: {
+    provider: fiscalProvider(process.env.FISCAL_PROVIDER),
+    environment: fiscalEnvironment(process.env.FISCAL_ENVIRONMENT),
+    focus: {
+      baseUrl: envOrDefault(
+        process.env.FOCUS_NFE_BASE_URL,
+        "https://homologacao.focusnfe.com.br",
+      ),
+      token: optionalEnv(process.env.FOCUS_NFE_TOKEN),
+      companyCnpj: optionalEnv(process.env.FOCUS_NFE_COMPANY_CNPJ),
+    },
   },
 };

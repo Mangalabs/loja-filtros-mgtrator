@@ -24,6 +24,18 @@ const clientSchema = z
       .transform((value) => value || null)
       .optional(),
     phone: optionalText(32),
+    stateRegistration: optionalText(32),
+    stateRegistrationIndicator: z
+      .union([z.enum(["1", "2", "9"]), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    addressStreet: optionalText(160),
+    addressNumber: optionalText(32),
+    addressComplement: optionalText(80),
+    addressDistrict: optionalText(80),
+    addressCity: optionalText(80),
+    addressState: optionalText(2),
+    addressZipCode: optionalText(16),
   })
   .strict();
 
