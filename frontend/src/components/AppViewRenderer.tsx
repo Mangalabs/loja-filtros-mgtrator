@@ -207,6 +207,9 @@ export function AppViewRenderer({
           onSyncFiscalDocument={(fiscalDocument) =>
             void financeActions.syncFiscalDocument(fiscalDocument)
           }
+          onCancelFiscalDocument={(event, fiscalDocument) =>
+            void financeActions.cancelFiscalDocument(event, fiscalDocument)
+          }
         />
       ) : null}
 

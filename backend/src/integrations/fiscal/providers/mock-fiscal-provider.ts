@@ -1,4 +1,6 @@
 import type {
+  FiscalCancelRequest,
+  FiscalCancelResult,
   FiscalCheckRequest,
   FiscalCheckResult,
   FiscalIssueRequest,
@@ -7,6 +9,28 @@ import type {
 } from "../fiscal-provider.js";
 
 export class MockFiscalProvider implements FiscalProvider {
+  async cancel(request: FiscalCancelRequest): Promise<FiscalCancelResult> {
+    return {
+      provider: "MOCK",
+      status: "CANCELLED",
+      accessKey: `MOCK-${request.providerReference}`,
+      providerReference: request.providerReference,
+      number: Number(
+        request.providerReference.replace(/\D/g, "").slice(-8) || 1,
+      ),
+      series: 1,
+      xmlUrl: `/mock/fiscal-documents/${request.providerReference}.xml`,
+      pdfUrl: `/mock/fiscal-documents/${request.providerReference}.pdf`,
+      rejectionReason: null,
+      responsePayload: {
+        documento: request.documentType,
+        justificativa: request.reason,
+        referencia: request.providerReference,
+        status: "cancelado_mock",
+      },
+    };
+  }
+
   async check(request: FiscalCheckRequest): Promise<FiscalCheckResult> {
     return {
       provider: "MOCK",

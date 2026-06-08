@@ -75,6 +75,46 @@ export async function syncFiscalDocument(id: string) {
   };
 }
 
+export async function cancelFiscalDocument(id: string, reason: string) {
+  const fiscalDocument = await getFiscalDocumentById(id);
+
+  if (!fiscalDocument) {
+    throw new AppError("Documento fiscal nao encontrado.", 404);
+  }
+
+  if (!fiscalDocument.providerReference) {
+    throw new AppError("Documento fiscal sem referencia do provedor.", 422);
+  }
+
+  if (fiscalDocument.status !== "AUTHORIZED") {
+    throw new AppError("Somente nota autorizada pode ser cancelada.", 422);
+  }
+
+  const provider = makeFiscalProviderByName(fiscalDocument.provider);
+  const result = await provider.cancel({
+    documentType: fiscalDocument.documentType,
+    providerReference: fiscalDocument.providerReference,
+    reason,
+  });
+  const updated = await updateFiscalDocumentStatus(id, {
+    status: result.status,
+    accessKey: result.accessKey,
+    providerReference: result.providerReference,
+    number: result.number,
+    series: result.series,
+    xmlUrl: result.xmlUrl,
+    pdfUrl: result.pdfUrl,
+    rejectionReason: result.rejectionReason,
+    responsePayload: result.responsePayload,
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: updated,
+  };
+}
+
 export async function issueSaleFiscalDocument(
   saleId: string,
   issuedByUserId: string,

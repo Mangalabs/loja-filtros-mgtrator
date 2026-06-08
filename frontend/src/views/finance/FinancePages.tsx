@@ -1,4 +1,5 @@
 import Link from "@mui/material/Link";
+import TextField from "@mui/material/TextField";
 import { Banknote, CreditCard, FileText, Plus, Power, PowerOff } from "lucide-react";
 import type { FormEvent } from "react";
 import type {
@@ -94,6 +95,7 @@ export function FiscalDocumentsPage({
   onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
   onIssueShippingOrderFiscalDocument,
+  onCancelFiscalDocument,
   onSyncFiscalDocument,
 }: {
   clients: Client[];
@@ -107,6 +109,10 @@ export function FiscalDocumentsPage({
   ) => void;
   onIssueSaleFiscalDocument: (sale: Sale) => void;
   onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void;
+  onCancelFiscalDocument: (
+    event: FormEvent<HTMLFormElement>,
+    fiscalDocument: FiscalDocument,
+  ) => void;
   onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void;
 }) {
   const fiscalRequests = fiscalRequestFactories.flatMap((factory) =>
@@ -256,12 +262,11 @@ export function FiscalDocumentsPage({
                   <FiscalDocumentLinks document={document} />
                 </td>
                 <td>
-                  <TableActionButton
-                    type="button"
-                    onClick={() => onSyncFiscalDocument(document)}
-                  >
-                    Atualizar
-                  </TableActionButton>
+                  <FiscalDocumentActions
+                    document={document}
+                    onCancelFiscalDocument={onCancelFiscalDocument}
+                    onSyncFiscalDocument={onSyncFiscalDocument}
+                  />
                 </td>
               </tr>
             ))}
@@ -575,6 +580,45 @@ function FiscalDocumentLinks({ document }: { document: FiscalDocument }) {
     </div>
   ) : (
     <span className="empty-text">Sem arquivos</span>
+  );
+}
+
+function FiscalDocumentActions({
+  document,
+  onCancelFiscalDocument,
+  onSyncFiscalDocument,
+}: {
+  document: FiscalDocument;
+  onCancelFiscalDocument: (
+    event: FormEvent<HTMLFormElement>,
+    fiscalDocument: FiscalDocument,
+  ) => void;
+  onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void;
+}) {
+  return (
+    <div className="shipping-order-actions">
+      <TableActionButton
+        type="button"
+        onClick={() => onSyncFiscalDocument(document)}
+      >
+        Atualizar
+      </TableActionButton>
+
+      {document.status === "AUTHORIZED" ? (
+        <form
+          className="cancel-order-form"
+          onSubmit={(event) => onCancelFiscalDocument(event, document)}
+        >
+          <TextField
+            name="fiscalCancellationReason"
+            label="Motivo do cancelamento"
+            size="small"
+            required
+          />
+          <TableActionButton type="submit">Cancelar NF-e</TableActionButton>
+        </form>
+      ) : null}
+    </div>
   );
 }
 

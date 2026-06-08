@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  cancelFiscalDocument,
   indexFiscalDocuments,
   issuePickupReservationFiscalDocument,
   issueSaleFiscalDocument,
@@ -34,6 +35,12 @@ const issueFiscalDocumentSchema = z
   })
   .strict();
 
+const cancelFiscalDocumentSchema = z
+  .object({
+    reason: z.string().trim().min(15).max(255),
+  })
+  .strict();
+
 fiscalDocumentsRoutes.get(
   "/fiscal-documents",
   async (_request, response) => {
@@ -56,6 +63,16 @@ fiscalDocumentsRoutes.patch(
     const { id } = fiscalDocumentParamsSchema.parse(request.params);
 
     response.status(200).json(await syncFiscalDocument(id));
+  },
+);
+
+fiscalDocumentsRoutes.patch(
+  "/fiscal-documents/:id/cancel",
+  async (request, response) => {
+    const { id } = fiscalDocumentParamsSchema.parse(request.params);
+    const body = validateBody(request, cancelFiscalDocumentSchema);
+
+    response.status(200).json(await cancelFiscalDocument(id, body.reason));
   },
 );
 

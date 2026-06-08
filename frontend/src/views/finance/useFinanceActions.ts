@@ -1,5 +1,10 @@
 import type { FormEvent } from "react";
-import { apiPatch, apiPost, type FiscalDocument, type PaymentMethod } from "../../api";
+import {
+  apiPatch,
+  apiPost,
+  type FiscalDocument,
+  type PaymentMethod,
+} from "../../api";
 
 type FinanceActionsOptions = {
   loadCatalog: () => Promise<void>;
@@ -82,7 +87,36 @@ export function useFinanceActions({
     });
   }
 
+  async function cancelFiscalDocument(
+    event: FormEvent<HTMLFormElement>,
+    fiscalDocument: FiscalDocument,
+  ) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const reason = String(form.get("fiscalCancellationReason") ?? "").trim();
+    const confirmed = await requestConfirmation(
+      "A nota sera enviada ao provedor fiscal para cancelamento.",
+      "Cancelar NF-e?",
+      "Cancelar NF-e",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPatch(`/fiscal-documents/${fiscalDocument.id}/cancel`, {
+        reason,
+      });
+
+      formElement.reset();
+      await loadCatalog();
+    });
+  }
+
   return {
+    cancelFiscalDocument,
     changePaymentMethodStatus,
     closeCashRegister,
     openCashRegister,

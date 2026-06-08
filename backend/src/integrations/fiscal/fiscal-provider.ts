@@ -68,7 +68,16 @@ export type FiscalCheckRequest = {
 
 export type FiscalCheckResult = FiscalIssueResult;
 
+export type FiscalCancelRequest = {
+  documentType: FiscalDocumentType;
+  providerReference: string;
+  reason: string;
+};
+
+export type FiscalCancelResult = FiscalIssueResult;
+
 export type FiscalProvider = {
+  cancel(request: FiscalCancelRequest): Promise<FiscalCancelResult>;
   check(request: FiscalCheckRequest): Promise<FiscalCheckResult>;
   issue(request: FiscalIssueRequest): Promise<FiscalIssueResult>;
 };

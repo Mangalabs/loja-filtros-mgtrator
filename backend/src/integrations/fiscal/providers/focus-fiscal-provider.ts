@@ -1,6 +1,8 @@
 import { env } from "../../../config/env.js";
 import { AppError } from "../../../shared/errors/app-error.js";
 import type {
+  FiscalCancelRequest,
+  FiscalCancelResult,
   FiscalCheckRequest,
   FiscalCheckResult,
   FiscalIssueRequest,
@@ -60,6 +62,32 @@ type FocusNfeItemPayload = {
 };
 
 export class FocusFiscalProvider implements FiscalProvider {
+  async cancel(request: FiscalCancelRequest): Promise<FiscalCancelResult> {
+    ensureFocusConfiguration();
+
+    const response = await fetch(
+      focusNfeReferenceUrl(request.providerReference),
+      {
+        method: "DELETE",
+        headers: {
+          Accept: "application/json",
+          Authorization: focusAuthorizationHeader(env.fiscal.focus.token),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ justificativa: request.reason }),
+      },
+    );
+    const responsePayload = await readFocusResponse(response);
+    const status = focusCancelStatusFromPayload(response, responsePayload);
+
+    return focusResultFromPayload({
+      documentType: request.documentType,
+      providerReference: request.providerReference,
+      responsePayload,
+      status,
+    });
+  }
+
   async check(request: FiscalCheckRequest): Promise<FiscalCheckResult> {
     ensureFocusConfiguration();
 
@@ -314,6 +342,23 @@ function focusStatusFromPayload(
   };
 
   return statusByFocusStatus[status] ?? "PROCESSING";
+}
+
+function focusCancelStatusFromPayload(
+  response: Response,
+  payload: FocusResponsePayload,
+): FiscalProviderStatus {
+  if (!response.ok) {
+    throw new AppError(focusRejectionReason(payload), 502);
+  }
+
+  const status = focusString(payload.status)?.toLowerCase() ?? "";
+  const statusByFocusStatus: Record<string, FiscalProviderStatus> = {
+    cancelado: "CANCELLED",
+    erro_cancelamento: "REJECTED",
+  };
+
+  return statusByFocusStatus[status] ?? "CANCELLED";
 }
 
 function focusRejectionReason(payload: FocusResponsePayload) {

@@ -719,6 +719,15 @@ describe("catalog routes", () => {
         body: {},
       },
     );
+    const cancelled = await request<FiscalDocument>(
+      `/fiscal-documents/${issued.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: {
+          reason: "Cancelamento de teste da nota fiscal",
+        },
+      },
+    );
 
     assert.equal(issued.status, 201);
     assert.equal(issued.body.data?.sourceType, "SALE");
@@ -742,6 +751,8 @@ describe("catalog routes", () => {
     assert.equal(synced.status, 200);
     assert.equal(synced.body.data?.status, "AUTHORIZED");
     assert.equal(synced.body.data?.pdfUrl, issued.body.data?.pdfUrl);
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.body.data?.status, "CANCELLED");
   });
 
   it("returns a management reports overview", async () => {
