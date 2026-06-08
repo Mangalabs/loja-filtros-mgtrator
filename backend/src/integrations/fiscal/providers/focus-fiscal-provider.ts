@@ -152,9 +152,10 @@ function focusResultFromPayload({
       providerReference,
     number: focusNumber(responsePayload.numero),
     series: focusNumber(responsePayload.serie),
-    xmlUrl: focusString(responsePayload.caminho_xml_nota_fiscal),
-    pdfUrl: focusString(responsePayload.caminho_danfe),
-    rejectionReason: status === "REJECTED" ? focusRejectionReason(responsePayload) : null,
+    xmlUrl: focusFileUrl(responsePayload.caminho_xml_nota_fiscal),
+    pdfUrl: focusFileUrl(responsePayload.caminho_danfe),
+    rejectionReason:
+      status === "REJECTED" ? focusRejectionReason(responsePayload) : null,
     responsePayload,
   };
 }
@@ -372,6 +373,23 @@ function focusRejectionReason(payload: FocusResponsePayload) {
 
 function focusString(value: unknown) {
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+function focusFileUrl(value: unknown) {
+  const path = focusString(value);
+
+  if (!path) {
+    return null;
+  }
+
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+
+  const baseUrl = env.fiscal.focus.baseUrl.replace(/\/$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+  return `${baseUrl}${normalizedPath}`;
 }
 
 function focusNumber(value: unknown) {
