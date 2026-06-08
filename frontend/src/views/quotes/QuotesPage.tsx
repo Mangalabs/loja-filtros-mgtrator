@@ -1,3 +1,5 @@
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import { List as ListIcon, Plus } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import type { Client, Product, Quote } from '../../api'
@@ -163,14 +165,16 @@ export function QuotesPage({
           rows={3}
           onChange={(event) => setNotes(event.target.value)}
         />
-        <label className='checkbox-field'>
-          <input
-            checked={showBrand}
-            type='checkbox'
-            onChange={(event) => setShowBrand(event.target.checked)}
-          />
-          Exibir fabricante na coluna Marca do PDF
-        </label>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={showBrand}
+              color='success'
+              onChange={(event) => setShowBrand(event.target.checked)}
+            />
+          }
+          label='Exibir fabricante na coluna Marca do PDF'
+        />
 
         <div className='quote-items'>
           {items.map((item, index) => (
@@ -293,6 +297,12 @@ export function QuotesPage({
                       label={quoteStatusPresentation(quote).label}
                       tone={quoteStatusPresentation(quote).tone}
                     />
+                    <div className='table-note'>
+                      <StatusChip
+                        label={quoteBrandPresentation(quote.showBrand).label}
+                        tone={quoteBrandPresentation(quote.showBrand).tone}
+                      />
+                    </div>
                     {quote.cancelledByUserName ? (
                       <div className='table-note'>
                         Cancelado por {quote.cancelledByUserName}
@@ -378,6 +388,15 @@ type QuoteStatusPresentation = {
   tone: 'neutral' | 'success' | 'warning'
 }
 
+type QuoteBrandPresentation = {
+  label: string
+  tone: 'neutral' | 'success'
+}
+
+function quoteBrandPresentation(showBrand: boolean): QuoteBrandPresentation {
+  return quoteBrandPresentations[String(showBrand)]
+}
+
 function quoteStatusPresentation(quote: Quote): QuoteStatusPresentation {
   return (
     quoteStatusPresentationStrategies
@@ -420,6 +439,17 @@ const quoteStatusPresentationStrategies: Array<{
     present: () => quoteStatusPresentations.DRAFT,
   },
 ]
+
+const quoteBrandPresentations: Record<string, QuoteBrandPresentation> = {
+  false: {
+    label: 'PDF sem Marca',
+    tone: 'neutral',
+  },
+  true: {
+    label: 'PDF com Marca',
+    tone: 'success',
+  },
+}
 
 function emptyQuoteItem(): QuoteDraftItem {
   return {
