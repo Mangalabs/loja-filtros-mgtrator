@@ -18,6 +18,7 @@ export type Sale = {
   unitPrice: string;
   totalAmount: string;
   items: SaleItem[];
+  clientId: string | null;
   clientPersonType: "PF" | "PJ" | "ES" | null;
   clientName: string | null;
   clientDocument: string | null;
@@ -68,6 +69,7 @@ export type SaleProduct = {
 const saleColumns = [
   "sales.id",
   "sales.total_amount as totalAmount",
+  "sales.client_id as clientId",
   "clients.person_type as clientPersonType",
   "clients.name as clientName",
   "clients.document as clientDocument",

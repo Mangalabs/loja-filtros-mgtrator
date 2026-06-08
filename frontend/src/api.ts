@@ -163,6 +163,7 @@ export type Sale = {
     totalAmount: string;
     position: number;
   }>;
+  clientId: string | null;
   clientName: string | null;
   paymentMethodName: string;
   createdByUserName: string;

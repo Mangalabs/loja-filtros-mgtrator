@@ -189,8 +189,10 @@ export function AppViewRenderer({
 
       {view === "fiscal-documents" ? (
         <FiscalDocumentsPage
+          clients={clients}
           fiscalDocuments={fiscalDocuments}
           pickupReservations={pickupReservations}
+          products={products}
           sales={sales}
           shippingOrders={shippingOrders}
           onIssueSaleFiscalDocument={(sale) =>

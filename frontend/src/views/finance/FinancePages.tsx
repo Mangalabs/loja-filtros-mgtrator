@@ -4,9 +4,11 @@ import type { FormEvent } from "react";
 import type {
   AuthUser,
   CashRegisterSession,
+  Client,
   FiscalDocument,
   PaymentMethod,
   PickupReservation,
+  Product,
   Sale,
   ShippingOrder,
 } from "../../api";
@@ -83,16 +85,20 @@ export function PaymentMethodsPage({
 }
 
 export function FiscalDocumentsPage({
+  clients,
   fiscalDocuments,
   pickupReservations,
+  products,
   sales,
   shippingOrders,
   onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
   onIssueShippingOrderFiscalDocument,
 }: {
+  clients: Client[];
   fiscalDocuments: FiscalDocument[];
   pickupReservations: PickupReservation[];
+  products: Product[];
   sales: Sale[];
   shippingOrders: ShippingOrder[];
   onIssuePickupReservationFiscalDocument: (
@@ -102,7 +108,14 @@ export function FiscalDocumentsPage({
   onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void;
 }) {
   const fiscalRequests = fiscalRequestFactories.flatMap((factory) =>
-    factory({ fiscalDocuments, pickupReservations, sales, shippingOrders }),
+    factory({
+      clients,
+      fiscalDocuments,
+      pickupReservations,
+      products,
+      sales,
+      shippingOrders,
+    }),
   );
 
   return (
@@ -125,6 +138,7 @@ export function FiscalDocumentsPage({
                 <th>Cliente</th>
                 <th>Total</th>
                 <th>Status fiscal</th>
+                <th>Prontidao</th>
                 <th>Operador</th>
                 <th>Acoes</th>
               </tr>
@@ -145,6 +159,9 @@ export function FiscalDocumentsPage({
                       <StatusChip label={request.pendingLabel} tone="warning" />
                     )}
                   </td>
+                  <td>
+                    <FiscalReadinessStatus request={request} />
+                  </td>
                   <td>{request.operatorName}</td>
                   <td>
                     <FiscalRequestAction
@@ -162,7 +179,7 @@ export function FiscalDocumentsPage({
               ))}
               {fiscalRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>Nenhuma venda disponivel para emissao.</td>
+                  <td colSpan={7}>Nenhuma venda disponivel para emissao.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -258,6 +275,7 @@ type FiscalRequest = {
   clientName: string;
   totalAmount: string;
   operatorName: string;
+  readinessIssues: string[];
   sale?: Sale;
   shippingOrder?: ShippingOrder;
   pickupReservation?: PickupReservation;
@@ -265,8 +283,10 @@ type FiscalRequest = {
 };
 
 type FiscalRequestFactoryInput = {
+  clients: Client[];
   fiscalDocuments: FiscalDocument[];
   pickupReservations: PickupReservation[];
+  products: Product[];
   sales: Sale[];
   shippingOrders: ShippingOrder[];
 };
@@ -290,15 +310,43 @@ function FiscalRequestAction({
     onIssueShippingOrderFiscalDocument,
   });
 
-  return action ? (
+  return action && request.readinessIssues.length === 0 ? (
     <TableActionButton type="button" onClick={action}>
       Emitir NF-e
     </TableActionButton>
   ) : (
     <span className="table-note">
-      {request.document ? "Documento registrado" : "Emissao futura"}
+      {fiscalRequestActionLabel(request, Boolean(action))}
     </span>
   );
+}
+
+function FiscalReadinessStatus({ request }: { request: FiscalRequest }) {
+  return request.readinessIssues.length === 0 ? (
+    <StatusChip label="Pronta" tone="success" />
+  ) : (
+    <>
+      <StatusChip label={`${request.readinessIssues.length} pendencia(s)`} tone="warning" />
+      <span className="table-note">
+        {request.readinessIssues.slice(0, 3).join(" ")}
+      </span>
+    </>
+  );
+}
+
+function fiscalRequestActionLabel(request: FiscalRequest, hasAction: boolean) {
+  const labels: Record<string, string> = {
+    documented: "Documento registrado",
+    future: "Emissao futura",
+    pending: "Corrija pendencias",
+  };
+  const labelKey = request.document
+    ? "documented"
+    : hasAction && request.readinessIssues.length > 0
+      ? "pending"
+      : "future";
+
+  return labels[labelKey];
 }
 
 type FiscalRequestActionHandlers = {
@@ -342,7 +390,7 @@ function fiscalRequestAction(
 const fiscalRequestFactories: Array<
   (input: FiscalRequestFactoryInput) => FiscalRequest[]
 > = [
-  ({ fiscalDocuments, sales }) =>
+  ({ clients, fiscalDocuments, products, sales }) =>
     sales.map((sale) => ({
       sourceType: "SALE",
       sourceId: sale.id,
@@ -351,10 +399,15 @@ const fiscalRequestFactories: Array<
       clientName: sale.clientName ?? "Nao identificado",
       totalAmount: sale.totalAmount,
       operatorName: sale.createdByUserName,
+      readinessIssues: fiscalReadinessIssues({
+        client: findClient(clients, sale.clientId),
+        items: sale.items,
+        products,
+      }),
       sale,
       document: findFiscalDocument(fiscalDocuments, "SALE", sale.id),
     })),
-  ({ fiscalDocuments, shippingOrders }) =>
+  ({ clients, fiscalDocuments, products, shippingOrders }) =>
     shippingOrders
       .filter((order) => order.status === "COMPLETED")
       .map((order) => ({
@@ -365,10 +418,15 @@ const fiscalRequestFactories: Array<
         clientName: order.clientName,
         totalAmount: order.totalAmount,
         operatorName: order.completedByUserName ?? order.createdByUserName,
+        readinessIssues: fiscalReadinessIssues({
+          client: findClient(clients, order.clientId),
+          items: order.items,
+          products,
+        }),
         shippingOrder: order,
         document: findFiscalDocument(fiscalDocuments, "SHIPPING_ORDER", order.id),
       })),
-  ({ fiscalDocuments, pickupReservations }) =>
+  ({ clients, fiscalDocuments, pickupReservations, products }) =>
     pickupReservations
       .filter((reservation) => reservation.status === "COMPLETED")
       .map((reservation) => ({
@@ -380,6 +438,11 @@ const fiscalRequestFactories: Array<
         totalAmount: reservation.totalAmount,
         operatorName:
           reservation.completedByUserName ?? reservation.createdByUserName,
+        readinessIssues: fiscalReadinessIssues({
+          client: findClient(clients, reservation.clientId),
+          items: reservation.items,
+          products,
+        }),
         pickupReservation: reservation,
         document: findFiscalDocument(
           fiscalDocuments,
@@ -388,6 +451,77 @@ const fiscalRequestFactories: Array<
         ),
       })),
 ];
+
+type FiscalReadinessInput = {
+  client?: Client;
+  items: Array<{ productId: string; productName: string }>;
+  products: Product[];
+};
+
+function fiscalReadinessIssues({
+  client,
+  items,
+  products,
+}: FiscalReadinessInput) {
+  return [
+    ...clientReadinessIssues(client),
+    ...items.flatMap((item) =>
+      productReadinessIssues(findProduct(products, item.productId), item),
+    ),
+  ];
+}
+
+function clientReadinessIssues(client?: Client) {
+  const documentRequired = client?.personType !== "ES";
+  const fieldChecks: Array<[unknown, string]> = [
+    [client, "Cliente deve estar cadastrado."],
+    [client?.name, "Nome do cliente pendente."],
+    [
+      documentRequired ? client?.document : true,
+      "CPF/CNPJ do cliente pendente.",
+    ],
+    [client?.addressStreet, "Logradouro do cliente pendente."],
+    [client?.addressNumber, "Numero do cliente pendente."],
+    [client?.addressDistrict, "Bairro do cliente pendente."],
+    [client?.addressCity, "Cidade do cliente pendente."],
+    [client?.addressState, "UF do cliente pendente."],
+    [client?.addressZipCode, "CEP do cliente pendente."],
+  ];
+
+  return missingMessages(fieldChecks);
+}
+
+function productReadinessIssues(
+  product: Product | undefined,
+  item: { productName: string },
+) {
+  const label = item.productName;
+  const fieldChecks: Array<[unknown, string]> = [
+    [product, `Produto ${label} deve estar cadastrado.`],
+    [product?.ncm, `NCM pendente em ${label}.`],
+    [product?.cfop, `CFOP pendente em ${label}.`],
+    [product?.origin, `Origem fiscal pendente em ${label}.`],
+    [product?.icmsCst, `CST ICMS pendente em ${label}.`],
+    [product?.pisCst, `CST PIS pendente em ${label}.`],
+    [product?.cofinsCst, `CST COFINS pendente em ${label}.`],
+  ];
+
+  return missingMessages(fieldChecks);
+}
+
+function missingMessages(fieldChecks: Array<[unknown, string]>) {
+  return fieldChecks
+    .filter(([value]) => !value)
+    .map(([_value, message]) => message);
+}
+
+function findClient(clients: Client[], clientId: string | null) {
+  return clients.find((client) => client.id === clientId);
+}
+
+function findProduct(products: Product[], productId: string) {
+  return products.find((product) => product.id === productId);
+}
 
 function findFiscalDocument(
   fiscalDocuments: FiscalDocument[],
