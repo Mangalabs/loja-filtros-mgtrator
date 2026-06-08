@@ -712,6 +712,13 @@ describe("catalog routes", () => {
     const shown = await request<FiscalDocument>(
       `/fiscal-documents/${issued.body.data?.id}`,
     );
+    const synced = await request<FiscalDocument>(
+      `/fiscal-documents/${issued.body.data?.id}/sync`,
+      {
+        method: "PATCH",
+        body: {},
+      },
+    );
 
     assert.equal(issued.status, 201);
     assert.equal(issued.body.data?.sourceType, "SALE");
@@ -732,6 +739,9 @@ describe("catalog routes", () => {
     );
     assert.equal(listed.body.data?.length, 1);
     assert.equal(shown.body.data?.id, issued.body.data?.id);
+    assert.equal(synced.status, 200);
+    assert.equal(synced.body.data?.status, "AUTHORIZED");
+    assert.equal(synced.body.data?.pdfUrl, issued.body.data?.pdfUrl);
   });
 
   it("returns a management reports overview", async () => {

@@ -94,6 +94,7 @@ export function FiscalDocumentsPage({
   onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
   onIssueShippingOrderFiscalDocument,
+  onSyncFiscalDocument,
 }: {
   clients: Client[];
   fiscalDocuments: FiscalDocument[];
@@ -106,6 +107,7 @@ export function FiscalDocumentsPage({
   ) => void;
   onIssueSaleFiscalDocument: (sale: Sale) => void;
   onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void;
+  onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void;
 }) {
   const fiscalRequests = fiscalRequestFactories.flatMap((factory) =>
     factory({
@@ -208,6 +210,7 @@ export function FiscalDocumentsPage({
               <th>Emissao</th>
               <th>Referencias</th>
               <th>Arquivos</th>
+              <th>Acoes</th>
             </tr>
           </thead>
           <tbody>
@@ -252,11 +255,19 @@ export function FiscalDocumentsPage({
                 <td>
                   <FiscalDocumentLinks document={document} />
                 </td>
+                <td>
+                  <TableActionButton
+                    type="button"
+                    onClick={() => onSyncFiscalDocument(document)}
+                  >
+                    Atualizar
+                  </TableActionButton>
+                </td>
               </tr>
             ))}
             {fiscalDocuments.length === 0 ? (
               <tr>
-                <td colSpan={7}>Nenhuma nota fiscal emitida.</td>
+                <td colSpan={8}>Nenhuma nota fiscal emitida.</td>
               </tr>
             ) : null}
           </tbody>

@@ -1,6 +1,8 @@
 import { env } from "../../../config/env.js";
 import { AppError } from "../../../shared/errors/app-error.js";
 import type {
+  FiscalCheckRequest,
+  FiscalCheckResult,
   FiscalIssueRequest,
   FiscalIssueResult,
   FiscalProvider,
@@ -58,6 +60,26 @@ type FocusNfeItemPayload = {
 };
 
 export class FocusFiscalProvider implements FiscalProvider {
+  async check(request: FiscalCheckRequest): Promise<FiscalCheckResult> {
+    ensureFocusConfiguration();
+
+    const response = await fetch(focusNfeReferenceUrl(request.providerReference), {
+      headers: {
+        Accept: "application/json",
+        Authorization: focusAuthorizationHeader(env.fiscal.focus.token),
+      },
+    });
+    const responsePayload = await readFocusResponse(response);
+    const status = focusStatusFromPayload(response, responsePayload);
+
+    return focusResultFromPayload({
+      documentType: request.documentType,
+      providerReference: request.providerReference,
+      responsePayload,
+      status,
+    });
+  }
+
   async issue(request: FiscalIssueRequest): Promise<FiscalIssueResult> {
     ensureFocusConfiguration();
 
@@ -73,23 +95,40 @@ export class FocusFiscalProvider implements FiscalProvider {
     const responsePayload = await readFocusResponse(response);
     const status = focusStatusFromResponse(response, responsePayload);
 
-    return {
-      provider: "FOCUS",
-      status,
-      accessKey: focusString(responsePayload.chave_nfe),
-      providerReference:
-        focusString(responsePayload.ref) ??
-        focusString(responsePayload.referencia) ??
-        request.reference,
-      number: focusNumber(responsePayload.numero),
-      series: focusNumber(responsePayload.serie),
-      xmlUrl: focusString(responsePayload.caminho_xml_nota_fiscal),
-      pdfUrl: focusString(responsePayload.caminho_danfe),
-      rejectionReason:
-        status === "REJECTED" ? focusRejectionReason(responsePayload) : null,
+    return focusResultFromPayload({
+      documentType: request.documentType,
+      providerReference: request.reference,
       responsePayload,
-    };
+      status,
+    });
   }
+}
+
+function focusResultFromPayload({
+  providerReference,
+  responsePayload,
+  status,
+}: {
+  documentType: FiscalCheckRequest["documentType"];
+  providerReference: string;
+  responsePayload: FocusResponsePayload;
+  status: FiscalProviderStatus;
+}): FiscalIssueResult {
+  return {
+    provider: "FOCUS",
+    status,
+    accessKey: focusString(responsePayload.chave_nfe),
+    providerReference:
+      focusString(responsePayload.ref) ??
+      focusString(responsePayload.referencia) ??
+      providerReference,
+    number: focusNumber(responsePayload.numero),
+    series: focusNumber(responsePayload.serie),
+    xmlUrl: focusString(responsePayload.caminho_xml_nota_fiscal),
+    pdfUrl: focusString(responsePayload.caminho_danfe),
+    rejectionReason: status === "REJECTED" ? focusRejectionReason(responsePayload) : null,
+    responsePayload,
+  };
 }
 
 function ensureFocusConfiguration() {
@@ -198,6 +237,10 @@ function focusNfeUrl(reference: string) {
   return url;
 }
 
+function focusNfeReferenceUrl(reference: string) {
+  return `${focusBaseUrl()}/${encodeURIComponent(reference)}`;
+}
+
 function focusBaseUrl() {
   const baseUrl = env.fiscal.focus.baseUrl.replace(/\/$/, "");
   const path = baseUrl.endsWith("/v2/nfe") ? "" : "/v2/nfe";
@@ -251,6 +294,26 @@ function focusStatusFromResponse(
   }
 
   return "PROCESSING";
+}
+
+function focusStatusFromPayload(
+  response: Response,
+  payload: FocusResponsePayload,
+): FiscalProviderStatus {
+  if (!response.ok) {
+    throw new AppError(focusRejectionReason(payload), 502);
+  }
+
+  const status = focusString(payload.status)?.toLowerCase() ?? "";
+  const statusByFocusStatus: Record<string, FiscalProviderStatus> = {
+    autorizado: "AUTHORIZED",
+    cancelado: "CANCELLED",
+    erro_autorizacao: "REJECTED",
+    processando_autorizacao: "PROCESSING",
+    requisicao_recebida: "PROCESSING",
+  };
+
+  return statusByFocusStatus[status] ?? "PROCESSING";
 }
 
 function focusRejectionReason(payload: FocusResponsePayload) {

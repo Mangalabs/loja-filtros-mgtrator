@@ -4,7 +4,8 @@ export type FiscalProviderName = "MOCK" | "FOCUS";
 export type FiscalProviderStatus =
   | "PROCESSING"
   | "AUTHORIZED"
-  | "REJECTED";
+  | "REJECTED"
+  | "CANCELLED";
 
 export type FiscalIssueRequest = {
   reference: string;
@@ -60,6 +61,14 @@ export type FiscalIssueResult = {
   responsePayload: Record<string, unknown>;
 };
 
+export type FiscalCheckRequest = {
+  documentType: FiscalDocumentType;
+  providerReference: string;
+};
+
+export type FiscalCheckResult = FiscalIssueResult;
+
 export type FiscalProvider = {
+  check(request: FiscalCheckRequest): Promise<FiscalCheckResult>;
   issue(request: FiscalIssueRequest): Promise<FiscalIssueResult>;
 };

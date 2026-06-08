@@ -6,6 +6,7 @@ import {
   issueSaleFiscalDocument,
   issueShippingOrderFiscalDocument,
   showFiscalDocument,
+  syncFiscalDocument,
 } from "../../controllers/fiscal-documents/fiscal-documents.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
@@ -46,6 +47,15 @@ fiscalDocumentsRoutes.get(
     const { id } = fiscalDocumentParamsSchema.parse(request.params);
 
     response.status(200).json(await showFiscalDocument(id));
+  },
+);
+
+fiscalDocumentsRoutes.patch(
+  "/fiscal-documents/:id/sync",
+  async (request, response) => {
+    const { id } = fiscalDocumentParamsSchema.parse(request.params);
+
+    response.status(200).json(await syncFiscalDocument(id));
   },
 );
 

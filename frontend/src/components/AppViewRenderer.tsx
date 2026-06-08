@@ -204,6 +204,9 @@ export function AppViewRenderer({
           onIssuePickupReservationFiscalDocument={(reservation) =>
             void salesActions.issuePickupReservationFiscalDocument(reservation)
           }
+          onSyncFiscalDocument={(fiscalDocument) =>
+            void financeActions.syncFiscalDocument(fiscalDocument)
+          }
         />
       ) : null}
 

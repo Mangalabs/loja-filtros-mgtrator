@@ -1,12 +1,16 @@
 import { env } from "../../config/env.js";
 import { db } from "../../database/knex.js";
-import { makeFiscalProvider } from "../../integrations/fiscal/fiscal-provider-factory.js";
+import {
+  makeFiscalProvider,
+  makeFiscalProviderByName,
+} from "../../integrations/fiscal/fiscal-provider-factory.js";
 import type { FiscalDocumentType } from "../../integrations/fiscal/fiscal-provider.js";
 import {
   findFiscalDocumentBySource,
   getFiscalDocumentById,
   insertFiscalDocument,
   listFiscalDocuments,
+  updateFiscalDocumentStatus,
   type FiscalDocumentSourceType,
 } from "../../models/fiscal-documents/fiscal-documents.model.js";
 import { getPickupReservationById } from "../../models/pickup-reservations/pickup-reservations.model.js";
@@ -33,6 +37,41 @@ export async function showFiscalDocument(id: string) {
     code: 200,
     status: "success",
     data: fiscalDocument,
+  };
+}
+
+export async function syncFiscalDocument(id: string) {
+  const fiscalDocument = await getFiscalDocumentById(id);
+
+  if (!fiscalDocument) {
+    throw new AppError("Documento fiscal nao encontrado.", 404);
+  }
+
+  if (!fiscalDocument.providerReference) {
+    throw new AppError("Documento fiscal sem referencia do provedor.", 422);
+  }
+
+  const provider = makeFiscalProviderByName(fiscalDocument.provider);
+  const result = await provider.check({
+    documentType: fiscalDocument.documentType,
+    providerReference: fiscalDocument.providerReference,
+  });
+  const updated = await updateFiscalDocumentStatus(id, {
+    status: result.status,
+    accessKey: result.accessKey,
+    providerReference: result.providerReference,
+    number: result.number,
+    series: result.series,
+    xmlUrl: result.xmlUrl,
+    pdfUrl: result.pdfUrl,
+    rejectionReason: result.rejectionReason,
+    responsePayload: result.responsePayload,
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: updated,
   };
 }
 

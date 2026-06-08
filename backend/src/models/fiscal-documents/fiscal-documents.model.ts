@@ -61,6 +61,18 @@ export type FiscalDocumentInput = {
   issuedByUserId: string;
 };
 
+export type FiscalDocumentUpdateInput = {
+  status: FiscalDocumentStatus;
+  accessKey: string | null;
+  providerReference: string;
+  number: number | null;
+  series: number | null;
+  xmlUrl: string | null;
+  pdfUrl: string | null;
+  rejectionReason: string | null;
+  responsePayload: Record<string, unknown>;
+};
+
 const fiscalDocumentColumns = [
   "fiscal_documents.id",
   "fiscal_documents.source_type as sourceType",
@@ -145,6 +157,37 @@ export async function insertFiscalDocument(
 
   if (!fiscalDocument) {
     throw new Error("Fiscal document was not found after creation");
+  }
+
+  return fiscalDocument;
+}
+
+export async function updateFiscalDocumentStatus(
+  id: string,
+  input: FiscalDocumentUpdateInput,
+): Promise<FiscalDocument> {
+  const [updated] = await db("fiscal_documents")
+    .where("id", id)
+    .update({
+      status: input.status,
+      access_key: input.accessKey,
+      provider_reference: input.providerReference,
+      number: input.number,
+      series: input.series,
+      xml_url: input.xmlUrl,
+      pdf_url: input.pdfUrl,
+      rejection_reason: input.rejectionReason,
+      response_payload: input.responsePayload,
+      updated_at: db.fn.now(),
+    })
+    .returning("id");
+
+  const fiscalDocument = await fiscalDocumentQuery(db)
+    .where("fiscal_documents.id", updated.id)
+    .first();
+
+  if (!fiscalDocument) {
+    throw new Error("Fiscal document was not found after update");
   }
 
   return fiscalDocument;

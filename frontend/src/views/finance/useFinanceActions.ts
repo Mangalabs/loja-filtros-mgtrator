@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { apiPatch, apiPost, type PaymentMethod } from "../../api";
+import { apiPatch, apiPost, type FiscalDocument, type PaymentMethod } from "../../api";
 
 type FinanceActionsOptions = {
   loadCatalog: () => Promise<void>;
@@ -75,9 +75,17 @@ export function useFinanceActions({
     });
   }
 
+  async function syncFiscalDocument(fiscalDocument: FiscalDocument) {
+    await runAction(async () => {
+      await apiPatch(`/fiscal-documents/${fiscalDocument.id}/sync`, {});
+      await loadCatalog();
+    });
+  }
+
   return {
     changePaymentMethodStatus,
     closeCashRegister,
     openCashRegister,
+    syncFiscalDocument,
   };
 }
