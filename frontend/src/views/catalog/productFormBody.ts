@@ -13,6 +13,7 @@ export function productFormBody(form: FormData) {
     minimumStock: Number(form.get("minimumStock") || 0),
     ncm: nullableFormValue(form, "ncm"),
     cest: nullableFormValue(form, "cest"),
+    cfop: nullableFormValue(form, "cfop"),
     origin: nullableFormValue(form, "origin"),
     description: nullableFormValue(form, "description"),
   };

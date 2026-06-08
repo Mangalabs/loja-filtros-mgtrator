@@ -25,6 +25,7 @@ export type ProductListItem = {
   availableStock: string;
   ncm: string | null;
   cest: string | null;
+  cfop: string | null;
   origin: string | null;
   description: string | null;
   active: boolean;
@@ -43,6 +44,7 @@ export type ProductCreateInput = {
   minimumStock?: number;
   ncm?: string | null;
   cest?: string | null;
+  cfop?: string | null;
   origin?: string | null;
   description?: string | null;
   active?: boolean;
@@ -78,6 +80,7 @@ export async function listProducts(
       ]),
       "products.ncm",
       "products.cest",
+      "products.cfop",
       "products.origin",
       "products.description",
       "products.active",
@@ -129,6 +132,7 @@ export async function listLowStockProducts(): Promise<ProductListItem[]> {
       ]),
       "products.ncm",
       "products.cest",
+      "products.cfop",
       "products.origin",
       "products.description",
       "products.active",
@@ -159,6 +163,7 @@ export async function createProduct(
       minimum_stock: input.minimumStock,
       ncm: input.ncm,
       cest: input.cest,
+      cfop: input.cfop,
       origin: input.origin,
       description: input.description,
       active: input.active,
@@ -199,6 +204,7 @@ export async function updateProduct(
       minimum_stock: input.minimumStock,
       ncm: input.ncm,
       cest: input.cest,
+      cfop: input.cfop,
       origin: input.origin,
       description: input.description,
       active: input.active,
@@ -258,6 +264,7 @@ async function findProductById(
       ]),
       "products.ncm",
       "products.cest",
+      "products.cfop",
       "products.origin",
       "products.description",
       "products.active",

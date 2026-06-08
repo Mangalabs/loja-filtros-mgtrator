@@ -120,7 +120,8 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
     ...focusCustomerDocument(request),
     inscricao_estadual_destinatario:
       request.sale.clientStateRegistration ?? undefined,
-    indicador_inscricao_estadual_destinatario: focusCustomerStateRegistrationIndicator(request),
+    indicador_inscricao_estadual_destinatario:
+      focusCustomerStateRegistrationIndicator(request),
     logradouro_destinatario: request.sale.clientAddressStreet ?? undefined,
     numero_destinatario: request.sale.clientAddressNumber ?? undefined,
     complemento_destinatario: request.sale.clientAddressComplement ?? undefined,
@@ -172,7 +173,7 @@ function focusNfeItemPayload(
     codigo_produto: item.productInternalCode ?? item.productId,
     descricao: item.productName,
     codigo_ncm: item.productNcm ?? undefined,
-    cfop: "5102",
+    cfop: focusProductCfop(item.productCfop),
     unidade_comercial: focusProductUnit(item.productUnit),
     quantidade_comercial: quantity,
     valor_unitario_comercial: unitPrice,
@@ -282,6 +283,10 @@ function focusProductUnit(unit: string) {
   };
 
   return unitByProductUnit[unit] ?? "UN";
+}
+
+function focusProductCfop(cfop: string | null) {
+  return cfop?.replace(/\D/g, "") || "5102";
 }
 
 function moneyNumber(value: string) {

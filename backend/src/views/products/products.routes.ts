@@ -30,6 +30,7 @@ const createProductSchema = z.object({
   minimumStock: z.coerce.number().min(0).optional(),
   ncm: optionalText(16),
   cest: optionalText(16),
+  cfop: optionalText(4),
   origin: optionalText(2),
   description: optionalText(1000),
   active: z.boolean().optional(),

@@ -43,6 +43,7 @@ export type SaleItem = {
   productId: string;
   productInternalCode: string | null;
   productName: string;
+  productCfop: string | null;
   productNcm: string | null;
   productUnit: string;
   quantity: string;
@@ -89,6 +90,7 @@ const saleItemColumns = [
   "sale_items.product_id as productId",
   "products.internal_code as productInternalCode",
   "products.name as productName",
+  "products.cfop as productCfop",
   "products.ncm as productNcm",
   "products.unit as productUnit",
   "sale_items.quantity",

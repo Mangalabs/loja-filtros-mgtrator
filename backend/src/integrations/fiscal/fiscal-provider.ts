@@ -32,6 +32,7 @@ export type FiscalIssueRequest = {
       productId: string;
       productInternalCode: string | null;
       productName: string;
+      productCfop: string | null;
       productNcm: string | null;
       productUnit: string;
       quantity: string;

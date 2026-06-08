@@ -235,7 +235,13 @@ export function ProductForm({
           defaultValue={product?.cest ?? ""}
         />
       </div>
-      <div className="two-columns">
+      <div className="three-columns">
+        <input
+          name="cfop"
+          maxLength={4}
+          placeholder="CFOP"
+          defaultValue={product?.cfop ?? ""}
+        />
         <input
           name="origin"
           maxLength={2}
