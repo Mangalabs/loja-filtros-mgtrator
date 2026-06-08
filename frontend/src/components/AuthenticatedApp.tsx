@@ -31,6 +31,7 @@ export function AuthenticatedApp({
     cashRegister,
     clients,
     filteredProducts,
+    fiscalDocuments,
     loadCatalog,
     lowStockProducts,
     message,
@@ -141,6 +142,7 @@ export function AuthenticatedApp({
           clients={clients}
           financeActions={financeActions}
           filteredProducts={filteredProducts}
+          fiscalDocuments={fiscalDocuments}
           lowStockProducts={lowStockProducts}
           paymentMethods={paymentMethods}
           pickupReservations={pickupReservations}

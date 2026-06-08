@@ -9,6 +9,7 @@ export type View =
   | "stock-movements"
   | "low-stock"
   | "payment-methods"
+  | "fiscal-documents"
   | "cash-register"
   | "reports"
   | "quotes"
@@ -34,7 +35,7 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
   catalog: ["brands", "clients"],
   stock: ["stock-entries", "stock-adjustments", "stock-movements", "low-stock"],
   suppliers: ["suppliers"],
-  finance: ["payment-methods"],
+  finance: ["payment-methods", "fiscal-documents"],
   cash: ["cash-register"],
   reports: ["reports"],
   sales: ["quotes", "sales", "shipping-orders", "pickup-reservations"],
@@ -127,6 +128,11 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       title: "Formas de pagamento",
       description:
         "Configure as formas disponiveis para o futuro fechamento de vendas.",
+    },
+    "fiscal-documents": {
+      title: "Notas fiscais",
+      description:
+        "Acompanhe emissao, status e referencias fiscais das vendas.",
     },
     "cash-register": {
       title: "Caixa",

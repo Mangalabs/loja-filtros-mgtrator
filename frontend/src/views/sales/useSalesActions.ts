@@ -2,6 +2,7 @@ import type { FormEvent } from "react";
 import {
   apiPatch,
   apiPost,
+  type Sale,
   type PickupReservation,
   type ShippingOrder,
 } from "../../api";
@@ -26,6 +27,25 @@ export function useSalesActions({
   async function createSale(input: SaleDraftInput) {
     return runAction(async () => {
       await apiPost("/sales", input);
+      await loadCatalog();
+    });
+  }
+
+  async function issueSaleFiscalDocument(sale: Sale) {
+    const confirmed = await requestConfirmation(
+      `Emitir NF-e para a venda de ${sale.clientName ?? "cliente nao identificado"} no valor de ${sale.totalAmount}?`,
+      "Emitir NF-e?",
+      "Emitir NF-e",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPost(`/sales/${sale.id}/fiscal-documents`, {
+        documentType: "NFE",
+      });
       await loadCatalog();
     });
   }
@@ -187,6 +207,7 @@ export function useSalesActions({
     completeShippingOrder,
     createPickupReservation,
     createSale,
+    issueSaleFiscalDocument,
     separateShippingOrder,
   };
 }

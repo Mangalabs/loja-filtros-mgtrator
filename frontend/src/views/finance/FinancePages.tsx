@@ -1,10 +1,17 @@
-import { Banknote, CreditCard, Plus, Power, PowerOff } from "lucide-react";
+import Link from "@mui/material/Link";
+import { Banknote, CreditCard, FileText, Plus, Power, PowerOff } from "lucide-react";
 import type { FormEvent } from "react";
-import type { AuthUser, CashRegisterSession, PaymentMethod } from "../../api";
+import type {
+  AuthUser,
+  CashRegisterSession,
+  FiscalDocument,
+  PaymentMethod,
+} from "../../api";
 import {
   PrimaryButton,
   StatusChip,
   TableActionButton,
+  type StatusTone,
 } from "../../components/ui";
 import { formatCurrency, formatDateTime } from "../../utils/format";
 
@@ -71,6 +78,155 @@ export function PaymentMethodsPage({
     </div>
   );
 }
+
+export function FiscalDocumentsPage({
+  fiscalDocuments,
+}: {
+  fiscalDocuments: FiscalDocument[];
+}) {
+  return (
+    <div className="panel wide">
+      <div className="panel-header compact">
+        <div>
+          <h2>Notas emitidas</h2>
+          <span>
+            Acompanhe o retorno do provedor fiscal e os documentos vinculados
+            as vendas.
+          </span>
+        </div>
+        <FileText size={18} />
+      </div>
+      <div className="table-shell">
+        <table>
+          <thead>
+            <tr>
+              <th>Documento</th>
+              <th>Origem</th>
+              <th>Status</th>
+              <th>Ambiente</th>
+              <th>Emissao</th>
+              <th>Referencias</th>
+              <th>Arquivos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fiscalDocuments.map((document) => (
+              <tr key={document.id}>
+                <td>
+                  <strong>{document.documentType}</strong>
+                  <span className="table-note">
+                    {document.number ? `#${document.number}` : "Sem numero"}
+                    {document.series ? ` serie ${document.series}` : ""}
+                  </span>
+                </td>
+                <td>
+                  <strong>{fiscalDocumentSourceLabel(document.sourceType)}</strong>
+                  <span className="table-note">{document.sourceId}</span>
+                </td>
+                <td>
+                  <StatusChip
+                    label={fiscalDocumentStatusLabel(document.status)}
+                    tone={fiscalDocumentStatusTone(document.status)}
+                  />
+                  {document.rejectionReason ? (
+                    <span className="table-note">{document.rejectionReason}</span>
+                  ) : null}
+                </td>
+                <td>
+                  <strong>{document.provider}</strong>
+                  <span className="table-note">
+                    {fiscalDocumentEnvironmentLabel(document.environment)}
+                  </span>
+                </td>
+                <td>
+                  <strong>{formatDateTime(document.issuedAt ?? document.createdAt)}</strong>
+                  <span className="table-note">{document.issuedByUserName}</span>
+                </td>
+                <td>
+                  <strong>{document.providerReference ?? "Sem referencia"}</strong>
+                  <span className="table-note">
+                    {document.accessKey ?? "Sem chave de acesso"}
+                  </span>
+                </td>
+                <td>
+                  <FiscalDocumentLinks document={document} />
+                </td>
+              </tr>
+            ))}
+            {fiscalDocuments.length === 0 ? (
+              <tr>
+                <td colSpan={7}>Nenhuma nota fiscal emitida.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FiscalDocumentLinks({ document }: { document: FiscalDocument }) {
+  const links = [
+    { label: "DANFE", url: document.pdfUrl },
+    { label: "XML", url: document.xmlUrl },
+  ].filter((link): link is { label: string; url: string } => Boolean(link.url));
+
+  return links.length > 0 ? (
+    <div className="table-actions">
+      {links.map((link) => (
+        <Link href={link.url} key={link.label} target="_blank" rel="noreferrer">
+          {link.label}
+        </Link>
+      ))}
+    </div>
+  ) : (
+    <span className="empty-text">Sem arquivos</span>
+  );
+}
+
+function fiscalDocumentSourceLabel(sourceType: FiscalDocument["sourceType"]) {
+  return fiscalDocumentSourceLabels[sourceType];
+}
+
+function fiscalDocumentEnvironmentLabel(
+  environment: FiscalDocument["environment"],
+) {
+  return fiscalDocumentEnvironmentLabels[environment];
+}
+
+function fiscalDocumentStatusLabel(status: FiscalDocument["status"]) {
+  return fiscalDocumentStatusPresentations[status].label;
+}
+
+function fiscalDocumentStatusTone(status: FiscalDocument["status"]): StatusTone {
+  return fiscalDocumentStatusPresentations[status].tone;
+}
+
+const fiscalDocumentSourceLabels: Record<FiscalDocument["sourceType"], string> =
+  {
+    PICKUP_RESERVATION: "Reserva",
+    SALE: "Venda",
+    SHIPPING_ORDER: "Envio",
+  };
+
+const fiscalDocumentEnvironmentLabels: Record<
+  FiscalDocument["environment"],
+  string
+> = {
+  HOMOLOGATION: "Homologacao",
+  PRODUCTION: "Producao",
+};
+
+const fiscalDocumentStatusPresentations: Record<
+  FiscalDocument["status"],
+  { label: string; tone: StatusTone }
+> = {
+  AUTHORIZED: { label: "Autorizada", tone: "success" },
+  CANCELLED: { label: "Cancelada", tone: "neutral" },
+  PENDING: { label: "Pendente", tone: "warning" },
+  PROCESSING: { label: "Processando", tone: "warning" },
+  REJECTED: { label: "Rejeitada", tone: "neutral" },
+};
 
 export function CashRegisterPage({
   session,

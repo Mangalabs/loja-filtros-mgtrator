@@ -1,8 +1,9 @@
 import { PackagePlus, Plus, Send, ShoppingCart } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import type {
   CashRegisterSession,
   Client,
+  FiscalDocument,
   PaymentMethod,
   PickupReservation,
   Product,
@@ -56,14 +57,18 @@ export function SalesPage({
   paymentMethods,
   products,
   sales,
+  fiscalDocuments,
   onSubmit,
+  onIssueFiscalDocument,
 }: {
   cashRegister: CashRegisterSession | null
   clients: Client[]
+  fiscalDocuments: FiscalDocument[]
   paymentMethods: PaymentMethod[]
   products: Product[]
   sales: Sale[]
   onSubmit: (input: SaleDraftInput) => Promise<boolean>
+  onIssueFiscalDocument: (sale: Sale) => void
 }) {
   const [clientId, setClientId] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('')
@@ -241,38 +246,58 @@ export function SalesPage({
                 <th>Total</th>
                 <th>Pagamento</th>
                 <th>Cliente</th>
+                <th>Fiscal</th>
                 <th>Operador</th>
               </tr>
             </thead>
             <tbody>
-              {sales.map((sale) => (
-                <tr key={sale.id}>
-                  <td>{formatDateTime(sale.createdAt)}</td>
-                  <td>
-                    {sale.items.length} item(ns)
-                    <span className='table-note'>
-                      {sale.items.map((item) => item.productName).join(', ')}
-                    </span>
-                  </td>
-                  <td>
-                    {formatQuantity(
-                      String(
-                        sale.items.reduce(
-                          (sum, item) => sum + Number(item.quantity),
-                          0,
+              {sales.map((sale) => {
+                const fiscalDocument = fiscalDocuments.find(
+                  (document) =>
+                    document.sourceType === 'SALE' &&
+                    document.sourceId === sale.id,
+                )
+
+                return (
+                  <tr key={sale.id}>
+                    <td>{formatDateTime(sale.createdAt)}</td>
+                    <td>
+                      {sale.items.length} item(ns)
+                      <span className='table-note'>
+                        {sale.items.map((item) => item.productName).join(', ')}
+                      </span>
+                    </td>
+                    <td>
+                      {formatQuantity(
+                        String(
+                          sale.items.reduce(
+                            (sum, item) => sum + Number(item.quantity),
+                            0,
+                          ),
                         ),
-                      ),
-                    )}
-                  </td>
-                  <td>{formatCurrency(sale.totalAmount)}</td>
-                  <td>{sale.paymentMethodName}</td>
-                  <td>{sale.clientName ?? 'Nao identificado'}</td>
-                  <td>{sale.createdByUserName}</td>
-                </tr>
-              ))}
+                      )}
+                    </td>
+                    <td>{formatCurrency(sale.totalAmount)}</td>
+                    <td>{sale.paymentMethodName}</td>
+                    <td>{sale.clientName ?? 'Nao identificado'}</td>
+                    <td>
+                      {fiscalDocument ? (
+                        <FiscalDocumentStatus document={fiscalDocument} />
+                      ) : (
+                        <TableActionButton
+                          type='button'
+                          onClick={() => onIssueFiscalDocument(sale)}>
+                          Emitir NF-e
+                        </TableActionButton>
+                      )}
+                    </td>
+                    <td>{sale.createdByUserName}</td>
+                  </tr>
+                )
+              })}
               {sales.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>Nenhuma venda registrada.</td>
+                  <td colSpan={8}>Nenhuma venda registrada.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -281,6 +306,41 @@ export function SalesPage({
       </div>
     </section>
   )
+}
+
+function FiscalDocumentStatus({ document }: { document: FiscalDocument }) {
+  return (
+    <>
+      <StatusChip
+        label={fiscalDocumentStatusLabel(document.status)}
+        tone={fiscalDocumentStatusTone(document.status)}
+      />
+      <span className='table-note'>
+        {document.documentType} {document.number ? `#${document.number}` : ''}
+      </span>
+    </>
+  )
+}
+
+function fiscalDocumentStatusLabel(status: FiscalDocument['status']) {
+  return fiscalDocumentStatusPresentations[status].label
+}
+
+function fiscalDocumentStatusTone(
+  status: FiscalDocument['status'],
+): StatusTone {
+  return fiscalDocumentStatusPresentations[status].tone
+}
+
+const fiscalDocumentStatusPresentations: Record<
+  FiscalDocument['status'],
+  { label: string; tone: StatusTone }
+> = {
+  AUTHORIZED: { label: 'NF autorizada', tone: 'success' },
+  CANCELLED: { label: 'NF cancelada', tone: 'neutral' },
+  PENDING: { label: 'NF pendente', tone: 'warning' },
+  PROCESSING: { label: 'NF processando', tone: 'warning' },
+  REJECTED: { label: 'NF rejeitada', tone: 'neutral' },
 }
 
 function emptySaleItem(): SaleDraftItem {
@@ -354,12 +414,9 @@ export function ShippingOrdersPage({
           <table>
             <thead>
               <tr>
-                <th>Data</th>
-                <th>Cliente</th>
-                <th>Produto</th>
-                <th>Qtd.</th>
-                <th>Total</th>
-                <th>Operador</th>
+                <th>Pedido</th>
+                <th>Cliente e itens</th>
+                <th>Resumo</th>
                 <th>Status</th>
                 <th>Acoes</th>
               </tr>
@@ -367,10 +424,14 @@ export function ShippingOrdersPage({
             <tbody>
               {orders.map((order) => (
                 <tr key={order.id}>
-                  <td>{formatDateTime(order.createdAt)}</td>
-                  <td>{order.clientName}</td>
                   <td>
-                    {order.items.length} item(ns)
+                    {formatDateTime(order.createdAt)}
+                    <span className='table-note'>
+                      Operador: {order.createdByUserName}
+                    </span>
+                  </td>
+                  <td>
+                    <strong>{order.clientName}</strong>
                     {order.quoteId ? (
                       <span className='table-note'>Origem: orcamento</span>
                     ) : null}
@@ -381,17 +442,19 @@ export function ShippingOrdersPage({
                     </span>
                   </td>
                   <td>
-                    {formatQuantity(
-                      String(
-                        order.items.reduce(
-                          (sum, item) => sum + Number(item.quantity),
-                          0,
+                    <strong>{formatCurrency(order.totalAmount)}</strong>
+                    <span className='table-note'>
+                      Qtd.{' '}
+                      {formatQuantity(
+                        String(
+                          order.items.reduce(
+                            (sum, item) => sum + Number(item.quantity),
+                            0,
+                          ),
                         ),
-                      ),
-                    )}
+                      )}
+                    </span>
                   </td>
-                  <td>{formatCurrency(order.totalAmount)}</td>
-                  <td>{order.createdByUserName}</td>
                   <td>
                     <StatusChip
                       label={shippingOrderStatusLabel(order.status)}
@@ -409,78 +472,21 @@ export function ShippingOrdersPage({
                     ) : null}
                   </td>
                   <td>
-                    {order.status !== 'CANCELLED' &&
-                    order.status !== 'COMPLETED' ? (
-                      <div className='shipping-order-actions'>
-                        {order.status === 'QUOTED' ? (
-                          <TableActionButton
-                            type='button'
-                            onClick={() => onApprove(order)}>
-                            Aprovar e reservar
-                          </TableActionButton>
-                        ) : order.status === 'APPROVED' ? (
-                          <TableActionButton
-                            type='button'
-                            onClick={() => onSeparate(order)}>
-                            Confirmar separacao
-                          </TableActionButton>
-                        ) : (
-                          <form
-                            className='cancel-order-form'
-                            onSubmit={(event) => onComplete(event, order)}>
-                            {!cashRegister ? (
-                              <span className='table-note'>
-                                Abra o caixa para concluir.
-                              </span>
-                            ) : null}
-                            <select
-                              name='shippingPaymentMethodId'
-                              defaultValue=''
-                              required
-                              disabled={!cashRegister}>
-                              <option value='' disabled>
-                                Pagamento
-                              </option>
-                              {paymentMethods
-                                .filter((method) => method.active)
-                                .map((method) => (
-                                  <option key={method.id} value={method.id}>
-                                    {method.name}
-                                  </option>
-                                ))}
-                            </select>
-                            <TableActionButton
-                              type='submit'
-                              disabled={!cashRegister}>
-                              Concluir venda e saida
-                            </TableActionButton>
-                          </form>
-                        )}
-                        <form
-                          className='cancel-order-form'
-                          onSubmit={(event) => onCancel(event, order)}>
-                          <input
-                            name='shippingCancellationReason'
-                            maxLength={500}
-                            placeholder='Motivo do cancelamento'
-                            required
-                          />
-                          <TableActionButton type='submit'>
-                            Cancelar
-                          </TableActionButton>
-                        </form>
-                      </div>
-                    ) : order.status === 'COMPLETED' ? (
-                      'Venda concluida'
-                    ) : (
-                      '-'
-                    )}
+                    {shippingOrderActionRenderers[order.status]({
+                      cashRegister,
+                      order,
+                      paymentMethods,
+                      onApprove,
+                      onCancel,
+                      onComplete,
+                      onSeparate,
+                    })}
                   </td>
                 </tr>
               ))}
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>Nenhum orcamento para envio registrado.</td>
+                  <td colSpan={5}>Nenhum orcamento para envio registrado.</td>
                 </tr>
               ) : null}
             </tbody>
@@ -488,6 +494,99 @@ export function ShippingOrdersPage({
         </div>
       </div>
     </section>
+  )
+}
+
+type ShippingOrderActionRendererProps = {
+  cashRegister: CashRegisterSession | null
+  order: ShippingOrder
+  paymentMethods: PaymentMethod[]
+  onApprove: (order: ShippingOrder) => void
+  onSeparate: (order: ShippingOrder) => void
+  onComplete: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
+  onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
+}
+
+const shippingOrderActionRenderers: Record<
+  ShippingOrder['status'],
+  (props: ShippingOrderActionRendererProps) => ReactNode
+> = {
+  APPROVED: ({ order, onCancel, onSeparate }) => (
+    <div className='shipping-order-actions'>
+      <TableActionButton type='button' onClick={() => onSeparate(order)}>
+        Confirmar separacao
+      </TableActionButton>
+      <ShippingOrderCancelForm order={order} onCancel={onCancel} />
+    </div>
+  ),
+  CANCELLED: () => '-',
+  COMPLETED: () => 'Venda concluida',
+  QUOTED: ({ order, onApprove, onCancel }) => (
+    <div className='shipping-order-actions'>
+      <TableActionButton type='button' onClick={() => onApprove(order)}>
+        Aprovar e reservar
+      </TableActionButton>
+      <ShippingOrderCancelForm order={order} onCancel={onCancel} />
+    </div>
+  ),
+  SEPARATED: ({
+    cashRegister,
+    order,
+    paymentMethods,
+    onCancel,
+    onComplete,
+  }) => (
+    <div className='shipping-order-actions'>
+      <form
+        className='cancel-order-form'
+        onSubmit={(event) => onComplete(event, order)}>
+        {!cashRegister ? (
+          <span className='table-note'>Abra o caixa para concluir.</span>
+        ) : null}
+        <select
+          name='shippingPaymentMethodId'
+          defaultValue=''
+          required
+          disabled={!cashRegister}>
+          <option value='' disabled>
+            Pagamento
+          </option>
+          {paymentMethods
+            .filter((method) => method.active)
+            .map((method) => (
+              <option key={method.id} value={method.id}>
+                {method.name}
+              </option>
+            ))}
+        </select>
+        <TableActionButton type='submit' disabled={!cashRegister}>
+          Concluir venda e saida
+        </TableActionButton>
+      </form>
+      <ShippingOrderCancelForm order={order} onCancel={onCancel} />
+    </div>
+  ),
+}
+
+function ShippingOrderCancelForm({
+  order,
+  onCancel,
+}: {
+  order: ShippingOrder
+  onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
+}) {
+  return (
+    <form
+      className='cancel-order-form'
+      onSubmit={(event) => onCancel(event, order)}>
+      <input
+        name='shippingCancellationReason'
+        maxLength={500}
+        placeholder='Motivo do cancelamento'
+        required
+      />
+      <TableActionButton type='submit'>Cancelar</TableActionButton>
+    </form>
   )
 }
 

@@ -85,6 +85,18 @@ export function useCatalogActions({
       document: nullableFormValue(form, "clientDocument"),
       phone: nullableFormValue(form, "clientPhone"),
       email: nullableFormValue(form, "clientEmail"),
+      stateRegistration: nullableFormValue(form, "clientStateRegistration"),
+      stateRegistrationIndicator: nullableFormValue(
+        form,
+        "clientStateRegistrationIndicator",
+      ),
+      addressStreet: nullableFormValue(form, "clientAddressStreet"),
+      addressNumber: nullableFormValue(form, "clientAddressNumber"),
+      addressComplement: nullableFormValue(form, "clientAddressComplement"),
+      addressDistrict: nullableFormValue(form, "clientAddressDistrict"),
+      addressCity: nullableFormValue(form, "clientAddressCity"),
+      addressState: nullableFormValue(form, "clientAddressState"),
+      addressZipCode: nullableFormValue(form, "clientAddressZipCode"),
     };
 
     await runAction(async () => {

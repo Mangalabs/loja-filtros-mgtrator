@@ -3,6 +3,7 @@ import type {
   Client,
   AuthUser,
   NamedEntity,
+  FiscalDocument,
   PaymentMethod,
   PickupReservation,
   Product,
@@ -26,6 +27,7 @@ import {
 } from "../views/catalog/CatalogPages";
 import {
   CashRegisterPage,
+  FiscalDocumentsPage,
   PaymentMethodsPage,
 } from "../views/finance/FinancePages";
 import type { useFinanceActions } from "../views/finance/useFinanceActions";
@@ -53,6 +55,7 @@ type AppViewRendererProps = {
   clients: Client[];
   financeActions: ReturnType<typeof useFinanceActions>;
   filteredProducts: Product[];
+  fiscalDocuments: FiscalDocument[];
   lowStockProducts: Product[];
   paymentMethods: PaymentMethod[];
   pickupReservations: PickupReservation[];
@@ -88,6 +91,7 @@ export function AppViewRenderer({
   clients,
   financeActions,
   filteredProducts,
+  fiscalDocuments,
   lowStockProducts,
   paymentMethods,
   pickupReservations,
@@ -183,6 +187,10 @@ export function AppViewRenderer({
         />
       ) : null}
 
+      {view === "fiscal-documents" ? (
+        <FiscalDocumentsPage fiscalDocuments={fiscalDocuments} />
+      ) : null}
+
       {view === "cash-register" ? (
         <CashRegisterPage
           session={cashRegister}
@@ -214,8 +222,12 @@ export function AppViewRenderer({
           cashRegister={cashRegister}
           clients={clients}
           paymentMethods={paymentMethods}
+          fiscalDocuments={fiscalDocuments}
           products={products}
           sales={sales}
+          onIssueFiscalDocument={(sale) =>
+            void salesActions.issueSaleFiscalDocument(sale)
+          }
           onSubmit={salesActions.createSale}
         />
       ) : null}

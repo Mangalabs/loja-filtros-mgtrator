@@ -1,3 +1,5 @@
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 import {
   PackagePlus,
   Pencil,
@@ -438,6 +440,79 @@ export function ClientsPage({
             defaultValue={selectedClient?.email ?? ""}
           />
         </div>
+        <div className="form-section">
+          <strong>Dados fiscais para NF-e</strong>
+          <span className="table-note">
+            Preencha quando o cliente solicitar nota fiscal.
+          </span>
+        </div>
+        <div className="two-columns">
+          <TextField
+            defaultValue={selectedClient?.stateRegistration ?? ""}
+            label="Inscricao estadual"
+            name="clientStateRegistration"
+            size="small"
+          />
+          <TextField
+            defaultValue={selectedClient?.stateRegistrationIndicator ?? "9"}
+            label="Indicador IE"
+            name="clientStateRegistrationIndicator"
+            select
+            size="small"
+          >
+            <MenuItem value="9">Nao contribuinte</MenuItem>
+            <MenuItem value="1">Contribuinte ICMS</MenuItem>
+            <MenuItem value="2">Contribuinte isento</MenuItem>
+          </TextField>
+        </div>
+        <TextField
+          defaultValue={selectedClient?.addressStreet ?? ""}
+          label="Logradouro"
+          name="clientAddressStreet"
+          size="small"
+        />
+        <div className="two-columns">
+          <TextField
+            defaultValue={selectedClient?.addressNumber ?? ""}
+            label="Numero"
+            name="clientAddressNumber"
+            size="small"
+          />
+          <TextField
+            defaultValue={selectedClient?.addressComplement ?? ""}
+            label="Complemento"
+            name="clientAddressComplement"
+            size="small"
+          />
+        </div>
+        <div className="two-columns">
+          <TextField
+            defaultValue={selectedClient?.addressDistrict ?? ""}
+            label="Bairro"
+            name="clientAddressDistrict"
+            size="small"
+          />
+          <TextField
+            defaultValue={selectedClient?.addressCity ?? ""}
+            label="Cidade"
+            name="clientAddressCity"
+            size="small"
+          />
+        </div>
+        <div className="two-columns">
+          <TextField
+            defaultValue={selectedClient?.addressState ?? ""}
+            label="UF"
+            name="clientAddressState"
+            size="small"
+          />
+          <TextField
+            defaultValue={selectedClient?.addressZipCode ?? ""}
+            label="CEP"
+            name="clientAddressZipCode"
+            size="small"
+          />
+        </div>
         <div className="form-actions">
           {selectedClient ? (
             <SecondaryButton type="button" onClick={onCancel}>
@@ -470,7 +545,14 @@ export function ClientsPage({
             <tbody>
               {clients.map((client) => (
                 <tr key={client.id}>
-                  <td>{client.name}</td>
+                  <td>
+                    <strong>{client.name}</strong>
+                    <span className="table-note">
+                      {client.addressCity && client.addressState
+                        ? `${client.addressCity}/${client.addressState}`
+                        : "Sem endereco fiscal"}
+                    </span>
+                  </td>
                   <td>{client.personType}</td>
                   <td>{client.document ?? "-"}</td>
                   <td>{client.phone ?? "-"}</td>

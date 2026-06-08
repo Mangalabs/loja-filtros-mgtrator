@@ -4,6 +4,7 @@ import {
   ArrowLeftRight,
   Banknote,
   CreditCard,
+  FileText,
   Filter,
   List as ListIcon,
   PackagePlus,
@@ -157,6 +158,13 @@ export function AppSidebar({
             onClick={() => onSelectView("payment-methods")}
           >
             Formas de pagamento
+          </NavButton>
+          <NavButton
+            active={view === "fiscal-documents"}
+            icon={<FileText size={18} />}
+            onClick={() => onSelectView("fiscal-documents")}
+          >
+            Notas fiscais
           </NavButton>
         </NavSection>
 

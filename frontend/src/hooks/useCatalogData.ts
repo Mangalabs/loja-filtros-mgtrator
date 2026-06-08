@@ -4,6 +4,7 @@ import {
   type ApiResult,
   type CashRegisterSession,
   type Client,
+  type FiscalDocument,
   type NamedEntity,
   type PaymentMethod,
   type PickupReservation,
@@ -38,6 +39,7 @@ export function useCatalogData() {
     useState<ReportsOverview | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [fiscalDocuments, setFiscalDocuments] = useState<FiscalDocument[]>([]);
   const [shippingOrders, setShippingOrders] = useState<ShippingOrder[]>([]);
   const [pickupReservations, setPickupReservations] = useState<
     PickupReservation[]
@@ -65,6 +67,7 @@ export function useCatalogData() {
         reportsOverviewResult,
         quotesResult,
         salesResult,
+        fiscalDocumentsResult,
         shippingOrdersResult,
         pickupReservationsResult,
       ] = await Promise.all([
@@ -81,6 +84,7 @@ export function useCatalogData() {
         apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
         apiGet<ApiResult<Quote[]>>("/quotes"),
         apiGet<ApiResult<Sale[]>>("/sales"),
+        apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents"),
         apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
         apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
       ]);
@@ -98,6 +102,7 @@ export function useCatalogData() {
       setReportsOverview(reportsOverviewResult.data);
       setQuotes(quotesResult.data);
       setSales(salesResult.data);
+      setFiscalDocuments(fiscalDocumentsResult.data);
       setShippingOrders(shippingOrdersResult.data);
       setPickupReservations(pickupReservationsResult.data);
       setState("ready");
@@ -151,6 +156,7 @@ export function useCatalogData() {
     cashRegister,
     clients,
     filteredProducts,
+    fiscalDocuments,
     loadCatalog,
     lowStockProducts,
     message,

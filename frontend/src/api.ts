@@ -44,6 +44,15 @@ export type Client = NamedEntity & {
   document: string | null;
   email: string | null;
   phone: string | null;
+  stateRegistration: string | null;
+  stateRegistrationIndicator: "1" | "2" | "9" | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  addressDistrict: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressZipCode: string | null;
 };
 
 export type StockEntry = {
@@ -155,6 +164,26 @@ export type Sale = {
   createdByUserName: string;
   createdAt: string;
   status: "COMPLETED";
+};
+
+export type FiscalDocument = {
+  id: string;
+  sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
+  sourceId: string;
+  documentType: "NFE" | "NFCE";
+  provider: "MOCK" | "FOCUS";
+  environment: "HOMOLOGATION" | "PRODUCTION";
+  status: "PENDING" | "PROCESSING" | "AUTHORIZED" | "REJECTED" | "CANCELLED";
+  accessKey: string | null;
+  providerReference: string | null;
+  number: number | null;
+  series: number | null;
+  xmlUrl: string | null;
+  pdfUrl: string | null;
+  rejectionReason: string | null;
+  issuedByUserName: string;
+  issuedAt: string | null;
+  createdAt: string;
 };
 
 export type ShippingOrder = {
