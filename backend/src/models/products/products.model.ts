@@ -26,6 +26,9 @@ export type ProductListItem = {
   ncm: string | null;
   cest: string | null;
   cfop: string | null;
+  icmsCst: string | null;
+  pisCst: string | null;
+  cofinsCst: string | null;
   origin: string | null;
   description: string | null;
   active: boolean;
@@ -45,6 +48,9 @@ export type ProductCreateInput = {
   ncm?: string | null;
   cest?: string | null;
   cfop?: string | null;
+  icmsCst?: string | null;
+  pisCst?: string | null;
+  cofinsCst?: string | null;
   origin?: string | null;
   description?: string | null;
   active?: boolean;
@@ -81,6 +87,9 @@ export async function listProducts(
       "products.ncm",
       "products.cest",
       "products.cfop",
+      "products.icms_cst as icmsCst",
+      "products.pis_cst as pisCst",
+      "products.cofins_cst as cofinsCst",
       "products.origin",
       "products.description",
       "products.active",
@@ -133,6 +142,9 @@ export async function listLowStockProducts(): Promise<ProductListItem[]> {
       "products.ncm",
       "products.cest",
       "products.cfop",
+      "products.icms_cst as icmsCst",
+      "products.pis_cst as pisCst",
+      "products.cofins_cst as cofinsCst",
       "products.origin",
       "products.description",
       "products.active",
@@ -164,6 +176,9 @@ export async function createProduct(
       ncm: input.ncm,
       cest: input.cest,
       cfop: input.cfop,
+      icms_cst: input.icmsCst,
+      pis_cst: input.pisCst,
+      cofins_cst: input.cofinsCst,
       origin: input.origin,
       description: input.description,
       active: input.active,
@@ -205,6 +220,9 @@ export async function updateProduct(
       ncm: input.ncm,
       cest: input.cest,
       cfop: input.cfop,
+      icms_cst: input.icmsCst,
+      pis_cst: input.pisCst,
+      cofins_cst: input.cofinsCst,
       origin: input.origin,
       description: input.description,
       active: input.active,
@@ -265,6 +283,9 @@ async function findProductById(
       "products.ncm",
       "products.cest",
       "products.cfop",
+      "products.icms_cst as icmsCst",
+      "products.pis_cst as pisCst",
+      "products.cofins_cst as cofinsCst",
       "products.origin",
       "products.description",
       "products.active",

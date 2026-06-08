@@ -255,6 +255,32 @@ export function ProductForm({
           defaultValue={product?.description ?? ""}
         />
       </div>
+      <div className="form-section">
+        <strong>Tributacao para NF-e</strong>
+        <span className="table-note">
+          Campos usados pela integracao fiscal quando houver emissao de nota.
+        </span>
+      </div>
+      <div className="three-columns">
+        <TextField
+          defaultValue={product?.icmsCst ?? ""}
+          label="CST/CSOSN ICMS"
+          name="icmsCst"
+          size="small"
+        />
+        <TextField
+          defaultValue={product?.pisCst ?? ""}
+          label="CST PIS"
+          name="pisCst"
+          size="small"
+        />
+        <TextField
+          defaultValue={product?.cofinsCst ?? ""}
+          label="CST COFINS"
+          name="cofinsCst"
+          size="small"
+        />
+      </div>
       <div className="form-actions">
         {onCancel ? (
           <SecondaryButton

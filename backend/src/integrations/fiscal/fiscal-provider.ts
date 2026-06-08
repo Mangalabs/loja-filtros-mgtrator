@@ -33,7 +33,11 @@ export type FiscalIssueRequest = {
       productInternalCode: string | null;
       productName: string;
       productCfop: string | null;
+      productIcmsCst: string | null;
       productNcm: string | null;
+      productPisCst: string | null;
+      productCofinsCst: string | null;
+      productOrigin: string | null;
       productUnit: string;
       quantity: string;
       unitPrice: string;

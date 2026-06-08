@@ -14,6 +14,9 @@ export function productFormBody(form: FormData) {
     ncm: nullableFormValue(form, "ncm"),
     cest: nullableFormValue(form, "cest"),
     cfop: nullableFormValue(form, "cfop"),
+    icmsCst: nullableFormValue(form, "icmsCst"),
+    pisCst: nullableFormValue(form, "pisCst"),
+    cofinsCst: nullableFormValue(form, "cofinsCst"),
     origin: nullableFormValue(form, "origin"),
     description: nullableFormValue(form, "description"),
   };

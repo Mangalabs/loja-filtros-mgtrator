@@ -23,6 +23,9 @@ export type Product = {
   ncm: string | null;
   cest: string | null;
   cfop: string | null;
+  icmsCst: string | null;
+  pisCst: string | null;
+  cofinsCst: string | null;
   origin: string | null;
   description: string | null;
   active: boolean;

@@ -44,7 +44,11 @@ export type SaleItem = {
   productInternalCode: string | null;
   productName: string;
   productCfop: string | null;
+  productIcmsCst: string | null;
   productNcm: string | null;
+  productPisCst: string | null;
+  productCofinsCst: string | null;
+  productOrigin: string | null;
   productUnit: string;
   quantity: string;
   unitPrice: string;
@@ -91,7 +95,11 @@ const saleItemColumns = [
   "products.internal_code as productInternalCode",
   "products.name as productName",
   "products.cfop as productCfop",
+  "products.icms_cst as productIcmsCst",
   "products.ncm as productNcm",
+  "products.pis_cst as productPisCst",
+  "products.cofins_cst as productCofinsCst",
+  "products.origin as productOrigin",
   "products.unit as productUnit",
   "sale_items.quantity",
   "sale_items.unit_price as unitPrice",

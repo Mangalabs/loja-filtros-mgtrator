@@ -44,6 +44,10 @@ type FocusNfeItemPayload = {
   descricao: string;
   codigo_ncm?: string;
   cfop: string;
+  icms_origem: string;
+  icms_situacao_tributaria: string;
+  pis_situacao_tributaria: string;
+  cofins_situacao_tributaria: string;
   unidade_comercial: string;
   quantidade_comercial: number;
   valor_unitario_comercial: number;
@@ -174,6 +178,10 @@ function focusNfeItemPayload(
     descricao: item.productName,
     codigo_ncm: item.productNcm ?? undefined,
     cfop: focusProductCfop(item.productCfop),
+    icms_origem: focusProductOrigin(item.productOrigin),
+    icms_situacao_tributaria: focusTaxCode(item.productIcmsCst, "102"),
+    pis_situacao_tributaria: focusTaxCode(item.productPisCst, "49"),
+    cofins_situacao_tributaria: focusTaxCode(item.productCofinsCst, "49"),
     unidade_comercial: focusProductUnit(item.productUnit),
     quantidade_comercial: quantity,
     valor_unitario_comercial: unitPrice,
@@ -287,6 +295,14 @@ function focusProductUnit(unit: string) {
 
 function focusProductCfop(cfop: string | null) {
   return cfop?.replace(/\D/g, "") || "5102";
+}
+
+function focusProductOrigin(origin: string | null) {
+  return origin?.replace(/\D/g, "") || "0";
+}
+
+function focusTaxCode(value: string | null, fallback: string) {
+  return value?.trim() || fallback;
 }
 
 function moneyNumber(value: string) {

@@ -41,6 +41,9 @@ type Product = {
   ncm: string | null;
   cest: string | null;
   cfop: string | null;
+  icmsCst: string | null;
+  pisCst: string | null;
+  cofinsCst: string | null;
   origin: string | null;
   description: string | null;
   active: boolean;
@@ -2019,6 +2022,9 @@ describe("catalog routes", () => {
         ncm: "84212300",
         cest: "0100100",
         cfop: "5102",
+        icmsCst: "102",
+        pisCst: "49",
+        cofinsCst: "49",
         origin: "0",
         description: "Descricao comercial do filtro para orcamento",
       },
@@ -2057,6 +2063,9 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.ncm, "84212300");
     assert.equal(created.body.data?.cest, "0100100");
     assert.equal(created.body.data?.cfop, "5102");
+    assert.equal(created.body.data?.icmsCst, "102");
+    assert.equal(created.body.data?.pisCst, "49");
+    assert.equal(created.body.data?.cofinsCst, "49");
     assert.equal(created.body.data?.origin, "0");
     assert.equal(
       created.body.data?.description,
