@@ -728,6 +728,13 @@ describe("catalog routes", () => {
         },
       },
     );
+    const syncedAfterCancellation = await request<FiscalDocument>(
+      `/fiscal-documents/${issued.body.data?.id}/sync`,
+      {
+        method: "PATCH",
+        body: {},
+      },
+    );
 
     assert.equal(issued.status, 201);
     assert.equal(issued.body.data?.sourceType, "SALE");
@@ -753,6 +760,8 @@ describe("catalog routes", () => {
     assert.equal(synced.body.data?.pdfUrl, issued.body.data?.pdfUrl);
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(syncedAfterCancellation.status, 200);
+    assert.equal(syncedAfterCancellation.body.data?.status, "CANCELLED");
   });
 
   it("returns a management reports overview", async () => {

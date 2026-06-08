@@ -11,6 +11,7 @@ import {
   insertFiscalDocument,
   listFiscalDocuments,
   updateFiscalDocumentStatus,
+  type FiscalDocumentStatus,
   type FiscalDocumentSourceType,
 } from "../../models/fiscal-documents/fiscal-documents.model.js";
 import { getPickupReservationById } from "../../models/pickup-reservations/pickup-reservations.model.js";
@@ -45,6 +46,14 @@ export async function syncFiscalDocument(id: string) {
 
   if (!fiscalDocument) {
     throw new AppError("Documento fiscal nao encontrado.", 404);
+  }
+
+  if (fiscalDocument.status === "CANCELLED") {
+    return {
+      code: 200,
+      status: "success",
+      data: fiscalDocument,
+    };
   }
 
   if (!fiscalDocument.providerReference) {
@@ -97,7 +106,7 @@ export async function cancelFiscalDocument(id: string, reason: string) {
     reason,
   });
   const updated = await updateFiscalDocumentStatus(id, {
-    status: result.status,
+    status: fiscalCancellationStatus(fiscalDocument.status, result.status),
     accessKey: result.accessKey,
     providerReference: result.providerReference,
     number: result.number,
@@ -113,6 +122,19 @@ export async function cancelFiscalDocument(id: string, reason: string) {
     status: "success",
     data: updated,
   };
+}
+
+function fiscalCancellationStatus(
+  currentStatus: FiscalDocumentStatus,
+  providerStatus: FiscalDocumentStatus,
+) {
+  const statusByProviderStatus: Partial<
+    Record<FiscalDocumentStatus, FiscalDocumentStatus>
+  > = {
+    REJECTED: currentStatus,
+  };
+
+  return statusByProviderStatus[providerStatus] ?? providerStatus;
 }
 
 export async function issueSaleFiscalDocument(
