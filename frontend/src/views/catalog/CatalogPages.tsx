@@ -78,7 +78,7 @@ function ProductTable({
 }) {
   return (
     <div className="table-shell">
-      <table className="product-table">
+      <table className="product-table responsive-card-table">
         <thead>
           <tr>
             <th>Produto</th>
@@ -481,37 +481,44 @@ export function ClientsPage({
           <h2>{selectedClient ? "Editar cliente" : "Novo cliente"}</h2>
           <UserRound size={18} />
         </div>
-        <select
-          name="clientPersonType"
+        <TextField
           defaultValue={selectedClient?.personType ?? "PF"}
+          label="Tipo de cliente"
+          name="clientPersonType"
+          select
+          size="small"
           required
         >
-          <option value="PF">Pessoa fisica</option>
-          <option value="PJ">Pessoa juridica</option>
-          <option value="ES">Estrangeiro</option>
-        </select>
-        <input
+          <MenuItem value="PF">Pessoa fisica</MenuItem>
+          <MenuItem value="PJ">Pessoa juridica</MenuItem>
+          <MenuItem value="ES">Estrangeiro</MenuItem>
+        </TextField>
+        <TextField
+          label="Nome"
           name="clientName"
-          placeholder="Nome"
           defaultValue={selectedClient?.name}
+          size="small"
           required
         />
-        <input
+        <TextField
+          label="CPF/CNPJ"
           name="clientDocument"
-          placeholder="CPF/CNPJ"
           defaultValue={selectedClient?.document ?? ""}
+          size="small"
         />
         <div className="two-columns">
-          <input
+          <TextField
+            label="Telefone"
             name="clientPhone"
-            placeholder="Telefone"
             defaultValue={selectedClient?.phone ?? ""}
+            size="small"
           />
-          <input
+          <TextField
+            label="Email"
             name="clientEmail"
             type="email"
-            placeholder="Email"
             defaultValue={selectedClient?.email ?? ""}
+            size="small"
           />
         </div>
         <div className="form-section">
@@ -605,7 +612,7 @@ export function ClientsPage({
           <span>{clients.length} registros</span>
         </div>
         <div className="table-shell">
-          <table>
+          <table className="clients-table responsive-card-table">
             <thead>
               <tr>
                 <th>Nome</th>
@@ -619,7 +626,7 @@ export function ClientsPage({
             <tbody>
               {clients.map((client) => (
                 <tr key={client.id}>
-                  <td>
+                  <td data-label="Nome">
                     <strong>{client.name}</strong>
                     <span className="table-note">
                       {client.addressCity && client.addressState
@@ -627,36 +634,38 @@ export function ClientsPage({
                         : "Sem endereco fiscal"}
                     </span>
                   </td>
-                  <td>{client.personType}</td>
-                  <td>{client.document ?? "-"}</td>
-                  <td>{client.phone ?? "-"}</td>
-                  <td>
+                  <td data-label="Tipo">{client.personType}</td>
+                  <td data-label="Documento">{client.document ?? "-"}</td>
+                  <td data-label="Telefone">{client.phone ?? "-"}</td>
+                  <td data-label="Status">
                     <StatusChip
                       label={client.active ? "Ativo" : "Inativo"}
                       tone={client.active ? "success" : "neutral"}
                     />
                   </td>
-                  <td className="table-actions">
-                    <TableActionButton
-                      icon={<Pencil size={14} />}
-                      type="button"
-                      onClick={() => onEdit(client)}
-                    >
-                      Editar
-                    </TableActionButton>
-                    <TableActionButton
-                      icon={
-                        client.active ? (
-                          <PowerOff size={14} />
-                        ) : (
-                          <Power size={14} />
-                        )
-                      }
-                      type="button"
-                      onClick={() => onChangeStatus(client)}
-                    >
-                      {client.active ? "Inativar" : "Ativar"}
-                    </TableActionButton>
+                  <td data-label="Acoes">
+                    <div className="table-actions">
+                      <TableActionButton
+                        icon={<Pencil size={14} />}
+                        type="button"
+                        onClick={() => onEdit(client)}
+                      >
+                        Editar
+                      </TableActionButton>
+                      <TableActionButton
+                        icon={
+                          client.active ? (
+                            <PowerOff size={14} />
+                          ) : (
+                            <Power size={14} />
+                          )
+                        }
+                        type="button"
+                        onClick={() => onChangeStatus(client)}
+                      >
+                        {client.active ? "Inativar" : "Ativar"}
+                      </TableActionButton>
+                    </div>
                   </td>
                 </tr>
               ))}
