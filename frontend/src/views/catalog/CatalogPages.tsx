@@ -407,11 +407,16 @@ export function SuppliersPage({
           <h2>Novo fornecedor</h2>
           <Truck size={18} />
         </div>
-        <input name="supplierName" placeholder="Nome" required />
-        <input name="supplierDocument" placeholder="CPF/CNPJ" />
+        <TextField label="Nome" name="supplierName" required size="small" />
+        <TextField label="CPF/CNPJ" name="supplierDocument" size="small" />
         <div className="two-columns">
-          <input name="supplierPhone" placeholder="Telefone" />
-          <input name="supplierEmail" type="email" placeholder="Email" />
+          <TextField label="Telefone" name="supplierPhone" size="small" />
+          <TextField
+            label="Email"
+            name="supplierEmail"
+            size="small"
+            type="email"
+          />
         </div>
         <PrimaryButton icon={<Plus size={17} />} type="submit">
           Cadastrar fornecedor
@@ -424,7 +429,7 @@ export function SuppliersPage({
           <span>{suppliers.length} registros</span>
         </div>
         <div className="table-shell">
-          <table>
+          <table className="responsive-card-table">
             <thead>
               <tr>
                 <th>Nome</th>
@@ -436,10 +441,10 @@ export function SuppliersPage({
             <tbody>
               {suppliers.map((supplier) => (
                 <tr key={supplier.id}>
-                  <td>{supplier.name}</td>
-                  <td>{supplier.document ?? "-"}</td>
-                  <td>{supplier.phone ?? "-"}</td>
-                  <td>{supplier.email ?? "-"}</td>
+                  <td data-label="Nome">{supplier.name}</td>
+                  <td data-label="Documento">{supplier.document ?? "-"}</td>
+                  <td data-label="Telefone">{supplier.phone ?? "-"}</td>
+                  <td data-label="Email">{supplier.email ?? "-"}</td>
                 </tr>
               ))}
               {suppliers.length === 0 ? (
