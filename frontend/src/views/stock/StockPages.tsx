@@ -337,7 +337,7 @@ export function StockMovementsPage({
         <ArrowLeftRight size={18} />
       </div>
       <div className="table-shell">
-        <table>
+        <table className="responsive-card-table">
           <thead>
             <tr>
               <th>Data</th>
@@ -353,16 +353,22 @@ export function StockMovementsPage({
           <tbody>
             {movements.map((movement) => (
               <tr key={movement.id}>
-                <td>{formatDateTime(movement.createdAt)}</td>
-                <td>{movementTypeLabel(movement.type)}</td>
-                <td>{movement.productName}</td>
-                <td>{formatSignedQuantity(movement.quantity)}</td>
-                <td>{movement.supplierName ?? "-"}</td>
-                <td>{movement.createdByUserName ?? "-"}</td>
-                <td>
+                <td data-label="Data">
+                  {formatDateTime(movement.createdAt)}
+                </td>
+                <td data-label="Tipo">{movementTypeLabel(movement.type)}</td>
+                <td data-label="Produto">{movement.productName}</td>
+                <td data-label="Quantidade">
+                  {formatSignedQuantity(movement.quantity)}
+                </td>
+                <td data-label="Fornecedor">{movement.supplierName ?? "-"}</td>
+                <td data-label="Operador">
+                  {movement.createdByUserName ?? "-"}
+                </td>
+                <td data-label="Custo un.">
                   {movement.unitCost ? formatCurrency(movement.unitCost) : "-"}
                 </td>
-                <td>{movement.notes ?? "-"}</td>
+                <td data-label="Observacao">{movement.notes ?? "-"}</td>
               </tr>
             ))}
             {movements.length === 0 ? (
