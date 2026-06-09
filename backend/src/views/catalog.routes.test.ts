@@ -929,6 +929,93 @@ describe("catalog routes", () => {
     }
   });
 
+  it("returns Focus configuration errors after fiscal readiness passes", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro pronto para Focus",
+        salePrice: 35,
+        ncm: "84212300",
+        cfop: "5102",
+        icmsCst: "102",
+        pisCst: "49",
+        cofinsCst: "49",
+        origin: "0",
+      },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente pronto para Focus",
+        document: "12345678901",
+        stateRegistrationIndicator: "9",
+        addressStreet: "Rua Fiscal",
+        addressNumber: "123",
+        addressDistrict: "Centro",
+        addressCity: "Araguaina",
+        addressState: "TO",
+        addressZipCode: "77800000",
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para configuracao Focus",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+      },
+    });
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = null;
+    env.fiscal.focus.companyCnpj = null;
+
+    try {
+      const fiscalDocument = await request(
+        `/sales/${sale.body.data?.id}/fiscal-documents`,
+        {
+          method: "POST",
+          body: { documentType: "NFE" },
+        },
+      );
+
+      assert.equal(fiscalDocument.status, 503);
+      assert.equal(
+        fiscalDocument.body.message,
+        "Integracao Focus NFe sem configuracao: FOCUS_NFE_TOKEN, FOCUS_NFE_COMPANY_CNPJ.",
+      );
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+    }
+  });
+
   it("reissues a rejected fiscal document without duplicating the source", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
