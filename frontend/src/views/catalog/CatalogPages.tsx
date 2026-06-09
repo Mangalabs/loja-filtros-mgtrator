@@ -19,7 +19,7 @@ import {
   StatusChip,
   TableActionButton,
 } from "../../components/ui";
-import { formatQuantity } from "../../utils/format";
+import { formatCurrency, formatQuantity } from "../../utils/format";
 import { productDisplayName } from "../../utils/productDisplay";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
@@ -41,16 +41,18 @@ export function ProductsPage({
 }) {
   return (
     <div className="panel wide">
-      <div className="panel-header">
+      <div className="panel-header product-list-header">
         <div>
           <h2>Lista de produtos</h2>
           <span>
             {state === "loading" ? "Carregando..." : "Dados do backend"}
           </span>
         </div>
-        <input
-          className="search"
-          placeholder="Buscar por nome, codigo, fabricante ou locacao"
+        <TextField
+          className="product-search"
+          label="Buscar produto"
+          placeholder="Nome, codigo, fabricante ou locacao"
+          size="small"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
         />
@@ -76,7 +78,7 @@ function ProductTable({
 }) {
   return (
     <div className="table-shell">
-      <table>
+      <table className="product-table">
         <thead>
           <tr>
             <th>Produto</th>
@@ -95,22 +97,28 @@ function ProductTable({
         <tbody>
           {products.map((product) => (
             <tr key={product.id}>
-              <td>{productDisplayName(product)}</td>
-              <td>{product.internalCode ?? "-"}</td>
-              <td>{product.brandName ?? "-"}</td>
-              <td>{product.unit}</td>
-              <td>{product.location ?? "-"}</td>
-              <td>{formatQuantity(product.currentStock)}</td>
-              <td>{formatQuantity(product.reservedStock)}</td>
-              <td>{formatQuantity(product.availableStock)}</td>
-              <td>R$ {product.salePrice}</td>
-              <td>
+              <td data-label="Produto">{productDisplayName(product)}</td>
+              <td data-label="Codigo">{product.internalCode ?? "-"}</td>
+              <td data-label="Fabricante">{product.brandName ?? "-"}</td>
+              <td data-label="Un.">{product.unit}</td>
+              <td data-label="Locacao">{product.location ?? "-"}</td>
+              <td data-label="Fisico">
+                {formatQuantity(product.currentStock)}
+              </td>
+              <td data-label="Reservado">
+                {formatQuantity(product.reservedStock)}
+              </td>
+              <td data-label="Disponivel">
+                {formatQuantity(product.availableStock)}
+              </td>
+              <td data-label="Venda">{formatCurrency(product.salePrice)}</td>
+              <td data-label="Status">
                 <StatusChip
                   label={product.active ? "Ativo" : "Inativo"}
                   tone={product.active ? "success" : "neutral"}
                 />
               </td>
-              <td>
+              <td data-label="Acoes">
                 <div className="table-actions">
                   <TableActionButton
                     icon={<Pencil size={15} />}
