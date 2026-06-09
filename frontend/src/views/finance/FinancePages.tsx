@@ -430,7 +430,7 @@ const fiscalRequestFactories: Array<
         sourceType: "SHIPPING_ORDER",
         sourceId: order.id,
         sourceLabel: "Envio",
-        pendingLabel: "Aguardando endpoint",
+        pendingLabel: "Pendente",
         clientName: order.clientName,
         totalAmount: order.totalAmount,
         operatorName: order.completedByUserName ?? order.createdByUserName,
@@ -449,7 +449,7 @@ const fiscalRequestFactories: Array<
         sourceType: "PICKUP_RESERVATION",
         sourceId: reservation.id,
         sourceLabel: "Retirada",
-        pendingLabel: "Aguardando endpoint",
+        pendingLabel: "Pendente",
         clientName: reservation.clientName,
         totalAmount: reservation.totalAmount,
         operatorName:
