@@ -173,34 +173,44 @@ export function StockAdjustmentsPage({
           <h2>Novo ajuste</h2>
           <SlidersHorizontal size={18} />
         </div>
-        <select name="adjustmentProductId" defaultValue="" required>
-          <option value="" disabled>
+        <TextField
+          defaultValue=""
+          label="Produto"
+          name="adjustmentProductId"
+          select
+          size="small"
+          required
+        >
+          <MenuItem value="" disabled>
             Produto
-          </option>
+          </MenuItem>
           {products.map((product) => (
-            <option key={product.id} value={product.id}>
+            <MenuItem key={product.id} value={product.id}>
               {productDisplayName(product)} - fisico{" "}
               {formatQuantity(product.currentStock)} - reservado{" "}
               {formatQuantity(product.reservedStock)}
               {product.active ? "" : " (inativo)"}
-            </option>
+            </MenuItem>
           ))}
-        </select>
-        <input
+        </TextField>
+        <TextField
+          label="Variacao de estoque (+ ou -)"
           name="adjustmentQuantity"
           type="number"
-          step="0.001"
-          placeholder="Variacao de estoque (+ ou -)"
+          size="small"
+          slotProps={{ htmlInput: { step: "0.001" } }}
           required
         />
         <p className="field-help">
           Use valor positivo para acrescentar ou negativo para retirar itens.
         </p>
-        <textarea
+        <TextField
+          label="Motivo do ajuste"
           name="adjustmentReason"
-          maxLength={500}
-          placeholder="Motivo do ajuste"
+          multiline
           rows={3}
+          size="small"
+          slotProps={{ htmlInput: { maxLength: 500 } }}
           required
         />
         <PrimaryButton icon={<Plus size={17} />} type="submit">
@@ -214,7 +224,7 @@ export function StockAdjustmentsPage({
           <span>{adjustments.length} registros</span>
         </div>
         <div className="table-shell">
-          <table>
+          <table className="responsive-card-table">
             <thead>
               <tr>
                 <th>Data</th>
@@ -227,11 +237,17 @@ export function StockAdjustmentsPage({
             <tbody>
               {adjustments.map((adjustment) => (
                 <tr key={adjustment.id}>
-                  <td>{formatDateTime(adjustment.createdAt)}</td>
-                  <td>{adjustment.productName}</td>
-                  <td>{adjustment.createdByUserName ?? "-"}</td>
-                  <td>{formatSignedQuantity(adjustment.quantity)}</td>
-                  <td>{adjustment.reason}</td>
+                  <td data-label="Data">
+                    {formatDateTime(adjustment.createdAt)}
+                  </td>
+                  <td data-label="Produto">{adjustment.productName}</td>
+                  <td data-label="Operador">
+                    {adjustment.createdByUserName ?? "-"}
+                  </td>
+                  <td data-label="Variacao">
+                    {formatSignedQuantity(adjustment.quantity)}
+                  </td>
+                  <td data-label="Motivo">{adjustment.reason}</td>
                 </tr>
               ))}
               {adjustments.length === 0 ? (
