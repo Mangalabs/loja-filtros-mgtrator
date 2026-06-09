@@ -325,12 +325,8 @@ function focusStatusFromResponse(
     return mappedStatus;
   }
 
-  if (response.status === 401) {
-    throw new AppError("Token da Focus NFe nao autorizado.", 502);
-  }
-
   if (!response.ok) {
-    throw new AppError(focusRejectionReason(payload), 502);
+    throw focusHttpError(response, payload);
   }
 
   return "PROCESSING";
@@ -341,7 +337,7 @@ function focusStatusFromPayload(
   payload: FocusResponsePayload,
 ): FiscalProviderStatus {
   if (!response.ok) {
-    throw new AppError(focusRejectionReason(payload), 502);
+    throw focusHttpError(response, payload);
   }
 
   const status = focusString(payload.status)?.toLowerCase() ?? "";
@@ -361,7 +357,7 @@ function focusCancelStatusFromPayload(
   payload: FocusResponsePayload,
 ): FiscalProviderStatus {
   if (!response.ok) {
-    throw new AppError(focusRejectionReason(payload), 502);
+    throw focusHttpError(response, payload);
   }
 
   const status = focusString(payload.status)?.toLowerCase() ?? "";
@@ -371,6 +367,17 @@ function focusCancelStatusFromPayload(
   };
 
   return statusByFocusStatus[status] ?? "CANCELLED";
+}
+
+function focusHttpError(response: Response, payload: FocusResponsePayload) {
+  const messagesByHttpStatus: Record<number, string> = {
+    401: "Token da Focus NFe nao autorizado.",
+  };
+
+  return new AppError(
+    messagesByHttpStatus[response.status] ?? focusRejectionReason(payload),
+    502,
+  );
 }
 
 function focusRejectionReason(payload: FocusResponsePayload) {

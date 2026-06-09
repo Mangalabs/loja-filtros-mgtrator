@@ -1056,13 +1056,71 @@ describe("catalog routes", () => {
     env.fiscal.provider = "focus";
     env.fiscal.focus.token = "token-focus-invalido";
     env.fiscal.focus.companyCnpj = "12345678000199";
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ mensagem: "Nao autorizado" }), {
-        status: 401,
-      })) as typeof fetch;
+    globalThis.fetch = focusUnauthorizedFetch();
 
     try {
       await new FocusFiscalProvider().issue(focusIssueRequest());
+      assert.fail("Expected Focus token error");
+    } catch (error) {
+      const appError = error as { message?: string; statusCode?: number };
+
+      assert.equal(appError.statusCode, 502);
+      assert.equal(appError.message, "Token da Focus NFe nao autorizado.");
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("returns a clear error when Focus rejects the token during sync", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-invalido";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = focusUnauthorizedFetch();
+
+    try {
+      await new FocusFiscalProvider().check({
+        documentType: "NFE",
+        providerReference: "SALE-focus-provider-test",
+      });
+      assert.fail("Expected Focus token error");
+    } catch (error) {
+      const appError = error as { message?: string; statusCode?: number };
+
+      assert.equal(appError.statusCode, 502);
+      assert.equal(appError.message, "Token da Focus NFe nao autorizado.");
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("returns a clear error when Focus rejects the token during cancellation", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-invalido";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = focusUnauthorizedFetch();
+
+    try {
+      await new FocusFiscalProvider().cancel({
+        documentType: "NFE",
+        providerReference: "SALE-focus-provider-test",
+        reason: "Cancelamento por teste fiscal",
+      });
       assert.fail("Expected Focus token error");
     } catch (error) {
       const appError = error as { message?: string; statusCode?: number };
@@ -2907,6 +2965,13 @@ function focusIssueRequest(): FiscalIssueRequest {
       ],
     },
   };
+}
+
+function focusUnauthorizedFetch() {
+  return (async () =>
+    new Response(JSON.stringify({ mensagem: "Nao autorizado" }), {
+      status: 401,
+    })) as typeof fetch;
 }
 
 async function request<T = unknown>(
