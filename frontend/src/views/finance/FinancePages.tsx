@@ -141,7 +141,7 @@ export function FiscalDocumentsPage({
           <FileText size={18} />
         </div>
         <div className="table-shell">
-          <table>
+          <table className="responsive-card-table">
             <thead>
               <tr>
                 <th>Origem</th>
@@ -156,34 +156,38 @@ export function FiscalDocumentsPage({
             <tbody>
               {fiscalRequests.map((request) => (
                 <tr key={`${request.sourceType}-${request.sourceId}`}>
-                  <td>
+                  <td data-label="Origem">
                     <strong>{request.sourceLabel}</strong>
                     <span className="table-note">{request.sourceId}</span>
                   </td>
-                  <td>{request.clientName}</td>
-                  <td>{formatCurrency(request.totalAmount)}</td>
-                  <td>
+                  <td data-label="Cliente">{request.clientName}</td>
+                  <td data-label="Total">
+                    {formatCurrency(request.totalAmount)}
+                  </td>
+                  <td data-label="Status fiscal">
                     {request.document ? (
                       <FiscalDocumentStatus document={request.document} />
                     ) : (
                       <StatusChip label={request.pendingLabel} tone="warning" />
                     )}
                   </td>
-                  <td>
+                  <td data-label="Prontidao">
                     <FiscalReadinessStatus request={request} />
                   </td>
-                  <td>{request.operatorName}</td>
-                  <td>
-                    <FiscalRequestAction
-                      request={request}
-                      onIssuePickupReservationFiscalDocument={
-                        onIssuePickupReservationFiscalDocument
-                      }
-                      onIssueSaleFiscalDocument={onIssueSaleFiscalDocument}
-                      onIssueShippingOrderFiscalDocument={
-                        onIssueShippingOrderFiscalDocument
-                      }
-                    />
+                  <td data-label="Operador">{request.operatorName}</td>
+                  <td data-label="Acoes">
+                    <div className="table-actions">
+                      <FiscalRequestAction
+                        request={request}
+                        onIssuePickupReservationFiscalDocument={
+                          onIssuePickupReservationFiscalDocument
+                        }
+                        onIssueSaleFiscalDocument={onIssueSaleFiscalDocument}
+                        onIssueShippingOrderFiscalDocument={
+                          onIssueShippingOrderFiscalDocument
+                        }
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -208,76 +212,86 @@ export function FiscalDocumentsPage({
           <FileText size={18} />
         </div>
         <div className="table-shell">
-          <table>
-          <thead>
-            <tr>
-              <th>Documento</th>
-              <th>Origem</th>
-              <th>Status</th>
-              <th>Ambiente</th>
-              <th>Emissao</th>
-              <th>Referencias</th>
-              <th>Arquivos</th>
-              <th>Acoes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {fiscalDocuments.map((document) => (
-              <tr key={document.id}>
-                <td>
-                  <strong>{document.documentType}</strong>
-                  <span className="table-note">
-                    {document.number ? `#${document.number}` : "Sem numero"}
-                    {document.series ? ` serie ${document.series}` : ""}
-                  </span>
-                </td>
-                <td>
-                  <strong>{fiscalDocumentSourceLabel(document.sourceType)}</strong>
-                  <span className="table-note">{document.sourceId}</span>
-                </td>
-                <td>
-                  <StatusChip
-                    label={fiscalDocumentStatusLabel(document.status)}
-                    tone={fiscalDocumentStatusTone(document.status)}
-                  />
-                  {document.rejectionReason ? (
-                    <span className="table-note">{document.rejectionReason}</span>
-                  ) : null}
-                </td>
-                <td>
-                  <strong>{document.provider}</strong>
-                  <span className="table-note">
-                    {fiscalDocumentEnvironmentLabel(document.environment)}
-                  </span>
-                </td>
-                <td>
-                  <strong>{formatDateTime(document.issuedAt ?? document.createdAt)}</strong>
-                  <span className="table-note">{document.issuedByUserName}</span>
-                </td>
-                <td>
-                  <strong>{document.providerReference ?? "Sem referencia"}</strong>
-                  <span className="table-note">
-                    {document.accessKey ?? "Sem chave de acesso"}
-                  </span>
-                </td>
-                <td>
-                  <FiscalDocumentLinks document={document} />
-                </td>
-                <td>
-                  <FiscalDocumentActions
-                    document={document}
-                    onCancelFiscalDocument={onCancelFiscalDocument}
-                    onSyncFiscalDocument={onSyncFiscalDocument}
-                  />
-                </td>
-              </tr>
-            ))}
-            {fiscalDocuments.length === 0 ? (
+          <table className="responsive-card-table">
+            <thead>
               <tr>
-                <td colSpan={8}>Nenhuma nota fiscal emitida.</td>
+                <th>Documento</th>
+                <th>Origem</th>
+                <th>Status</th>
+                <th>Ambiente</th>
+                <th>Emissao</th>
+                <th>Referencias</th>
+                <th>Arquivos</th>
+                <th>Acoes</th>
               </tr>
-            ) : null}
-          </tbody>
+            </thead>
+            <tbody>
+              {fiscalDocuments.map((document) => (
+                <tr key={document.id}>
+                  <td data-label="Documento">
+                    <strong>{document.documentType}</strong>
+                    <span className="table-note">
+                      {document.number ? `#${document.number}` : "Sem numero"}
+                      {document.series ? ` serie ${document.series}` : ""}
+                    </span>
+                  </td>
+                  <td data-label="Origem">
+                    <strong>
+                      {fiscalDocumentSourceLabel(document.sourceType)}
+                    </strong>
+                    <span className="table-note">{document.sourceId}</span>
+                  </td>
+                  <td data-label="Status">
+                    <StatusChip
+                      label={fiscalDocumentStatusLabel(document.status)}
+                      tone={fiscalDocumentStatusTone(document.status)}
+                    />
+                    {document.rejectionReason ? (
+                      <span className="table-note">
+                        {document.rejectionReason}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td data-label="Ambiente">
+                    <strong>{document.provider}</strong>
+                    <span className="table-note">
+                      {fiscalDocumentEnvironmentLabel(document.environment)}
+                    </span>
+                  </td>
+                  <td data-label="Emissao">
+                    <strong>
+                      {formatDateTime(document.issuedAt ?? document.createdAt)}
+                    </strong>
+                    <span className="table-note">
+                      {document.issuedByUserName}
+                    </span>
+                  </td>
+                  <td data-label="Referencias">
+                    <strong>
+                      {document.providerReference ?? "Sem referencia"}
+                    </strong>
+                    <span className="table-note">
+                      {document.accessKey ?? "Sem chave de acesso"}
+                    </span>
+                  </td>
+                  <td data-label="Arquivos">
+                    <FiscalDocumentLinks document={document} />
+                  </td>
+                  <td data-label="Acoes">
+                    <FiscalDocumentActions
+                      document={document}
+                      onCancelFiscalDocument={onCancelFiscalDocument}
+                      onSyncFiscalDocument={onSyncFiscalDocument}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {fiscalDocuments.length === 0 ? (
+                <tr>
+                  <td colSpan={8}>Nenhuma nota fiscal emitida.</td>
+                </tr>
+              ) : null}
+            </tbody>
           </table>
         </div>
       </div>
