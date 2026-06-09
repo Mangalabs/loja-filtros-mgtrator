@@ -5,6 +5,7 @@ import { after, before, beforeEach, describe, it } from "node:test";
 import { createApp } from "../app.js";
 import { env } from "../config/env.js";
 import { db } from "../database/knex.js";
+import type { FiscalIssueRequest } from "../integrations/fiscal/fiscal-provider.js";
 import { FocusFiscalProvider } from "../integrations/fiscal/providers/focus-fiscal-provider.js";
 
 type ApiResponse<T = unknown> = {
@@ -1031,54 +1032,43 @@ describe("catalog routes", () => {
     }) as typeof fetch;
 
     try {
-      await new FocusFiscalProvider().issue({
-        reference: "SALE-focus-unavailable",
-        documentType: "NFE",
-        environment: "HOMOLOGATION",
-        sale: {
-          id: "sale-focus-unavailable",
-          clientPersonType: "PF",
-          clientName: "Cliente Focus",
-          clientDocument: "12345678901",
-          clientEmail: null,
-          clientPhone: null,
-          clientStateRegistration: null,
-          clientStateRegistrationIndicator: "9",
-          clientAddressStreet: "Rua Fiscal",
-          clientAddressNumber: "123",
-          clientAddressComplement: null,
-          clientAddressDistrict: "Centro",
-          clientAddressCity: "Araguaina",
-          clientAddressState: "TO",
-          clientAddressZipCode: "77800000",
-          paymentMethodName: "PIX",
-          totalAmount: "35.00",
-          items: [
-            {
-              productId: "product-focus-unavailable",
-              productInternalCode: "FISCAL-1",
-              productName: "Filtro Focus",
-              productCfop: "5102",
-              productIcmsCst: "102",
-              productNcm: "84212300",
-              productPisCst: "49",
-              productCofinsCst: "49",
-              productOrigin: "0",
-              productUnit: "UN",
-              quantity: "1.000",
-              unitPrice: "35.00",
-              totalAmount: "35.00",
-              position: 1,
-            },
-          ],
-        },
-      });
+      await new FocusFiscalProvider().issue(focusIssueRequest());
       assert.fail("Expected Focus connection error");
     } catch (error) {
       const appError = error as { message?: string; statusCode?: number };
 
       assert.equal(appError.statusCode, 502);
       assert.equal(appError.message, "Nao foi possivel conectar a Focus NFe.");
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("returns a clear error when Focus rejects the token", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-invalido";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ mensagem: "Nao autorizado" }), {
+        status: 401,
+      })) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(focusIssueRequest());
+      assert.fail("Expected Focus token error");
+    } catch (error) {
+      const appError = error as { message?: string; statusCode?: number };
+
+      assert.equal(appError.statusCode, 502);
+      assert.equal(appError.message, "Token da Focus NFe nao autorizado.");
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
@@ -2844,6 +2834,51 @@ describe("catalog routes", () => {
     assert.equal(adjustments.body.data?.length, 0);
   });
 });
+
+function focusIssueRequest(): FiscalIssueRequest {
+  return {
+    reference: "SALE-focus-provider-test",
+    documentType: "NFE",
+    environment: "HOMOLOGATION",
+    sale: {
+      id: "sale-focus-provider-test",
+      clientPersonType: "PF",
+      clientName: "Cliente Focus",
+      clientDocument: "12345678901",
+      clientEmail: null,
+      clientPhone: null,
+      clientStateRegistration: null,
+      clientStateRegistrationIndicator: "9",
+      clientAddressStreet: "Rua Fiscal",
+      clientAddressNumber: "123",
+      clientAddressComplement: null,
+      clientAddressDistrict: "Centro",
+      clientAddressCity: "Araguaina",
+      clientAddressState: "TO",
+      clientAddressZipCode: "77800000",
+      paymentMethodName: "PIX",
+      totalAmount: "35.00",
+      items: [
+        {
+          productId: "product-focus-provider-test",
+          productInternalCode: "FISCAL-1",
+          productName: "Filtro Focus",
+          productCfop: "5102",
+          productIcmsCst: "102",
+          productNcm: "84212300",
+          productPisCst: "49",
+          productCofinsCst: "49",
+          productOrigin: "0",
+          productUnit: "UN",
+          quantity: "1.000",
+          unitPrice: "35.00",
+          totalAmount: "35.00",
+          position: 1,
+        },
+      ],
+    },
+  };
+}
 
 async function request<T = unknown>(
   path: string,
