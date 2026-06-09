@@ -2,7 +2,7 @@ import Button, { type ButtonProps } from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import type { ReactNode } from 'react'
 
-export type StatusTone = 'success' | 'neutral' | 'warning'
+export type StatusTone = 'success' | 'neutral' | 'warning' | 'error'
 
 export function StatusChip({
   label,
@@ -21,6 +21,10 @@ export function StatusChip({
     return (
       <Chip color='warning' label={label} size='small' variant='outlined' />
     )
+  }
+
+  if (tone === 'error') {
+    return <Chip color='error' label={label} size='small' variant='outlined' />
   }
 
   return <Chip label={label} size='small' variant='outlined' />

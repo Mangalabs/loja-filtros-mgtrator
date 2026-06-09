@@ -1,7 +1,17 @@
-import Link from "@mui/material/Link";
-import TextField from "@mui/material/TextField";
-import { Banknote, CreditCard, FileText, Plus, Power, PowerOff } from "lucide-react";
-import type { FormEvent } from "react";
+import Alert from '@mui/material/Alert'
+import Link from '@mui/material/Link'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import Tooltip from '@mui/material/Tooltip'
+import {
+  Banknote,
+  CreditCard,
+  FileText,
+  Plus,
+  Power,
+  PowerOff,
+} from 'lucide-react'
+import type { FormEvent } from 'react'
 import type {
   AuthUser,
   CashRegisterSession,
@@ -12,25 +22,25 @@ import type {
   Product,
   Sale,
   ShippingOrder,
-} from "../../api";
+} from '../../api'
 import {
   PrimaryButton,
   StatusChip,
   TableActionButton,
   type StatusTone,
-} from "../../components/ui";
-import { formatCurrency, formatDateTime } from "../../utils/format";
+} from '../../components/ui'
+import { formatCurrency, formatDateTime } from '../../utils/format'
 
 export function PaymentMethodsPage({
   paymentMethods,
   onChangeStatus,
 }: {
-  paymentMethods: PaymentMethod[];
-  onChangeStatus: (paymentMethod: PaymentMethod) => void;
+  paymentMethods: PaymentMethod[]
+  onChangeStatus: (paymentMethod: PaymentMethod) => void
 }) {
   return (
-    <div className="panel wide">
-      <div className="panel-header compact">
+    <div className='panel wide'>
+      <div className='panel-header compact'>
         <div>
           <h2>Formas configuradas</h2>
           <span>
@@ -40,8 +50,8 @@ export function PaymentMethodsPage({
         </div>
         <CreditCard size={18} />
       </div>
-      <div className="table-shell">
-        <table className="responsive-card-table">
+      <div className='table-shell'>
+        <table className='responsive-card-table'>
           <thead>
             <tr>
               <th>Forma de pagamento</th>
@@ -53,16 +63,16 @@ export function PaymentMethodsPage({
           <tbody>
             {paymentMethods.map((paymentMethod) => (
               <tr key={paymentMethod.id}>
-                <td data-label="Forma de pagamento">{paymentMethod.name}</td>
-                <td data-label="Codigo">{paymentMethod.code}</td>
-                <td data-label="Status">
+                <td data-label='Forma de pagamento'>{paymentMethod.name}</td>
+                <td data-label='Codigo'>{paymentMethod.code}</td>
+                <td data-label='Status'>
                   <StatusChip
-                    label={paymentMethod.active ? "Ativa" : "Inativa"}
-                    tone={paymentMethod.active ? "success" : "neutral"}
+                    label={paymentMethod.active ? 'Ativa' : 'Inativa'}
+                    tone={paymentMethod.active ? 'success' : 'neutral'}
                   />
                 </td>
-                <td data-label="Acoes">
-                  <div className="table-actions">
+                <td data-label='Acoes'>
+                  <div className='table-actions'>
                     <TableActionButton
                       icon={
                         paymentMethod.active ? (
@@ -71,10 +81,9 @@ export function PaymentMethodsPage({
                           <Power size={14} />
                         )
                       }
-                      type="button"
-                      onClick={() => onChangeStatus(paymentMethod)}
-                    >
-                      {paymentMethod.active ? "Inativar" : "Ativar"}
+                      type='button'
+                      onClick={() => onChangeStatus(paymentMethod)}>
+                      {paymentMethod.active ? 'Inativar' : 'Ativar'}
                     </TableActionButton>
                   </div>
                 </td>
@@ -84,7 +93,7 @@ export function PaymentMethodsPage({
         </table>
       </div>
     </div>
-  );
+  )
 }
 
 export function FiscalDocumentsPage({
@@ -100,22 +109,22 @@ export function FiscalDocumentsPage({
   onCancelFiscalDocument,
   onSyncFiscalDocument,
 }: {
-  clients: Client[];
-  fiscalDocuments: FiscalDocument[];
-  pickupReservations: PickupReservation[];
-  products: Product[];
-  sales: Sale[];
-  shippingOrders: ShippingOrder[];
+  clients: Client[]
+  fiscalDocuments: FiscalDocument[]
+  pickupReservations: PickupReservation[]
+  products: Product[]
+  sales: Sale[]
+  shippingOrders: ShippingOrder[]
   onIssuePickupReservationFiscalDocument: (
     reservation: PickupReservation,
-  ) => void;
-  onIssueSaleFiscalDocument: (sale: Sale) => void;
-  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void;
+  ) => void
+  onIssueSaleFiscalDocument: (sale: Sale) => void
+  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
   onCancelFiscalDocument: (
     event: FormEvent<HTMLFormElement>,
     fiscalDocument: FiscalDocument,
-  ) => void;
-  onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void;
+  ) => void
+  onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void
 }) {
   const fiscalRequests = fiscalRequestFactories.flatMap((factory) =>
     factory({
@@ -126,12 +135,15 @@ export function FiscalDocumentsPage({
       sales,
       shippingOrders,
     }),
-  );
+  )
+  const fiscalSummary = fiscalDocumentSummary(fiscalRequests, fiscalDocuments)
 
   return (
-    <section className="layout-grid stock-entry-layout">
-      <div className="panel wide">
-        <div className="panel-header compact">
+    <section className='layout-grid stock-entry-layout'>
+      <FiscalDocumentsOverview summary={fiscalSummary} />
+
+      <div className='panel wide'>
+        <div className='panel-header compact'>
           <div>
             <h2>Fila de emissao</h2>
             <span>
@@ -140,8 +152,8 @@ export function FiscalDocumentsPage({
           </div>
           <FileText size={18} />
         </div>
-        <div className="table-shell">
-          <table className="responsive-card-table">
+        <div className='table-shell'>
+          <table className='responsive-card-table'>
             <thead>
               <tr>
                 <th>Origem</th>
@@ -156,27 +168,27 @@ export function FiscalDocumentsPage({
             <tbody>
               {fiscalRequests.map((request) => (
                 <tr key={`${request.sourceType}-${request.sourceId}`}>
-                  <td data-label="Origem">
+                  <td data-label='Origem'>
                     <strong>{request.sourceLabel}</strong>
-                    <span className="table-note">{request.sourceId}</span>
+                    <span className='table-note'>{request.sourceId}</span>
                   </td>
-                  <td data-label="Cliente">{request.clientName}</td>
-                  <td data-label="Total">
+                  <td data-label='Cliente'>{request.clientName}</td>
+                  <td data-label='Total'>
                     {formatCurrency(request.totalAmount)}
                   </td>
-                  <td data-label="Status fiscal">
+                  <td data-label='Status fiscal'>
                     {request.document ? (
                       <FiscalDocumentStatus document={request.document} />
                     ) : (
-                      <StatusChip label={request.pendingLabel} tone="warning" />
+                      <StatusChip label={request.pendingLabel} tone='warning' />
                     )}
                   </td>
-                  <td data-label="Prontidao">
+                  <td data-label='Prontidao'>
                     <FiscalReadinessStatus request={request} />
                   </td>
-                  <td data-label="Operador">{request.operatorName}</td>
-                  <td data-label="Acoes">
-                    <div className="table-actions">
+                  <td data-label='Operador'>{request.operatorName}</td>
+                  <td data-label='Acoes'>
+                    <div className='table-actions'>
                       <FiscalRequestAction
                         request={request}
                         onIssuePickupReservationFiscalDocument={
@@ -201,8 +213,8 @@ export function FiscalDocumentsPage({
         </div>
       </div>
 
-      <div className="panel wide">
-        <div className="panel-header compact">
+      <div className='panel wide'>
+        <div className='panel-header compact'>
           <div>
             <h2>Notas emitidas</h2>
             <span>
@@ -211,8 +223,8 @@ export function FiscalDocumentsPage({
           </div>
           <FileText size={18} />
         </div>
-        <div className="table-shell">
-          <table className="responsive-card-table">
+        <div className='table-shell'>
+          <table className='responsive-card-table'>
             <thead>
               <tr>
                 <th>Documento</th>
@@ -228,56 +240,56 @@ export function FiscalDocumentsPage({
             <tbody>
               {fiscalDocuments.map((document) => (
                 <tr key={document.id}>
-                  <td data-label="Documento">
+                  <td data-label='Documento'>
                     <strong>{document.documentType}</strong>
-                    <span className="table-note">
-                      {document.number ? `#${document.number}` : "Sem numero"}
-                      {document.series ? ` serie ${document.series}` : ""}
+                    <span className='table-note'>
+                      {document.number ? `#${document.number}` : 'Sem numero'}
+                      {document.series ? ` serie ${document.series}` : ''}
                     </span>
                   </td>
-                  <td data-label="Origem">
+                  <td data-label='Origem'>
                     <strong>
                       {fiscalDocumentSourceLabel(document.sourceType)}
                     </strong>
-                    <span className="table-note">{document.sourceId}</span>
+                    <span className='table-note'>{document.sourceId}</span>
                   </td>
-                  <td data-label="Status">
+                  <td data-label='Status'>
                     <StatusChip
                       label={fiscalDocumentStatusLabel(document.status)}
                       tone={fiscalDocumentStatusTone(document.status)}
                     />
                     {document.rejectionReason ? (
-                      <span className="table-note">
+                      <span className='table-note'>
                         {document.rejectionReason}
                       </span>
                     ) : null}
                   </td>
-                  <td data-label="Ambiente">
+                  <td data-label='Ambiente'>
                     <strong>{document.provider}</strong>
-                    <span className="table-note">
+                    <span className='table-note'>
                       {fiscalDocumentEnvironmentLabel(document.environment)}
                     </span>
                   </td>
-                  <td data-label="Emissao">
+                  <td data-label='Emissao'>
                     <strong>
                       {formatDateTime(document.issuedAt ?? document.createdAt)}
                     </strong>
-                    <span className="table-note">
+                    <span className='table-note'>
                       {document.issuedByUserName}
                     </span>
                   </td>
-                  <td data-label="Referencias">
+                  <td data-label='Referencias'>
                     <strong>
-                      {document.providerReference ?? "Sem referencia"}
+                      {document.providerReference ?? 'Sem referencia'}
                     </strong>
-                    <span className="table-note">
-                      {document.accessKey ?? "Sem chave de acesso"}
+                    <span className='table-note'>
+                      {document.accessKey ?? 'Sem chave de acesso'}
                     </span>
                   </td>
-                  <td data-label="Arquivos">
+                  <td data-label='Arquivos'>
                     <FiscalDocumentLinks document={document} />
                   </td>
-                  <td data-label="Acoes">
+                  <td data-label='Acoes'>
                     <FiscalDocumentActions
                       document={document}
                       onCancelFiscalDocument={onCancelFiscalDocument}
@@ -296,32 +308,32 @@ export function FiscalDocumentsPage({
         </div>
       </div>
     </section>
-  );
+  )
 }
 
 type FiscalRequest = {
-  sourceType: FiscalDocument["sourceType"];
-  sourceId: string;
-  sourceLabel: string;
-  pendingLabel: string;
-  clientName: string;
-  totalAmount: string;
-  operatorName: string;
-  readinessIssues: string[];
-  sale?: Sale;
-  shippingOrder?: ShippingOrder;
-  pickupReservation?: PickupReservation;
-  document?: FiscalDocument;
-};
+  sourceType: FiscalDocument['sourceType']
+  sourceId: string
+  sourceLabel: string
+  pendingLabel: string
+  clientName: string
+  totalAmount: string
+  operatorName: string
+  readinessIssues: string[]
+  sale?: Sale
+  shippingOrder?: ShippingOrder
+  pickupReservation?: PickupReservation
+  document?: FiscalDocument
+}
 
 type FiscalRequestFactoryInput = {
-  clients: Client[];
-  fiscalDocuments: FiscalDocument[];
-  pickupReservations: PickupReservation[];
-  products: Product[];
-  sales: Sale[];
-  shippingOrders: ShippingOrder[];
-};
+  clients: Client[]
+  fiscalDocuments: FiscalDocument[]
+  pickupReservations: PickupReservation[]
+  products: Product[]
+  sales: Sale[]
+  shippingOrders: ShippingOrder[]
+}
 
 function FiscalRequestAction({
   request,
@@ -329,72 +341,81 @@ function FiscalRequestAction({
   onIssueSaleFiscalDocument,
   onIssueShippingOrderFiscalDocument,
 }: {
-  request: FiscalRequest;
+  request: FiscalRequest
   onIssuePickupReservationFiscalDocument: (
     reservation: PickupReservation,
-  ) => void;
-  onIssueSaleFiscalDocument: (sale: Sale) => void;
-  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void;
+  ) => void
+  onIssueSaleFiscalDocument: (sale: Sale) => void
+  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
 }) {
   const action = fiscalRequestAction(request, {
     onIssuePickupReservationFiscalDocument,
     onIssueSaleFiscalDocument,
     onIssueShippingOrderFiscalDocument,
-  });
+  })
 
   return action && request.readinessIssues.length === 0 ? (
-    <TableActionButton type="button" onClick={action}>
+    <TableActionButton type='button' onClick={action}>
       Emitir NF-e
     </TableActionButton>
   ) : (
-    <span className="table-note">
+    <span className='table-note'>
       {fiscalRequestActionLabel(request, Boolean(action))}
     </span>
-  );
+  )
 }
 
 function FiscalReadinessStatus({ request }: { request: FiscalRequest }) {
+  const visibleIssues = request.readinessIssues.slice(0, 2)
+  const hiddenIssuesCount = request.readinessIssues.length - visibleIssues.length
+
   return request.readinessIssues.length === 0 ? (
-    <StatusChip label="Pronta" tone="success" />
+    <StatusChip label='Pronta' tone='success' />
   ) : (
-    <>
-      <StatusChip label={`${request.readinessIssues.length} pendencia(s)`} tone="warning" />
-      <span className="table-note">
-        {request.readinessIssues.slice(0, 3).join(" ")}
-      </span>
-    </>
-  );
+    <Stack spacing={0.75}>
+      <StatusChip
+        label={`${request.readinessIssues.length} pendencia(s)`}
+        tone='warning'
+      />
+      <Tooltip title={request.readinessIssues.join('\n')} placement='top'>
+        <span className='table-note'>
+          {visibleIssues.join(' ')}
+          {hiddenIssuesCount > 0 ? ` +${hiddenIssuesCount}` : ''}
+        </span>
+      </Tooltip>
+    </Stack>
+  )
 }
 
 function fiscalRequestActionLabel(request: FiscalRequest, hasAction: boolean) {
   const labels: Record<string, string> = {
-    documented: "Documento registrado",
-    future: "Emissao futura",
-    pending: "Corrija pendencias",
-  };
+    documented: 'Documento registrado',
+    future: 'Emissao futura',
+    pending: 'Corrija pendencias',
+  }
   const labelKey = request.document
-    ? "documented"
+    ? 'documented'
     : hasAction && request.readinessIssues.length > 0
-      ? "pending"
-      : "future";
+      ? 'pending'
+      : 'future'
 
-  return labels[labelKey];
+  return labels[labelKey]
 }
 
 type FiscalRequestActionHandlers = {
   onIssuePickupReservationFiscalDocument: (
     reservation: PickupReservation,
-  ) => void;
-  onIssueSaleFiscalDocument: (sale: Sale) => void;
-  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void;
-};
+  ) => void
+  onIssueSaleFiscalDocument: (sale: Sale) => void
+  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
+}
 
 function fiscalRequestAction(
   request: FiscalRequest,
   handlers: FiscalRequestActionHandlers,
 ) {
   const actions: Partial<
-    Record<FiscalDocument["sourceType"], (() => void) | undefined>
+    Record<FiscalDocument['sourceType'], (() => void) | undefined>
   > = {
     PICKUP_RESERVATION:
       request.pickupReservation && !request.document
@@ -414,39 +435,41 @@ function fiscalRequestAction(
               request.shippingOrder as ShippingOrder,
             )
         : undefined,
-  };
+  }
 
-  return actions[request.sourceType];
+  return actions[request.sourceType]
 }
 
 const fiscalRequestFactories: Array<
   (input: FiscalRequestFactoryInput) => FiscalRequest[]
 > = [
   ({ clients, fiscalDocuments, products, sales }) =>
-    sales.map((sale) => ({
-      sourceType: "SALE",
-      sourceId: sale.id,
-      sourceLabel: "Balcao",
-      pendingLabel: "Pendente",
-      clientName: sale.clientName ?? "Nao identificado",
-      totalAmount: sale.totalAmount,
-      operatorName: sale.createdByUserName,
-      readinessIssues: fiscalReadinessIssues({
-        client: findClient(clients, sale.clientId),
-        items: sale.items,
-        products,
-      }),
-      sale,
-      document: findFiscalDocument(fiscalDocuments, "SALE", sale.id),
-    })),
+    sales
+      .filter((sale) => sale.status === 'COMPLETED')
+      .map((sale) => ({
+        sourceType: 'SALE',
+        sourceId: sale.id,
+        sourceLabel: 'Balcao',
+        pendingLabel: 'Pendente',
+        clientName: sale.clientName ?? 'Nao identificado',
+        totalAmount: sale.totalAmount,
+        operatorName: sale.createdByUserName,
+        readinessIssues: fiscalReadinessIssues({
+          client: findClient(clients, sale.clientId),
+          items: sale.items,
+          products,
+        }),
+        sale,
+        document: findFiscalDocument(fiscalDocuments, 'SALE', sale.id),
+      })),
   ({ clients, fiscalDocuments, products, shippingOrders }) =>
     shippingOrders
-      .filter((order) => order.status === "COMPLETED")
+      .filter((order) => order.status === 'COMPLETED')
       .map((order) => ({
-        sourceType: "SHIPPING_ORDER",
+        sourceType: 'SHIPPING_ORDER',
         sourceId: order.id,
-        sourceLabel: "Envio",
-        pendingLabel: "Pendente",
+        sourceLabel: 'Envio',
+        pendingLabel: 'Pendente',
         clientName: order.clientName,
         totalAmount: order.totalAmount,
         operatorName: order.completedByUserName ?? order.createdByUserName,
@@ -456,16 +479,20 @@ const fiscalRequestFactories: Array<
           products,
         }),
         shippingOrder: order,
-        document: findFiscalDocument(fiscalDocuments, "SHIPPING_ORDER", order.id),
+        document: findFiscalDocument(
+          fiscalDocuments,
+          'SHIPPING_ORDER',
+          order.id,
+        ),
       })),
   ({ clients, fiscalDocuments, pickupReservations, products }) =>
     pickupReservations
-      .filter((reservation) => reservation.status === "COMPLETED")
+      .filter((reservation) => reservation.status === 'COMPLETED')
       .map((reservation) => ({
-        sourceType: "PICKUP_RESERVATION",
+        sourceType: 'PICKUP_RESERVATION',
         sourceId: reservation.id,
-        sourceLabel: "Retirada",
-        pendingLabel: "Pendente",
+        sourceLabel: 'Retirada',
+        pendingLabel: 'Pendente',
         clientName: reservation.clientName,
         totalAmount: reservation.totalAmount,
         operatorName:
@@ -478,17 +505,17 @@ const fiscalRequestFactories: Array<
         pickupReservation: reservation,
         document: findFiscalDocument(
           fiscalDocuments,
-          "PICKUP_RESERVATION",
+          'PICKUP_RESERVATION',
           reservation.id,
         ),
       })),
-];
+]
 
 type FiscalReadinessInput = {
-  client?: Client;
-  items: Array<{ productId: string; productName: string }>;
-  products: Product[];
-};
+  client?: Client
+  items: Array<{ productId: string; productName: string }>
+  products: Product[]
+}
 
 function fiscalReadinessIssues({
   client,
@@ -500,34 +527,34 @@ function fiscalReadinessIssues({
     ...items.flatMap((item) =>
       productReadinessIssues(findProduct(products, item.productId), item),
     ),
-  ];
+  ]
 }
 
 function clientReadinessIssues(client?: Client) {
-  const documentRequired = client?.personType !== "ES";
+  const documentRequired = client?.personType !== 'ES'
   const fieldChecks: Array<[unknown, string]> = [
-    [client, "Cliente deve estar cadastrado."],
-    [client?.name, "Nome do cliente pendente."],
+    [client, 'Cliente deve estar cadastrado.'],
+    [client?.name, 'Nome do cliente pendente.'],
     [
       documentRequired ? client?.document : true,
-      "CPF/CNPJ do cliente pendente.",
+      'CPF/CNPJ do cliente pendente.',
     ],
-    [client?.addressStreet, "Logradouro do cliente pendente."],
-    [client?.addressNumber, "Numero do cliente pendente."],
-    [client?.addressDistrict, "Bairro do cliente pendente."],
-    [client?.addressCity, "Cidade do cliente pendente."],
-    [client?.addressState, "UF do cliente pendente."],
-    [client?.addressZipCode, "CEP do cliente pendente."],
-  ];
+    [client?.addressStreet, 'Logradouro do cliente pendente.'],
+    [client?.addressNumber, 'Numero do cliente pendente.'],
+    [client?.addressDistrict, 'Bairro do cliente pendente.'],
+    [client?.addressCity, 'Cidade do cliente pendente.'],
+    [client?.addressState, 'UF do cliente pendente.'],
+    [client?.addressZipCode, 'CEP do cliente pendente.'],
+  ]
 
-  return missingMessages(fieldChecks);
+  return missingMessages(fieldChecks)
 }
 
 function productReadinessIssues(
   product: Product | undefined,
   item: { productName: string },
 ) {
-  const label = item.productName;
+  const label = item.productName
   const fieldChecks: Array<[unknown, string]> = [
     [product, `Produto ${label} deve estar cadastrado.`],
     [product?.ncm, `NCM pendente em ${label}.`],
@@ -536,67 +563,166 @@ function productReadinessIssues(
     [product?.icmsCst, `CST ICMS pendente em ${label}.`],
     [product?.pisCst, `CST PIS pendente em ${label}.`],
     [product?.cofinsCst, `CST COFINS pendente em ${label}.`],
-  ];
+  ]
 
-  return missingMessages(fieldChecks);
+  return missingMessages(fieldChecks)
 }
 
 function missingMessages(fieldChecks: Array<[unknown, string]>) {
   return fieldChecks
     .filter(([value]) => !value)
-    .map(([_value, message]) => message);
+    .map(([_value, message]) => message)
 }
 
 function findClient(clients: Client[], clientId: string | null) {
-  return clients.find((client) => client.id === clientId);
+  return clients.find((client) => client.id === clientId)
 }
 
 function findProduct(products: Product[], productId: string) {
-  return products.find((product) => product.id === productId);
+  return products.find((product) => product.id === productId)
 }
 
 function findFiscalDocument(
   fiscalDocuments: FiscalDocument[],
-  sourceType: FiscalDocument["sourceType"],
+  sourceType: FiscalDocument['sourceType'],
   sourceId: string,
 ) {
   return fiscalDocuments.find(
     (document) =>
       document.sourceType === sourceType && document.sourceId === sourceId,
-  );
+  )
 }
 
 function FiscalDocumentStatus({ document }: { document: FiscalDocument }) {
   return (
-    <>
+    <Stack spacing={0.75}>
       <StatusChip
         label={fiscalDocumentStatusLabel(document.status)}
         tone={fiscalDocumentStatusTone(document.status)}
       />
-      <span className="table-note">
-        {document.documentType} {document.number ? `#${document.number}` : ""}
+      <span className='table-note'>
+        {document.documentType} {document.number ? `#${document.number}` : ''}
       </span>
-    </>
-  );
+    </Stack>
+  )
 }
 
 function FiscalDocumentLinks({ document }: { document: FiscalDocument }) {
   const links = [
-    { label: "DANFE", url: document.pdfUrl },
-    { label: "XML", url: document.xmlUrl },
-  ].filter((link): link is { label: string; url: string } => Boolean(link.url));
+    { label: 'DANFE', url: document.pdfUrl },
+    { label: 'XML', url: document.xmlUrl },
+  ].filter((link): link is { label: string; url: string } => Boolean(link.url))
 
   return links.length > 0 ? (
-    <div className="table-actions">
+    <div className='table-actions'>
       {links.map((link) => (
-        <Link href={link.url} key={link.label} target="_blank" rel="noreferrer">
+        <Link href={link.url} key={link.label} target='_blank' rel='noreferrer'>
           {link.label}
         </Link>
       ))}
     </div>
   ) : (
-    <span className="empty-text">Sem arquivos</span>
-  );
+    <span className='empty-text'>Sem arquivos</span>
+  )
+}
+
+type FiscalDocumentSummary = {
+  readyRequests: number
+  pendingRequests: number
+  rejectedDocuments: number
+  processingDocuments: number
+}
+
+function FiscalDocumentsOverview({
+  summary,
+}: {
+  summary: FiscalDocumentSummary
+}) {
+  const alerts = fiscalDocumentSummaryAlerts(summary)
+
+  return (
+    <div className='panel wide'>
+      <div className='panel-header compact'>
+        <div>
+          <h2>Controle fiscal</h2>
+          <span>
+            Visao rapida da fila antes de emitir, sincronizar ou cancelar NF-e.
+          </span>
+        </div>
+        <FileText size={18} />
+      </div>
+      <div className='metrics-grid'>
+        <div className='metric-card'>
+          <span>Prontas para emitir</span>
+          <strong>{summary.readyRequests}</strong>
+        </div>
+        <div className='metric-card'>
+          <span>Com pendencias</span>
+          <strong>{summary.pendingRequests}</strong>
+        </div>
+        <div className='metric-card'>
+          <span>Processando</span>
+          <strong>{summary.processingDocuments}</strong>
+        </div>
+        <div className='metric-card'>
+          <span>Rejeitadas</span>
+          <strong>{summary.rejectedDocuments}</strong>
+        </div>
+      </div>
+      {alerts.length > 0 ? (
+        <Stack spacing={1}>
+          {alerts.map((alert) => (
+            <Alert key={alert.message} severity={alert.severity}>
+              {alert.message}
+            </Alert>
+          ))}
+        </Stack>
+      ) : null}
+    </div>
+  )
+}
+
+function fiscalDocumentSummary(
+  fiscalRequests: FiscalRequest[],
+  fiscalDocuments: FiscalDocument[],
+): FiscalDocumentSummary {
+  return {
+    pendingRequests: fiscalRequests.filter(
+      (request) => !request.document && request.readinessIssues.length > 0,
+    ).length,
+    processingDocuments: fiscalDocuments.filter((document) =>
+      ['PENDING', 'PROCESSING'].includes(document.status),
+    ).length,
+    readyRequests: fiscalRequests.filter(
+      (request) => !request.document && request.readinessIssues.length === 0,
+    ).length,
+    rejectedDocuments: fiscalDocuments.filter(
+      (document) => document.status === 'REJECTED',
+    ).length,
+  }
+}
+
+function fiscalDocumentSummaryAlerts(summary: FiscalDocumentSummary) {
+  return [
+    {
+      enabled: summary.rejectedDocuments > 0,
+      message:
+        'Existem NF-e rejeitadas. Confira o motivo na tabela e ajuste os dados antes de tentar novamente.',
+      severity: 'error' as const,
+    },
+    {
+      enabled: summary.processingDocuments > 0,
+      message:
+        'Existem NF-e em processamento. Use Atualizar para sincronizar o retorno da Focus.',
+      severity: 'info' as const,
+    },
+    {
+      enabled: summary.pendingRequests > 0,
+      message:
+        'Algumas vendas ainda possuem pendencias fiscais e nao podem ser emitidas.',
+      severity: 'warning' as const,
+    },
+  ].filter((alert) => alert.enabled)
 }
 
 function FiscalDocumentActions({
@@ -604,83 +730,83 @@ function FiscalDocumentActions({
   onCancelFiscalDocument,
   onSyncFiscalDocument,
 }: {
-  document: FiscalDocument;
+  document: FiscalDocument
   onCancelFiscalDocument: (
     event: FormEvent<HTMLFormElement>,
     fiscalDocument: FiscalDocument,
-  ) => void;
-  onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void;
+  ) => void
+  onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void
 }) {
   return (
-    <div className="shipping-order-actions">
+    <div className='shipping-order-actions'>
       <TableActionButton
-        type="button"
-        onClick={() => onSyncFiscalDocument(document)}
-      >
+        type='button'
+        onClick={() => onSyncFiscalDocument(document)}>
         Atualizar
       </TableActionButton>
 
-      {document.status === "AUTHORIZED" ? (
+      {document.status === 'AUTHORIZED' ? (
         <form
-          className="cancel-order-form"
-          onSubmit={(event) => onCancelFiscalDocument(event, document)}
-        >
+          className='cancel-order-form'
+          onSubmit={(event) => onCancelFiscalDocument(event, document)}>
           <TextField
-            name="fiscalCancellationReason"
-            label="Motivo do cancelamento"
-            size="small"
+            name='fiscalCancellationReason'
+            label='Motivo do cancelamento'
+            size='small'
             required
           />
-          <TableActionButton type="submit">Cancelar NF-e</TableActionButton>
+          <TableActionButton type='submit'>Cancelar NF-e</TableActionButton>
         </form>
       ) : null}
     </div>
-  );
+  )
 }
 
-function fiscalDocumentSourceLabel(sourceType: FiscalDocument["sourceType"]) {
-  return fiscalDocumentSourceLabels[sourceType];
+function fiscalDocumentSourceLabel(sourceType: FiscalDocument['sourceType']) {
+  return fiscalDocumentSourceLabels[sourceType]
 }
 
 function fiscalDocumentEnvironmentLabel(
-  environment: FiscalDocument["environment"],
+  environment: FiscalDocument['environment'],
 ) {
-  return fiscalDocumentEnvironmentLabels[environment];
+  return fiscalDocumentEnvironmentLabels[environment]
 }
 
-function fiscalDocumentStatusLabel(status: FiscalDocument["status"]) {
-  return fiscalDocumentStatusPresentations[status].label;
+function fiscalDocumentStatusLabel(status: FiscalDocument['status']) {
+  return fiscalDocumentStatusPresentations[status].label
 }
 
-function fiscalDocumentStatusTone(status: FiscalDocument["status"]): StatusTone {
-  return fiscalDocumentStatusPresentations[status].tone;
+function fiscalDocumentStatusTone(
+  status: FiscalDocument['status'],
+): StatusTone {
+  return fiscalDocumentStatusPresentations[status].tone
 }
 
-const fiscalDocumentSourceLabels: Record<FiscalDocument["sourceType"], string> =
+const fiscalDocumentSourceLabels: Record<FiscalDocument['sourceType'], string> =
   {
-    PICKUP_RESERVATION: "Reserva",
-    SALE: "Venda",
-    SHIPPING_ORDER: "Envio",
-  };
+    PICKUP_RESERVATION: 'Reserva',
+    SALE: 'Venda',
+    SHIPPING_ORDER: 'Envio',
+  }
 
 const fiscalDocumentEnvironmentLabels: Record<
-  FiscalDocument["environment"],
+  FiscalDocument['environment'],
   string
 > = {
-  HOMOLOGATION: "Homologacao",
-  PRODUCTION: "Producao",
-};
+  HOMOLOGATION: 'Homologacao',
+  PRODUCTION: 'Producao',
+}
 
 const fiscalDocumentStatusPresentations: Record<
-  FiscalDocument["status"],
+  FiscalDocument['status'],
   { label: string; tone: StatusTone }
 > = {
-  AUTHORIZED: { label: "Autorizada", tone: "success" },
-  CANCELLED: { label: "Cancelada", tone: "neutral" },
-  PENDING: { label: "Pendente", tone: "warning" },
-  PROCESSING: { label: "Processando", tone: "warning" },
-  REJECTED: { label: "Rejeitada", tone: "neutral" },
-};
+  AUTHORIZED: { label: 'Autorizada', tone: 'success' },
+  CANCELLED: { label: 'Cancelada', tone: 'neutral' },
+  PENDING: { label: 'Pendente', tone: 'warning' },
+  PROCESSING: { label: 'Processando', tone: 'warning' },
+  REJECTED: { label: 'Rejeitada', tone: 'error' },
+}
 
 export function CashRegisterPage({
   session,
@@ -688,23 +814,23 @@ export function CashRegisterPage({
   onOpen,
   onClose,
 }: {
-  session: CashRegisterSession | null;
-  user: AuthUser;
-  onOpen: (event: FormEvent<HTMLFormElement>) => void;
-  onClose: (event: FormEvent<HTMLFormElement>) => void;
+  session: CashRegisterSession | null
+  user: AuthUser
+  onOpen: (event: FormEvent<HTMLFormElement>) => void
+  onClose: (event: FormEvent<HTMLFormElement>) => void
 }) {
   if (session) {
     return (
-      <section className="layout-grid stock-entry-layout">
-        <div className="panel">
-          <div className="panel-header compact">
+      <section className='layout-grid stock-entry-layout'>
+        <div className='panel'>
+          <div className='panel-header compact'>
             <div>
               <h2>Caixa aberto</h2>
               <span>Confira os recebimentos antes de fechar o caixa.</span>
             </div>
-            <StatusChip label="Aberto" tone="success" />
+            <StatusChip label='Aberto' tone='success' />
           </div>
-          <div className="cash-register-details">
+          <div className='cash-register-details'>
             <div>
               <span>Aberto por</span>
               <strong>{session.openedByUserName}</strong>
@@ -728,78 +854,78 @@ export function CashRegisterPage({
           </div>
         </div>
 
-        <form className="panel form-panel" onSubmit={onClose}>
-          <div className="panel-header compact">
+        <form className='panel form-panel' onSubmit={onClose}>
+          <div className='panel-header compact'>
             <div>
               <h2>Fechamento</h2>
               <span>Informe o total conferido no caixa.</span>
             </div>
             <Banknote size={18} />
           </div>
-          <div className="entity-list">
+          <div className='entity-list'>
             {session.paymentSummary.map((payment) => (
-              <div className="entity-row" key={payment.paymentMethodId}>
+              <div className='entity-row' key={payment.paymentMethodId}>
                 <strong>{payment.paymentMethodName}</strong>
                 <span>{formatCurrency(payment.amount)}</span>
               </div>
             ))}
             {session.paymentSummary.length === 0 ? (
-              <span className="empty-text">Nenhuma venda registrada.</span>
+              <span className='empty-text'>Nenhuma venda registrada.</span>
             ) : null}
           </div>
-          <label className="field-label">
+          <label className='field-label'>
             Saldo esperado
             <input
               value={formatCurrency(session.expectedClosingBalance)}
               disabled
             />
           </label>
-          <label className="field-label">
+          <label className='field-label'>
             Valor conferido
             <input
-              name="closingBalance"
-              type="number"
-              min="0"
-              step="0.01"
+              name='closingBalance'
+              type='number'
+              min='0'
+              step='0.01'
               defaultValue={session.expectedClosingBalance}
               required
             />
           </label>
-          <PrimaryButton icon={<Plus size={17} />} type="submit">
+          <PrimaryButton icon={<Plus size={17} />} type='submit'>
             Fechar caixa
           </PrimaryButton>
         </form>
       </section>
-    );
+    )
   }
 
   return (
-    <form className="panel form-panel single-column" onSubmit={onOpen}>
-      <div className="panel-header compact">
+    <form className='panel form-panel single-column' onSubmit={onOpen}>
+      <div className='panel-header compact'>
         <div>
           <h2>Abrir caixa</h2>
           <span>A abertura ficara registrada no usuario autenticado.</span>
         </div>
         <Banknote size={18} />
       </div>
-      <label className="field-label">
+      <label className='field-label'>
         Responsavel
         <input value={user.name} disabled />
       </label>
-      <label className="field-label">
+      <label className='field-label'>
         Saldo inicial
         <input
-          name="openingBalance"
-          type="number"
-          min="0"
-          step="0.01"
-          defaultValue="0.00"
+          name='openingBalance'
+          type='number'
+          min='0'
+          step='0.01'
+          defaultValue='0.00'
           required
         />
       </label>
-      <PrimaryButton icon={<Plus size={17} />} type="submit">
+      <PrimaryButton icon={<Plus size={17} />} type='submit'>
         Abrir caixa
       </PrimaryButton>
     </form>
-  );
+  )
 }
