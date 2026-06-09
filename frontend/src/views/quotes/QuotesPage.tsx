@@ -1,5 +1,7 @@
 import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
+import MenuItem from '@mui/material/MenuItem'
+import TextField from '@mui/material/TextField'
 import { List as ListIcon, Plus } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import type { Client, Product, Quote } from '../../api'
@@ -128,42 +130,49 @@ export function QuotesPage({
           </div>
           <ListIcon size={18} />
         </div>
-        <select
+        <TextField
+          label='Cliente'
+          select
+          size='small'
           value={clientId}
           onChange={(event) => setClientId(event.target.value)}
           required>
-          <option value='' disabled>
+          <MenuItem value='' disabled>
             Cliente
-          </option>
+          </MenuItem>
           {clients
             .filter((client) => client.active)
             .map((client) => (
-              <option key={client.id} value={client.id}>
+              <MenuItem key={client.id} value={client.id}>
                 {client.name}
                 {client.phone ? ` - ${client.phone}` : ''}
-              </option>
+              </MenuItem>
             ))}
-        </select>
+        </TextField>
         <div className='two-columns'>
-          <label className='field-label'>
-            Validade
-            <input
-              type='date'
-              value={validUntil}
-              onChange={(event) => setValidUntil(event.target.value)}
-            />
-          </label>
-          <label className='field-label'>
-            Total
-            <input value={formatCurrency(quoteTotal)} disabled />
-          </label>
+          <TextField
+            label='Validade'
+            size='small'
+            type='date'
+            value={validUntil}
+            onChange={(event) => setValidUntil(event.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            disabled
+            label='Total'
+            size='small'
+            value={formatCurrency(quoteTotal)}
+          />
         </div>
-        <textarea
+        <TextField
+          label='Observacoes do orcamento'
+          multiline
           value={notes}
-          maxLength={1000}
-          placeholder='Observacoes do orcamento'
           rows={3}
+          size='small'
           onChange={(event) => setNotes(event.target.value)}
+          slotProps={{ htmlInput: { maxLength: 1000 } }}
         />
         <FormControlLabel
           control={
@@ -189,52 +198,56 @@ export function QuotesPage({
                   </TableActionButton>
                 ) : null}
               </div>
-              <select
+              <TextField
+                label='Produto'
+                select
+                size='small'
                 value={item.productId}
                 onChange={(event) =>
                   updateItem(index, { productId: event.target.value })
                 }
                 required>
-                <option value='' disabled>
+                <MenuItem value='' disabled>
                   Produto
-                </option>
+                </MenuItem>
                 {activeProducts.map((product) => (
-                  <option key={product.id} value={product.id}>
+                  <MenuItem key={product.id} value={product.id}>
                     {productDisplayName(product)} - base{' '}
                     {formatCurrency(product.salePrice)}
-                  </option>
+                  </MenuItem>
                 ))}
-              </select>
-              <input
+              </TextField>
+              <TextField
+                label='Descricao comercial'
                 value={item.description}
-                placeholder='Descricao comercial que sai no orcamento'
-                maxLength={500}
+                size='small'
                 onChange={(event) =>
                   updateItem(index, { description: event.target.value })
                 }
+                slotProps={{ htmlInput: { maxLength: 500 } }}
                 required
               />
               <div className='two-columns'>
-                <input
+                <TextField
+                  label='Quantidade'
                   value={item.quantity}
                   type='number'
-                  min='0.001'
-                  step='0.001'
-                  placeholder='Quantidade'
+                  size='small'
                   onChange={(event) =>
                     updateItem(index, { quantity: event.target.value })
                   }
+                  slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
                   required
                 />
-                <input
+                <TextField
+                  label='Valor unitario'
                   value={item.unitPrice}
                   type='number'
-                  min='0'
-                  step='0.01'
-                  placeholder='Valor unitario'
+                  size='small'
                   onChange={(event) =>
                     updateItem(index, { unitPrice: event.target.value })
                   }
+                  slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
                   required
                 />
               </div>
@@ -263,7 +276,7 @@ export function QuotesPage({
           <StatusChip label='PDF disponivel' tone='success' />
         </div>
         <div className='table-shell'>
-          <table>
+          <table className='responsive-card-table'>
             <thead>
               <tr>
                 <th>Data</th>
@@ -279,20 +292,22 @@ export function QuotesPage({
             <tbody>
               {quotes.map((quote) => (
                 <tr key={quote.id}>
-                  <td>{formatDateTime(quote.createdAt)}</td>
-                  <td>{quote.clientName}</td>
-                  <td>{quote.createdByUserName}</td>
-                  <td>
+                  <td data-label='Data'>{formatDateTime(quote.createdAt)}</td>
+                  <td data-label='Cliente'>{quote.clientName}</td>
+                  <td data-label='Vendedor'>{quote.createdByUserName}</td>
+                  <td data-label='Itens'>
                     {quote.items.length} item(ns)
                     <span className='table-note'>
                       {quote.items.map((item) => item.description).join(', ')}
                     </span>
                   </td>
-                  <td>
+                  <td data-label='Validade'>
                     {quote.validUntil ? formatDate(quote.validUntil) : '-'}
                   </td>
-                  <td>{formatCurrency(quote.totalAmount)}</td>
-                  <td>
+                  <td data-label='Total'>
+                    {formatCurrency(quote.totalAmount)}
+                  </td>
+                  <td data-label='Status'>
                     <StatusChip
                       label={quoteStatusPresentation(quote).label}
                       tone={quoteStatusPresentation(quote).tone}
@@ -314,10 +329,12 @@ export function QuotesPage({
                       </div>
                     ) : null}
                   </td>
-                  <td>
-                    <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
-                      Baixar PDF
-                    </TableActionButton>
+                  <td data-label='Acoes'>
+                    <div className='table-actions'>
+                      <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
+                        Baixar PDF
+                      </TableActionButton>
+                    </div>
                     {quote.shippingOrderId ? (
                       <span className='table-note'>
                         Pedido para envio criado
@@ -335,10 +352,11 @@ export function QuotesPage({
                           <form
                             className='cancel-order-form'
                             onSubmit={(event) => onCancelQuote(event, quote)}>
-                            <input
+                            <TextField
+                              label='Motivo do cancelamento'
                               name='quoteCancellationReason'
-                              maxLength={500}
-                              placeholder='Motivo do cancelamento'
+                              size='small'
+                              slotProps={{ htmlInput: { maxLength: 500 } }}
                               required
                             />
                             <TableActionButton type='submit'>
