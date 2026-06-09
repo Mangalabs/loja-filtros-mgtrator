@@ -162,6 +162,43 @@ export async function insertFiscalDocument(
   return fiscalDocument;
 }
 
+export async function replaceFiscalDocumentIssue(
+  transaction: Knex.Transaction,
+  id: string,
+  input: FiscalDocumentInput,
+): Promise<FiscalDocument> {
+  const [updated] = await transaction("fiscal_documents")
+    .where("id", id)
+    .update({
+      provider: input.provider,
+      environment: input.environment,
+      status: input.status,
+      access_key: input.accessKey,
+      provider_reference: input.providerReference,
+      number: input.number,
+      series: input.series,
+      xml_url: input.xmlUrl,
+      pdf_url: input.pdfUrl,
+      rejection_reason: input.rejectionReason,
+      request_payload: input.requestPayload,
+      response_payload: input.responsePayload,
+      issued_by_user_id: input.issuedByUserId,
+      issued_at: transaction.fn.now(),
+      updated_at: transaction.fn.now(),
+    })
+    .returning("id");
+
+  const fiscalDocument = await fiscalDocumentQuery(transaction)
+    .where("fiscal_documents.id", updated.id)
+    .first();
+
+  if (!fiscalDocument) {
+    throw new Error("Fiscal document was not found after replacement");
+  }
+
+  return fiscalDocument;
+}
+
 export async function updateFiscalDocumentStatus(
   id: string,
   input: FiscalDocumentUpdateInput,

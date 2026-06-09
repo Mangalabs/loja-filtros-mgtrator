@@ -929,6 +929,83 @@ describe("catalog routes", () => {
     }
   });
 
+  it("reissues a rejected fiscal document without duplicating the source", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro com nota rejeitada", salePrice: 35 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente para reemissao",
+        document: "12345678901",
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+    const administrator = await db("users")
+      .select("id")
+      .where("email", "admin@example.com")
+      .first();
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para reemissao fiscal",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+      },
+    });
+
+    await db("fiscal_documents").insert({
+      source_type: "SALE",
+      source_id: sale.body.data?.id,
+      document_type: "NFE",
+      provider: "MOCK",
+      environment: "HOMOLOGATION",
+      status: "REJECTED",
+      provider_reference: `SALE-${sale.body.data?.id}`,
+      rejection_reason: "Rejeicao simulada",
+      request_payload: {},
+      response_payload: {},
+      issued_by_user_id: administrator.id,
+      issued_at: db.fn.now(),
+    });
+
+    const reissued = await request<FiscalDocument>(
+      `/sales/${sale.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
+    const listed = await request<FiscalDocument[]>("/fiscal-documents");
+
+    assert.equal(reissued.status, 201);
+    assert.equal(reissued.body.data?.status, "AUTHORIZED");
+    assert.equal(reissued.body.data?.rejectionReason, null);
+    assert.equal(listed.body.data?.length, 1);
+  });
+
   it("returns a management reports overview", async () => {
     const product = await request<Product>("/products", {
       method: "POST",

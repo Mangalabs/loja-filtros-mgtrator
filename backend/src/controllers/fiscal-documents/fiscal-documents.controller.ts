@@ -9,6 +9,7 @@ import {
   getFiscalDocumentById,
   insertFiscalDocument,
   listFiscalDocuments,
+  replaceFiscalDocumentIssue,
   updateFiscalDocumentStatus,
   type FiscalDocumentStatus,
   type FiscalDocumentSourceType,
@@ -236,7 +237,7 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       input.documentType,
     );
 
-    if (existing) {
+    if (existing && existing.status !== "REJECTED") {
       throw new AppError(input.duplicateMessage, 409);
     }
 
@@ -250,7 +251,7 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
     ensureFiscalReadiness(requestPayload.sale);
     const result = await provider.issue(requestPayload);
 
-    return insertFiscalDocument(transaction, {
+    const fiscalDocumentInput = {
       sourceType: input.sourceType,
       sourceId: input.sourceId,
       documentType: input.documentType,
@@ -267,7 +268,17 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       requestPayload,
       responsePayload: result.responsePayload,
       issuedByUserId: input.issuedByUserId,
-    });
+    };
+
+    if (existing) {
+      return replaceFiscalDocumentIssue(
+        transaction,
+        existing.id,
+        fiscalDocumentInput,
+      );
+    }
+
+    return insertFiscalDocument(transaction, fiscalDocumentInput);
   });
 
   return {
