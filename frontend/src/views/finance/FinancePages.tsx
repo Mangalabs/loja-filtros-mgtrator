@@ -41,7 +41,7 @@ export function PaymentMethodsPage({
         <CreditCard size={18} />
       </div>
       <div className="table-shell">
-        <table>
+        <table className="responsive-card-table">
           <thead>
             <tr>
               <th>Forma de pagamento</th>
@@ -53,28 +53,30 @@ export function PaymentMethodsPage({
           <tbody>
             {paymentMethods.map((paymentMethod) => (
               <tr key={paymentMethod.id}>
-                <td>{paymentMethod.name}</td>
-                <td>{paymentMethod.code}</td>
-                <td>
+                <td data-label="Forma de pagamento">{paymentMethod.name}</td>
+                <td data-label="Codigo">{paymentMethod.code}</td>
+                <td data-label="Status">
                   <StatusChip
                     label={paymentMethod.active ? "Ativa" : "Inativa"}
                     tone={paymentMethod.active ? "success" : "neutral"}
                   />
                 </td>
-                <td>
-                  <TableActionButton
-                    icon={
-                      paymentMethod.active ? (
-                        <PowerOff size={14} />
-                      ) : (
-                        <Power size={14} />
-                      )
-                    }
-                    type="button"
-                    onClick={() => onChangeStatus(paymentMethod)}
-                  >
-                    {paymentMethod.active ? "Inativar" : "Ativar"}
-                  </TableActionButton>
+                <td data-label="Acoes">
+                  <div className="table-actions">
+                    <TableActionButton
+                      icon={
+                        paymentMethod.active ? (
+                          <PowerOff size={14} />
+                        ) : (
+                          <Power size={14} />
+                        )
+                      }
+                      type="button"
+                      onClick={() => onChangeStatus(paymentMethod)}
+                    >
+                      {paymentMethod.active ? "Inativar" : "Ativar"}
+                    </TableActionButton>
+                  </div>
                 </td>
               </tr>
             ))}
