@@ -64,7 +64,7 @@ export function ReportsPage({
           </div>
           <StatusChip label="Atualizado" tone="success" />
         </div>
-        <div className="cash-register-details">
+        <div className="reports-metrics">
           <ReportMetric
             icon={<ShoppingCart size={18} />}
             label="Vendas concluidas"
@@ -106,9 +106,10 @@ function ReportMetric({
   value: string;
 }) {
   return (
-    <div>
-      <span>
-        {icon} {label}
+    <div className="metric report-metric">
+      <span className="metric-icon">{icon}</span>
+      <span className="metric-label">
+        {label}
       </span>
       <strong>{value}</strong>
     </div>

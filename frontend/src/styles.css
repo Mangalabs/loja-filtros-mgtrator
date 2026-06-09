@@ -556,6 +556,17 @@ tbody tr:last-child td {
   font-size: 13px;
 }
 
+.reports-metrics {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 24px;
+}
+
+.report-metric {
+  align-content: start;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
