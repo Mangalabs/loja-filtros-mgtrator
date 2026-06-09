@@ -174,95 +174,126 @@ export function ProductForm({
         <h2>{product ? "Editar produto" : "Dados do produto"}</h2>
         {product ? <Pencil size={18} /> : <PackagePlus size={18} />}
       </div>
-      <input
+      <TextField
+        label="Nome do produto"
         name="productName"
-        placeholder="Nome do produto"
         defaultValue={product?.name}
+        size="small"
         required
       />
       <div className="two-columns">
-        <input
+        <TextField
+          label="Codigo interno"
           name="internalCode"
-          placeholder="Codigo interno"
           defaultValue={product?.internalCode ?? ""}
+          size="small"
         />
-        <input
+        <TextField
+          label="Codigo de barras"
           name="barcode"
-          placeholder="Codigo de barras"
           defaultValue={product?.barcode ?? ""}
+          size="small"
         />
       </div>
       <div className="two-columns">
-        <select name="brandId" defaultValue={product?.brandId ?? ""}>
-          <option value="">Fabricante</option>
+        <TextField
+          defaultValue={product?.brandId ?? ""}
+          label="Fabricante"
+          name="brandId"
+          select
+          size="small"
+        >
+          <MenuItem value="">Sem fabricante</MenuItem>
           {brands.map((brand) => (
-            <option key={brand.id} value={brand.id}>
+            <MenuItem key={brand.id} value={brand.id}>
               {brand.name}
-            </option>
+            </MenuItem>
           ))}
-        </select>
-        <input
+        </TextField>
+        <TextField
+          label="Locacao"
           name="location"
-          placeholder="Locacao"
           defaultValue={product?.location ?? ""}
+          size="small"
         />
       </div>
       <div className="three-columns">
-        <select name="unit" defaultValue={product?.unit ?? "UN"}>
-          <option value="UN">UN - Unidade</option>
-          <option value="KIT">KIT - Kit</option>
-          <option value="CJ">CJ - Conjunto</option>
-        </select>
-        <input
+        <TextField
+          defaultValue={product?.unit ?? "UN"}
+          label="Unidade"
+          name="unit"
+          select
+          size="small"
+        >
+          <MenuItem value="UN">UN - Unidade</MenuItem>
+          <MenuItem value="KIT">KIT - Kit</MenuItem>
+          <MenuItem value="CJ">CJ - Conjunto</MenuItem>
+        </TextField>
+        <TextField
+          label="Custo"
           name="costPrice"
           type="number"
-          step="0.01"
-          placeholder="Custo"
           defaultValue={product?.costPrice}
+          size="small"
+          slotProps={{ htmlInput: { step: "0.01" } }}
         />
-        <input
+        <TextField
+          label="Venda"
           name="salePrice"
           type="number"
-          step="0.01"
-          placeholder="Venda"
           defaultValue={product?.salePrice}
+          size="small"
+          slotProps={{ htmlInput: { step: "0.01" } }}
         />
       </div>
       <div className="three-columns">
-        <input
+        <TextField
+          label="Estoque min."
           name="minimumStock"
           type="number"
-          step="0.001"
-          placeholder="Estoque min."
           defaultValue={product?.minimumStock}
+          size="small"
+          slotProps={{ htmlInput: { step: "0.001" } }}
         />
-        <input name="ncm" placeholder="NCM" defaultValue={product?.ncm ?? ""} />
-        <input
+        <TextField
+          label="NCM"
+          name="ncm"
+          defaultValue={product?.ncm ?? ""}
+          size="small"
+        />
+        <TextField
+          label="CEST"
           name="cest"
-          placeholder="CEST"
           defaultValue={product?.cest ?? ""}
+          size="small"
         />
       </div>
       <div className="three-columns">
-        <input
+        <TextField
+          label="CFOP"
           name="cfop"
-          maxLength={4}
-          placeholder="CFOP"
           defaultValue={product?.cfop ?? ""}
+          size="small"
+          slotProps={{ htmlInput: { maxLength: 4 } }}
         />
-        <input
+        <TextField
+          label="Origem fiscal"
           name="origin"
-          maxLength={2}
-          placeholder="Origem fiscal"
           defaultValue={product?.origin ?? ""}
-        />
-        <input
-          name="description"
-          maxLength={1000}
-          placeholder="Descricao comercial para orcamento"
-          defaultValue={product?.description ?? ""}
+          size="small"
+          slotProps={{ htmlInput: { maxLength: 2 } }}
         />
       </div>
+      <TextField
+        defaultValue={product?.description ?? ""}
+        helperText="Texto exibido em orcamentos quando precisar separar o nome interno do texto comercial."
+        label="Descricao comercial para orcamento"
+        multiline
+        name="description"
+        rows={3}
+        size="small"
+        slotProps={{ htmlInput: { maxLength: 1000 } }}
+      />
       <div className="form-section">
         <strong>Tributacao para NF-e</strong>
         <span className="table-note">
