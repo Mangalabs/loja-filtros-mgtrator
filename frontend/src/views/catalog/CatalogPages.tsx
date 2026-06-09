@@ -359,7 +359,7 @@ export function NamedEntityPage({
           <h2>Novo registro</h2>
           <Tags size={18} />
         </div>
-        <input name={fieldName} placeholder="Nome" required />
+        <TextField label="Nome" name={fieldName} required size="small" />
         <PrimaryButton icon={<Plus size={17} />} type="submit">
           Cadastrar
         </PrimaryButton>
@@ -380,7 +380,10 @@ function EntityList({ title, items }: { title: string; items: NamedEntity[] }) {
       {items.map((item) => (
         <div className="entity-row" key={item.id}>
           <strong>{item.name}</strong>
-          <span>{item.active ? "Ativo" : "Inativo"}</span>
+          <StatusChip
+            label={item.active ? "Ativo" : "Inativo"}
+            tone={item.active ? "success" : "neutral"}
+          />
         </div>
       ))}
       {items.length === 0 ? (
