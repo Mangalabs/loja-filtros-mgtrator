@@ -749,6 +749,10 @@ function FiscalDocumentActions({
   ) => void
   onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void
 }) {
+  if (document.status === 'CANCELLED') {
+    return <span className='table-note'>Documento cancelado</span>
+  }
+
   return (
     <div className='shipping-order-actions'>
       <TableActionButton
@@ -764,6 +768,8 @@ function FiscalDocumentActions({
           <TextField
             name='fiscalCancellationReason'
             label='Motivo do cancelamento'
+            helperText='Informe entre 15 e 255 caracteres.'
+            slotProps={{ htmlInput: { maxLength: 255, minLength: 15 } }}
             size='small'
             required
           />
