@@ -37,6 +37,7 @@ export async function getReportsOverview(): Promise<ReportsOverview> {
     openCashRegister,
   ] = await Promise.all([
     db("sales")
+      .where("status", "COMPLETED")
       .select<SalesSummaryRow[]>([
         db.raw("count(*)::text as count"),
         db.raw(

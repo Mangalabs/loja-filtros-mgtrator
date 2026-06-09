@@ -2,10 +2,14 @@ import { db } from "../../database/knex.js";
 import {
   activeClientExists,
   activePaymentMethodExists,
+  cancelSale,
   findOpenCashRegister,
   insertSale,
   listSales,
   lockSaleProduct,
+  lockSaleForCancellation,
+  saleHasBlockingFiscalDocument,
+  saleHasLinkedOperation,
   type SaleInput,
 } from "../../models/sales/sales.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
@@ -90,6 +94,46 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
 
   return {
     code: 201,
+    status: "success",
+    data: sale,
+  };
+}
+
+export async function cancelCounterSale(
+  id: string,
+  reason: string,
+  cancelledByUserId: string,
+) {
+  const sale = await db.transaction(async (transaction) => {
+    const lockedSale = await lockSaleForCancellation(transaction, id);
+
+    if (!lockedSale) {
+      throw new AppError("Venda nao encontrada.", 404);
+    }
+
+    if (lockedSale.status === "CANCELLED") {
+      throw new AppError("Esta venda ja foi cancelada.", 409);
+    }
+
+    if (await saleHasLinkedOperation(transaction, id)) {
+      throw new AppError(
+        "Venda gerada por envio ou retirada nao pode ser cancelada por este fluxo.",
+        409,
+      );
+    }
+
+    if (await saleHasBlockingFiscalDocument(transaction, id)) {
+      throw new AppError(
+        "Cancele a NF-e antes de cancelar esta venda.",
+        409,
+      );
+    }
+
+    return cancelSale(transaction, id, cancelledByUserId, reason);
+  });
+
+  return {
+    code: 200,
     status: "success",
     data: sale,
   };

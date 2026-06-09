@@ -292,7 +292,7 @@ export function StockMovementsPage({
       <div className="panel-header compact">
         <div>
           <h2>Movimentacoes registradas</h2>
-          <span>Entradas e ajustes que modificaram o estoque atual.</span>
+          <span>Entradas, vendas, estornos e ajustes de estoque.</span>
         </div>
         <ArrowLeftRight size={18} />
       </div>
@@ -345,4 +345,5 @@ const movementTypeLabels: Record<StockMovement["type"], string> = {
   ADJUSTMENT: "Ajuste",
   ENTRY: "Entrada",
   SALE: "Venda",
+  SALE_CANCEL: "Estorno de venda",
 };

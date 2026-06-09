@@ -2,7 +2,7 @@ import { db } from "../../database/knex.js";
 
 export type StockMovement = {
   id: string;
-  type: "ENTRY" | "ADJUSTMENT" | "SALE";
+  type: "ENTRY" | "ADJUSTMENT" | "SALE" | "SALE_CANCEL";
   productId: string;
   productName: string;
   supplierName: string | null;

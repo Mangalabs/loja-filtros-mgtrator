@@ -84,7 +84,7 @@ export type StockAdjustment = {
 
 export type StockMovement = {
   id: string;
-  type: "ENTRY" | "ADJUSTMENT" | "SALE";
+  type: "ENTRY" | "ADJUSTMENT" | "SALE" | "SALE_CANCEL";
   productId: string;
   productName: string;
   supplierName: string | null;
@@ -168,7 +168,10 @@ export type Sale = {
   paymentMethodName: string;
   createdByUserName: string;
   createdAt: string;
-  status: "COMPLETED";
+  cancelledByUserName: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  status: "COMPLETED" | "CANCELLED";
 };
 
 export type FiscalDocument = {

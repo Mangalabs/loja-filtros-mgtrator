@@ -36,7 +36,10 @@ export type Sale = {
   paymentMethodName: string;
   createdByUserName: string;
   createdAt: Date;
-  status: "COMPLETED";
+  cancelledByUserName: string | null;
+  cancelledAt: Date | null;
+  cancellationReason: string | null;
+  status: "COMPLETED" | "CANCELLED";
 };
 
 export type SaleItem = {
@@ -87,6 +90,9 @@ const saleColumns = [
   "payment_methods.name as paymentMethodName",
   "users.name as createdByUserName",
   "sales.created_at as createdAt",
+  "cancelled_users.name as cancelledByUserName",
+  "sales.cancelled_at as cancelledAt",
+  "sales.cancellation_reason as cancellationReason",
   "sales.status",
 ];
 
@@ -146,6 +152,54 @@ export async function findOpenCashRegister(
     .first();
 }
 
+export async function lockSaleForCancellation(
+  transaction: Knex.Transaction,
+  id: string,
+): Promise<{ id: string; status: Sale["status"] } | undefined> {
+  return transaction("sales")
+    .select(["id", "status"])
+    .where("id", id)
+    .forUpdate()
+    .first();
+}
+
+export async function saleHasLinkedOperation(
+  transaction: Knex.Transaction,
+  saleId: string,
+): Promise<boolean> {
+  const linkedShippingOrder = await transaction("shipping_orders")
+    .select("id")
+    .where("sale_id", saleId)
+    .first();
+
+  if (linkedShippingOrder) {
+    return true;
+  }
+
+  const linkedPickupReservation = await transaction("pickup_reservations")
+    .select("id")
+    .where("sale_id", saleId)
+    .first();
+
+  return Boolean(linkedPickupReservation);
+}
+
+export async function saleHasBlockingFiscalDocument(
+  transaction: Knex.Transaction,
+  saleId: string,
+): Promise<boolean> {
+  const fiscalDocument = await transaction("fiscal_documents")
+    .select("id")
+    .where({
+      source_type: "SALE",
+      source_id: saleId,
+    })
+    .whereIn("status", ["PENDING", "PROCESSING", "AUTHORIZED"])
+    .first();
+
+  return Boolean(fiscalDocument);
+}
+
 export async function lockSaleProduct(
   transaction: Knex.Transaction,
   productId: string,
@@ -186,6 +240,60 @@ export async function activeClientExists(
     .first();
 
   return Boolean(client);
+}
+
+export async function cancelSale(
+  transaction: Knex.Transaction,
+  id: string,
+  cancelledByUserId: string,
+  reason: string,
+): Promise<Sale> {
+  const saleItems = await transaction("sale_items")
+    .select<Array<{ productId: string; quantity: string }>>([
+      "product_id as productId",
+      "quantity",
+    ])
+    .where("sale_id", id);
+
+  await transaction("sales").where("id", id).update({
+    status: "CANCELLED",
+    cancelled_by_user_id: cancelledByUserId,
+    cancelled_at: transaction.fn.now(),
+    cancellation_reason: reason,
+  });
+
+  await transaction("stock_movements").insert(
+    saleItems.map((item) => ({
+      product_id: item.productId,
+      sale_id: id,
+      created_by_user_id: cancelledByUserId,
+      type: "SALE_CANCEL",
+      quantity: Number(item.quantity),
+      notes: reason,
+    })),
+  );
+
+  for (const item of aggregateSaleItems(
+    saleItems.map((item) => ({
+      productId: item.productId,
+      quantity: Number(item.quantity),
+    })),
+  )) {
+    await transaction("products")
+      .where("id", item.productId)
+      .update({
+        current_stock: transaction.raw("current_stock + ?", [item.quantity]),
+        updated_at: transaction.fn.now(),
+      });
+  }
+
+  const sale = await getSaleById(id, transaction);
+
+  if (!sale) {
+    throw new Error("Sale was not found after cancellation");
+  }
+
+  return sale;
 }
 
 export async function insertSale(
@@ -268,6 +376,11 @@ function saleQuery(database: Knex | Knex.Transaction) {
       "sale_payments.payment_method_id",
     )
     .join("users", "users.id", "sales.created_by_user_id")
+    .leftJoin(
+      { cancelled_users: "users" },
+      "cancelled_users.id",
+      "sales.cancelled_by_user_id",
+    )
     .leftJoin("clients", "clients.id", "sales.client_id")
     .select<SaleRow[]>(saleColumns);
 }

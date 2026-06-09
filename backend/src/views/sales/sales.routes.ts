@@ -1,12 +1,17 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  cancelCounterSale,
   indexSales,
   storeSale,
 } from "../../controllers/sales/sales.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const salesRoutes = Router();
+
+const saleParamsSchema = z.object({
+  id: z.uuid(),
+});
 
 const createSaleSchema = z
   .object({
@@ -53,6 +58,12 @@ const createSaleSchema = z
     ],
   }));
 
+const cancelSaleSchema = z
+  .object({
+    reason: z.string().trim().min(1).max(500),
+  })
+  .strict();
+
 salesRoutes.get("/sales", async (_request, response) => {
   response.status(200).json(await indexSales());
 });
@@ -62,4 +73,12 @@ salesRoutes.post("/sales", async (request, response) => {
   const userId = response.locals.authenticatedUser.id as string;
 
   response.status(201).json(await storeSale(body, userId));
+});
+
+salesRoutes.patch("/sales/:id/cancel", async (request, response) => {
+  const { id } = saleParamsSchema.parse(request.params);
+  const body = validateBody(request, cancelSaleSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(200).json(await cancelCounterSale(id, body.reason, userId));
 });

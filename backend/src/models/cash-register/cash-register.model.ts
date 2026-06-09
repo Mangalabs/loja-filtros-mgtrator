@@ -160,6 +160,7 @@ async function listPaymentSummary(
       "sale_payments.payment_method_id",
     )
     .where("sales.cash_register_session_id", cashRegisterSessionId)
+    .where("sales.status", "COMPLETED")
     .groupBy([
       "payment_methods.id",
       "payment_methods.name",

@@ -72,7 +72,7 @@ type StockAdjustment = {
 
 type StockMovement = {
   id: string;
-  type: "ENTRY" | "ADJUSTMENT" | "SALE";
+  type: "ENTRY" | "ADJUSTMENT" | "SALE" | "SALE_CANCEL";
   productId: string;
   productName: string;
   supplierName: string | null;
@@ -102,7 +102,10 @@ type Sale = {
   clientName: string | null;
   paymentMethodName: string;
   createdByUserName: string;
-  status: "COMPLETED";
+  cancelledByUserName: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  status: "COMPLETED" | "CANCELLED";
 };
 
 type ShippingOrder = {
@@ -625,6 +628,34 @@ describe("catalog routes", () => {
     const saleMovement = movements.body.data?.find(
       (movement) => movement.type === "SALE",
     );
+    const cashBeforeCancellation =
+      await request<CashRegisterSession | null>("/cash-register/current");
+    const cancelled = await request<Sale>(
+      `/sales/${created.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Cliente desistiu da compra de balcao" },
+      },
+    );
+    const repeatedCancellation = await request(
+      `/sales/${created.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Tentativa repetida" },
+      },
+    );
+    const productAfterCancellation = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+    const cashAfterCancellation =
+      await request<CashRegisterSession | null>("/cash-register/current");
+    const reportsAfterCancellation =
+      await request<ReportsOverview>("/reports/overview");
+    const movementsAfterCancellation =
+      await request<StockMovement[]>("/stock-movements");
+    const reversalMovement = movementsAfterCancellation.body.data?.find(
+      (movement) => movement.type === "SALE_CANCEL",
+    );
 
     assert.equal(withoutCash.status, 422);
     assert.equal(
@@ -650,6 +681,27 @@ describe("catalog routes", () => {
     assert.equal(listed.body.data?.length, 1);
     assert.equal(updatedProduct.body.data?.currentStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
+    assert.equal(cashBeforeCancellation.body.data?.salesTotal, "59.80");
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(
+      cancelled.body.data?.cancelledByUserName,
+      "Administrador de teste",
+    );
+    assert.equal(
+      cancelled.body.data?.cancellationReason,
+      "Cliente desistiu da compra de balcao",
+    );
+    assert.ok(cancelled.body.data?.cancelledAt);
+    assert.equal(repeatedCancellation.status, 409);
+    assert.equal(
+      repeatedCancellation.body.message,
+      "Esta venda ja foi cancelada.",
+    );
+    assert.equal(productAfterCancellation.body.data?.currentStock, "5.000");
+    assert.equal(cashAfterCancellation.body.data?.salesTotal, "0.00");
+    assert.equal(reportsAfterCancellation.body.data?.salesCount, 0);
+    assert.equal(reversalMovement?.quantity, "2.000");
   });
 
   it("issues a mock fiscal document for a completed sale", async () => {
@@ -726,6 +778,13 @@ describe("catalog routes", () => {
         body: {},
       },
     );
+    const saleCancellationWithFiscalDocument = await request(
+      `/sales/${sale.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Tentativa com NF-e ativa" },
+      },
+    );
     const cancelled = await request<FiscalDocument>(
       `/fiscal-documents/${issued.body.data?.id}/cancel`,
       {
@@ -766,6 +825,11 @@ describe("catalog routes", () => {
     assert.equal(synced.status, 200);
     assert.equal(synced.body.data?.status, "AUTHORIZED");
     assert.equal(synced.body.data?.pdfUrl, issued.body.data?.pdfUrl);
+    assert.equal(saleCancellationWithFiscalDocument.status, 409);
+    assert.equal(
+      saleCancellationWithFiscalDocument.body.message,
+      "Cancele a NF-e antes de cancelar esta venda.",
+    );
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
     assert.equal(syncedAfterCancellation.status, 200);
@@ -1133,6 +1197,13 @@ describe("catalog routes", () => {
     const saleMovement = movements.body.data?.find(
       (movement) => movement.type === "SALE",
     );
+    const linkedSaleCancellation = await request(
+      `/sales/${sales.body.data?.[0]?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Tentativa pelo fluxo de balcao" },
+      },
+    );
 
     assert.equal(withoutCash.status, 422);
     assert.equal(
@@ -1149,6 +1220,11 @@ describe("catalog routes", () => {
     );
     assert.equal(repeatedCompletion.status, 409);
     assert.equal(cancellationAfterCompletion.status, 409);
+    assert.equal(linkedSaleCancellation.status, 409);
+    assert.equal(
+      linkedSaleCancellation.body.message,
+      "Venda gerada por envio ou retirada nao pode ser cancelada por este fluxo.",
+    );
     assert.equal(sales.body.data?.length, 1);
     assert.equal(sales.body.data?.[0]?.clientName, "Cliente do envio");
     assert.equal(sales.body.data?.[0]?.paymentMethodName, "Boleto");
@@ -1458,6 +1534,13 @@ describe("catalog routes", () => {
         body: { documentType: "NFE" },
       },
     );
+    const linkedSaleCancellation = await request(
+      `/sales/${sales.body.data?.[0]?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Tentativa pelo fluxo de balcao" },
+      },
+    );
 
     assert.equal(withoutCash.status, 422);
     assert.equal(
@@ -1474,6 +1557,11 @@ describe("catalog routes", () => {
     );
     assert.equal(repeatedCompletion.status, 409);
     assert.equal(cancellationAfterCompletion.status, 409);
+    assert.equal(linkedSaleCancellation.status, 409);
+    assert.equal(
+      linkedSaleCancellation.body.message,
+      "Venda gerada por envio ou retirada nao pode ser cancelada por este fluxo.",
+    );
     assert.equal(sales.body.data?.length, 1);
     assert.equal(sales.body.data?.[0]?.clientName, "Cliente retirou");
     assert.equal(sales.body.data?.[0]?.paymentMethodName, "Boleto");
