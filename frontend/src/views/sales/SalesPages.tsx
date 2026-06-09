@@ -1,3 +1,5 @@
+import MenuItem from '@mui/material/MenuItem'
+import TextField from '@mui/material/TextField'
 import { PackagePlus, Plus, Send, ShoppingCart } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import type {
@@ -140,35 +142,38 @@ export function SalesPage({
                   </TableActionButton>
                 ) : null}
               </div>
-              <select
+              <TextField
+                label='Produto'
+                select
+                size='small'
                 value={item.productId}
                 onChange={(event) =>
                   updateItem(index, { productId: event.target.value })
                 }
                 required
                 disabled={!cashRegister}>
-                <option value='' disabled>
+                <MenuItem value='' disabled>
                   Produto
-                </option>
+                </MenuItem>
                 {availableProducts.map((product) => (
-                  <option key={product.id} value={product.id}>
+                  <MenuItem key={product.id} value={product.id}>
                     {productDisplayName(product)} -{' '}
                     {formatCurrency(product.salePrice)} - disponivel{' '}
                     {formatQuantity(product.availableStock)}
-                  </option>
+                  </MenuItem>
                 ))}
-              </select>
-              <input
+              </TextField>
+              <TextField
+                label='Quantidade'
                 value={item.quantity}
                 type='number'
-                min='0.001'
-                step='0.001'
-                placeholder='Quantidade'
+                size='small'
                 required
                 disabled={!cashRegister}
                 onChange={(event) =>
                   updateItem(index, { quantity: event.target.value })
                 }
+                slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
               />
             </div>
           ))}
@@ -184,40 +189,48 @@ export function SalesPage({
         </SecondaryButton>
 
         <div className='two-columns'>
-          <select
+          <TextField
+            label='Pagamento'
+            select
+            size='small'
             value={paymentMethodId}
             onChange={(event) => setPaymentMethodId(event.target.value)}
             required
             disabled={!cashRegister}>
-            <option value='' disabled>
+            <MenuItem value='' disabled>
               Pagamento
-            </option>
+            </MenuItem>
             {paymentMethods
               .filter((method) => method.active)
               .map((method) => (
-                <option key={method.id} value={method.id}>
+                <MenuItem key={method.id} value={method.id}>
                   {method.name}
-                </option>
+                </MenuItem>
               ))}
-          </select>
-          <label className='field-label'>
-            Total estimado
-            <input value={formatCurrency(saleTotal)} disabled />
-          </label>
+          </TextField>
+          <TextField
+            disabled
+            label='Total estimado'
+            size='small'
+            value={formatCurrency(saleTotal)}
+          />
         </div>
-        <select
+        <TextField
+          label='Cliente'
+          select
+          size='small'
           value={clientId}
           onChange={(event) => setClientId(event.target.value)}
           disabled={!cashRegister}>
-          <option value=''>Cliente nao identificado</option>
+          <MenuItem value=''>Cliente nao identificado</MenuItem>
           {clients
             .filter((client) => client.active)
             .map((client) => (
-              <option key={client.id} value={client.id}>
+              <MenuItem key={client.id} value={client.id}>
                 {client.name}
-              </option>
+              </MenuItem>
             ))}
-        </select>
+        </TextField>
         <PrimaryButton
           icon={<Plus size={17} />}
           type='submit'
@@ -232,7 +245,7 @@ export function SalesPage({
           <span>{sales.length} registros</span>
         </div>
         <div className='table-shell'>
-          <table>
+          <table className='responsive-card-table'>
             <thead>
               <tr>
                 <th>Data</th>
@@ -247,14 +260,14 @@ export function SalesPage({
             <tbody>
               {sales.map((sale) => (
                 <tr key={sale.id}>
-                  <td>{formatDateTime(sale.createdAt)}</td>
-                  <td>
+                  <td data-label='Data'>{formatDateTime(sale.createdAt)}</td>
+                  <td data-label='Produto'>
                     {sale.items.length} item(ns)
                     <span className='table-note'>
                       {sale.items.map((item) => item.productName).join(', ')}
                     </span>
                   </td>
-                  <td>
+                  <td data-label='Qtd.'>
                     {formatQuantity(
                       String(
                         sale.items.reduce(
@@ -264,10 +277,12 @@ export function SalesPage({
                       ),
                     )}
                   </td>
-                  <td>{formatCurrency(sale.totalAmount)}</td>
-                  <td>{sale.paymentMethodName}</td>
-                  <td>{sale.clientName ?? 'Nao identificado'}</td>
-                  <td>{sale.createdByUserName}</td>
+                  <td data-label='Total'>{formatCurrency(sale.totalAmount)}</td>
+                  <td data-label='Pagamento'>{sale.paymentMethodName}</td>
+                  <td data-label='Cliente'>
+                    {sale.clientName ?? 'Nao identificado'}
+                  </td>
+                  <td data-label='Operador'>{sale.createdByUserName}</td>
                 </tr>
               ))}
               {sales.length === 0 ? (
