@@ -65,7 +65,7 @@ export class FocusFiscalProvider implements FiscalProvider {
   async cancel(request: FiscalCancelRequest): Promise<FiscalCancelResult> {
     ensureFocusConfiguration();
 
-    const response = await fetch(
+    const response = await focusFetch(
       focusNfeReferenceUrl(request.providerReference),
       {
         method: "DELETE",
@@ -91,12 +91,15 @@ export class FocusFiscalProvider implements FiscalProvider {
   async check(request: FiscalCheckRequest): Promise<FiscalCheckResult> {
     ensureFocusConfiguration();
 
-    const response = await fetch(focusNfeReferenceUrl(request.providerReference), {
-      headers: {
-        Accept: "application/json",
-        Authorization: focusAuthorizationHeader(env.fiscal.focus.token),
+    const response = await focusFetch(
+      focusNfeReferenceUrl(request.providerReference),
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: focusAuthorizationHeader(env.fiscal.focus.token),
+        },
       },
-    });
+    );
     const responsePayload = await readFocusResponse(response);
     const status = focusStatusFromPayload(response, responsePayload);
 
@@ -111,7 +114,7 @@ export class FocusFiscalProvider implements FiscalProvider {
   async issue(request: FiscalIssueRequest): Promise<FiscalIssueResult> {
     ensureFocusConfiguration();
 
-    const response = await fetch(focusNfeUrl(request.reference), {
+    const response = await focusFetch(focusNfeUrl(request.reference), {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -279,6 +282,14 @@ function focusBaseUrl() {
 
 function focusAuthorizationHeader(token: string | null) {
   return `Basic ${Buffer.from(`${token ?? ""}:`).toString("base64")}`;
+}
+
+async function focusFetch(input: string | URL, init?: RequestInit) {
+  try {
+    return await fetch(input, init);
+  } catch {
+    throw new AppError("Nao foi possivel conectar a Focus NFe.", 502);
+  }
 }
 
 async function readFocusResponse(
