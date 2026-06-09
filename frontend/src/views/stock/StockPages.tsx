@@ -1,3 +1,5 @@
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 import {
   AlertTriangle,
   ArrowDownToLine,
@@ -40,54 +42,70 @@ export function StockEntriesPage({
           <h2>Nova entrada</h2>
           <ArrowDownToLine size={18} />
         </div>
-        <select name="entryProductId" defaultValue="" required>
-          <option value="" disabled>
+        <TextField
+          defaultValue=""
+          label="Produto"
+          name="entryProductId"
+          select
+          size="small"
+          required
+        >
+          <MenuItem value="" disabled>
             Produto
-          </option>
+          </MenuItem>
           {products
             .filter((product) => product.active)
             .map((product) => (
-              <option key={product.id} value={product.id}>
+              <MenuItem key={product.id} value={product.id}>
                 {productDisplayName(product)} - estoque{" "}
                 {formatQuantity(product.currentStock)}
-              </option>
+              </MenuItem>
             ))}
-        </select>
-        <select name="entrySupplierId" defaultValue="" required>
-          <option value="" disabled>
+        </TextField>
+        <TextField
+          defaultValue=""
+          label="Fornecedor"
+          name="entrySupplierId"
+          select
+          size="small"
+          required
+        >
+          <MenuItem value="" disabled>
             Fornecedor
-          </option>
+          </MenuItem>
           {suppliers
             .filter((supplier) => supplier.active)
             .map((supplier) => (
-              <option key={supplier.id} value={supplier.id}>
+              <MenuItem key={supplier.id} value={supplier.id}>
                 {supplier.name}
-              </option>
+              </MenuItem>
             ))}
-        </select>
+        </TextField>
         <div className="two-columns">
-          <input
+          <TextField
+            label="Quantidade"
             name="entryQuantity"
             type="number"
-            min="0.001"
-            step="0.001"
-            placeholder="Quantidade"
+            size="small"
+            slotProps={{ htmlInput: { min: "0.001", step: "0.001" } }}
             required
           />
-          <input
+          <TextField
+            label="Custo unitario"
             name="entryUnitCost"
             type="number"
-            min="0"
-            step="0.01"
-            placeholder="Custo unitario"
+            size="small"
+            slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
             required
           />
         </div>
-        <textarea
+        <TextField
+          label="Observacao"
           name="entryNotes"
-          maxLength={500}
-          placeholder="Observacao (opcional)"
+          multiline
           rows={3}
+          size="small"
+          slotProps={{ htmlInput: { maxLength: 500 } }}
         />
         <PrimaryButton icon={<Plus size={17} />} type="submit">
           Registrar entrada
@@ -100,7 +118,7 @@ export function StockEntriesPage({
           <span>{entries.length} registros</span>
         </div>
         <div className="table-shell">
-          <table>
+          <table className="responsive-card-table">
             <thead>
               <tr>
                 <th>Data</th>
@@ -114,12 +132,16 @@ export function StockEntriesPage({
             <tbody>
               {entries.map((entry) => (
                 <tr key={entry.id}>
-                  <td>{formatDateTime(entry.createdAt)}</td>
-                  <td>{entry.productName}</td>
-                  <td>{entry.supplierName}</td>
-                  <td>{entry.createdByUserName ?? "-"}</td>
-                  <td>{formatQuantity(entry.quantity)}</td>
-                  <td>{formatCurrency(entry.unitCost)}</td>
+                  <td data-label="Data">{formatDateTime(entry.createdAt)}</td>
+                  <td data-label="Produto">{entry.productName}</td>
+                  <td data-label="Fornecedor">{entry.supplierName}</td>
+                  <td data-label="Operador">
+                    {entry.createdByUserName ?? "-"}
+                  </td>
+                  <td data-label="Qtd.">{formatQuantity(entry.quantity)}</td>
+                  <td data-label="Custo un.">
+                    {formatCurrency(entry.unitCost)}
+                  </td>
                 </tr>
               ))}
               {entries.length === 0 ? (
