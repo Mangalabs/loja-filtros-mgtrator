@@ -148,6 +148,10 @@ export async function issueSaleFiscalDocument(
     throw new AppError("Venda informada nao encontrada.", 404);
   }
 
+  if (sale.status === "CANCELLED") {
+    throw new AppError("Venda cancelada nao pode emitir NF-e.", 422);
+  }
+
   return issueFiscalDocument({
     sourceType: "SALE",
     sourceId: sale.id,

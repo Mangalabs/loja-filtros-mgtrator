@@ -637,6 +637,13 @@ describe("catalog routes", () => {
         body: { reason: "Cliente desistiu da compra de balcao" },
       },
     );
+    const fiscalDocumentForCancelledSale = await request(
+      `/sales/${created.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
     const repeatedCancellation = await request(
       `/sales/${created.body.data?.id}/cancel`,
       {
@@ -693,6 +700,11 @@ describe("catalog routes", () => {
       "Cliente desistiu da compra de balcao",
     );
     assert.ok(cancelled.body.data?.cancelledAt);
+    assert.equal(fiscalDocumentForCancelledSale.status, 422);
+    assert.equal(
+      fiscalDocumentForCancelledSale.body.message,
+      "Venda cancelada nao pode emitir NF-e.",
+    );
     assert.equal(repeatedCancellation.status, 409);
     assert.equal(
       repeatedCancellation.body.message,
