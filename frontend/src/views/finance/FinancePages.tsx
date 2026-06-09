@@ -356,7 +356,7 @@ function FiscalRequestAction({
 
   return action && request.readinessIssues.length === 0 ? (
     <TableActionButton type='button' onClick={action}>
-      Emitir NF-e
+      {fiscalRequestActionText(request)}
     </TableActionButton>
   ) : (
     <span className='table-note'>
@@ -402,6 +402,12 @@ function fiscalRequestActionLabel(request: FiscalRequest, hasAction: boolean) {
   return labels[labelKey]
 }
 
+function fiscalRequestActionText(request: FiscalRequest) {
+  return request.document?.status === 'REJECTED'
+    ? 'Reemitir NF-e'
+    : 'Emitir NF-e'
+}
+
 type FiscalRequestActionHandlers = {
   onIssuePickupReservationFiscalDocument: (
     reservation: PickupReservation,
@@ -418,18 +424,18 @@ function fiscalRequestAction(
     Record<FiscalDocument['sourceType'], (() => void) | undefined>
   > = {
     PICKUP_RESERVATION:
-      request.pickupReservation && !request.document
+      request.pickupReservation && canIssueFiscalRequest(request)
         ? () =>
             handlers.onIssuePickupReservationFiscalDocument(
               request.pickupReservation as PickupReservation,
             )
         : undefined,
     SALE:
-      request.sale && !request.document
+      request.sale && canIssueFiscalRequest(request)
         ? () => handlers.onIssueSaleFiscalDocument(request.sale as Sale)
         : undefined,
     SHIPPING_ORDER:
-      request.shippingOrder && !request.document
+      request.shippingOrder && canIssueFiscalRequest(request)
         ? () =>
             handlers.onIssueShippingOrderFiscalDocument(
               request.shippingOrder as ShippingOrder,
@@ -438,6 +444,10 @@ function fiscalRequestAction(
   }
 
   return actions[request.sourceType]
+}
+
+function canIssueFiscalRequest(request: FiscalRequest) {
+  return !request.document || request.document.status === 'REJECTED'
 }
 
 const fiscalRequestFactories: Array<
@@ -688,13 +698,15 @@ function fiscalDocumentSummary(
 ): FiscalDocumentSummary {
   return {
     pendingRequests: fiscalRequests.filter(
-      (request) => !request.document && request.readinessIssues.length > 0,
+      (request) =>
+        canIssueFiscalRequest(request) && request.readinessIssues.length > 0,
     ).length,
     processingDocuments: fiscalDocuments.filter((document) =>
       ['PENDING', 'PROCESSING'].includes(document.status),
     ).length,
     readyRequests: fiscalRequests.filter(
-      (request) => !request.document && request.readinessIssues.length === 0,
+      (request) =>
+        canIssueFiscalRequest(request) && request.readinessIssues.length === 0,
     ).length,
     rejectedDocuments: fiscalDocuments.filter(
       (document) => document.status === 'REJECTED',
