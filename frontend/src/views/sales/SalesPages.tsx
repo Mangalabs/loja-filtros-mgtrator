@@ -366,7 +366,7 @@ export function ShippingOrdersPage({
           <span>{orders.length} registros</span>
         </div>
         <div className='table-shell'>
-          <table>
+          <table className='responsive-card-table'>
             <thead>
               <tr>
                 <th>Pedido</th>
@@ -379,13 +379,13 @@ export function ShippingOrdersPage({
             <tbody>
               {orders.map((order) => (
                 <tr key={order.id}>
-                  <td>
+                  <td data-label='Pedido'>
                     {formatDateTime(order.createdAt)}
                     <span className='table-note'>
                       Operador: {order.createdByUserName}
                     </span>
                   </td>
-                  <td>
+                  <td data-label='Cliente e itens'>
                     <strong>{order.clientName}</strong>
                     {order.quoteId ? (
                       <span className='table-note'>Origem: orcamento</span>
@@ -396,7 +396,7 @@ export function ShippingOrdersPage({
                         .join(', ')}
                     </span>
                   </td>
-                  <td>
+                  <td data-label='Resumo'>
                     <strong>{formatCurrency(order.totalAmount)}</strong>
                     <span className='table-note'>
                       Qtd.{' '}
@@ -410,7 +410,7 @@ export function ShippingOrdersPage({
                       )}
                     </span>
                   </td>
-                  <td>
+                  <td data-label='Status'>
                     <StatusChip
                       label={shippingOrderStatusLabel(order.status)}
                       tone={shippingOrderStatusTone(order.status)}
@@ -426,7 +426,7 @@ export function ShippingOrdersPage({
                       </div>
                     ) : null}
                   </td>
-                  <td>
+                  <td data-label='Acoes'>
                     {shippingOrderActionRenderers[order.status]({
                       cashRegister,
                       order,
@@ -498,22 +498,25 @@ const shippingOrderActionRenderers: Record<
         {!cashRegister ? (
           <span className='table-note'>Abra o caixa para concluir.</span>
         ) : null}
-        <select
+        <TextField
+          label='Pagamento'
           name='shippingPaymentMethodId'
           defaultValue=''
+          select
+          size='small'
           required
           disabled={!cashRegister}>
-          <option value='' disabled>
+          <MenuItem value='' disabled>
             Pagamento
-          </option>
+          </MenuItem>
           {paymentMethods
             .filter((method) => method.active)
             .map((method) => (
-              <option key={method.id} value={method.id}>
+              <MenuItem key={method.id} value={method.id}>
                 {method.name}
-              </option>
+              </MenuItem>
             ))}
-        </select>
+        </TextField>
         <TableActionButton type='submit' disabled={!cashRegister}>
           Concluir venda e saida
         </TableActionButton>
@@ -534,10 +537,11 @@ function ShippingOrderCancelForm({
     <form
       className='cancel-order-form'
       onSubmit={(event) => onCancel(event, order)}>
-      <input
+      <TextField
+        label='Motivo do cancelamento'
         name='shippingCancellationReason'
-        maxLength={500}
-        placeholder='Motivo do cancelamento'
+        size='small'
+        slotProps={{ htmlInput: { maxLength: 500 } }}
         required
       />
       <TableActionButton type='submit'>Cancelar</TableActionButton>
