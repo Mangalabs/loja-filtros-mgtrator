@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { after, before, beforeEach, describe, it } from "node:test";
 import { createApp } from "../app.js";
+import { env } from "../config/env.js";
 import { db } from "../database/knex.js";
 
 type ApiResponse<T = unknown> = {
@@ -846,6 +847,86 @@ describe("catalog routes", () => {
     assert.equal(cancelled.body.data?.status, "CANCELLED");
     assert.equal(syncedAfterCancellation.status, 200);
     assert.equal(syncedAfterCancellation.body.data?.status, "CANCELLED");
+  });
+
+  it("returns fiscal readiness errors before issuing through Focus", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro sem dados fiscais", salePrice: 35 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente sem endereco fiscal",
+        document: "12345678901",
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para prontidao fiscal",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+      },
+    });
+
+    env.fiscal.provider = "focus";
+
+    try {
+      const fiscalDocument = await request(
+        `/sales/${sale.body.data?.id}/fiscal-documents`,
+        {
+          method: "POST",
+          body: { documentType: "NFE" },
+        },
+      );
+
+      assert.equal(fiscalDocument.status, 422);
+      assert.equal(
+        fiscalDocument.body.message,
+        "Dados fiscais incompletos para emissao da NF-e.",
+      );
+      assert.ok(
+        fiscalDocument.body.errors?.some(
+          (error) => error.field === "clientAddressStreet",
+        ),
+      );
+      assert.ok(
+        fiscalDocument.body.errors?.some(
+          (error) => error.field === "items.1.productNcm",
+        ),
+      );
+      assert.ok(
+        fiscalDocument.body.errors?.some(
+          (error) => error.field === "items.1.productCfop",
+        ),
+      );
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+    }
   });
 
   it("returns a management reports overview", async () => {
