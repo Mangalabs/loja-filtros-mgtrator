@@ -277,7 +277,7 @@ export function LowStockPage({ products }: { products: Product[] }) {
         <AlertTriangle size={18} />
       </div>
       <div className="table-shell">
-        <table>
+        <table className="responsive-card-table">
           <thead>
             <tr>
               <th>Produto</th>
@@ -291,14 +291,16 @@ export function LowStockPage({ products }: { products: Product[] }) {
           <tbody>
             {products.map((product) => (
               <tr key={product.id}>
-                <td>{productDisplayName(product)}</td>
-                <td>{product.brandName ?? "-"}</td>
-                <td>{product.location ?? "-"}</td>
-                <td className="stock-warning">
+                <td data-label="Produto">{productDisplayName(product)}</td>
+                <td data-label="Fabricante">{product.brandName ?? "-"}</td>
+                <td data-label="Locacao">{product.location ?? "-"}</td>
+                <td className="stock-warning" data-label="Disponivel">
                   {formatQuantity(product.availableStock)}
                 </td>
-                <td>{formatQuantity(product.minimumStock)}</td>
-                <td>
+                <td data-label="Minimo">
+                  {formatQuantity(product.minimumStock)}
+                </td>
+                <td data-label="Faltam p/ minimo">
                   {formatQuantity(
                     String(
                       Number(product.minimumStock) -
