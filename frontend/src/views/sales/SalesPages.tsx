@@ -638,22 +638,25 @@ export function PickupReservationsPage({
           A reserva prende o saldo disponivel imediatamente. A baixa acontece
           somente ao concluir a venda.
         </p>
-        <select
+        <TextField
+          label='Cliente'
+          select
+          size='small'
           value={clientId}
           onChange={(event) => setClientId(event.target.value)}
           required>
-          <option value='' disabled>
+          <MenuItem value='' disabled>
             Cliente
-          </option>
+          </MenuItem>
           {clients
             .filter((client) => client.active)
             .map((client) => (
-              <option key={client.id} value={client.id}>
+              <MenuItem key={client.id} value={client.id}>
                 {client.name}
                 {client.phone ? ` - ${client.phone}` : ''}
-              </option>
+              </MenuItem>
             ))}
-        </select>
+        </TextField>
 
         <div className='quote-items'>
           {items.map((item, index) => (
@@ -668,33 +671,36 @@ export function PickupReservationsPage({
                   </TableActionButton>
                 ) : null}
               </div>
-              <select
+              <TextField
+                label='Produto'
+                select
+                size='small'
                 value={item.productId}
                 onChange={(event) =>
                   updateItem(index, { productId: event.target.value })
                 }
                 required>
-                <option value='' disabled>
+                <MenuItem value='' disabled>
                   Produto
-                </option>
+                </MenuItem>
                 {availableProducts.map((product) => (
-                  <option key={product.id} value={product.id}>
+                  <MenuItem key={product.id} value={product.id}>
                     {productDisplayName(product)} -{' '}
                     {formatCurrency(product.salePrice)} - disponivel{' '}
                     {formatQuantity(product.availableStock)}
-                  </option>
+                  </MenuItem>
                 ))}
-              </select>
-              <input
+              </TextField>
+              <TextField
+                label='Quantidade'
                 value={item.quantity}
                 type='number'
-                min='0.001'
-                step='0.001'
-                placeholder='Quantidade'
+                size='small'
                 required
                 onChange={(event) =>
                   updateItem(index, { quantity: event.target.value })
                 }
+                slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
               />
             </div>
           ))}
@@ -710,10 +716,12 @@ export function PickupReservationsPage({
           }>
           Adicionar item
         </SecondaryButton>
-        <label className='field-label'>
-          Total estimado
-          <input value={formatCurrency(reservationTotal)} disabled />
-        </label>
+        <TextField
+          disabled
+          label='Total estimado'
+          size='small'
+          value={formatCurrency(reservationTotal)}
+        />
         <PrimaryButton icon={<Plus size={17} />} type='submit'>
           Registrar reserva
         </PrimaryButton>
@@ -731,7 +739,7 @@ export function PickupReservationsPage({
           <span>{reservations.length} registros</span>
         </div>
         <div className='table-shell'>
-          <table>
+          <table className='responsive-card-table'>
             <thead>
               <tr>
                 <th>Data</th>
@@ -747,9 +755,11 @@ export function PickupReservationsPage({
             <tbody>
               {reservations.map((reservation) => (
                 <tr key={reservation.id}>
-                  <td>{formatDateTime(reservation.createdAt)}</td>
-                  <td>{reservation.clientName}</td>
-                  <td>
+                  <td data-label='Data'>
+                    {formatDateTime(reservation.createdAt)}
+                  </td>
+                  <td data-label='Cliente'>{reservation.clientName}</td>
+                  <td data-label='Produto'>
                     {reservation.items.length} item(ns)
                     <span className='table-note'>
                       {reservation.items
@@ -757,7 +767,7 @@ export function PickupReservationsPage({
                         .join(', ')}
                     </span>
                   </td>
-                  <td>
+                  <td data-label='Qtd.'>
                     {formatQuantity(
                       String(
                         reservation.items.reduce(
@@ -767,9 +777,13 @@ export function PickupReservationsPage({
                       ),
                     )}
                   </td>
-                  <td>{formatCurrency(reservation.totalAmount)}</td>
-                  <td>{reservation.createdByUserName}</td>
-                  <td>
+                  <td data-label='Total'>
+                    {formatCurrency(reservation.totalAmount)}
+                  </td>
+                  <td data-label='Operador'>
+                    {reservation.createdByUserName}
+                  </td>
+                  <td data-label='Status'>
                     <StatusChip
                       label={pickupReservationStatusLabel(reservation.status)}
                       tone={pickupReservationStatusTone(reservation.status)}
@@ -785,7 +799,7 @@ export function PickupReservationsPage({
                       </div>
                     ) : null}
                   </td>
-                  <td>
+                  <td data-label='Acoes'>
                     {reservation.status === 'RESERVED' ? (
                       <div className='shipping-order-actions'>
                         <form
@@ -796,22 +810,25 @@ export function PickupReservationsPage({
                               Abra o caixa para concluir.
                             </span>
                           ) : null}
-                          <select
+                          <TextField
+                            label='Pagamento'
                             name='pickupPaymentMethodId'
                             defaultValue=''
+                            select
+                            size='small'
                             required
                             disabled={!cashRegister}>
-                            <option value='' disabled>
+                            <MenuItem value='' disabled>
                               Pagamento
-                            </option>
+                            </MenuItem>
                             {paymentMethods
                               .filter((method) => method.active)
                               .map((method) => (
-                                <option key={method.id} value={method.id}>
+                                <MenuItem key={method.id} value={method.id}>
                                   {method.name}
-                                </option>
+                                </MenuItem>
                               ))}
-                          </select>
+                          </TextField>
                           <TableActionButton
                             type='submit'
                             disabled={!cashRegister}>
@@ -821,10 +838,11 @@ export function PickupReservationsPage({
                         <form
                           className='cancel-order-form'
                           onSubmit={(event) => onCancel(event, reservation)}>
-                          <input
+                          <TextField
+                            label='Motivo do cancelamento'
                             name='pickupCancellationReason'
-                            maxLength={500}
-                            placeholder='Motivo do cancelamento'
+                            size='small'
+                            slotProps={{ htmlInput: { maxLength: 500 } }}
                             required
                           />
                           <TableActionButton type='submit'>
