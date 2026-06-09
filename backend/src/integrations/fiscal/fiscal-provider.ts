@@ -1,11 +1,16 @@
-export type FiscalDocumentType = "NFE" | "NFCE";
-export type FiscalEnvironment = "HOMOLOGATION" | "PRODUCTION";
-export type FiscalProviderName = "MOCK" | "FOCUS";
-export type FiscalProviderStatus =
-  | "PROCESSING"
-  | "AUTHORIZED"
-  | "REJECTED"
-  | "CANCELLED";
+import type {
+  FiscalDocumentType,
+  FiscalEnvironment,
+  FiscalProviderName,
+  FiscalProviderStatus,
+} from "../../shared/fiscal/fiscal-types.js";
+
+export type {
+  FiscalDocumentType,
+  FiscalEnvironment,
+  FiscalProviderName,
+  FiscalProviderStatus,
+} from "../../shared/fiscal/fiscal-types.js";
 
 export type FiscalIssueRequest = {
   reference: string;

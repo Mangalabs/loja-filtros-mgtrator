@@ -5,7 +5,7 @@ import type {
   FiscalEnvironment,
   FiscalProviderName,
   FiscalProviderStatus,
-} from "../../integrations/fiscal/fiscal-provider.js";
+} from "../../shared/fiscal/fiscal-types.js";
 
 export type FiscalDocumentSourceType =
   | "SALE"

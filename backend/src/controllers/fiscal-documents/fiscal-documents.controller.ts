@@ -4,7 +4,6 @@ import {
   makeFiscalProvider,
   makeFiscalProviderByName,
 } from "../../integrations/fiscal/fiscal-provider-factory.js";
-import type { FiscalDocumentType } from "../../integrations/fiscal/fiscal-provider.js";
 import {
   findFiscalDocumentBySource,
   getFiscalDocumentById,
@@ -18,6 +17,7 @@ import { getPickupReservationById } from "../../models/pickup-reservations/picku
 import { getSaleById } from "../../models/sales/sales.model.js";
 import { getShippingOrderById } from "../../models/shipping-orders/shipping-orders.model.js";
 import { AppError, type AppErrorDetail } from "../../shared/errors/app-error.js";
+import type { FiscalDocumentType } from "../../shared/fiscal/fiscal-types.js";
 
 export async function indexFiscalDocuments() {
   return {
