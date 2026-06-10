@@ -386,7 +386,11 @@ function requiredClientFiscalFields(sale: FiscalSale): AppErrorDetail[] {
       sale.clientAddressCity,
       "Cidade do cliente e obrigatoria.",
     ],
-    ["clientAddressState", sale.clientAddressState, "UF do cliente e obrigatoria."],
+    [
+      "clientAddressState",
+      sale.clientAddressState,
+      "UF do cliente e obrigatoria.",
+    ],
     [
       "clientAddressZipCode",
       sale.clientAddressZipCode,
@@ -394,7 +398,42 @@ function requiredClientFiscalFields(sale: FiscalSale): AppErrorDetail[] {
     ],
   ];
 
-  return missingFieldDetails(fieldChecks);
+  return [
+    ...missingFieldDetails(fieldChecks),
+    ...invalidClientFiscalFields(sale),
+  ];
+}
+
+function invalidClientFiscalFields(sale: FiscalSale): AppErrorDetail[] {
+  const documentPatternsByPersonType: Record<string, RegExp | null> = {
+    ES: null,
+    PF: /^\d{11}$/,
+    PJ: /^\d{14}$/,
+  };
+  const documentPattern =
+    documentPatternsByPersonType[sale.clientPersonType ?? "PF"] ?? null;
+  const fieldChecks: Array<[string, unknown, RegExp | null, string]> = [
+    [
+      "clientDocument",
+      fiscalDigits(sale.clientDocument),
+      documentPattern,
+      "CPF/CNPJ do cliente deve conter 11 ou 14 digitos.",
+    ],
+    [
+      "clientAddressState",
+      sale.clientAddressState,
+      /^[A-Z]{2}$/i,
+      "UF do cliente deve conter 2 letras.",
+    ],
+    [
+      "clientAddressZipCode",
+      fiscalDigits(sale.clientAddressZipCode),
+      /^\d{8}$/,
+      "CEP do cliente deve conter 8 digitos.",
+    ],
+  ];
+
+  return invalidFieldDetails(fieldChecks);
 }
 
 function requiredItemFiscalFields(
@@ -493,11 +532,16 @@ function invalidItemFiscalFields(
 }
 
 function invalidFieldDetails(
-  fieldChecks: Array<[string, unknown, RegExp, string]>,
+  fieldChecks: Array<[string, unknown, RegExp | null, string]>,
 ) {
   return fieldChecks
-    .filter(
-      ([, value, pattern]) => Boolean(value) && !pattern.test(String(value)),
+    .filter(([_, value, pattern]) =>
+      Boolean(value) && pattern ? !pattern.test(String(value)) : false,
     )
     .map(([field, _value, _pattern, message]) => ({ field, message }));
+}
+
+function fiscalDigits(value: string | null) {
+  const normalized = value?.replace(/\D/g, "");
+  return normalized || null;
 }

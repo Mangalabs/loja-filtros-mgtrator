@@ -1045,6 +1045,109 @@ describe("catalog routes", () => {
     }
   });
 
+  it("returns client fiscal format errors before issuing through Focus", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro para cliente fiscal invalido",
+        salePrice: 35,
+        ncm: "84212300",
+        cfop: "5102",
+        icmsCst: "102",
+        pisCst: "49",
+        cofinsCst: "49",
+        origin: "0",
+      },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente fiscal invalido",
+        document: "12345",
+        stateRegistrationIndicator: "9",
+        addressStreet: "Rua Fiscal",
+        addressNumber: "123",
+        addressDistrict: "Centro",
+        addressCity: "Araguaina",
+        addressState: "T1",
+        addressZipCode: "778",
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para cliente fiscal",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+      },
+    });
+
+    env.fiscal.provider = "focus";
+
+    try {
+      const fiscalDocument = await request(
+        `/sales/${sale.body.data?.id}/fiscal-documents`,
+        {
+          method: "POST",
+          body: { documentType: "NFE" },
+        },
+      );
+
+      assert.equal(fiscalDocument.status, 422);
+      assert.equal(
+        fiscalDocument.body.message,
+        "Dados fiscais incompletos para emissao da NF-e.",
+      );
+      assert.ok(
+        fiscalDocument.body.errors?.some(
+          (error) =>
+            error.field === "clientDocument" &&
+            error.message ===
+              "CPF/CNPJ do cliente deve conter 11 ou 14 digitos.",
+        ),
+      );
+      assert.ok(
+        fiscalDocument.body.errors?.some(
+          (error) =>
+            error.field === "clientAddressState" &&
+            error.message === "UF do cliente deve conter 2 letras.",
+        ),
+      );
+      assert.ok(
+        fiscalDocument.body.errors?.some(
+          (error) =>
+            error.field === "clientAddressZipCode" &&
+            error.message === "CEP do cliente deve conter 8 digitos.",
+        ),
+      );
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+    }
+  });
+
   it("returns Focus configuration errors after fiscal readiness passes", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
