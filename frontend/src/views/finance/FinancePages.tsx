@@ -663,7 +663,7 @@ function FiscalDocumentsOverview({
       </div>
       <div className='metrics-grid'>
         <div className='metric-card'>
-          <span>Prontas para emitir</span>
+          <span>Prontas para emitir/reemitir</span>
           <strong>{summary.readyRequests}</strong>
         </div>
         <div className='metric-card'>
