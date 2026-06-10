@@ -279,6 +279,11 @@ export function FiscalDocumentsPage({
                     <span className='table-note'>
                       {document.issuedByUserName}
                     </span>
+                    {fiscalDocumentAuditDetail(document) ? (
+                      <span className='table-note'>
+                        {fiscalDocumentAuditDetail(document)}
+                      </span>
+                    ) : null}
                   </td>
                   <td data-label='Referencias'>
                     <strong>
@@ -954,6 +959,18 @@ function fiscalDocumentStatusDetail(document: FiscalDocument) {
     {
       CANCELLED: document.cancellationReason,
       REJECTED: document.rejectionReason,
+    }
+
+  return detailByStatus[document.status] ?? null
+}
+
+function fiscalDocumentAuditDetail(document: FiscalDocument) {
+  const detailByStatus: Partial<Record<FiscalDocument['status'], string | null>> =
+    {
+      CANCELLED:
+        document.cancelledByUserName && document.cancelledAt
+          ? `Cancelada por ${document.cancelledByUserName} em ${formatDateTime(document.cancelledAt)}`
+          : null,
     }
 
   return detailByStatus[document.status] ?? null
