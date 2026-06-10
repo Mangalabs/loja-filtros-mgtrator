@@ -226,7 +226,10 @@ export async function updateFiscalDocumentStatus(
       rejection_reason: input.rejectionReason,
       response_payload: input.responsePayload,
       cancelled_by_user_id: input.cancelledByUserId ?? null,
-      cancelled_at: input.cancelledByUserId ? db.fn.now() : null,
+      cancelled_at:
+        input.status === "CANCELLED" && input.cancelledByUserId
+          ? db.fn.now()
+          : null,
       cancellation_reason: input.cancellationReason ?? null,
       updated_at: db.fn.now(),
     })

@@ -76,6 +76,7 @@ export async function syncFiscalDocument(id: string) {
     pdfUrl: result.pdfUrl,
     rejectionReason: result.rejectionReason,
     responsePayload: result.responsePayload,
+    ...existingFiscalCancellationAudit(fiscalDocument),
   });
 
   return {
@@ -162,9 +163,24 @@ function fiscalCancellationAudit(
       cancelledByUserId: audit.cancelledByUserId,
       cancellationReason: audit.reason,
     },
+    PROCESSING: {
+      cancelledByUserId: audit.cancelledByUserId,
+      cancellationReason: audit.reason,
+    },
   };
 
   return auditByStatus[status] ?? {};
+}
+
+function existingFiscalCancellationAudit(
+  fiscalDocument: Awaited<ReturnType<typeof getFiscalDocumentById>>,
+) {
+  return fiscalDocument?.cancelledByUserId && fiscalDocument.cancellationReason
+    ? {
+        cancelledByUserId: fiscalDocument.cancelledByUserId,
+        cancellationReason: fiscalDocument.cancellationReason,
+      }
+    : {};
 }
 
 export async function issueSaleFiscalDocument(

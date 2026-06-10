@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { after, before, beforeEach, describe, it } from "node:test";
 import { createApp } from "../app.js";
 import { env } from "../config/env.js";
+import {
+  cancelFiscalDocument,
+  syncFiscalDocument,
+} from "../controllers/fiscal-documents/fiscal-documents.controller.js";
 import { db } from "../database/knex.js";
 import type { FiscalIssueRequest } from "../integrations/fiscal/fiscal-provider.js";
 import { FocusFiscalProvider } from "../integrations/fiscal/providers/focus-fiscal-provider.js";
@@ -861,6 +866,84 @@ describe("catalog routes", () => {
     assert.ok(cancelled.body.data?.cancelledAt);
     assert.equal(syncedAfterCancellation.status, 200);
     assert.equal(syncedAfterCancellation.body.data?.status, "CANCELLED");
+  });
+
+  it("preserves fiscal cancellation audit while Focus cancellation is processing", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const administrator = await db("users")
+      .select("id")
+      .where("email", "admin@example.com")
+      .first();
+    const sourceId = randomUUID();
+    const [inserted] = await db("fiscal_documents")
+      .insert({
+        source_type: "SALE",
+        source_id: sourceId,
+        document_type: "NFE",
+        provider: "FOCUS",
+        environment: "HOMOLOGATION",
+        status: "AUTHORIZED",
+        provider_reference: `SALE-${sourceId}`,
+        response_payload: {},
+        issued_by_user_id: administrator.id,
+        issued_at: db.fn.now(),
+      })
+      .returning("id");
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      const responseByMethod: Record<string, Record<string, unknown>> = {
+        DELETE: { status: "processando_cancelamento" },
+        GET: { status: "cancelado" },
+      };
+      const method = init?.method ?? "GET";
+
+      return new Response(JSON.stringify(responseByMethod[method]), {
+        status: 200,
+      });
+    }) as typeof fetch;
+
+    try {
+      const processing = await cancelFiscalDocument(
+        inserted.id,
+        "Cancelamento em processamento para auditoria fiscal",
+        administrator.id,
+      );
+      const synced = await syncFiscalDocument(inserted.id);
+
+      assert.equal(processing.code, 200);
+      assert.equal(processing.data.status, "PROCESSING");
+      assert.equal(
+        processing.data.cancelledByUserName,
+        "Administrador de teste",
+      );
+      assert.equal(
+        processing.data.cancellationReason,
+        "Cancelamento em processamento para auditoria fiscal",
+      );
+      assert.equal(processing.data.cancelledAt, null);
+      assert.equal(synced.code, 200);
+      assert.equal(synced.data.status, "CANCELLED");
+      assert.equal(
+        synced.data.cancelledByUserName,
+        "Administrador de teste",
+      );
+      assert.equal(
+        synced.data.cancellationReason,
+        "Cancelamento em processamento para auditoria fiscal",
+      );
+      assert.ok(synced.data.cancelledAt);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it("returns fiscal readiness errors before issuing through Focus", async () => {
