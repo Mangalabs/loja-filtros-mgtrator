@@ -285,6 +285,9 @@ type FiscalDocument = {
   pdfUrl: string | null;
   rejectionReason: string | null;
   issuedByUserName: string;
+  cancelledByUserName: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
 };
 
 let server: Server;
@@ -847,6 +850,15 @@ describe("catalog routes", () => {
     );
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(
+      cancelled.body.data?.cancelledByUserName,
+      "Administrador de teste",
+    );
+    assert.equal(
+      cancelled.body.data?.cancellationReason,
+      "Cancelamento de teste da nota fiscal",
+    );
+    assert.ok(cancelled.body.data?.cancelledAt);
     assert.equal(syncedAfterCancellation.status, 200);
     assert.equal(syncedAfterCancellation.body.data?.status, "CANCELLED");
   });

@@ -191,6 +191,9 @@ export type FiscalDocument = {
   rejectionReason: string | null;
   issuedByUserName: string;
   issuedAt: string | null;
+  cancelledByUserName: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
   createdAt: string;
 };
 

@@ -71,8 +71,11 @@ fiscalDocumentsRoutes.patch(
   async (request, response) => {
     const { id } = fiscalDocumentParamsSchema.parse(request.params);
     const body = validateBody(request, cancelFiscalDocumentSchema);
+    const userId = response.locals.authenticatedUser.id as string;
 
-    response.status(200).json(await cancelFiscalDocument(id, body.reason));
+    response
+      .status(200)
+      .json(await cancelFiscalDocument(id, body.reason, userId));
   },
 );
 

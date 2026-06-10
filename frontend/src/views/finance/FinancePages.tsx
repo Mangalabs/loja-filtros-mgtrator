@@ -260,9 +260,9 @@ export function FiscalDocumentsPage({
                       label={fiscalDocumentStatusLabel(document.status)}
                       tone={fiscalDocumentStatusTone(document.status)}
                     />
-                    {document.rejectionReason ? (
+                    {fiscalDocumentStatusDetail(document) ? (
                       <span className='table-note'>
-                        {document.rejectionReason}
+                        {fiscalDocumentStatusDetail(document)}
                       </span>
                     ) : null}
                   </td>
@@ -947,6 +947,16 @@ function fiscalDocumentStatusTone(
   status: FiscalDocument['status'],
 ): StatusTone {
   return fiscalDocumentStatusPresentations[status].tone
+}
+
+function fiscalDocumentStatusDetail(document: FiscalDocument) {
+  const detailByStatus: Partial<Record<FiscalDocument['status'], string | null>> =
+    {
+      CANCELLED: document.cancellationReason,
+      REJECTED: document.rejectionReason,
+    }
+
+  return detailByStatus[document.status] ?? null
 }
 
 const fiscalDocumentSourceLabels: Record<FiscalDocument['sourceType'], string> =

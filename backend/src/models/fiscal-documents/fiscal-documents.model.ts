@@ -38,6 +38,10 @@ export type FiscalDocument = {
   issuedByUserId: string;
   issuedByUserName: string;
   issuedAt: Date | null;
+  cancelledByUserId: string | null;
+  cancelledByUserName: string | null;
+  cancelledAt: Date | null;
+  cancellationReason: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -71,6 +75,8 @@ export type FiscalDocumentUpdateInput = {
   pdfUrl: string | null;
   rejectionReason: string | null;
   responsePayload: Record<string, unknown>;
+  cancelledByUserId?: string;
+  cancellationReason?: string;
 };
 
 const fiscalDocumentColumns = [
@@ -91,8 +97,12 @@ const fiscalDocumentColumns = [
   "fiscal_documents.request_payload as requestPayload",
   "fiscal_documents.response_payload as responsePayload",
   "fiscal_documents.issued_by_user_id as issuedByUserId",
-  "users.name as issuedByUserName",
+  "issued_users.name as issuedByUserName",
   "fiscal_documents.issued_at as issuedAt",
+  "fiscal_documents.cancelled_by_user_id as cancelledByUserId",
+  "cancelled_users.name as cancelledByUserName",
+  "fiscal_documents.cancelled_at as cancelledAt",
+  "fiscal_documents.cancellation_reason as cancellationReason",
   "fiscal_documents.created_at as createdAt",
   "fiscal_documents.updated_at as updatedAt",
 ];
@@ -215,6 +225,9 @@ export async function updateFiscalDocumentStatus(
       pdf_url: input.pdfUrl,
       rejection_reason: input.rejectionReason,
       response_payload: input.responsePayload,
+      cancelled_by_user_id: input.cancelledByUserId ?? null,
+      cancelled_at: input.cancelledByUserId ? db.fn.now() : null,
+      cancellation_reason: input.cancellationReason ?? null,
       updated_at: db.fn.now(),
     })
     .returning("id");
@@ -232,6 +245,15 @@ export async function updateFiscalDocumentStatus(
 
 function fiscalDocumentQuery(database: Knex | Knex.Transaction) {
   return database("fiscal_documents")
-    .join("users", "users.id", "fiscal_documents.issued_by_user_id")
+    .join(
+      "users as issued_users",
+      "issued_users.id",
+      "fiscal_documents.issued_by_user_id",
+    )
+    .leftJoin(
+      "users as cancelled_users",
+      "cancelled_users.id",
+      "fiscal_documents.cancelled_by_user_id",
+    )
     .select<FiscalDocument[]>(fiscalDocumentColumns);
 }

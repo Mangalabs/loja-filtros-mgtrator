@@ -85,7 +85,11 @@ export async function syncFiscalDocument(id: string) {
   };
 }
 
-export async function cancelFiscalDocument(id: string, reason: string) {
+export async function cancelFiscalDocument(
+  id: string,
+  reason: string,
+  cancelledByUserId: string,
+) {
   const fiscalDocument = await getFiscalDocumentById(id);
 
   if (!fiscalDocument) {
@@ -106,8 +110,13 @@ export async function cancelFiscalDocument(id: string, reason: string) {
     providerReference: fiscalDocument.providerReference,
     reason,
   });
+  const status = fiscalCancellationStatus(fiscalDocument.status, result.status);
+  const cancellationAudit = fiscalCancellationAudit(status, {
+    cancelledByUserId,
+    reason,
+  });
   const updated = await updateFiscalDocumentStatus(id, {
-    status: fiscalCancellationStatus(fiscalDocument.status, result.status),
+    status,
     accessKey: result.accessKey,
     providerReference: result.providerReference,
     number: result.number,
@@ -116,6 +125,7 @@ export async function cancelFiscalDocument(id: string, reason: string) {
     pdfUrl: result.pdfUrl,
     rejectionReason: result.rejectionReason,
     responsePayload: result.responsePayload,
+    ...cancellationAudit,
   });
 
   return {
@@ -136,6 +146,25 @@ function fiscalCancellationStatus(
   };
 
   return statusByProviderStatus[providerStatus] ?? providerStatus;
+}
+
+function fiscalCancellationAudit(
+  status: FiscalDocumentStatus,
+  audit: { cancelledByUserId: string; reason: string },
+) {
+  const auditByStatus: Partial<
+    Record<
+      FiscalDocumentStatus,
+      { cancelledByUserId: string; cancellationReason: string }
+    >
+  > = {
+    CANCELLED: {
+      cancelledByUserId: audit.cancelledByUserId,
+      cancellationReason: audit.reason,
+    },
+  };
+
+  return auditByStatus[status] ?? {};
 }
 
 export async function issueSaleFiscalDocument(
