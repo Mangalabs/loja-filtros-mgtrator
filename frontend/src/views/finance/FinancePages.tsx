@@ -135,7 +135,7 @@ export function FiscalDocumentsPage({
       sales,
       shippingOrders,
     }),
-  )
+  ).sort(fiscalRequestSort)
   const fiscalSummary = fiscalDocumentSummary(fiscalRequests, fiscalDocuments)
 
   return (
@@ -473,6 +473,48 @@ function fiscalRequestAction(
 
 function canIssueFiscalRequest(request: FiscalRequest) {
   return !request.document || request.document.status === 'REJECTED'
+}
+
+function fiscalRequestSort(current: FiscalRequest, next: FiscalRequest) {
+  return (
+    fiscalRequestPriority(current) - fiscalRequestPriority(next) ||
+    current.sourceLabel.localeCompare(next.sourceLabel) ||
+    current.clientName.localeCompare(next.clientName)
+  )
+}
+
+function fiscalRequestPriority(request: FiscalRequest) {
+  const priorityByState: Record<string, number> = {
+    blocked: 0,
+    documented: 3,
+    processing: 2,
+    ready: 1,
+  }
+
+  return priorityByState[fiscalRequestState(request)]
+}
+
+function fiscalRequestState(request: FiscalRequest) {
+  const states = [
+    {
+      active:
+        canIssueFiscalRequest(request) && request.readinessIssues.length > 0,
+      key: 'blocked',
+    },
+    {
+      active:
+        canIssueFiscalRequest(request) && request.readinessIssues.length === 0,
+      key: 'ready',
+    },
+    {
+      active:
+        request.document?.status === 'PENDING' ||
+        request.document?.status === 'PROCESSING',
+      key: 'processing',
+    },
+  ]
+
+  return states.find((state) => state.active)?.key ?? 'documented'
 }
 
 const fiscalRequestFactories: Array<
