@@ -1,4 +1,5 @@
 import Alert from '@mui/material/Alert'
+import Chip from '@mui/material/Chip'
 import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
@@ -704,6 +705,7 @@ function FiscalDocumentLinks({ document }: { document: FiscalDocument }) {
 }
 
 type FiscalDocumentSummary = {
+  frequentReadinessIssues: Array<{ count: number; label: string }>
   readyRequests: number
   pendingRequests: number
   rejectedDocuments: number
@@ -746,6 +748,9 @@ function FiscalDocumentsOverview({
           <strong>{summary.rejectedDocuments}</strong>
         </div>
       </div>
+      <FiscalReadinessIssueHighlights
+        issues={summary.frequentReadinessIssues}
+      />
       {alerts.length > 0 ? (
         <Stack spacing={1}>
           {alerts.map((alert) => (
@@ -759,11 +764,34 @@ function FiscalDocumentsOverview({
   )
 }
 
+function FiscalReadinessIssueHighlights({
+  issues,
+}: {
+  issues: FiscalDocumentSummary['frequentReadinessIssues']
+}) {
+  return issues.length > 0 ? (
+    <Stack spacing={1}>
+      <span className='table-note'>Pendencias mais frequentes</span>
+      <Stack direction='row' spacing={1} sx={{ flexWrap: 'wrap' }}>
+        {issues.map((issue) => (
+          <Chip
+            key={issue.label}
+            label={`${issue.label}: ${issue.count}`}
+            size='small'
+            variant='outlined'
+          />
+        ))}
+      </Stack>
+    </Stack>
+  ) : null
+}
+
 function fiscalDocumentSummary(
   fiscalRequests: FiscalRequest[],
   fiscalDocuments: FiscalDocument[],
 ): FiscalDocumentSummary {
   return {
+    frequentReadinessIssues: frequentFiscalReadinessIssues(fiscalRequests),
     pendingRequests: fiscalRequests.filter(
       (request) =>
         canIssueFiscalRequest(request) && request.readinessIssues.length > 0,
@@ -780,6 +808,51 @@ function fiscalDocumentSummary(
     ).length,
   }
 }
+
+function frequentFiscalReadinessIssues(fiscalRequests: FiscalRequest[]) {
+  const issueCounts = fiscalRequests
+    .filter((request) => canIssueFiscalRequest(request))
+    .flatMap((request) => request.readinessIssues)
+    .reduce<Record<string, number>>((counts, issue) => {
+      const label = fiscalReadinessIssueLabel(issue)
+      return { ...counts, [label]: (counts[label] ?? 0) + 1 }
+    }, {})
+
+  return Object.entries(issueCounts)
+    .map(([label, count]) => ({ count, label }))
+    .sort(
+      (current, next) =>
+        next.count - current.count || current.label.localeCompare(next.label),
+    )
+    .slice(0, 6)
+}
+
+function fiscalReadinessIssueLabel(issue: string) {
+  return (
+    fiscalReadinessIssueLabelPatterns.find(({ pattern }) =>
+      pattern.test(issue),
+    )?.label ?? issue
+  )
+}
+
+const fiscalReadinessIssueLabelPatterns = [
+  { label: 'Cliente cadastrado', pattern: /cliente deve estar cadastrado/i },
+  { label: 'Nome cliente', pattern: /nome do cliente/i },
+  { label: 'CPF\/CNPJ cliente', pattern: /cpf\/cnpj/i },
+  { label: 'Logradouro cliente', pattern: /logradouro/i },
+  { label: 'Numero cliente', pattern: /numero do cliente/i },
+  { label: 'Bairro cliente', pattern: /bairro/i },
+  { label: 'Cidade cliente', pattern: /cidade/i },
+  { label: 'UF cliente', pattern: /uf do cliente/i },
+  { label: 'CEP cliente', pattern: /cep do cliente/i },
+  { label: 'Produto cadastrado', pattern: /produto .+ deve estar cadastrado/i },
+  { label: 'NCM produto', pattern: /ncm pendente/i },
+  { label: 'CFOP produto', pattern: /cfop pendente/i },
+  { label: 'Origem fiscal produto', pattern: /origem fiscal pendente/i },
+  { label: 'CST ICMS produto', pattern: /cst icms pendente/i },
+  { label: 'CST PIS produto', pattern: /cst pis pendente/i },
+  { label: 'CST COFINS produto', pattern: /cst cofins pendente/i },
+]
 
 function fiscalDocumentSummaryAlerts(summary: FiscalDocumentSummary) {
   return [
