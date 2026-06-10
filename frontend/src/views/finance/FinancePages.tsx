@@ -794,6 +794,7 @@ type FiscalDocumentSummary = {
   pendingRequests: number
   rejectedDocuments: number
   processingDocuments: number
+  processingCancellations: number
 }
 
 function FiscalDocumentsOverview({
@@ -826,6 +827,10 @@ function FiscalDocumentsOverview({
         <div className='metric-card'>
           <span>Processando</span>
           <strong>{summary.processingDocuments}</strong>
+        </div>
+        <div className='metric-card'>
+          <span>Cancelamentos em andamento</span>
+          <strong>{summary.processingCancellations}</strong>
         </div>
         <div className='metric-card'>
           <span>Rejeitadas</span>
@@ -883,6 +888,9 @@ function fiscalDocumentSummary(
     processingDocuments: fiscalDocuments.filter((document) =>
       ['PENDING', 'PROCESSING'].includes(document.status),
     ).length,
+    processingCancellations: fiscalDocuments.filter(
+      fiscalDocumentHasPendingCancellation,
+    ).length,
     readyRequests: fiscalRequests.filter(
       (request) =>
         canIssueFiscalRequest(request) && request.readinessIssues.length === 0,
@@ -891,6 +899,10 @@ function fiscalDocumentSummary(
       (document) => document.status === 'REJECTED',
     ).length,
   }
+}
+
+function fiscalDocumentHasPendingCancellation(document: FiscalDocument) {
+  return document.status === 'PROCESSING' && Boolean(document.cancellationReason)
 }
 
 function frequentFiscalReadinessIssues(fiscalRequests: FiscalRequest[]) {
@@ -950,6 +962,12 @@ function fiscalDocumentSummaryAlerts(summary: FiscalDocumentSummary) {
       enabled: summary.processingDocuments > 0,
       message:
         'Existem NF-e em processamento. Use Atualizar para sincronizar o retorno da Focus.',
+      severity: 'info' as const,
+    },
+    {
+      enabled: summary.processingCancellations > 0,
+      message:
+        'Existem cancelamentos de NF-e em processamento. Use Atualizar ate a Focus confirmar o cancelamento.',
       severity: 'info' as const,
     },
     {
