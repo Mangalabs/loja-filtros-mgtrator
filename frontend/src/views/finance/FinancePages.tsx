@@ -885,8 +885,8 @@ function fiscalDocumentSummary(
       (request) =>
         canIssueFiscalRequest(request) && request.readinessIssues.length > 0,
     ).length,
-    processingDocuments: fiscalDocuments.filter((document) =>
-      ['PENDING', 'PROCESSING'].includes(document.status),
+    processingDocuments: fiscalDocuments.filter(
+      fiscalDocumentHasPendingAuthorization,
     ).length,
     processingCancellations: fiscalDocuments.filter(
       fiscalDocumentHasPendingCancellation,
@@ -903,6 +903,13 @@ function fiscalDocumentSummary(
 
 function fiscalDocumentHasPendingCancellation(document: FiscalDocument) {
   return document.status === 'PROCESSING' && Boolean(document.cancellationReason)
+}
+
+function fiscalDocumentHasPendingAuthorization(document: FiscalDocument) {
+  return (
+    ['PENDING', 'PROCESSING'].includes(document.status) &&
+    !fiscalDocumentHasPendingCancellation(document)
+  )
 }
 
 function frequentFiscalReadinessIssues(fiscalRequests: FiscalRequest[]) {
