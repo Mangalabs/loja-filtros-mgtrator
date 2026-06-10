@@ -368,6 +368,7 @@ function FiscalRequestAction({
 function FiscalReadinessStatus({ request }: { request: FiscalRequest }) {
   const visibleIssues = request.readinessIssues.slice(0, 2)
   const hiddenIssuesCount = request.readinessIssues.length - visibleIssues.length
+  const issueSummary = fiscalReadinessIssueSummary(request.readinessIssues)
 
   return request.readinessIssues.length === 0 ? (
     <StatusChip label='Pronta' tone='success' />
@@ -377,6 +378,7 @@ function FiscalReadinessStatus({ request }: { request: FiscalRequest }) {
         label={`${request.readinessIssues.length} pendencia(s)`}
         tone='warning'
       />
+      <span className='table-note'>{issueSummary}</span>
       <Tooltip title={request.readinessIssues.join('\n')} placement='top'>
         <span className='table-note'>
           {visibleIssues.join(' ')}
@@ -385,6 +387,29 @@ function FiscalReadinessStatus({ request }: { request: FiscalRequest }) {
       </Tooltip>
     </Stack>
   )
+}
+
+function fiscalReadinessIssueSummary(issues: string[]) {
+  const issueCounts = issues.reduce(
+    (counts, issue) => {
+      const category = fiscalReadinessIssueCategory(issue)
+      return { ...counts, [category]: counts[category] + 1 }
+    },
+    { client: 0, product: 0 },
+  )
+
+  return [
+    issueCounts.client > 0 ? `Cliente: ${issueCounts.client}` : null,
+    issueCounts.product > 0 ? `Produtos: ${issueCounts.product}` : null,
+  ]
+    .filter(Boolean)
+    .join(' | ')
+}
+
+function fiscalReadinessIssueCategory(issue: string) {
+  return issue.includes('cliente') || issue.includes('Cliente')
+    ? 'client'
+    : 'product'
 }
 
 function fiscalRequestActionLabel(request: FiscalRequest, hasAction: boolean) {
