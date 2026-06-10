@@ -631,7 +631,10 @@ function clientReadinessIssues(client?: Client) {
     [client?.addressZipCode, 'CEP do cliente pendente.'],
   ]
 
-  return missingMessages(fieldChecks)
+  return [
+    ...missingMessages(fieldChecks),
+    ...clientFiscalFormatIssues(client),
+  ]
 }
 
 function productReadinessIssues(
@@ -649,13 +652,88 @@ function productReadinessIssues(
     [product?.cofinsCst, `CST COFINS pendente em ${label}.`],
   ]
 
-  return missingMessages(fieldChecks)
+  return [
+    ...missingMessages(fieldChecks),
+    ...productFiscalFormatIssues(product, label),
+  ]
 }
 
 function missingMessages(fieldChecks: Array<[unknown, string]>) {
   return fieldChecks
     .filter(([value]) => !value)
     .map(([_value, message]) => message)
+}
+
+function clientFiscalFormatIssues(client?: Client) {
+  const documentPatternsByPersonType: Record<Client['personType'], RegExp | null> =
+    {
+      ES: null,
+      PF: /^\d{11}$/,
+      PJ: /^\d{14}$/,
+    }
+  const fieldChecks: Array<[unknown, RegExp | null, string]> = [
+    [
+      fiscalDigits(client?.document),
+      client ? documentPatternsByPersonType[client.personType] : null,
+      'CPF/CNPJ do cliente deve conter 11 ou 14 digitos.',
+    ],
+    [
+      client?.addressState,
+      /^[A-Z]{2}$/i,
+      'UF do cliente deve conter 2 letras.',
+    ],
+    [
+      fiscalDigits(client?.addressZipCode),
+      /^\d{8}$/,
+      'CEP do cliente deve conter 8 digitos.',
+    ],
+  ]
+
+  return invalidMessages(fieldChecks)
+}
+
+function productFiscalFormatIssues(product: Product | undefined, label: string) {
+  const fieldChecks: Array<[unknown, RegExp, string]> = [
+    [product?.ncm, /^\d{8}$/, `NCM de ${label} deve conter 8 digitos.`],
+    [product?.cfop, /^\d{4}$/, `CFOP de ${label} deve conter 4 digitos.`],
+    [
+      product?.origin,
+      /^[0-8]$/,
+      `Origem fiscal de ${label} deve estar entre 0 e 8.`,
+    ],
+    [
+      product?.icmsCst,
+      /^\d{2,3}$/,
+      `CST ICMS de ${label} deve conter 2 ou 3 digitos.`,
+    ],
+    [
+      product?.pisCst,
+      /^\d{2}$/,
+      `CST PIS de ${label} deve conter 2 digitos.`,
+    ],
+    [
+      product?.cofinsCst,
+      /^\d{2}$/,
+      `CST COFINS de ${label} deve conter 2 digitos.`,
+    ],
+  ]
+
+  return invalidMessages(fieldChecks)
+}
+
+function invalidMessages(
+  fieldChecks: Array<[unknown, RegExp | null, string]>,
+) {
+  return fieldChecks
+    .filter(([value, pattern]) =>
+      Boolean(value) && pattern ? !pattern.test(String(value)) : false,
+    )
+    .map(([_value, _pattern, message]) => message)
+}
+
+function fiscalDigits(value?: string | null) {
+  const normalized = value?.replace(/\D/g, '')
+  return normalized || null
 }
 
 function findClient(clients: Client[], clientId: string | null) {
@@ -852,12 +930,12 @@ const fiscalReadinessIssueLabelPatterns = [
   { label: 'UF cliente', pattern: /uf do cliente/i },
   { label: 'CEP cliente', pattern: /cep do cliente/i },
   { label: 'Produto cadastrado', pattern: /produto .+ deve estar cadastrado/i },
-  { label: 'NCM produto', pattern: /ncm pendente/i },
-  { label: 'CFOP produto', pattern: /cfop pendente/i },
-  { label: 'Origem fiscal produto', pattern: /origem fiscal pendente/i },
-  { label: 'CST ICMS produto', pattern: /cst icms pendente/i },
-  { label: 'CST PIS produto', pattern: /cst pis pendente/i },
-  { label: 'CST COFINS produto', pattern: /cst cofins pendente/i },
+  { label: 'NCM produto', pattern: /ncm (pendente|de)/i },
+  { label: 'CFOP produto', pattern: /cfop (pendente|de)/i },
+  { label: 'Origem fiscal produto', pattern: /origem fiscal (pendente|de)/i },
+  { label: 'CST ICMS produto', pattern: /cst icms (pendente|de)/i },
+  { label: 'CST PIS produto', pattern: /cst pis (pendente|de)/i },
+  { label: 'CST COFINS produto', pattern: /cst cofins (pendente|de)/i },
 ]
 
 function fiscalDocumentSummaryAlerts(summary: FiscalDocumentSummary) {
