@@ -753,6 +753,14 @@ function FiscalDocumentActions({
     return <span className='table-note'>Documento cancelado</span>
   }
 
+  if (document.status === 'REJECTED') {
+    return (
+      <span className='table-note'>
+        Corrija os dados fiscais e reemita pela fila.
+      </span>
+    )
+  }
+
   return (
     <div className='shipping-order-actions'>
       <TableActionButton
