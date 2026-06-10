@@ -801,6 +801,18 @@ describe("catalog routes", () => {
         body: {},
       },
     );
+    const mockXml = await fetch(
+      `${baseUrl}/mock/fiscal-documents/${issued.body.data?.providerReference}.xml`,
+      {
+        headers: { cookie: authCookie },
+      },
+    );
+    const mockPdf = await fetch(
+      `${baseUrl}/mock/fiscal-documents/${issued.body.data?.providerReference}.pdf`,
+      {
+        headers: { cookie: authCookie },
+      },
+    );
     const saleCancellationWithFiscalDocument = await request(
       `/sales/${sale.body.data?.id}/cancel`,
       {
@@ -848,6 +860,22 @@ describe("catalog routes", () => {
     assert.equal(synced.status, 200);
     assert.equal(synced.body.data?.status, "AUTHORIZED");
     assert.equal(synced.body.data?.pdfUrl, issued.body.data?.pdfUrl);
+    assert.equal(mockXml.status, 200);
+    assert.equal(
+      mockXml.headers.get("content-type"),
+      "application/xml; charset=utf-8",
+    );
+    assert.equal(
+      mockXml.headers.get("content-disposition"),
+      `attachment; filename="${issued.body.data?.providerReference}.xml"`,
+    );
+    assert.match(await mockXml.text(), /<nfeMock>/);
+    assert.equal(mockPdf.status, 200);
+    assert.equal(mockPdf.headers.get("content-type"), "application/pdf");
+    assert.equal(
+      mockPdf.headers.get("content-disposition"),
+      `attachment; filename="${issued.body.data?.providerReference}.pdf"`,
+    );
     assert.equal(saleCancellationWithFiscalDocument.status, 409);
     assert.equal(
       saleCancellationWithFiscalDocument.body.message,

@@ -773,12 +773,20 @@ function FiscalDocumentLinks({ document }: { document: FiscalDocument }) {
   const links = [
     { label: 'DANFE', url: document.pdfUrl },
     { label: 'XML', url: document.xmlUrl },
-  ].filter((link): link is { label: string; url: string } => Boolean(link.url))
+  ].filter(
+    (link): link is { label: 'DANFE' | 'XML'; url: string } =>
+      Boolean(link.url),
+  )
 
   return links.length > 0 ? (
     <div className='table-actions'>
       {links.map((link) => (
-        <Link href={link.url} key={link.label} target='_blank' rel='noreferrer'>
+        <Link
+          download={fiscalDocumentDownloadName(document, link.label)}
+          href={fiscalDocumentFileHref(link.url)}
+          key={link.label}
+          target='_blank'
+          rel='noreferrer'>
           {link.label}
         </Link>
       ))}
@@ -786,6 +794,23 @@ function FiscalDocumentLinks({ document }: { document: FiscalDocument }) {
   ) : (
     <span className='empty-text'>Sem arquivos</span>
   )
+}
+
+function fiscalDocumentFileHref(url: string) {
+  return url.startsWith('/') ? `/api${url}` : url
+}
+
+function fiscalDocumentDownloadName(
+  document: FiscalDocument,
+  label: 'DANFE' | 'XML',
+) {
+  const extensionByLabel = {
+    DANFE: 'pdf',
+    XML: 'xml',
+  }
+  const reference = document.providerReference ?? document.id
+
+  return `${reference}.${extensionByLabel[label]}`
 }
 
 type FiscalDocumentSummary = {

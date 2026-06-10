@@ -6,6 +6,7 @@ import {
   issuePickupReservationFiscalDocument,
   issueSaleFiscalDocument,
   issueShippingOrderFiscalDocument,
+  mockFiscalDocumentFile,
   showFiscalDocument,
   syncFiscalDocument,
 } from "../../controllers/fiscal-documents/fiscal-documents.controller.js";
@@ -41,10 +42,34 @@ const cancelFiscalDocumentSchema = z
   })
   .strict();
 
+const mockFiscalDocumentFileParamsSchema = z.object({
+  extension: z.enum(["pdf", "xml"]),
+  reference: z.string().trim().min(1).max(160),
+});
+
 fiscalDocumentsRoutes.get(
   "/fiscal-documents",
   async (_request, response) => {
     response.status(200).json(await indexFiscalDocuments());
+  },
+);
+
+fiscalDocumentsRoutes.get(
+  "/mock/fiscal-documents/:reference.:extension",
+  async (request, response) => {
+    const { extension, reference } = mockFiscalDocumentFileParamsSchema.parse(
+      request.params,
+    );
+    const file = mockFiscalDocumentFile(reference, extension);
+
+    response
+      .status(200)
+      .setHeader("Content-Type", file.contentType)
+      .setHeader(
+        "Content-Disposition",
+        `attachment; filename="${file.fileName}"`,
+      )
+      .send(file.content);
   },
 );
 

@@ -42,6 +42,27 @@ export async function showFiscalDocument(id: string) {
   };
 }
 
+export function mockFiscalDocumentFile(
+  reference: string,
+  extension: "pdf" | "xml",
+) {
+  const fileName = `${reference}.${extension}`;
+  const files = {
+    pdf: {
+      content: mockFiscalDocumentPdf(reference),
+      contentType: "application/pdf",
+      fileName,
+    },
+    xml: {
+      content: mockFiscalDocumentXml(reference),
+      contentType: "application/xml; charset=utf-8",
+      fileName,
+    },
+  };
+
+  return files[extension];
+}
+
 export async function syncFiscalDocument(id: string) {
   const fiscalDocument = await getFiscalDocumentById(id);
 
@@ -84,6 +105,56 @@ export async function syncFiscalDocument(id: string) {
     status: "success",
     data: updated,
   };
+}
+
+function mockFiscalDocumentPdf(reference: string) {
+  return Buffer.from(
+    `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 77 >>
+stream
+BT
+/Helvetica 14 Tf
+72 760 Td
+(DANFE mock - ${reference}) Tj
+ET
+endstream
+endobj
+xref
+0 5
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000204 00000 n 
+trailer
+<< /Root 1 0 R /Size 5 >>
+startxref
+331
+%%EOF`,
+  );
+}
+
+function mockFiscalDocumentXml(reference: string) {
+  return `<nfeMock><referencia>${xmlEscape(reference)}</referencia><status>autorizado_mock</status></nfeMock>`;
+}
+
+function xmlEscape(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 export async function cancelFiscalDocument(
