@@ -404,10 +404,17 @@ function focusFileUrl(value: unknown) {
     return path;
   }
 
-  const baseUrl = env.fiscal.focus.baseUrl.replace(/\/$/, "");
+  const baseUrl = focusFilesBaseUrl();
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
   return `${baseUrl}${normalizedPath}`;
+}
+
+function focusFilesBaseUrl() {
+  return env.fiscal.focus.baseUrl
+    .replace(/\/$/, "")
+    .replace(/\/v2\/nfe$/, "")
+    .replace(/\/v2$/, "");
 }
 
 function focusNumber(value: unknown) {
