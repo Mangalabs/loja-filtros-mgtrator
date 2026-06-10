@@ -364,9 +364,11 @@ function focusCancelStatusFromPayload(
   const statusByFocusStatus: Record<string, FiscalProviderStatus> = {
     cancelado: "CANCELLED",
     erro_cancelamento: "REJECTED",
+    processando_cancelamento: "PROCESSING",
+    requisicao_recebida: "PROCESSING",
   };
 
-  return statusByFocusStatus[status] ?? "CANCELLED";
+  return statusByFocusStatus[status] ?? "PROCESSING";
 }
 
 function focusHttpError(response: Response, payload: FocusResponsePayload) {

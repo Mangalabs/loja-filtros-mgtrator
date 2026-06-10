@@ -1352,6 +1352,37 @@ describe("catalog routes", () => {
     }
   });
 
+  it("keeps Focus cancellation processing until it is confirmed", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ status: "processando_cancelamento" }), {
+        status: 200,
+      })) as typeof fetch;
+
+    try {
+      const result = await new FocusFiscalProvider().cancel({
+        documentType: "NFE",
+        providerReference: "SALE-focus-provider-test",
+        reason: "Cancelamento ainda em processamento pela Focus",
+      });
+
+      assert.equal(result.status, "PROCESSING");
+      assert.equal(result.rejectionReason, null);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("returns a rejected fiscal result when Focus rejects the payload", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
