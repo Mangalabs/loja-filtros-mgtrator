@@ -342,6 +342,8 @@ before(async () => {
 });
 
 beforeEach(async () => {
+  env.fiscal.provider = "mock";
+
   await db.raw(
     "truncate table fiscal_documents, cash_register_sessions, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
@@ -846,7 +848,7 @@ describe("catalog routes", () => {
     assert.equal(issued.body.data?.status, "AUTHORIZED");
     assert.equal(
       issued.body.data?.providerReference,
-      `SALE-${sale.body.data?.id}`,
+      `SALE${sale.body.data?.id?.replace(/-/g, "")}`,
     );
     assert.equal(issued.body.data?.issuedByUserName, "Administrador de teste");
     assert.equal(duplicated.status, 409);
@@ -914,7 +916,7 @@ describe("catalog routes", () => {
         provider: "FOCUS",
         environment: "HOMOLOGATION",
         status: "AUTHORIZED",
-        provider_reference: `SALE-${sourceId}`,
+        provider_reference: `SALE${sourceId.replace(/-/g, "")}`,
         response_payload: {},
         issued_by_user_id: administrator.id,
         issued_at: db.fn.now(),
@@ -1416,7 +1418,7 @@ describe("catalog routes", () => {
     try {
       await new FocusFiscalProvider().check({
         documentType: "NFE",
-        providerReference: "SALE-focus-provider-test",
+        providerReference: "SALEfocusprovidertest",
       });
       assert.fail("Expected Focus token error");
     } catch (error) {
@@ -1446,7 +1448,7 @@ describe("catalog routes", () => {
     try {
       await new FocusFiscalProvider().cancel({
         documentType: "NFE",
-        providerReference: "SALE-focus-provider-test",
+        providerReference: "SALEfocusprovidertest",
         reason: "Cancelamento por teste fiscal",
       });
       assert.fail("Expected Focus token error");
@@ -1480,7 +1482,7 @@ describe("catalog routes", () => {
     try {
       const result = await new FocusFiscalProvider().cancel({
         documentType: "NFE",
-        providerReference: "SALE-focus-provider-test",
+        providerReference: "SALEfocusprovidertest",
         reason: "Cancelamento ainda em processamento pela Focus",
       });
 
@@ -1514,7 +1516,7 @@ describe("catalog routes", () => {
       assert.equal(result.provider, "FOCUS");
       assert.equal(result.status, "REJECTED");
       assert.equal(result.rejectionReason, "NCM invalido");
-      assert.equal(result.providerReference, "SALE-focus-provider-test");
+      assert.equal(result.providerReference, "SALEfocusprovidertest");
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
@@ -1537,7 +1539,7 @@ describe("catalog routes", () => {
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify({
-          ref: "SALE-focus-provider-test",
+          ref: "SALEfocusprovidertest",
           status: "autorizado",
           caminho_xml_nota_fiscal: "/arquivos/notas/teste.xml",
           caminho_danfe: "/arquivos/notas/teste.pdf",
@@ -1620,7 +1622,7 @@ describe("catalog routes", () => {
       provider: "MOCK",
       environment: "HOMOLOGATION",
       status: "REJECTED",
-      provider_reference: `SALE-${sale.body.data?.id}`,
+      provider_reference: `SALE${sale.body.data?.id?.replace(/-/g, "")}`,
       rejection_reason: "Rejeicao simulada",
       request_payload: {},
       response_payload: {},
@@ -3326,11 +3328,11 @@ describe("catalog routes", () => {
 
 function focusIssueRequest(): FiscalIssueRequest {
   return {
-    reference: "SALE-focus-provider-test",
+    reference: "SALEfocusprovidertest",
     documentType: "NFE",
     environment: "HOMOLOGATION",
     sale: {
-      id: "sale-focus-provider-test",
+      id: "salefocusprovidertest",
       clientPersonType: "PF",
       clientName: "Cliente Focus",
       clientDocument: "12345678901",
@@ -3349,7 +3351,7 @@ function focusIssueRequest(): FiscalIssueRequest {
       totalAmount: "35.00",
       items: [
         {
-          productId: "product-focus-provider-test",
+          productId: "productfocusprovidertest",
           productInternalCode: "FISCAL-1",
           productName: "Filtro Focus",
           productCfop: "5102",

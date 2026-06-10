@@ -405,7 +405,7 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
 }
 
 function fiscalReference(sourceType: FiscalDocumentSourceType, sourceId: string) {
-  return `${sourceType}-${sourceId}`;
+  return `${sourceType}${sourceId}`.replace(/[^a-zA-Z0-9]/g, "");
 }
 
 type FiscalSale = IssueFiscalDocumentInput extends never
