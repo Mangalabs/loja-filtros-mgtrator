@@ -434,11 +434,70 @@ function requiredItemFiscalFields(
     ],
   ];
 
-  return missingFieldDetails(fieldChecks);
+  return [
+    ...missingFieldDetails(fieldChecks),
+    ...invalidItemFiscalFields(item, position),
+  ];
 }
 
 function missingFieldDetails(fieldChecks: Array<[string, unknown, string]>) {
   return fieldChecks
     .filter(([, value]) => !value)
     .map(([field, _value, message]) => ({ field, message }));
+}
+
+function invalidItemFiscalFields(
+  item: FiscalSale["items"][number],
+  position: number,
+): AppErrorDetail[] {
+  const fieldChecks: Array<[string, unknown, RegExp, string]> = [
+    [
+      `items.${position}.productNcm`,
+      item.productNcm,
+      /^\d{8}$/,
+      `NCM do item ${position} deve conter 8 digitos.`,
+    ],
+    [
+      `items.${position}.productCfop`,
+      item.productCfop,
+      /^\d{4}$/,
+      `CFOP do item ${position} deve conter 4 digitos.`,
+    ],
+    [
+      `items.${position}.productOrigin`,
+      item.productOrigin,
+      /^[0-8]$/,
+      `Origem fiscal do item ${position} deve estar entre 0 e 8.`,
+    ],
+    [
+      `items.${position}.productIcmsCst`,
+      item.productIcmsCst,
+      /^\d{2,3}$/,
+      `CST/CSOSN ICMS do item ${position} deve conter 2 ou 3 digitos.`,
+    ],
+    [
+      `items.${position}.productPisCst`,
+      item.productPisCst,
+      /^\d{2}$/,
+      `CST PIS do item ${position} deve conter 2 digitos.`,
+    ],
+    [
+      `items.${position}.productCofinsCst`,
+      item.productCofinsCst,
+      /^\d{2}$/,
+      `CST COFINS do item ${position} deve conter 2 digitos.`,
+    ],
+  ];
+
+  return invalidFieldDetails(fieldChecks);
+}
+
+function invalidFieldDetails(
+  fieldChecks: Array<[string, unknown, RegExp, string]>,
+) {
+  return fieldChecks
+    .filter(
+      ([, value, pattern]) => Boolean(value) && !pattern.test(String(value)),
+    )
+    .map(([field, _value, _pattern, message]) => ({ field, message }));
 }
