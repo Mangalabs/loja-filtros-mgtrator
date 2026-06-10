@@ -1,4 +1,5 @@
 import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
@@ -772,7 +773,7 @@ function FiscalReadinessIssueHighlights({
   return issues.length > 0 ? (
     <Stack spacing={1}>
       <span className='table-note'>Pendencias mais frequentes</span>
-      <Stack direction='row' spacing={1} sx={{ flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
         {issues.map((issue) => (
           <Chip
             key={issue.label}
@@ -781,7 +782,7 @@ function FiscalReadinessIssueHighlights({
             variant='outlined'
           />
         ))}
-      </Stack>
+      </Box>
     </Stack>
   ) : null
 }
