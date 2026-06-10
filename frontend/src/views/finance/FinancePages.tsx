@@ -1036,6 +1036,7 @@ function fiscalDocumentStatusDetail(document: FiscalDocument) {
   const detailByStatus: Partial<Record<FiscalDocument['status'], string | null>> =
     {
       CANCELLED: document.cancellationReason,
+      PROCESSING: document.cancellationReason,
       REJECTED: document.rejectionReason,
     }
 
@@ -1048,6 +1049,10 @@ function fiscalDocumentAuditDetail(document: FiscalDocument) {
       CANCELLED:
         document.cancelledByUserName && document.cancelledAt
           ? `Cancelada por ${document.cancelledByUserName} em ${formatDateTime(document.cancelledAt)}`
+          : null,
+      PROCESSING:
+        document.cancelledByUserName && document.cancellationReason
+          ? `Cancelamento solicitado por ${document.cancelledByUserName}`
           : null,
     }
 
