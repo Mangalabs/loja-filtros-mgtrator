@@ -494,6 +494,15 @@ describe("catalog routes", () => {
         allowProduction: false,
       },
     });
+    const invalidCompanyCnpj = await request("/fiscal-settings", {
+      method: "PUT",
+      body: {
+        provider: "FOCUS",
+        environment: "HOMOLOGATION",
+        companyCnpj: "123",
+        allowProduction: false,
+      },
+    });
     const production = await request<FiscalSettings>("/fiscal-settings", {
       method: "PUT",
       body: {
@@ -520,6 +529,11 @@ describe("catalog routes", () => {
     assert.equal(
       blockedProduction.body.message,
       "Ambiente de producao exige confirmacao explicita.",
+    );
+    assert.equal(invalidCompanyCnpj.status, 422);
+    assert.equal(
+      invalidCompanyCnpj.body.message,
+      "CNPJ fiscal da loja deve ter 14 digitos para usar Focus NFe.",
     );
     assert.equal(production.status, 200);
     assert.equal(production.body.data?.environment, "PRODUCTION");
@@ -1416,6 +1430,34 @@ describe("catalog routes", () => {
       env.fiscal.focus.token = originalFocusToken;
       env.fiscal.focus.tokens.HOMOLOGATION = originalFocusHomologationToken;
       env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+    }
+  });
+
+  it("rejects invalid store CNPJ before calling Focus", async () => {
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusHomologationToken =
+      env.fiscal.focus.tokens.HOMOLOGATION;
+
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.tokens.HOMOLOGATION = "token-focus-teste";
+
+    try {
+      await new FocusFiscalProvider().issue({
+        ...focusIssueRequest(),
+        companyCnpj: "123",
+      });
+      assert.fail("Expected Focus store CNPJ configuration error");
+    } catch (error) {
+      const appError = error as { message?: string; statusCode?: number };
+
+      assert.equal(appError.statusCode, 503);
+      assert.equal(
+        appError.message,
+        "Integracao Focus NFe com configuracao invalida: CNPJ fiscal da loja deve ter 14 digitos.",
+      );
+    } finally {
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.tokens.HOMOLOGATION = originalFocusHomologationToken;
     }
   });
 

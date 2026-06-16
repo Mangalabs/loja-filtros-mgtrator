@@ -16,10 +16,12 @@ export async function showFiscalSettings() {
 
 export async function replaceFiscalSettings(input: FiscalSettingsInput) {
   ensureProductionIsExplicitlyAllowed(input);
+  const companyCnpj = fiscalDigits(input.companyCnpj);
+  ensureFocusCompanyCnpj(input.provider, companyCnpj);
 
   const settings = await upsertFiscalSettings({
     ...input,
-    companyCnpj: fiscalDigits(input.companyCnpj),
+    companyCnpj,
   });
 
   return {
@@ -52,6 +54,20 @@ function ensureProductionIsExplicitlyAllowed(input: FiscalSettingsInput) {
 
   throw new AppError(
     "Ambiente de producao exige confirmacao explicita.",
+    422,
+  );
+}
+
+function ensureFocusCompanyCnpj(
+  provider: FiscalSettingsInput["provider"],
+  companyCnpj: string | null,
+) {
+  if (provider !== "FOCUS" || companyCnpj?.length === 14) {
+    return;
+  }
+
+  throw new AppError(
+    "CNPJ fiscal da loja deve ter 14 digitos para usar Focus NFe.",
     422,
   );
 }

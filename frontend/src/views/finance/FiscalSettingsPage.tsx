@@ -69,7 +69,7 @@ export function FiscalSettingsPage({
 
       <TextField
         defaultValue={settings?.companyCnpj ?? ''}
-        helperText='Somente numeros ou CNPJ formatado. O token da Focus continua no .env.'
+        helperText='Informe 14 digitos para usar Focus NFe. O token da Focus continua no .env.'
         label='CNPJ emitente'
         name='companyCnpj'
       />

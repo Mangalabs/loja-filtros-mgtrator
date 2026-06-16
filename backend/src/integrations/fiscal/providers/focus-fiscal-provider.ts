@@ -176,11 +176,13 @@ function ensureFocusConfiguration(
   environment: FiscalIssueRequest["environment"],
   companyCnpj?: string | null,
 ) {
+  const companyCnpjDigits =
+    companyCnpj === undefined ? true : digits(companyCnpj);
   const missingFields = [
     [`FOCUS_NFE_${environment}_TOKEN`, focusToken(environment)],
-    ["CNPJ fiscal da loja", companyCnpj === undefined ? true : companyCnpj],
+    ["CNPJ fiscal da loja", companyCnpjDigits],
   ]
-    .filter((field): field is [string, null] => !field[1])
+    .filter((field) => !field[1])
     .map(([field]) => field);
 
   if (missingFields.length > 0) {
@@ -189,6 +191,15 @@ function ensureFocusConfiguration(
       503,
     );
   }
+
+  if (companyCnpjDigits === true || companyCnpjDigits?.length === 14) {
+    return;
+  }
+
+  throw new AppError(
+    "Integracao Focus NFe com configuracao invalida: CNPJ fiscal da loja deve ter 14 digitos.",
+    503,
+  );
 }
 
 function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
