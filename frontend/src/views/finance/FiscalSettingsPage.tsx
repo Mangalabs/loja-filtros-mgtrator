@@ -51,6 +51,9 @@ export function FiscalSettingsPage({
   const companyCnpjHelperText = companyCnpjError
     ? 'CNPJ da loja deve conter 14 digitos para usar Focus NFe.'
     : 'Informe 14 digitos para usar Focus NFe. O token da Focus continua no .env.'
+  const productionConfirmationError =
+    draft.environment === 'PRODUCTION' && !draft.allowProduction
+  const submitBlocked = companyCnpjError || productionConfirmationError
 
   return (
     <FormGrid
@@ -143,10 +146,15 @@ export function FiscalSettingsPage({
           Producao gera documentos com validade fiscal. Mantenha desligado ate
           concluir o checklist fiscal.
         </Alert>
+        {productionConfirmationError ? (
+          <Alert severity='error'>
+            Para salvar o ambiente de producao, ative a confirmacao explicita.
+          </Alert>
+        ) : null}
       </FormCard>
 
       <div className='flex justify-end'>
-        <PrimaryButton disabled={companyCnpjError} type='submit'>
+        <PrimaryButton disabled={submitBlocked} type='submit'>
           Salvar configuracao fiscal
         </PrimaryButton>
       </div>
