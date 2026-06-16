@@ -45,6 +45,15 @@ export function FiscalSettingsPage({
     setDraft(fiscalSettingsInput(settings))
   }, [settings])
 
+  const companyCnpjDigits = fiscalDigits(draft.companyCnpj)
+  const companyCnpjError =
+    draft.provider === 'FOCUS' &&
+    companyCnpjDigits.length > 0 &&
+    companyCnpjDigits.length !== 14
+  const companyCnpjHelperText = companyCnpjError
+    ? 'CNPJ da loja deve conter 14 digitos.'
+    : 'Informe 14 digitos para usar Focus NFe. O token da Focus continua no .env.'
+
   return (
     <FormGrid
       className='max-w-4xl'
@@ -103,7 +112,8 @@ export function FiscalSettingsPage({
       </FormRow>
 
       <TextField
-        helperText='Informe 14 digitos para usar Focus NFe. O token da Focus continua no .env.'
+        error={companyCnpjError}
+        helperText={companyCnpjHelperText}
         label='CNPJ emitente'
         name='companyCnpj'
         value={draft.companyCnpj ?? ''}
@@ -153,6 +163,10 @@ function fiscalSettingsInput(
     environment: settings?.environment ?? 'HOMOLOGATION',
     provider: settings?.provider ?? 'MOCK',
   }
+}
+
+function fiscalDigits(value?: string | null) {
+  return value?.replace(/\D/g, '') ?? ''
 }
 
 function FiscalSettingsStatus({
