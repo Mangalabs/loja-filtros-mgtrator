@@ -46,12 +46,10 @@ export function FiscalSettingsPage({
   }, [settings])
 
   const companyCnpjDigits = fiscalDigits(draft.companyCnpj)
-  const companyCnpjError =
-    draft.provider === 'FOCUS' &&
-    companyCnpjDigits.length > 0 &&
-    companyCnpjDigits.length !== 14
+  const companyCnpjRequired = draft.provider === 'FOCUS'
+  const companyCnpjError = companyCnpjRequired && companyCnpjDigits.length !== 14
   const companyCnpjHelperText = companyCnpjError
-    ? 'CNPJ da loja deve conter 14 digitos.'
+    ? 'CNPJ da loja deve conter 14 digitos para usar Focus NFe.'
     : 'Informe 14 digitos para usar Focus NFe. O token da Focus continua no .env.'
 
   return (
@@ -148,7 +146,9 @@ export function FiscalSettingsPage({
       </FormCard>
 
       <div className='flex justify-end'>
-        <PrimaryButton type='submit'>Salvar configuracao fiscal</PrimaryButton>
+        <PrimaryButton disabled={companyCnpjError} type='submit'>
+          Salvar configuracao fiscal
+        </PrimaryButton>
       </div>
     </FormGrid>
   )
