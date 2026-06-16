@@ -51,8 +51,9 @@ export function FiscalSettingsPage({
   const companyCnpjHelperText = companyCnpjError
     ? 'CNPJ da loja deve conter 14 digitos para usar Focus NFe.'
     : 'Informe 14 digitos para usar Focus NFe. O token da Focus continua no .env.'
+  const productionEnvironment = draft.environment === 'PRODUCTION'
   const productionConfirmationError =
-    draft.environment === 'PRODUCTION' && !draft.allowProduction
+    productionEnvironment && !draft.allowProduction
   const submitBlocked = companyCnpjError || productionConfirmationError
 
   return (
@@ -101,6 +102,10 @@ export function FiscalSettingsPage({
           onChange={(event) =>
             setDraft((currentDraft) => ({
               ...currentDraft,
+              allowProduction:
+                event.target.value === 'PRODUCTION'
+                  ? currentDraft.allowProduction
+                  : false,
               environment: event.target.value as FiscalSettings['environment'],
             }))
           }>
@@ -131,6 +136,7 @@ export function FiscalSettingsPage({
           control={
             <Switch
               checked={draft.allowProduction}
+              disabled={!productionEnvironment}
               name='allowProduction'
               onChange={(event) =>
                 setDraft((currentDraft) => ({

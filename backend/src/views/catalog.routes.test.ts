@@ -503,6 +503,18 @@ describe("catalog routes", () => {
         allowProduction: false,
       },
     });
+    const homologationProductionFlag = await request<FiscalSettings>(
+      "/fiscal-settings",
+      {
+        method: "PUT",
+        body: {
+          provider: "MOCK",
+          environment: "HOMOLOGATION",
+          companyCnpj: null,
+          allowProduction: true,
+        },
+      },
+    );
     const production = await request<FiscalSettings>("/fiscal-settings", {
       method: "PUT",
       body: {
@@ -535,6 +547,12 @@ describe("catalog routes", () => {
       invalidCompanyCnpj.body.message,
       "CNPJ fiscal da loja deve ter 14 digitos para usar Focus NFe.",
     );
+    assert.equal(homologationProductionFlag.status, 200);
+    assert.equal(
+      homologationProductionFlag.body.data?.environment,
+      "HOMOLOGATION",
+    );
+    assert.equal(homologationProductionFlag.body.data?.allowProduction, false);
     assert.equal(production.status, 200);
     assert.equal(production.body.data?.environment, "PRODUCTION");
     assert.equal(production.body.data?.allowProduction, true);

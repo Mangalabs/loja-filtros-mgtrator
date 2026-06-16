@@ -21,6 +21,7 @@ export async function replaceFiscalSettings(input: FiscalSettingsInput) {
 
   const settings = await upsertFiscalSettings({
     ...input,
+    allowProduction: fiscalProductionAllowance(input),
     companyCnpj,
   });
 
@@ -45,6 +46,10 @@ export async function currentFiscalSettings() {
     companyCnpj: fiscalDigits(env.fiscal.focus.companyCnpj),
     allowProduction: false,
   });
+}
+
+function fiscalProductionAllowance(input: FiscalSettingsInput) {
+  return input.environment === "PRODUCTION" && input.allowProduction;
 }
 
 function ensureProductionIsExplicitlyAllowed(input: FiscalSettingsInput) {
