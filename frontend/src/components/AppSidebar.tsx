@@ -170,6 +170,13 @@ export function AppSidebar({
             Formas de pagamento
           </NavButton>
           <NavButton
+            active={view === "fiscal-settings"}
+            icon={<SlidersHorizontal size={18} />}
+            onClick={() => onSelectView("fiscal-settings")}
+          >
+            Configuracao fiscal
+          </NavButton>
+          <NavButton
             active={view === "fiscal-documents"}
             icon={<FileText size={18} />}
             onClick={() => onSelectView("fiscal-documents")}

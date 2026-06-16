@@ -9,6 +9,7 @@ export type View =
   | "stock-movements"
   | "low-stock"
   | "payment-methods"
+  | "fiscal-settings"
   | "fiscal-documents"
   | "cash-register"
   | "reports"
@@ -35,7 +36,7 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
   catalog: ["brands", "clients"],
   stock: ["stock-entries", "stock-adjustments", "stock-movements", "low-stock"],
   suppliers: ["suppliers"],
-  finance: ["payment-methods", "fiscal-documents"],
+  finance: ["payment-methods", "fiscal-settings", "fiscal-documents"],
   cash: ["cash-register"],
   reports: ["reports"],
   sales: ["quotes", "sales", "shipping-orders", "pickup-reservations"],
@@ -128,6 +129,11 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       title: "Formas de pagamento",
       description:
         "Configure as formas disponiveis para o futuro fechamento de vendas.",
+    },
+    "fiscal-settings": {
+      title: "Configuracao fiscal",
+      description:
+        "Defina provedor, ambiente e CNPJ usados na emissao de NF-e.",
     },
     "fiscal-documents": {
       title: "Notas fiscais",

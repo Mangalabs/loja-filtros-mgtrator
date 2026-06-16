@@ -4,6 +4,7 @@ import type {
   AuthUser,
   NamedEntity,
   FiscalDocument,
+  FiscalSettings,
   PaymentMethod,
   PickupReservation,
   Product,
@@ -28,6 +29,7 @@ import {
 } from "../views/catalog/CatalogPages";
 import { CashRegisterPage } from "../views/finance/CashRegisterPage";
 import { FiscalDocumentsPage } from "../views/finance/FiscalDocumentsPage";
+import { FiscalSettingsPage } from "../views/finance/FiscalSettingsPage";
 import { PaymentMethodsPage } from "../views/finance/PaymentMethodsPage";
 import type { useFinanceActions } from "../views/finance/useFinanceActions";
 import { QuotesPage } from "../views/quotes/QuotesPage";
@@ -55,6 +57,7 @@ type AppViewRendererProps = {
   financeActions: ReturnType<typeof useFinanceActions>;
   filteredProducts: Product[];
   fiscalDocuments: FiscalDocument[];
+  fiscalSettings: FiscalSettings | null;
   lowStockProducts: Product[];
   paymentMethods: PaymentMethod[];
   pickupReservations: PickupReservation[];
@@ -91,6 +94,7 @@ export function AppViewRenderer({
   financeActions,
   filteredProducts,
   fiscalDocuments,
+  fiscalSettings,
   lowStockProducts,
   paymentMethods,
   pickupReservations,
@@ -171,6 +175,12 @@ export function AppViewRenderer({
           onChangeStatus={(paymentMethod) =>
             void financeActions.changePaymentMethodStatus(paymentMethod)
           }
+        />
+      ),
+    "fiscal-settings": (
+        <FiscalSettingsPage
+          settings={fiscalSettings}
+          onSubmit={(input) => void financeActions.saveFiscalSettings(input)}
         />
       ),
     "fiscal-documents": (

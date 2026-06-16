@@ -2,7 +2,9 @@ import type { FormEvent } from "react";
 import {
   apiPatch,
   apiPost,
+  apiPut,
   type FiscalDocument,
+  type FiscalSettings,
   type PaymentMethod,
 } from "../../api";
 
@@ -80,6 +82,32 @@ export function useFinanceActions({
     });
   }
 
+  async function saveFiscalSettings(
+    input: Pick<
+      FiscalSettings,
+      "allowProduction" | "companyCnpj" | "environment" | "provider"
+    >,
+  ) {
+    const productionWarning =
+      input.environment === "PRODUCTION"
+        ? "Voce esta habilitando ambiente de producao. Use somente quando a loja estiver pronta para emitir notas com validade fiscal."
+        : "Salvar configuracao fiscal da loja?";
+    const confirmed = await requestConfirmation(
+      productionWarning,
+      "Salvar configuracao fiscal?",
+      "Salvar configuracao",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPut("/fiscal-settings", input);
+      await loadCatalog();
+    });
+  }
+
   async function syncFiscalDocument(fiscalDocument: FiscalDocument) {
     await runAction(async () => {
       await apiPatch(`/fiscal-documents/${fiscalDocument.id}/sync`, {});
@@ -120,6 +148,7 @@ export function useFinanceActions({
     changePaymentMethodStatus,
     closeCashRegister,
     openCashRegister,
+    saveFiscalSettings,
     syncFiscalDocument,
   };
 }

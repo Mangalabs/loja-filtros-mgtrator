@@ -197,6 +197,16 @@ export type FiscalDocument = {
   createdAt: string;
 };
 
+export type FiscalSettings = {
+  id: string;
+  provider: "MOCK" | "FOCUS";
+  environment: "HOMOLOGATION" | "PRODUCTION";
+  companyCnpj: string | null;
+  allowProduction: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ShippingOrder = {
   id: string;
   quoteId: string | null;
