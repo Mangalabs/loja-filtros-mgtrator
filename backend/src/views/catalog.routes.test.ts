@@ -295,6 +295,16 @@ type FiscalDocument = {
   cancellationReason: string | null;
 };
 
+type FiscalSettings = {
+  id: string;
+  provider: "MOCK" | "FOCUS";
+  environment: "HOMOLOGATION" | "PRODUCTION";
+  companyCnpj: string | null;
+  allowProduction: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 let server: Server;
 let baseUrl: string;
 let authCookie: string;
@@ -457,6 +467,63 @@ describe("catalog routes", () => {
     assert.equal(unauthenticatedCreate.status, 401);
     assert.equal(logout.status, 200);
     assert.equal(logout.cookie, "auth_token=");
+  });
+
+  it("shows and updates fiscal settings with production guard", async () => {
+    const blocked = await request("/fiscal-settings", {
+      authenticated: false,
+    });
+    const current = await request<FiscalSettings>("/fiscal-settings");
+    const updated = await request<FiscalSettings>("/fiscal-settings", {
+      method: "PUT",
+      body: {
+        provider: "FOCUS",
+        environment: "HOMOLOGATION",
+        companyCnpj: "12.345.678/0001-90",
+        allowProduction: false,
+      },
+    });
+    const listedAfterUpdate =
+      await request<FiscalSettings>("/fiscal-settings");
+    const blockedProduction = await request("/fiscal-settings", {
+      method: "PUT",
+      body: {
+        provider: "FOCUS",
+        environment: "PRODUCTION",
+        companyCnpj: "12.345.678/0001-90",
+        allowProduction: false,
+      },
+    });
+    const production = await request<FiscalSettings>("/fiscal-settings", {
+      method: "PUT",
+      body: {
+        provider: "FOCUS",
+        environment: "PRODUCTION",
+        companyCnpj: "12.345.678/0001-90",
+        allowProduction: true,
+      },
+    });
+
+    assert.equal(blocked.status, 401);
+    assert.equal(current.status, 200);
+    assert.equal(current.body.data?.provider, "MOCK");
+    assert.equal(current.body.data?.environment, "HOMOLOGATION");
+    assert.equal(current.body.data?.allowProduction, false);
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data?.provider, "FOCUS");
+    assert.equal(updated.body.data?.environment, "HOMOLOGATION");
+    assert.equal(updated.body.data?.companyCnpj, "12345678000190");
+    assert.equal(updated.body.data?.allowProduction, false);
+    assert.equal(listedAfterUpdate.body.data?.id, updated.body.data?.id);
+    assert.equal(listedAfterUpdate.body.data?.companyCnpj, "12345678000190");
+    assert.equal(blockedProduction.status, 422);
+    assert.equal(
+      blockedProduction.body.message,
+      "Ambiente de producao exige confirmacao explicita.",
+    );
+    assert.equal(production.status, 200);
+    assert.equal(production.body.data?.environment, "PRODUCTION");
+    assert.equal(production.body.data?.allowProduction, true);
   });
 
   it("opens one cash register session for the authenticated user", async () => {
