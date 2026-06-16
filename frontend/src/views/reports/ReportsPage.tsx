@@ -1,3 +1,5 @@
+import Alert from "@mui/material/Alert";
+import Skeleton from "@mui/material/Skeleton";
 import {
   AlertTriangle,
   Banknote,
@@ -7,7 +9,9 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ReportsOverview } from "../../api";
+import { PageHeader, PagePanel } from "../../components/layout";
 import { StatusChip } from "../../components/ui";
+import { frontendPalette } from "../../theme";
 import { formatCurrency, formatDateTime } from "../../utils/format";
 
 export function ReportsPage({
@@ -15,56 +19,66 @@ export function ReportsPage({
 }: {
   overview: ReportsOverview | null;
 }) {
-  if (!overview) {
-    return (
-      <div className="panel wide">
-        <h2>Resumo gerencial</h2>
-        <p className="field-help">Carregando indicadores operacionais...</p>
-      </div>
-    );
-  }
+  const contentByState = {
+    loading: <ReportsLoading />,
+    ready: overview ? <ReportsOverviewContent overview={overview} /> : null,
+  };
+  const state = overview ? "ready" : "loading";
 
+  return contentByState[state];
+}
+
+function ReportsLoading() {
   return (
-    <section className="layout-grid stock-entry-layout">
-      <div className="panel form-panel">
-        <div className="panel-header compact">
-          <div>
-            <h2>Caixa atual</h2>
-            <span>Status operacional do caixa.</span>
-          </div>
-          <Banknote size={18} />
-        </div>
+    <PagePanel wide>
+      <PageHeader
+        description="Carregando indicadores operacionais..."
+        title="Resumo gerencial"
+      />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Skeleton height={110} key={index} variant="rounded" />
+        ))}
+      </div>
+    </PagePanel>
+  );
+}
+
+function ReportsOverviewContent({ overview }: { overview: ReportsOverview }) {
+  return (
+    <section className="grid gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.4fr)]">
+      <PagePanel className="content-start">
+        <PageHeader
+          description="Status operacional do caixa."
+          icon={<Banknote size={18} />}
+          title="Caixa atual"
+        />
         {overview.openCashRegister ? (
-          <div className="cash-register-details">
-            <div>
-              <span>Status</span>
-              <strong>Aberto</strong>
-            </div>
-            <div>
-              <span>Operador</span>
-              <strong>{overview.openCashRegister.openedByUserName}</strong>
-            </div>
-            <div>
-              <span>Abertura</span>
-              <strong>
-                {formatDateTime(overview.openCashRegister.openedAt)}
-              </strong>
-            </div>
+          <div className="grid gap-3">
+            <ReportDetail label="Status" value="Aberto" />
+            <ReportDetail
+              label="Operador"
+              value={overview.openCashRegister.openedByUserName}
+            />
+            <ReportDetail
+              label="Abertura"
+              value={formatDateTime(overview.openCashRegister.openedAt)}
+            />
           </div>
         ) : (
-          <div className="alert">Nenhum caixa aberto no momento.</div>
+          <Alert severity="warning" variant="outlined">
+            Nenhum caixa aberto no momento.
+          </Alert>
         )}
-      </div>
+      </PagePanel>
 
-      <div className="panel wide">
-        <div className="panel-header compact">
-          <div>
-            <h2>Resumo gerencial</h2>
-            <span>Primeiros indicadores operacionais da filial.</span>
-          </div>
-          <StatusChip label="Atualizado" tone="success" />
-        </div>
-        <div className="reports-metrics">
+      <PagePanel wide>
+        <PageHeader
+          actions={<StatusChip label="Atualizado" tone="success" />}
+          description="Primeiros indicadores operacionais da filial."
+          title="Resumo gerencial"
+        />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <ReportMetric
             icon={<ShoppingCart size={18} />}
             label="Vendas concluidas"
@@ -91,8 +105,17 @@ export function ReportsPage({
             value={String(overview.openPickupReservationsCount)}
           />
         </div>
-      </div>
+      </PagePanel>
     </section>
+  );
+}
+
+function ReportDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4">
+      <span className="text-sm text-[#5f665f]">{label}</span>
+      <strong className="mt-1 block text-[#2c281e]">{value}</strong>
+    </div>
   );
 }
 
@@ -106,12 +129,18 @@ function ReportMetric({
   value: string;
 }) {
   return (
-    <div className="metric report-metric">
-      <span className="metric-icon">{icon}</span>
-      <span className="metric-label">
-        {label}
+    <div className="grid min-h-28 content-start gap-2 rounded-2xl border border-[#dfe5e1] bg-white p-4 shadow-sm">
+      <span
+        className="flex h-9 w-9 items-center justify-center rounded-full"
+        style={{
+          backgroundColor: "rgba(32, 52, 102, 0.08)",
+          color: frontendPalette.primaryNavy,
+        }}
+      >
+        {icon}
       </span>
-      <strong>{value}</strong>
+      <span className="text-sm text-[#5f665f]">{label}</span>
+      <strong className="text-2xl text-[#2c281e]">{value}</strong>
     </div>
   );
 }

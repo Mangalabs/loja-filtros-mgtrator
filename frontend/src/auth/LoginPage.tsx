@@ -1,3 +1,4 @@
+import TextField from "@mui/material/TextField";
 import { Filter, ShieldCheck } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { AppMessage } from "../components/shell";
@@ -49,17 +50,21 @@ export function LoginPage({
   }
 
   return (
-    <main className="login-shell">
-      <section className="login-panel">
-        <div className="login-brand">
+    <main className="flex min-h-screen items-center justify-center bg-[#f7f7f4] px-4 py-8">
+      <section className="w-full max-w-[420px] rounded-xl border border-[#dfe5e1] bg-white p-7">
+        <div className="mb-7 flex items-center gap-3 text-[#203466]">
           <Filter size={32} />
           <div>
-            <strong>Filtros MG</strong>
-            <span>Operacao da filial</span>
+            <strong className="block">Filtros MG</strong>
+            <span className="block text-sm text-[#5f665f]">
+              Operacao da filial
+            </span>
           </div>
         </div>
-        <h1>{requiresSetup ? "Primeiro acesso" : "Entrar"}</h1>
-        <p>
+        <h1 className="m-0 mb-2 text-2xl font-bold text-[#2c281e]">
+          {requiresSetup ? "Primeiro acesso" : "Entrar"}
+        </h1>
+        <p className="m-0 mb-5 text-sm text-[#5f665f]">
           {requiresSetup
             ? "Crie o administrador inicial para proteger a operacao."
             : "Informe seus dados para acessar o sistema."}
@@ -71,19 +76,19 @@ export function LoginPage({
             onClose={() => setMessage("")}
           />
         ) : null}
-        <form className="login-form" onSubmit={submit}>
+        <form className="mt-5 grid gap-3" onSubmit={submit}>
           {requiresSetup ? (
-            <input name="name" placeholder="Nome do administrador" required />
+            <TextField name="name" label="Nome do administrador" required />
           ) : null}
           {requiresSetup ? (
-            <input name="phone" placeholder="Telefone/WhatsApp comercial" />
+            <TextField name="phone" label="Telefone/WhatsApp comercial" />
           ) : null}
-          <input name="email" type="email" placeholder="Email" required />
-          <input
+          <TextField name="email" type="email" label="Email" required />
+          <TextField
             name="password"
             type="password"
-            minLength={12}
-            placeholder="Senha"
+            label="Senha"
+            slotProps={{ htmlInput: { minLength: 12 } }}
             required
           />
           <PrimaryButton
@@ -99,7 +104,9 @@ export function LoginPage({
           </PrimaryButton>
         </form>
         {requiresSetup ? (
-          <small>A senha deve conter pelo menos 12 caracteres.</small>
+          <small className="mt-3 block text-xs text-[#5f665f]">
+            A senha deve conter pelo menos 12 caracteres.
+          </small>
         ) : null}
       </section>
     </main>

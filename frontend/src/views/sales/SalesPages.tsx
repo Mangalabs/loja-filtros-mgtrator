@@ -1,3 +1,4 @@
+import Alert from '@mui/material/Alert'
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import { PackagePlus, Plus, Send, ShoppingCart } from 'lucide-react'
@@ -11,6 +12,18 @@ import type {
   Sale,
   ShippingOrder,
 } from '../../api'
+import { ProductSearchField } from '../../components/ProductSearchField'
+import {
+  ActionGroup,
+  ActionStack,
+  FormCard,
+  FormGrid,
+  FormRow,
+  InlineNote,
+  PageHeader,
+  PagePanel,
+  ResponsiveTable,
+} from '../../components/layout'
 import {
   PrimaryButton,
   SecondaryButton,
@@ -18,12 +31,12 @@ import {
   TableActionButton,
   type StatusTone,
 } from '../../components/ui'
+import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import {
   formatCurrency,
   formatDateTime,
   formatQuantity,
 } from '../../utils/format'
-import { productDisplayName } from '../../utils/productDisplay'
 
 type SaleDraftItem = {
   productId: string
@@ -70,6 +83,7 @@ export function SalesPage({
   const [clientId, setClientId] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('')
   const [items, setItems] = useState<SaleDraftItem[]>([emptySaleItem()])
+  const { pagination, visibleItems } = usePaginatedRows<Sale>(sales)
   const availableProducts = products.filter(
     (product) => product.active && Number(product.availableStock) > 0,
   )
@@ -116,23 +130,23 @@ export function SalesPage({
   }
 
   return (
-    <section className='layout-grid stock-entry-layout'>
-      <form className='panel form-panel' onSubmit={submit}>
-        <div className='panel-header compact'>
-          <div>
-            <h2>Nova venda</h2>
-            <span>Monte uma venda de balcão com um ou mais itens.</span>
-          </div>
-          <ShoppingCart size={18} />
-        </div>
+    <section className='grid items-start gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]'>
+      <FormGrid className='gap-5 sm:gap-6' onSubmit={submit}>
+        <PageHeader
+          description='Monte uma venda de balcao com um ou mais itens.'
+          icon={<ShoppingCart size={18} />}
+          title='Nova venda'
+        />
         {!cashRegister ? (
-          <div className='alert'>Abra o caixa antes de registrar vendas.</div>
+          <Alert severity='warning' variant='outlined'>
+            Abra o caixa antes de registrar vendas.
+          </Alert>
         ) : null}
 
-        <div className='quote-items'>
+        <div className='grid gap-4'>
           {items.map((item, index) => (
-            <div className='quote-item-row' key={index}>
-              <div className='panel-header compact'>
+            <FormCard key={index}>
+              <div className='flex items-center justify-between gap-3'>
                 <strong>Item {index + 1}</strong>
                 {items.length > 1 ? (
                   <TableActionButton
@@ -142,32 +156,21 @@ export function SalesPage({
                   </TableActionButton>
                 ) : null}
               </div>
-              <TextField
+              <ProductSearchField
+                disabled={!cashRegister}
                 label='Produto'
-                select
-                size='small'
-                value={item.productId}
-                onChange={(event) =>
-                  updateItem(index, { productId: event.target.value })
-                }
+                name={`saleItems.${index}.productId`}
+                products={availableProducts}
                 required
-                disabled={!cashRegister}>
-                <MenuItem value='' disabled>
-                  Produto
-                </MenuItem>
-                {availableProducts.map((product) => (
-                  <MenuItem key={product.id} value={product.id}>
-                    {productDisplayName(product)} -{' '}
-                    {formatCurrency(product.salePrice)} - disponivel{' '}
-                    {formatQuantity(product.availableStock)}
-                  </MenuItem>
-                ))}
-              </TextField>
+                stockLabel='available'
+                value={item.productId}
+                onChange={(productId) => updateItem(index, { productId })}
+              />
               <TextField
                 label='Quantidade'
                 value={item.quantity}
                 type='number'
-                size='small'
+                size='medium'
                 required
                 disabled={!cashRegister}
                 onChange={(event) =>
@@ -175,25 +178,27 @@ export function SalesPage({
                 }
                 slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
               />
-            </div>
+            </FormCard>
           ))}
         </div>
 
-        <SecondaryButton
-          type='button'
-          onClick={() =>
-            setItems((currentItems) => [...currentItems, emptySaleItem()])
-          }
-          disabled={!cashRegister}>
-          Adicionar item
-        </SecondaryButton>
+        <ActionGroup>
+          <SecondaryButton
+            type='button'
+            onClick={() =>
+              setItems((currentItems) => [...currentItems, emptySaleItem()])
+            }
+            disabled={!cashRegister}>
+            Adicionar item
+          </SecondaryButton>
+        </ActionGroup>
 
-        <div className='two-columns'>
+        <FormRow>
           <TextField
             label='Pagamento'
             select
-            size='small'
-            value={paymentMethodId}
+            size='medium'
+            value={paymentMethodId || ''}
             onChange={(event) => setPaymentMethodId(event.target.value)}
             required
             disabled={!cashRegister}>
@@ -211,15 +216,15 @@ export function SalesPage({
           <TextField
             disabled
             label='Total estimado'
-            size='small'
+            size='medium'
             value={formatCurrency(saleTotal)}
           />
-        </div>
+        </FormRow>
         <TextField
           label='Cliente'
           select
-          size='small'
-          value={clientId}
+          size='medium'
+          value={clientId || ''}
           onChange={(event) => setClientId(event.target.value)}
           disabled={!cashRegister}>
           <MenuItem value=''>Cliente nao identificado</MenuItem>
@@ -231,69 +236,58 @@ export function SalesPage({
               </MenuItem>
             ))}
         </TextField>
-        <PrimaryButton
-          icon={<Plus size={17} />}
-          type='submit'
-          disabled={!cashRegister}>
-          Concluir venda
-        </PrimaryButton>
-      </form>
+        <ActionGroup>
+          <PrimaryButton
+            icon={<Plus size={17} />}
+            type='submit'
+            disabled={!cashRegister}>
+            Concluir venda
+          </PrimaryButton>
+        </ActionGroup>
+      </FormGrid>
 
-      <div className='panel wide'>
-        <div className='panel-header compact'>
-          <h2>Vendas registradas</h2>
-          <span>{sales.length} registros</span>
-        </div>
-        <div className='table-shell'>
-          <table className='responsive-card-table'>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Produto</th>
-                <th>Qtd.</th>
-                <th>Total</th>
-                <th>Pagamento</th>
-                <th>Cliente</th>
-                <th>Operador</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sales.map((sale) => (
-                <tr key={sale.id}>
-                  <td data-label='Data'>{formatDateTime(sale.createdAt)}</td>
-                  <td data-label='Produto'>
-                    {sale.items.length} item(ns)
-                    <span className='table-note'>
-                      {sale.items.map((item) => item.productName).join(', ')}
-                    </span>
-                  </td>
-                  <td data-label='Qtd.'>
-                    {formatQuantity(
-                      String(
-                        sale.items.reduce(
-                          (sum, item) => sum + Number(item.quantity),
-                          0,
-                        ),
-                      ),
-                    )}
-                  </td>
-                  <td data-label='Total'>{formatCurrency(sale.totalAmount)}</td>
-                  <td data-label='Pagamento'>{sale.paymentMethodName}</td>
-                  <td data-label='Cliente'>
-                    {sale.clientName ?? 'Nao identificado'}
-                  </td>
-                  <td data-label='Operador'>{sale.createdByUserName}</td>
-                </tr>
-              ))}
-              {sales.length === 0 ? (
-                <tr>
-                  <td colSpan={7}>Nenhuma venda registrada.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <PagePanel wide>
+        <PageHeader
+          description={`${sales.length} registros`}
+          title='Vendas registradas'
+        />
+        <ResponsiveTable
+          columns={[
+            {
+              header: 'Data',
+              render: (sale) => formatDateTime(sale.createdAt),
+            },
+            {
+              header: 'Produto',
+              render: (sale) => <SaleItemsSummary sale={sale} />,
+            },
+            {
+              header: 'Qtd.',
+              render: (sale) => formatQuantity(totalSaleQuantity(sale)),
+            },
+            {
+              header: 'Total',
+              render: (sale) => formatCurrency(sale.totalAmount),
+            },
+            {
+              header: 'Pagamento',
+              render: (sale) => sale.paymentMethodName,
+            },
+            {
+              header: 'Cliente',
+              render: (sale) => sale.clientName ?? 'Nao identificado',
+            },
+            {
+              header: 'Operador',
+              render: (sale) => sale.createdByUserName,
+            },
+          ]}
+          emptyMessage='Nenhuma venda registrada.'
+          getRowId={(sale) => sale.id}
+          items={visibleItems}
+          pagination={pagination}
+        />
+      </PagePanel>
     </section>
   )
 }
@@ -331,123 +325,89 @@ export function ShippingOrdersPage({
   onComplete: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
   onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
 }) {
+  const { pagination, visibleItems } =
+    usePaginatedRows<ShippingOrder>(orders)
+
   return (
-    <section className='layout-grid stock-entry-layout'>
-      <div className='panel form-panel'>
-        <div className='panel-header compact'>
-          <div>
-            <h2>Registrar orcamento</h2>
-            <span>
-              Crie o orcamento e envie para este fluxo quando o cliente aprovar.
-            </span>
-          </div>
-          <Send size={18} />
-        </div>
-        <p className='field-help'>
+    <section className='grid items-start gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]'>
+      <PagePanel>
+        <PageHeader
+          description='Crie o orcamento e envie para este fluxo quando o cliente aprovar.'
+          icon={<Send size={18} />}
+          title='Registrar orcamento'
+        />
+        <InlineNote>
           Pedidos para envio nascem de orcamentos salvos. Depois disso, aprove,
           reserve, separe e conclua a venda quando o pedido sair.
-        </p>
+        </InlineNote>
         <PrimaryButton
           icon={<Plus size={17} />}
           type='button'
           onClick={onOpenQuotes}>
           Registrar orcamento
         </PrimaryButton>
-      </div>
+      </PagePanel>
 
-      <div className='panel wide'>
-        <div className='panel-header compact'>
-          <div>
-            <h2>Pedidos para envio</h2>
-            <span>
-              Reserve, separe e conclua a venda quando o pedido sair para envio.
+      <PagePanel wide>
+        <PageHeader
+          actions={
+            <span className='text-sm text-[#5f665f]'>
+              {orders.length} registros
             </span>
-          </div>
-          <span>{orders.length} registros</span>
-        </div>
-        <div className='table-shell'>
-          <table className='responsive-card-table'>
-            <thead>
-              <tr>
-                <th>Pedido</th>
-                <th>Cliente e itens</th>
-                <th>Resumo</th>
-                <th>Status</th>
-                <th>Acoes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order.id}>
-                  <td data-label='Pedido'>
-                    {formatDateTime(order.createdAt)}
-                    <span className='table-note'>
-                      Operador: {order.createdByUserName}
-                    </span>
-                  </td>
-                  <td data-label='Cliente e itens'>
-                    <strong>{order.clientName}</strong>
-                    {order.quoteId ? (
-                      <span className='table-note'>Origem: orcamento</span>
-                    ) : null}
-                    <span className='table-note'>
-                      {order.items
-                        .map((item) => item.description ?? item.productName)
-                        .join(', ')}
-                    </span>
-                  </td>
-                  <td data-label='Resumo'>
-                    <strong>{formatCurrency(order.totalAmount)}</strong>
-                    <span className='table-note'>
-                      Qtd.{' '}
-                      {formatQuantity(
-                        String(
-                          order.items.reduce(
-                            (sum, item) => sum + Number(item.quantity),
-                            0,
-                          ),
-                        ),
-                      )}
-                    </span>
-                  </td>
-                  <td data-label='Status'>
-                    <StatusChip
-                      label={shippingOrderStatusLabel(order.status)}
-                      tone={shippingOrderStatusTone(order.status)}
-                    />
-                    {shippingOrderAuditNotes(order).map((note) => (
-                      <div className='table-note' key={note}>
-                        {note}
-                      </div>
-                    ))}
-                    {order.cancellationReason ? (
-                      <div className='table-note'>
-                        {order.cancellationReason}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td data-label='Acoes'>
-                    {shippingOrderActionRenderers[order.status]({
-                      cashRegister,
-                      order,
-                      paymentMethods,
-                      onApprove,
-                      onCancel,
-                      onComplete,
-                      onSeparate,
-                    })}
-                  </td>
-                </tr>
-              ))}
-              {orders.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>Nenhum orcamento para envio registrado.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          }
+          description='Reserve, separe e conclua a venda quando o pedido sair para envio.'
+          title='Pedidos para envio'
+        />
+        <ResponsiveTable
+          columns={[
+            {
+              header: 'Pedido',
+              render: (order) => (
+                <>
+                  {formatDateTime(order.createdAt)}
+                  <InlineNote>Operador: {order.createdByUserName}</InlineNote>
+                </>
+              ),
+            },
+            {
+              header: 'Cliente e itens',
+              render: (order) => <ShippingOrderItemsSummary order={order} />,
+            },
+            {
+              header: 'Resumo',
+              render: (order) => (
+                <>
+                  <strong>{formatCurrency(order.totalAmount)}</strong>
+                  <InlineNote>
+                    Qtd. {formatQuantity(totalShippingOrderQuantity(order))}
+                  </InlineNote>
+                </>
+              ),
+            },
+            {
+              header: 'Status',
+              render: (order) => <ShippingOrderStatusSummary order={order} />,
+            },
+            {
+              header: 'Acoes',
+              render: (order) =>
+                shippingOrderActionRenderers[order.status]({
+                  cashRegister,
+                  order,
+                  paymentMethods,
+                  onApprove,
+                  onCancel,
+                  onComplete,
+                  onSeparate,
+                }),
+            },
+          ]}
+          emptyMessage='Nenhum orcamento para envio registrado.'
+          getRowId={(order) => order.id}
+          items={visibleItems}
+          pagination={pagination}
+        />
+      </PagePanel>
     </section>
   )
 }
@@ -467,22 +427,26 @@ const shippingOrderActionRenderers: Record<
   (props: ShippingOrderActionRendererProps) => ReactNode
 > = {
   APPROVED: ({ order, onCancel, onSeparate }) => (
-    <div className='shipping-order-actions'>
-      <TableActionButton type='button' onClick={() => onSeparate(order)}>
-        Confirmar separacao
-      </TableActionButton>
+    <ActionStack>
+      <ActionGroup>
+        <TableActionButton type='button' onClick={() => onSeparate(order)}>
+          Confirmar separacao
+        </TableActionButton>
+      </ActionGroup>
       <ShippingOrderCancelForm order={order} onCancel={onCancel} />
-    </div>
+    </ActionStack>
   ),
   CANCELLED: () => '-',
   COMPLETED: () => 'Venda concluida',
   QUOTED: ({ order, onApprove, onCancel }) => (
-    <div className='shipping-order-actions'>
-      <TableActionButton type='button' onClick={() => onApprove(order)}>
-        Aprovar e reservar
-      </TableActionButton>
+    <ActionStack>
+      <ActionGroup>
+        <TableActionButton type='button' onClick={() => onApprove(order)}>
+          Aprovar e reservar
+        </TableActionButton>
+      </ActionGroup>
       <ShippingOrderCancelForm order={order} onCancel={onCancel} />
-    </div>
+    </ActionStack>
   ),
   SEPARATED: ({
     cashRegister,
@@ -491,12 +455,12 @@ const shippingOrderActionRenderers: Record<
     onCancel,
     onComplete,
   }) => (
-    <div className='shipping-order-actions'>
+    <ActionStack>
       <form
-        className='cancel-order-form'
+        className='grid gap-2'
         onSubmit={(event) => onComplete(event, order)}>
         {!cashRegister ? (
-          <span className='table-note'>Abra o caixa para concluir.</span>
+          <InlineNote>Abra o caixa para concluir.</InlineNote>
         ) : null}
         <TextField
           label='Pagamento'
@@ -517,12 +481,14 @@ const shippingOrderActionRenderers: Record<
               </MenuItem>
             ))}
         </TextField>
-        <TableActionButton type='submit' disabled={!cashRegister}>
-          Concluir venda e saida
-        </TableActionButton>
+        <ActionGroup>
+          <TableActionButton type='submit' disabled={!cashRegister}>
+            Concluir venda e saida
+          </TableActionButton>
+        </ActionGroup>
       </form>
       <ShippingOrderCancelForm order={order} onCancel={onCancel} />
-    </div>
+    </ActionStack>
   ),
 }
 
@@ -535,7 +501,7 @@ function ShippingOrderCancelForm({
 }) {
   return (
     <form
-      className='cancel-order-form'
+      className='grid gap-2'
       onSubmit={(event) => onCancel(event, order)}>
       <TextField
         label='Motivo do cancelamento'
@@ -544,7 +510,9 @@ function ShippingOrderCancelForm({
         slotProps={{ htmlInput: { maxLength: 500 } }}
         required
       />
-      <TableActionButton type='submit'>Cancelar</TableActionButton>
+      <ActionGroup>
+        <TableActionButton type='submit'>Cancelar</TableActionButton>
+      </ActionGroup>
     </form>
   )
 }
@@ -578,6 +546,8 @@ export function PickupReservationsPage({
   const [items, setItems] = useState<PickupReservationDraftItem[]>([
     emptyPickupReservationItem(),
   ])
+  const { pagination, visibleItems } =
+    usePaginatedRows<PickupReservation>(reservations)
   const availableProducts = products.filter(
     (product) => product.active && Number(product.availableStock) > 0,
   )
@@ -625,24 +595,22 @@ export function PickupReservationsPage({
   }
 
   return (
-    <section className='layout-grid stock-entry-layout'>
-      <form className='panel form-panel' onSubmit={submit}>
-        <div className='panel-header compact'>
-          <div>
-            <h2>Nova reserva</h2>
-            <span>Reserve uma ou mais pecas para retirada na loja.</span>
-          </div>
-          <PackagePlus size={18} />
-        </div>
-        <p className='field-help'>
+    <section className='grid items-start gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]'>
+      <FormGrid className='gap-5 sm:gap-6' onSubmit={submit}>
+        <PageHeader
+          description='Reserve uma ou mais pecas para retirada na loja.'
+          icon={<PackagePlus size={18} />}
+          title='Nova reserva'
+        />
+        <InlineNote>
           A reserva prende o saldo disponivel imediatamente. A baixa acontece
           somente ao concluir a venda.
-        </p>
+        </InlineNote>
         <TextField
           label='Cliente'
           select
-          size='small'
-          value={clientId}
+          size='medium'
+          value={clientId || ''}
           onChange={(event) => setClientId(event.target.value)}
           required>
           <MenuItem value='' disabled>
@@ -658,10 +626,10 @@ export function PickupReservationsPage({
             ))}
         </TextField>
 
-        <div className='quote-items'>
+        <div className='grid gap-4'>
           {items.map((item, index) => (
-            <div className='quote-item-row' key={index}>
-              <div className='panel-header compact'>
+            <FormCard key={index}>
+              <div className='flex items-center justify-between gap-3'>
                 <strong>Item {index + 1}</strong>
                 {items.length > 1 ? (
                   <TableActionButton
@@ -671,203 +639,293 @@ export function PickupReservationsPage({
                   </TableActionButton>
                 ) : null}
               </div>
-              <TextField
+              <ProductSearchField
                 label='Produto'
-                select
-                size='small'
+                name={`pickupItems.${index}.productId`}
+                products={availableProducts}
+                required
+                stockLabel='available'
                 value={item.productId}
-                onChange={(event) =>
-                  updateItem(index, { productId: event.target.value })
-                }
-                required>
-                <MenuItem value='' disabled>
-                  Produto
-                </MenuItem>
-                {availableProducts.map((product) => (
-                  <MenuItem key={product.id} value={product.id}>
-                    {productDisplayName(product)} -{' '}
-                    {formatCurrency(product.salePrice)} - disponivel{' '}
-                    {formatQuantity(product.availableStock)}
-                  </MenuItem>
-                ))}
-              </TextField>
+                onChange={(productId) => updateItem(index, { productId })}
+              />
               <TextField
                 label='Quantidade'
                 value={item.quantity}
                 type='number'
-                size='small'
+                size='medium'
                 required
                 onChange={(event) =>
                   updateItem(index, { quantity: event.target.value })
                 }
                 slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
               />
-            </div>
+            </FormCard>
           ))}
         </div>
 
-        <SecondaryButton
-          type='button'
-          onClick={() =>
-            setItems((currentItems) => [
-              ...currentItems,
-              emptyPickupReservationItem(),
-            ])
-          }>
-          Adicionar item
-        </SecondaryButton>
+        <ActionGroup>
+          <SecondaryButton
+            type='button'
+            onClick={() =>
+              setItems((currentItems) => [
+                ...currentItems,
+                emptyPickupReservationItem(),
+              ])
+            }>
+            Adicionar item
+          </SecondaryButton>
+        </ActionGroup>
         <TextField
           disabled
           label='Total estimado'
-          size='small'
+          size='medium'
           value={formatCurrency(reservationTotal)}
         />
-        <PrimaryButton icon={<Plus size={17} />} type='submit'>
-          Registrar reserva
-        </PrimaryButton>
-      </form>
+        <ActionGroup>
+          <PrimaryButton icon={<Plus size={17} />} type='submit'>
+            Registrar reserva
+          </PrimaryButton>
+        </ActionGroup>
+      </FormGrid>
 
-      <div className='panel wide'>
-        <div className='panel-header compact'>
-          <div>
-            <h2>Reservas para retirada</h2>
-            <span>
-              Conclua a venda quando o cliente retirar ou cancele para liberar o
-              estoque.
+      <PagePanel wide>
+        <PageHeader
+          actions={
+            <span className='text-sm text-[#5f665f]'>
+              {reservations.length} registros
             </span>
-          </div>
-          <span>{reservations.length} registros</span>
-        </div>
-        <div className='table-shell'>
-          <table className='responsive-card-table'>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Cliente</th>
-                <th>Produto</th>
-                <th>Qtd.</th>
-                <th>Total</th>
-                <th>Operador</th>
-                <th>Status</th>
-                <th>Acoes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reservations.map((reservation) => (
-                <tr key={reservation.id}>
-                  <td data-label='Data'>
-                    {formatDateTime(reservation.createdAt)}
-                  </td>
-                  <td data-label='Cliente'>{reservation.clientName}</td>
-                  <td data-label='Produto'>
-                    {reservation.items.length} item(ns)
-                    <span className='table-note'>
-                      {reservation.items
-                        .map((item) => item.productName)
-                        .join(', ')}
-                    </span>
-                  </td>
-                  <td data-label='Qtd.'>
-                    {formatQuantity(
-                      String(
-                        reservation.items.reduce(
-                          (sum, item) => sum + Number(item.quantity),
-                          0,
-                        ),
-                      ),
-                    )}
-                  </td>
-                  <td data-label='Total'>
-                    {formatCurrency(reservation.totalAmount)}
-                  </td>
-                  <td data-label='Operador'>
-                    {reservation.createdByUserName}
-                  </td>
-                  <td data-label='Status'>
-                    <StatusChip
-                      label={pickupReservationStatusLabel(reservation.status)}
-                      tone={pickupReservationStatusTone(reservation.status)}
-                    />
-                    {pickupReservationAuditNotes(reservation).map((note) => (
-                      <div className='table-note' key={note}>
-                        {note}
-                      </div>
-                    ))}
-                    {reservation.cancellationReason ? (
-                      <div className='table-note'>
-                        {reservation.cancellationReason}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td data-label='Acoes'>
-                    {reservation.status === 'RESERVED' ? (
-                      <div className='shipping-order-actions'>
-                        <form
-                          className='cancel-order-form'
-                          onSubmit={(event) => onComplete(event, reservation)}>
-                          {!cashRegister ? (
-                            <span className='table-note'>
-                              Abra o caixa para concluir.
-                            </span>
-                          ) : null}
-                          <TextField
-                            label='Pagamento'
-                            name='pickupPaymentMethodId'
-                            defaultValue=''
-                            select
-                            size='small'
-                            required
-                            disabled={!cashRegister}>
-                            <MenuItem value='' disabled>
-                              Pagamento
-                            </MenuItem>
-                            {paymentMethods
-                              .filter((method) => method.active)
-                              .map((method) => (
-                                <MenuItem key={method.id} value={method.id}>
-                                  {method.name}
-                                </MenuItem>
-                              ))}
-                          </TextField>
-                          <TableActionButton
-                            type='submit'
-                            disabled={!cashRegister}>
-                            Concluir venda
-                          </TableActionButton>
-                        </form>
-                        <form
-                          className='cancel-order-form'
-                          onSubmit={(event) => onCancel(event, reservation)}>
-                          <TextField
-                            label='Motivo do cancelamento'
-                            name='pickupCancellationReason'
-                            size='small'
-                            slotProps={{ htmlInput: { maxLength: 500 } }}
-                            required
-                          />
-                          <TableActionButton type='submit'>
-                            Cancelar
-                          </TableActionButton>
-                        </form>
-                      </div>
-                    ) : reservation.status === 'COMPLETED' ? (
-                      'Venda concluida'
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {reservations.length === 0 ? (
-                <tr>
-                  <td colSpan={8}>Nenhuma reserva para retirada registrada.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          }
+          description='Conclua a venda quando o cliente retirar ou cancele para liberar o estoque.'
+          title='Reservas para retirada'
+        />
+        <ResponsiveTable
+          columns={[
+            {
+              header: 'Data',
+              render: (reservation) => formatDateTime(reservation.createdAt),
+            },
+            {
+              header: 'Cliente',
+              render: (reservation) => reservation.clientName,
+            },
+            {
+              header: 'Produto',
+              render: (reservation) => (
+                <PickupReservationItemsSummary reservation={reservation} />
+              ),
+            },
+            {
+              header: 'Qtd.',
+              render: (reservation) =>
+                formatQuantity(totalPickupReservationQuantity(reservation)),
+            },
+            {
+              header: 'Total',
+              render: (reservation) =>
+                formatCurrency(reservation.totalAmount),
+            },
+            {
+              header: 'Operador',
+              render: (reservation) => reservation.createdByUserName,
+            },
+            {
+              header: 'Status',
+              render: (reservation) => (
+                <PickupReservationStatusSummary reservation={reservation} />
+              ),
+            },
+            {
+              header: 'Acoes',
+              render: (reservation) => (
+                <PickupReservationActions
+                  cashRegister={cashRegister}
+                  paymentMethods={paymentMethods}
+                  reservation={reservation}
+                  onCancel={onCancel}
+                  onComplete={onComplete}
+                />
+              ),
+            },
+          ]}
+          emptyMessage='Nenhuma reserva para retirada registrada.'
+          getRowId={(reservation) => reservation.id}
+          items={visibleItems}
+          pagination={pagination}
+        />
+      </PagePanel>
     </section>
+  )
+}
+
+function SaleItemsSummary({ sale }: { sale: Sale }) {
+  return (
+    <>
+      {sale.items.length} item(ns)
+      <InlineNote>{sale.items.map((item) => item.productName).join(', ')}</InlineNote>
+    </>
+  )
+}
+
+function ShippingOrderItemsSummary({ order }: { order: ShippingOrder }) {
+  return (
+    <ActionStack>
+      <strong>{order.clientName}</strong>
+      {order.quoteId ? <InlineNote>Origem: orcamento</InlineNote> : null}
+      <InlineNote>
+        {order.items
+          .map((item) => item.description ?? item.productName)
+          .join(', ')}
+      </InlineNote>
+    </ActionStack>
+  )
+}
+
+function ShippingOrderStatusSummary({ order }: { order: ShippingOrder }) {
+  return (
+    <ActionStack>
+      <StatusChip
+        label={shippingOrderStatusLabel(order.status)}
+        tone={shippingOrderStatusTone(order.status)}
+      />
+      {shippingOrderAuditNotes(order).map((note) => (
+        <InlineNote key={note}>{note}</InlineNote>
+      ))}
+      {order.cancellationReason ? (
+        <InlineNote>{order.cancellationReason}</InlineNote>
+      ) : null}
+    </ActionStack>
+  )
+}
+
+function PickupReservationItemsSummary({
+  reservation,
+}: {
+  reservation: PickupReservation
+}) {
+  return (
+    <>
+      {reservation.items.length} item(ns)
+      <InlineNote>
+        {reservation.items.map((item) => item.productName).join(', ')}
+      </InlineNote>
+    </>
+  )
+}
+
+function PickupReservationStatusSummary({
+  reservation,
+}: {
+  reservation: PickupReservation
+}) {
+  return (
+    <ActionStack>
+      <StatusChip
+        label={pickupReservationStatusLabel(reservation.status)}
+        tone={pickupReservationStatusTone(reservation.status)}
+      />
+      {pickupReservationAuditNotes(reservation).map((note) => (
+        <InlineNote key={note}>{note}</InlineNote>
+      ))}
+      {reservation.cancellationReason ? (
+        <InlineNote>{reservation.cancellationReason}</InlineNote>
+      ) : null}
+    </ActionStack>
+  )
+}
+
+function PickupReservationActions({
+  cashRegister,
+  paymentMethods,
+  reservation,
+  onComplete,
+  onCancel,
+}: {
+  cashRegister: CashRegisterSession | null
+  paymentMethods: PaymentMethod[]
+  reservation: PickupReservation
+  onComplete: (
+    event: FormEvent<HTMLFormElement>,
+    reservation: PickupReservation,
+  ) => void
+  onCancel: (
+    event: FormEvent<HTMLFormElement>,
+    reservation: PickupReservation,
+  ) => void
+}) {
+  if (reservation.status === 'COMPLETED') {
+    return 'Venda concluida'
+  }
+
+  if (reservation.status !== 'RESERVED') {
+    return '-'
+  }
+
+  return (
+    <ActionStack>
+      <form
+        className='grid gap-2'
+        onSubmit={(event) => onComplete(event, reservation)}>
+        {!cashRegister ? (
+          <InlineNote>Abra o caixa para concluir.</InlineNote>
+        ) : null}
+        <TextField
+          label='Pagamento'
+          name='pickupPaymentMethodId'
+          defaultValue=''
+          select
+          size='small'
+          required
+          disabled={!cashRegister}>
+          <MenuItem value='' disabled>
+            Pagamento
+          </MenuItem>
+          {paymentMethods
+            .filter((method) => method.active)
+            .map((method) => (
+              <MenuItem key={method.id} value={method.id}>
+                {method.name}
+              </MenuItem>
+            ))}
+        </TextField>
+        <ActionGroup>
+          <TableActionButton type='submit' disabled={!cashRegister}>
+            Concluir venda
+          </TableActionButton>
+        </ActionGroup>
+      </form>
+      <form
+        className='grid gap-2'
+        onSubmit={(event) => onCancel(event, reservation)}>
+        <TextField
+          label='Motivo do cancelamento'
+          name='pickupCancellationReason'
+          size='small'
+          slotProps={{ htmlInput: { maxLength: 500 } }}
+          required
+        />
+        <ActionGroup>
+          <TableActionButton type='submit'>Cancelar</TableActionButton>
+        </ActionGroup>
+      </form>
+    </ActionStack>
+  )
+}
+
+function totalSaleQuantity(sale: Sale) {
+  return String(
+    sale.items.reduce((sum, item) => sum + Number(item.quantity), 0),
+  )
+}
+
+function totalShippingOrderQuantity(order: ShippingOrder) {
+  return String(
+    order.items.reduce((sum, item) => sum + Number(item.quantity), 0),
+  )
+}
+
+function totalPickupReservationQuantity(reservation: PickupReservation) {
+  return String(
+    reservation.items.reduce((sum, item) => sum + Number(item.quantity), 0),
   )
 }
 

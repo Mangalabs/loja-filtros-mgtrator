@@ -58,7 +58,11 @@ const authStateRenderers: Record<
   authenticated: ({ onLogout, user }) => (
     <AuthenticatedApp user={user!} onLogout={onLogout} />
   ),
-  loading: () => <div className="auth-loading">Validando sessao...</div>,
+  loading: () => (
+    <div className="flex min-h-screen items-center justify-center text-[#5f665f]">
+      Validando sessao...
+    </div>
+  ),
 };
 
 export function AuthGate(props: AuthGateProps) {

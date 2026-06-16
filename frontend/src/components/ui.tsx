@@ -1,6 +1,7 @@
 import Button, { type ButtonProps } from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import type { ReactNode } from 'react'
+import { frontendPalette } from '../theme'
 
 export type StatusTone = 'success' | 'neutral' | 'warning' | 'error'
 
@@ -39,7 +40,20 @@ type AppButtonProps = Omit<
 
 export function PrimaryButton({ children, icon, ...props }: AppButtonProps) {
   return (
-    <Button color='success' variant='contained' startIcon={icon} {...props}>
+    <Button
+      color='primary'
+      variant='contained'
+      startIcon={icon}
+      sx={{
+        bgcolor: frontendPalette.primaryNavy,
+        borderRadius: 2,
+        minHeight: 42,
+        px: 2.25,
+        '&:hover': {
+          bgcolor: '#17264d',
+        },
+      }}
+      {...props}>
       {children}
     </Button>
   )
@@ -47,7 +61,22 @@ export function PrimaryButton({ children, icon, ...props }: AppButtonProps) {
 
 export function SecondaryButton({ children, icon, ...props }: AppButtonProps) {
   return (
-    <Button color='inherit' variant='outlined' startIcon={icon} {...props}>
+    <Button
+      color='inherit'
+      variant='outlined'
+      startIcon={icon}
+      sx={{
+        borderColor: '#cfd8d5',
+        borderRadius: 2,
+        color: frontendPalette.darkBase,
+        minHeight: 42,
+        px: 2.25,
+        '&:hover': {
+          bgcolor: '#f3f5f4',
+          borderColor: frontendPalette.mutedGreenGray,
+        },
+      }}
+      {...props}>
       {children}
     </Button>
   )

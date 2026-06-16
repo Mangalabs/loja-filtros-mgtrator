@@ -16,6 +16,7 @@ import type {
   StockMovement,
   Supplier,
 } from "../api";
+import type { ReactNode } from "react";
 import type { LoadState, View } from "../navigation";
 import type { useCatalogActions } from "../views/catalog/useCatalogActions";
 import {
@@ -25,11 +26,9 @@ import {
   ProductsPage,
   SuppliersPage,
 } from "../views/catalog/CatalogPages";
-import {
-  CashRegisterPage,
-  FiscalDocumentsPage,
-  PaymentMethodsPage,
-} from "../views/finance/FinancePages";
+import { CashRegisterPage } from "../views/finance/CashRegisterPage";
+import { FiscalDocumentsPage } from "../views/finance/FiscalDocumentsPage";
+import { PaymentMethodsPage } from "../views/finance/PaymentMethodsPage";
 import type { useFinanceActions } from "../views/finance/useFinanceActions";
 import { QuotesPage } from "../views/quotes/QuotesPage";
 import type { useQuoteActions } from "../views/quotes/useQuoteActions";
@@ -119,9 +118,8 @@ export function AppViewRenderer({
   onSearchChange,
   onSelectClient,
 }: AppViewRendererProps) {
-  return (
-    <>
-      {view === "products" ? (
+  const viewRenderers: Record<View, ReactNode> = {
+    products: (
         <ProductsPage
           products={filteredProducts}
           search={search}
@@ -132,17 +130,15 @@ export function AppViewRenderer({
             void catalogActions.changeProductStatus(product)
           }
         />
-      ) : null}
-
-      {view === "new-product" ? (
+      ),
+    "new-product": (
         <ProductForm
           brands={brands}
           onSubmit={catalogActions.createProduct}
           submitLabel="Cadastrar produto"
         />
-      ) : null}
-
-      {view === "edit-product" && selectedProduct ? (
+      ),
+    "edit-product": selectedProduct ? (
         <ProductForm
           key={selectedProduct.id}
           brands={brands}
@@ -151,43 +147,33 @@ export function AppViewRenderer({
           onCancel={onCancelProductEdit}
           submitLabel="Salvar alteracoes"
         />
-      ) : null}
-
-      {view === "stock-entries" ? (
+      ) : null,
+    "stock-entries": (
         <StockEntriesPage
           entries={stockEntries}
           products={products}
           suppliers={suppliers}
           onSubmit={stockActions.createStockEntry}
         />
-      ) : null}
-
-      {view === "stock-adjustments" ? (
+      ),
+    "stock-adjustments": (
         <StockAdjustmentsPage
           adjustments={stockAdjustments}
           products={products}
           onSubmit={stockActions.createStockAdjustment}
         />
-      ) : null}
-
-      {view === "low-stock" ? (
-        <LowStockPage products={lowStockProducts} />
-      ) : null}
-
-      {view === "stock-movements" ? (
-        <StockMovementsPage movements={stockMovements} />
-      ) : null}
-
-      {view === "payment-methods" ? (
+      ),
+    "low-stock": <LowStockPage products={lowStockProducts} />,
+    "stock-movements": <StockMovementsPage movements={stockMovements} />,
+    "payment-methods": (
         <PaymentMethodsPage
           paymentMethods={paymentMethods}
           onChangeStatus={(paymentMethod) =>
             void financeActions.changePaymentMethodStatus(paymentMethod)
           }
         />
-      ) : null}
-
-      {view === "fiscal-documents" ? (
+      ),
+    "fiscal-documents": (
         <FiscalDocumentsPage
           clients={clients}
           fiscalDocuments={fiscalDocuments}
@@ -211,20 +197,17 @@ export function AppViewRenderer({
             void financeActions.cancelFiscalDocument(event, fiscalDocument)
           }
         />
-      ) : null}
-
-      {view === "cash-register" ? (
+      ),
+    "cash-register": (
         <CashRegisterPage
           session={cashRegister}
           user={user}
           onOpen={financeActions.openCashRegister}
           onClose={financeActions.closeCashRegister}
         />
-      ) : null}
-
-      {view === "reports" ? <ReportsPage overview={reportsOverview} /> : null}
-
-      {view === "quotes" ? (
+      ),
+    reports: <ReportsPage overview={reportsOverview} />,
+    quotes: (
         <QuotesPage
           clients={clients}
           products={products}
@@ -237,9 +220,8 @@ export function AppViewRenderer({
             void quoteActions.createShippingOrderFromQuote(quote)
           }
         />
-      ) : null}
-
-      {view === "sales" ? (
+      ),
+    sales: (
         <SalesPage
           cashRegister={cashRegister}
           clients={clients}
@@ -248,9 +230,8 @@ export function AppViewRenderer({
           sales={sales}
           onSubmit={salesActions.createSale}
         />
-      ) : null}
-
-      {view === "shipping-orders" ? (
+      ),
+    "shipping-orders": (
         <ShippingOrdersPage
           cashRegister={cashRegister}
           paymentMethods={paymentMethods}
@@ -265,9 +246,8 @@ export function AppViewRenderer({
             void salesActions.cancelShippingOrder(event, order)
           }
         />
-      ) : null}
-
-      {view === "pickup-reservations" ? (
+      ),
+    "pickup-reservations": (
         <PickupReservationsPage
           cashRegister={cashRegister}
           clients={clients}
@@ -282,9 +262,8 @@ export function AppViewRenderer({
             void salesActions.cancelPickupReservation(event, reservation)
           }
         />
-      ) : null}
-
-      {view === "brands" ? (
+      ),
+    brands: (
         <NamedEntityPage
           title="Fabricantes"
           fieldName="brandName"
@@ -293,9 +272,8 @@ export function AppViewRenderer({
             void catalogActions.createNamedEntity(event, "/brands", "brandName")
           }
         />
-      ) : null}
-
-      {view === "clients" ? (
+      ),
+    clients: (
         <ClientsPage
           clients={clients}
           selectedClient={selectedClient}
@@ -306,14 +284,14 @@ export function AppViewRenderer({
             void catalogActions.changeClientStatus(client)
           }
         />
-      ) : null}
-
-      {view === "suppliers" ? (
+      ),
+    suppliers: (
         <SuppliersPage
           suppliers={suppliers}
           onSubmit={catalogActions.createSupplier}
         />
-      ) : null}
-    </>
-  );
+      ),
+  };
+
+  return <>{viewRenderers[view]}</>;
 }

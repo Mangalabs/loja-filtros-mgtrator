@@ -12,11 +12,14 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.1.0",
     "@mui/material": "^9.0.1",
+    "@tailwindcss/vite": "^4.3.0",
     "@vitejs/plugin-react": "^5.1.1",
     "lucide-react": "^0.561.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "tailwindcss": "^4.3.0",
     "typescript": "^5.9.3",
     "vite": "^7.2.7"
   },

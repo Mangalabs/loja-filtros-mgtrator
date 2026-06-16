@@ -312,8 +312,14 @@ function focusStatusFromResponse(
   response: Response,
   payload: FocusResponsePayload,
 ): FiscalProviderStatus {
+  const payloadStatus = focusStatusFromPayloadValue(payload);
+
+  if (payloadStatus) {
+    return payloadStatus;
+  }
+
   const statusByHttpStatus: Record<number, FiscalProviderStatus> = {
-    201: "AUTHORIZED",
+    201: "PROCESSING",
     202: "PROCESSING",
     400: "REJECTED",
     415: "REJECTED",
@@ -340,6 +346,12 @@ function focusStatusFromPayload(
     throw focusHttpError(response, payload);
   }
 
+  return focusStatusFromPayloadValue(payload) ?? "PROCESSING";
+}
+
+function focusStatusFromPayloadValue(
+  payload: FocusResponsePayload,
+): FiscalProviderStatus | null {
   const status = focusString(payload.status)?.toLowerCase() ?? "";
   const statusByFocusStatus: Record<string, FiscalProviderStatus> = {
     autorizado: "AUTHORIZED",
@@ -349,7 +361,7 @@ function focusStatusFromPayload(
     requisicao_recebida: "PROCESSING",
   };
 
-  return statusByFocusStatus[status] ?? "PROCESSING";
+  return statusByFocusStatus[status] ?? null;
 }
 
 function focusCancelStatusFromPayload(
@@ -384,6 +396,7 @@ function focusHttpError(response: Response, payload: FocusResponsePayload) {
 
 function focusRejectionReason(payload: FocusResponsePayload) {
   return (
+    focusMessage(payload.mensagem_sefaz) ??
     focusMessage(payload.mensagem) ??
     focusMessage(payload.erros) ??
     focusMessage(payload.status) ??

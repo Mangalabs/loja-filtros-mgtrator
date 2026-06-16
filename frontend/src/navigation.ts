@@ -42,17 +42,17 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
 };
 
 const initialOpenNavSections: Record<NavSectionKey, boolean> = {
-  products: true,
-  catalog: true,
-  stock: true,
-  suppliers: true,
-  finance: true,
-  cash: true,
-  reports: true,
-  sales: true,
+  products: false,
+  catalog: false,
+  stock: false,
+  suppliers: false,
+  finance: false,
+  cash: false,
+  reports: false,
+  sales: false,
 };
 
-export const navSectionsStorageKey = "loja-filtros.nav-sections";
+export const navSectionsStorageKey = "loja-filtros.nav-sections.v2";
 
 export function findActiveNavSection(view: View) {
   return (Object.keys(navSectionViews) as NavSectionKey[]).find((section) =>

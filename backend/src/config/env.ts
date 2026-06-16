@@ -47,6 +47,37 @@ function fiscalEnvironment(value: string | undefined) {
   return environments[environment] ?? "HOMOLOGATION";
 }
 
+function focusBaseUrl(environment: "HOMOLOGATION" | "PRODUCTION") {
+  const defaultBaseUrlByEnvironment = {
+    HOMOLOGATION: "https://homologacao.focusnfe.com.br",
+    PRODUCTION: "https://api.focusnfe.com.br",
+  };
+  const configuredBaseUrlByEnvironment = {
+    HOMOLOGATION:
+      process.env.FOCUS_NFE_HOMOLOGATION_BASE_URL ??
+      process.env.FOCUS_NFE_BASE_URL,
+    PRODUCTION: process.env.FOCUS_NFE_PRODUCTION_BASE_URL,
+  };
+
+  return envOrDefault(
+    configuredBaseUrlByEnvironment[environment],
+    defaultBaseUrlByEnvironment[environment],
+  );
+}
+
+function focusToken(environment: "HOMOLOGATION" | "PRODUCTION") {
+  const tokenByEnvironment = {
+    HOMOLOGATION: process.env.FOCUS_NFE_HOMOLOGATION_TOKEN,
+    PRODUCTION: process.env.FOCUS_NFE_PRODUCTION_TOKEN,
+  };
+
+  return optionalEnv(
+    tokenByEnvironment[environment] ?? process.env.FOCUS_NFE_TOKEN,
+  );
+}
+
+const fiscalEnvironmentValue = fiscalEnvironment(process.env.FISCAL_ENVIRONMENT);
+
 export const env = {
   nodeEnv,
   host: process.env.HOST ?? "127.0.0.1",
@@ -72,13 +103,10 @@ export const env = {
   },
   fiscal: {
     provider: fiscalProvider(process.env.FISCAL_PROVIDER),
-    environment: fiscalEnvironment(process.env.FISCAL_ENVIRONMENT),
+    environment: fiscalEnvironmentValue,
     focus: {
-      baseUrl: envOrDefault(
-        process.env.FOCUS_NFE_BASE_URL,
-        "https://homologacao.focusnfe.com.br",
-      ),
-      token: optionalEnv(process.env.FOCUS_NFE_TOKEN),
+      baseUrl: focusBaseUrl(fiscalEnvironmentValue),
+      token: focusToken(fiscalEnvironmentValue),
       companyCnpj: optionalEnv(process.env.FOCUS_NFE_COMPANY_CNPJ),
     },
   },

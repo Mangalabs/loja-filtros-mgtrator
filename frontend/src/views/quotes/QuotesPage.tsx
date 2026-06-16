@@ -5,14 +5,26 @@ import TextField from '@mui/material/TextField'
 import { List as ListIcon, Plus } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import type { Client, Product, Quote } from '../../api'
+import { ProductSearchField } from '../../components/ProductSearchField'
+import {
+  ActionGroup,
+  ActionStack,
+  FormCard,
+  FormGrid,
+  FormRow,
+  InlineNote,
+  PageHeader,
+  PagePanel,
+  ResponsiveTable,
+} from '../../components/layout'
 import {
   PrimaryButton,
   SecondaryButton,
   StatusChip,
   TableActionButton,
 } from '../../components/ui'
+import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/format'
-import { productDisplayName } from '../../utils/productDisplay'
 
 type QuoteDraftItem = {
   productId: string
@@ -54,6 +66,7 @@ export function QuotesPage({
   const [notes, setNotes] = useState('')
   const [showBrand, setShowBrand] = useState(true)
   const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
+  const { pagination, visibleItems } = usePaginatedRows<Quote>(quotes)
   const activeProducts = products.filter((product) => product.active)
   const quoteTotal = items.reduce((sum, item) => {
     return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0)
@@ -121,20 +134,18 @@ export function QuotesPage({
   }
 
   return (
-    <section className='layout-grid stock-entry-layout'>
-      <form className='panel form-panel' onSubmit={submit}>
-        <div className='panel-header compact'>
-          <div>
-            <h2>Novo orcamento</h2>
-            <span>Monte itens, valores e dados comerciais antes do PDF.</span>
-          </div>
-          <ListIcon size={18} />
-        </div>
+    <section className='grid items-start gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]'>
+      <FormGrid className='gap-5 sm:gap-6' onSubmit={submit}>
+        <PageHeader
+          description='Monte itens, valores e dados comerciais antes do PDF.'
+          icon={<ListIcon size={18} />}
+          title='Novo orcamento'
+        />
         <TextField
           label='Cliente'
           select
-          size='small'
-          value={clientId}
+          size='medium'
+          value={clientId || ''}
           onChange={(event) => setClientId(event.target.value)}
           required>
           <MenuItem value='' disabled>
@@ -149,10 +160,10 @@ export function QuotesPage({
               </MenuItem>
             ))}
         </TextField>
-        <div className='two-columns'>
+        <FormRow>
           <TextField
             label='Validade'
-            size='small'
+            size='medium'
             type='date'
             value={validUntil}
             onChange={(event) => setValidUntil(event.target.value)}
@@ -161,34 +172,35 @@ export function QuotesPage({
           <TextField
             disabled
             label='Total'
-            size='small'
+            size='medium'
             value={formatCurrency(quoteTotal)}
           />
-        </div>
+        </FormRow>
         <TextField
           label='Observacoes do orcamento'
           multiline
           value={notes}
           rows={3}
-          size='small'
+          size='medium'
           onChange={(event) => setNotes(event.target.value)}
           slotProps={{ htmlInput: { maxLength: 1000 } }}
         />
         <FormControlLabel
+          className='m-0'
           control={
             <Checkbox
               checked={showBrand}
-              color='success'
+              color='primary'
               onChange={(event) => setShowBrand(event.target.checked)}
             />
           }
           label='Exibir fabricante na coluna Marca do PDF'
         />
 
-        <div className='quote-items'>
+        <div className='grid gap-4'>
           {items.map((item, index) => (
-            <div className='quote-item-row' key={index}>
-              <div className='panel-header compact'>
+            <FormCard key={index}>
+              <div className='flex items-center justify-between gap-3'>
                 <strong>Item {index + 1}</strong>
                 {items.length > 1 ? (
                   <TableActionButton
@@ -198,41 +210,31 @@ export function QuotesPage({
                   </TableActionButton>
                 ) : null}
               </div>
-              <TextField
+              <ProductSearchField
                 label='Produto'
-                select
-                size='small'
+                name={`quoteItems.${index}.productId`}
+                products={activeProducts}
+                required
+                stockLabel='available'
                 value={item.productId}
-                onChange={(event) =>
-                  updateItem(index, { productId: event.target.value })
-                }
-                required>
-                <MenuItem value='' disabled>
-                  Produto
-                </MenuItem>
-                {activeProducts.map((product) => (
-                  <MenuItem key={product.id} value={product.id}>
-                    {productDisplayName(product)} - base{' '}
-                    {formatCurrency(product.salePrice)}
-                  </MenuItem>
-                ))}
-              </TextField>
+                onChange={(productId) => updateItem(index, { productId })}
+              />
               <TextField
                 label='Descricao comercial'
                 value={item.description}
-                size='small'
+                size='medium'
                 onChange={(event) =>
                   updateItem(index, { description: event.target.value })
                 }
                 slotProps={{ htmlInput: { maxLength: 500 } }}
                 required
               />
-              <div className='two-columns'>
+              <FormRow>
                 <TextField
                   label='Quantidade'
                   value={item.quantity}
                   type='number'
-                  size='small'
+                  size='medium'
                   onChange={(event) =>
                     updateItem(index, { quantity: event.target.value })
                   }
@@ -243,151 +245,185 @@ export function QuotesPage({
                   label='Valor unitario'
                   value={item.unitPrice}
                   type='number'
-                  size='small'
+                  size='medium'
                   onChange={(event) =>
                     updateItem(index, { unitPrice: event.target.value })
                   }
                   slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
                   required
                 />
-              </div>
-            </div>
+              </FormRow>
+            </FormCard>
           ))}
         </div>
 
-        <SecondaryButton
-          type='button'
-          onClick={() =>
-            setItems((currentItems) => [...currentItems, emptyQuoteItem()])
-          }>
-          Adicionar item
-        </SecondaryButton>
-        <PrimaryButton icon={<Plus size={17} />} type='submit'>
-          Salvar orcamento
-        </PrimaryButton>
-      </form>
+        <ActionGroup className='pt-1'>
+          <SecondaryButton
+            type='button'
+            onClick={() =>
+              setItems((currentItems) => [...currentItems, emptyQuoteItem()])
+            }>
+            Adicionar item
+          </SecondaryButton>
+          <PrimaryButton icon={<Plus size={17} />} type='submit'>
+            Salvar orcamento
+          </PrimaryButton>
+        </ActionGroup>
+      </FormGrid>
 
-      <div className='panel wide'>
-        <div className='panel-header compact'>
-          <div>
-            <h2>Orcamentos salvos</h2>
-            <span>{quotes.length} registros</span>
-          </div>
-          <StatusChip label='PDF disponivel' tone='success' />
-        </div>
-        <div className='table-shell'>
-          <table className='responsive-card-table'>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Cliente</th>
-                <th>Vendedor</th>
-                <th>Itens</th>
-                <th>Validade</th>
-                <th>Total</th>
-                <th>Status</th>
-                <th>Acoes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quotes.map((quote) => (
-                <tr key={quote.id}>
-                  <td data-label='Data'>{formatDateTime(quote.createdAt)}</td>
-                  <td data-label='Cliente'>{quote.clientName}</td>
-                  <td data-label='Vendedor'>{quote.createdByUserName}</td>
-                  <td data-label='Itens'>
-                    {quote.items.length} item(ns)
-                    <span className='table-note'>
-                      {quote.items.map((item) => item.description).join(', ')}
-                    </span>
-                  </td>
-                  <td data-label='Validade'>
-                    {quote.validUntil ? formatDate(quote.validUntil) : '-'}
-                  </td>
-                  <td data-label='Total'>
-                    {formatCurrency(quote.totalAmount)}
-                  </td>
-                  <td data-label='Status'>
-                    <StatusChip
-                      label={quoteStatusPresentation(quote).label}
-                      tone={quoteStatusPresentation(quote).tone}
-                    />
-                    <div className='table-note'>
-                      <StatusChip
-                        label={quoteBrandPresentation(quote.showBrand).label}
-                        tone={quoteBrandPresentation(quote.showBrand).tone}
-                      />
-                    </div>
-                    {quote.cancelledByUserName ? (
-                      <div className='table-note'>
-                        Cancelado por {quote.cancelledByUserName}
-                      </div>
-                    ) : null}
-                    {quote.cancellationReason ? (
-                      <div className='table-note'>
-                        {quote.cancellationReason}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td data-label='Acoes'>
-                    <div className='table-actions'>
-                      <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
-                        Baixar PDF
-                      </TableActionButton>
-                    </div>
-                    {quote.shippingOrderId ? (
-                      <span className='table-note'>
-                        Pedido para envio criado
-                      </span>
-                    ) : (
-                      <div className='shipping-order-actions'>
-                        {quote.status === 'DRAFT' ? (
-                          <TableActionButton
-                            type='button'
-                            onClick={() => onCreateShippingOrder(quote)}>
-                            Enviar p/ envio
-                          </TableActionButton>
-                        ) : null}
-                        {quote.status === 'DRAFT' ? (
-                          <form
-                            className='cancel-order-form'
-                            onSubmit={(event) => onCancelQuote(event, quote)}>
-                            <TextField
-                              label='Motivo do cancelamento'
-                              name='quoteCancellationReason'
-                              size='small'
-                              slotProps={{ htmlInput: { maxLength: 500 } }}
-                              required
-                            />
-                            <TableActionButton type='submit'>
-                              Cancelar
-                            </TableActionButton>
-                          </form>
-                        ) : (
-                          <span className='table-note'>
-                            Orcamento cancelado
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {quotes.length === 0 ? (
-                <tr>
-                  <td colSpan={8}>Nenhum orcamento salvo.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <PagePanel wide>
+        <PageHeader
+          actions={<StatusChip label='PDF disponivel' tone='success' />}
+          description={`${quotes.length} registros`}
+          title='Orcamentos salvos'
+        />
+        <ResponsiveTable
+          columns={[
+            {
+              header: 'Data',
+              render: (quote) => formatDateTime(quote.createdAt),
+            },
+            {
+              header: 'Cliente',
+              render: (quote) => quote.clientName,
+            },
+            {
+              header: 'Vendedor',
+              render: (quote) => quote.createdByUserName,
+            },
+            {
+              header: 'Itens',
+              render: (quote) => (
+                <>
+                  {quote.items.length} item(ns)
+                  <InlineNote>
+                    {quote.items.map((item) => item.description).join(', ')}
+                  </InlineNote>
+                </>
+              ),
+            },
+            {
+              header: 'Validade',
+              render: (quote) =>
+                quote.validUntil ? formatDate(quote.validUntil) : '-',
+            },
+            {
+              header: 'Total',
+              render: (quote) => formatCurrency(quote.totalAmount),
+            },
+            {
+              header: 'Status',
+              render: (quote) => <QuoteStatusSummary quote={quote} />,
+            },
+            {
+              header: 'Acoes',
+              render: (quote) => (
+                <QuoteActions
+                  quote={quote}
+                  onCancelQuote={onCancelQuote}
+                  onCreateShippingOrder={onCreateShippingOrder}
+                />
+              ),
+            },
+          ]}
+          emptyMessage='Nenhum orcamento salvo.'
+          getRowId={(quote) => quote.id}
+          items={visibleItems}
+          pagination={pagination}
+        />
+      </PagePanel>
     </section>
   )
 }
 
 function quoteShippingStatusLabel(status: Quote['shippingOrderStatus']) {
   return quoteShippingStatusLabels[status ?? 'QUOTED']
+}
+
+function QuoteStatusSummary({ quote }: { quote: Quote }) {
+  return (
+    <ActionStack>
+      <StatusChip
+        label={quoteStatusPresentation(quote).label}
+        tone={quoteStatusPresentation(quote).tone}
+      />
+      <StatusChip
+        label={quoteBrandPresentation(quote.showBrand).label}
+        tone={quoteBrandPresentation(quote.showBrand).tone}
+      />
+      {quote.cancelledByUserName ? (
+        <InlineNote>Cancelado por {quote.cancelledByUserName}</InlineNote>
+      ) : null}
+      {quote.cancellationReason ? (
+        <InlineNote>{quote.cancellationReason}</InlineNote>
+      ) : null}
+    </ActionStack>
+  )
+}
+
+function QuoteActions({
+  quote,
+  onCancelQuote,
+  onCreateShippingOrder,
+}: {
+  quote: Quote
+  onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void
+  onCreateShippingOrder: (quote: Quote) => void
+}) {
+  if (quote.shippingOrderId) {
+    return (
+      <ActionStack>
+        <ActionGroup>
+          <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
+            Baixar PDF
+          </TableActionButton>
+        </ActionGroup>
+        <InlineNote>Pedido para envio criado</InlineNote>
+      </ActionStack>
+    )
+  }
+
+  if (quote.status !== 'DRAFT') {
+    return (
+      <ActionStack>
+        <ActionGroup>
+          <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
+            Baixar PDF
+          </TableActionButton>
+        </ActionGroup>
+        <InlineNote>Orcamento cancelado</InlineNote>
+      </ActionStack>
+    )
+  }
+
+  return (
+    <ActionStack>
+      <ActionGroup>
+        <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
+          Baixar PDF
+        </TableActionButton>
+        <TableActionButton
+          type='button'
+          onClick={() => onCreateShippingOrder(quote)}>
+          Enviar p/ envio
+        </TableActionButton>
+      </ActionGroup>
+      <form
+        className='grid gap-2'
+        onSubmit={(event) => onCancelQuote(event, quote)}>
+        <TextField
+          label='Motivo do cancelamento'
+          name='quoteCancellationReason'
+          size='small'
+          slotProps={{ htmlInput: { maxLength: 500 } }}
+          required
+        />
+        <ActionGroup>
+          <TableActionButton type='submit'>Cancelar</TableActionButton>
+        </ActionGroup>
+      </form>
+    </ActionStack>
+  )
 }
 
 const quoteShippingStatusLabels: Record<

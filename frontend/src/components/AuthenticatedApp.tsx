@@ -52,7 +52,7 @@ export function AuthenticatedApp({
     stockMovements,
     suppliers,
   } = useCatalogData();
-  const { openNavSections, toggleNavSection } = useNavigationState(view);
+  const { openNavSections, toggleNavSection } = useNavigationState();
 
   const catalogActions = useCatalogActions({
     loadCatalog,
@@ -90,7 +90,7 @@ export function AuthenticatedApp({
   const activeTitle = viewTitles[view];
 
   return (
-    <main className="app-shell">
+    <main className="grid min-h-screen grid-cols-1 bg-[#f7f7f4] lg:grid-cols-[minmax(220px,256px)_minmax(0,1fr)]">
       <AppSidebar
         openSections={openNavSections}
         view={view}
@@ -102,7 +102,7 @@ export function AuthenticatedApp({
         onToggleSection={toggleNavSection}
       />
 
-      <section className="workspace">
+      <section className="min-w-0 px-4 py-5 sm:px-6 lg:px-7">
         <AppWorkspaceHeader
           activeDescription={activeTitle.description}
           activeTitle={activeTitle.title}

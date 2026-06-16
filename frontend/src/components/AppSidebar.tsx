@@ -16,6 +16,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { navSectionViews, type NavSectionKey, type View } from "../navigation";
+import { frontendPalette } from "../theme";
 import { NavButton, NavSection } from "./shell";
 
 export function AppSidebar({
@@ -36,16 +37,25 @@ export function AppSidebar({
   }
 
   return (
-    <aside className="sidebar">
-      <div className="brand-block">
-        <Filter size={28} />
-        <div>
-          <strong>Filtros MG</strong>
-          <span>Operacao da filial</span>
+    <aside
+      className="sticky top-0 flex h-screen min-h-0 flex-col overflow-y-auto px-4 py-5 text-white lg:rounded-r-3xl"
+      style={{
+        background: `linear-gradient(180deg, ${frontendPalette.primaryNavy} 0%, #17264d 100%)`,
+      }}
+    >
+      <div className="mb-7 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 p-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#d8b769] text-[#203466]">
+          <Filter size={25} />
+        </div>
+        <div className="min-w-0">
+          <strong className="block truncate text-base">Filtros MG</strong>
+          <span className="mt-0.5 block truncate text-xs text-white/70">
+            Operacao da filial
+          </span>
         </div>
       </div>
 
-      <nav className="nav-list" aria-label="Navegacao principal">
+      <nav className="grid gap-2" aria-label="Navegacao principal">
         <NavSection
           active={isSectionActive("products")}
           icon={<PackagePlus size={17} />}

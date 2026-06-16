@@ -70,7 +70,10 @@ export async function syncFiscalDocument(id: string) {
     throw new AppError("Documento fiscal nao encontrado.", 404);
   }
 
-  if (fiscalDocument.status === "CANCELLED") {
+  if (
+    fiscalDocument.status === "CANCELLED" &&
+    fiscalDocument.provider === "MOCK"
+  ) {
     return {
       code: 200,
       status: "success",
@@ -89,12 +92,12 @@ export async function syncFiscalDocument(id: string) {
   });
   const updated = await updateFiscalDocumentStatus(id, {
     status: result.status,
-    accessKey: result.accessKey,
+    accessKey: result.accessKey ?? fiscalDocument.accessKey,
     providerReference: result.providerReference,
-    number: result.number,
-    series: result.series,
-    xmlUrl: result.xmlUrl,
-    pdfUrl: result.pdfUrl,
+    number: result.number ?? fiscalDocument.number,
+    series: result.series ?? fiscalDocument.series,
+    xmlUrl: result.xmlUrl ?? fiscalDocument.xmlUrl,
+    pdfUrl: result.pdfUrl ?? fiscalDocument.pdfUrl,
     rejectionReason: result.rejectionReason,
     responsePayload: result.responsePayload,
     ...existingFiscalCancellationAudit(fiscalDocument),
@@ -189,12 +192,12 @@ export async function cancelFiscalDocument(
   });
   const updated = await updateFiscalDocumentStatus(id, {
     status,
-    accessKey: result.accessKey,
+    accessKey: result.accessKey ?? fiscalDocument.accessKey,
     providerReference: result.providerReference,
-    number: result.number,
-    series: result.series,
-    xmlUrl: result.xmlUrl,
-    pdfUrl: result.pdfUrl,
+    number: result.number ?? fiscalDocument.number,
+    series: result.series ?? fiscalDocument.series,
+    xmlUrl: result.xmlUrl ?? fiscalDocument.xmlUrl,
+    pdfUrl: result.pdfUrl ?? fiscalDocument.pdfUrl,
     rejectionReason: result.rejectionReason,
     responsePayload: result.responsePayload,
     ...cancellationAudit,

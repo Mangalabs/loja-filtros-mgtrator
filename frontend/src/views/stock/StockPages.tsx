@@ -15,7 +15,16 @@ import type {
   StockMovement,
   Supplier,
 } from "../../api";
+import { ProductSearchField } from "../../components/ProductSearchField";
+import {
+  FormGrid,
+  FormRow,
+  PageHeader,
+  PagePanel,
+  ResponsiveTable,
+} from "../../components/layout";
 import { PrimaryButton } from "../../components/ui";
+import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import {
   formatCurrency,
   formatDateTime,
@@ -35,39 +44,24 @@ export function StockEntriesPage({
   suppliers: Supplier[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const { pagination, visibleItems } = usePaginatedRows<StockEntry>(entries);
+
   return (
-    <section className="layout-grid stock-entry-layout">
-      <form className="panel form-panel" onSubmit={onSubmit}>
-        <div className="panel-header compact">
-          <h2>Nova entrada</h2>
-          <ArrowDownToLine size={18} />
-        </div>
-        <TextField
-          defaultValue=""
+    <section className="grid gap-4 xl:grid-cols-[minmax(290px,0.7fr)_minmax(0,1.3fr)]">
+      <FormGrid onSubmit={onSubmit}>
+        <PageHeader icon={<ArrowDownToLine size={18} />} title="Nova entrada" />
+        <ProductSearchField
           label="Produto"
           name="entryProductId"
-          select
-          size="small"
+          products={products.filter((product) => product.active)}
           required
-        >
-          <MenuItem value="" disabled>
-            Produto
-          </MenuItem>
-          {products
-            .filter((product) => product.active)
-            .map((product) => (
-              <MenuItem key={product.id} value={product.id}>
-                {productDisplayName(product)} - estoque{" "}
-                {formatQuantity(product.currentStock)}
-              </MenuItem>
-            ))}
-        </TextField>
+          stockLabel="current"
+        />
         <TextField
           defaultValue=""
           label="Fornecedor"
           name="entrySupplierId"
           select
-          size="small"
           required
         >
           <MenuItem value="" disabled>
@@ -81,12 +75,11 @@ export function StockEntriesPage({
               </MenuItem>
             ))}
         </TextField>
-        <div className="two-columns">
+        <FormRow>
           <TextField
             label="Quantidade"
             name="entryQuantity"
             type="number"
-            size="small"
             slotProps={{ htmlInput: { min: "0.001", step: "0.001" } }}
             required
           />
@@ -94,65 +87,64 @@ export function StockEntriesPage({
             label="Custo unitario"
             name="entryUnitCost"
             type="number"
-            size="small"
             slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
             required
           />
-        </div>
+        </FormRow>
         <TextField
           label="Observacao"
           name="entryNotes"
           multiline
           rows={3}
-          size="small"
           slotProps={{ htmlInput: { maxLength: 500 } }}
         />
         <PrimaryButton icon={<Plus size={17} />} type="submit">
           Registrar entrada
         </PrimaryButton>
-      </form>
+      </FormGrid>
 
-      <div className="panel wide stock-entry-history">
-        <div className="panel-header compact">
-          <h2>Entradas registradas</h2>
-          <span>{entries.length} registros</span>
-        </div>
-        <div className="table-shell">
-          <table className="responsive-card-table">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Produto</th>
-                <th>Fornecedor</th>
-                <th>Operador</th>
-                <th>Qtd.</th>
-                <th>Custo un.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((entry) => (
-                <tr key={entry.id}>
-                  <td data-label="Data">{formatDateTime(entry.createdAt)}</td>
-                  <td data-label="Produto">{entry.productName}</td>
-                  <td data-label="Fornecedor">{entry.supplierName}</td>
-                  <td data-label="Operador">
-                    {entry.createdByUserName ?? "-"}
-                  </td>
-                  <td data-label="Qtd.">{formatQuantity(entry.quantity)}</td>
-                  <td data-label="Custo un.">
-                    {formatCurrency(entry.unitCost)}
-                  </td>
-                </tr>
-              ))}
-              {entries.length === 0 ? (
-                <tr>
-                  <td colSpan={6}>Nenhuma entrada registrada.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <PagePanel className="min-h-[360px]" wide>
+        <PageHeader
+          actions={
+            <span className="text-sm text-[#5f665f]">
+              {entries.length} registros
+            </span>
+          }
+          title="Entradas registradas"
+        />
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Data",
+              render: (entry) => formatDateTime(entry.createdAt),
+            },
+            {
+              header: "Produto",
+              render: (entry) => entry.productName,
+            },
+            {
+              header: "Fornecedor",
+              render: (entry) => entry.supplierName,
+            },
+            {
+              header: "Operador",
+              render: (entry) => entry.createdByUserName ?? "-",
+            },
+            {
+              header: "Qtd.",
+              render: (entry) => formatQuantity(entry.quantity),
+            },
+            {
+              header: "Custo un.",
+              render: (entry) => formatCurrency(entry.unitCost),
+            },
+          ]}
+          emptyMessage="Nenhuma entrada registrada."
+          getRowId={(entry) => entry.id}
+          items={visibleItems}
+          pagination={pagination}
+        />
+      </PagePanel>
     </section>
   );
 }
@@ -166,42 +158,31 @@ export function StockAdjustmentsPage({
   products: Product[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const { pagination, visibleItems } =
+    usePaginatedRows<StockAdjustment>(adjustments);
+
   return (
-    <section className="layout-grid stock-entry-layout">
-      <form className="panel form-panel" onSubmit={onSubmit}>
-        <div className="panel-header compact">
-          <h2>Novo ajuste</h2>
-          <SlidersHorizontal size={18} />
-        </div>
-        <TextField
-          defaultValue=""
+    <section className="grid gap-4 xl:grid-cols-[minmax(290px,0.7fr)_minmax(0,1.3fr)]">
+      <FormGrid onSubmit={onSubmit}>
+        <PageHeader
+          icon={<SlidersHorizontal size={18} />}
+          title="Novo ajuste"
+        />
+        <ProductSearchField
           label="Produto"
           name="adjustmentProductId"
-          select
-          size="small"
+          products={products}
           required
-        >
-          <MenuItem value="" disabled>
-            Produto
-          </MenuItem>
-          {products.map((product) => (
-            <MenuItem key={product.id} value={product.id}>
-              {productDisplayName(product)} - fisico{" "}
-              {formatQuantity(product.currentStock)} - reservado{" "}
-              {formatQuantity(product.reservedStock)}
-              {product.active ? "" : " (inativo)"}
-            </MenuItem>
-          ))}
-        </TextField>
+          stockLabel="physical-reserved"
+        />
         <TextField
           label="Variacao de estoque (+ ou -)"
           name="adjustmentQuantity"
           type="number"
-          size="small"
           slotProps={{ htmlInput: { step: "0.001" } }}
           required
         />
-        <p className="field-help">
+        <p className="m-0 text-xs text-[#5f665f]">
           Use valor positivo para acrescentar ou negativo para retirar itens.
         </p>
         <TextField
@@ -209,116 +190,110 @@ export function StockAdjustmentsPage({
           name="adjustmentReason"
           multiline
           rows={3}
-          size="small"
           slotProps={{ htmlInput: { maxLength: 500 } }}
           required
         />
         <PrimaryButton icon={<Plus size={17} />} type="submit">
           Registrar ajuste
         </PrimaryButton>
-      </form>
+      </FormGrid>
 
-      <div className="panel wide stock-entry-history">
-        <div className="panel-header compact">
-          <h2>Ajustes registrados</h2>
-          <span>{adjustments.length} registros</span>
-        </div>
-        <div className="table-shell">
-          <table className="responsive-card-table">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Produto</th>
-                <th>Operador</th>
-                <th>Variacao</th>
-                <th>Motivo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {adjustments.map((adjustment) => (
-                <tr key={adjustment.id}>
-                  <td data-label="Data">
-                    {formatDateTime(adjustment.createdAt)}
-                  </td>
-                  <td data-label="Produto">{adjustment.productName}</td>
-                  <td data-label="Operador">
-                    {adjustment.createdByUserName ?? "-"}
-                  </td>
-                  <td data-label="Variacao">
-                    {formatSignedQuantity(adjustment.quantity)}
-                  </td>
-                  <td data-label="Motivo">{adjustment.reason}</td>
-                </tr>
-              ))}
-              {adjustments.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>Nenhum ajuste registrado.</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <PagePanel className="min-h-[360px]" wide>
+        <PageHeader
+          actions={
+            <span className="text-sm text-[#5f665f]">
+              {adjustments.length} registros
+            </span>
+          }
+          title="Ajustes registrados"
+        />
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Data",
+              render: (adjustment) => formatDateTime(adjustment.createdAt),
+            },
+            {
+              header: "Produto",
+              render: (adjustment) => adjustment.productName,
+            },
+            {
+              header: "Operador",
+              render: (adjustment) => adjustment.createdByUserName ?? "-",
+            },
+            {
+              header: "Variacao",
+              render: (adjustment) =>
+                formatSignedQuantity(adjustment.quantity),
+            },
+            {
+              header: "Motivo",
+              render: (adjustment) => adjustment.reason,
+            },
+          ]}
+          emptyMessage="Nenhum ajuste registrado."
+          getRowId={(adjustment) => adjustment.id}
+          items={visibleItems}
+          pagination={pagination}
+        />
+      </PagePanel>
     </section>
   );
 }
 
 export function LowStockPage({ products }: { products: Product[] }) {
+  const { pagination, visibleItems } = usePaginatedRows<Product>(products);
+
   return (
-    <div className="panel wide">
-      <div className="panel-header compact">
-        <div>
-          <h2>Produtos para reposicao</h2>
-          <span>
-            Produtos ativos com saldo disponivel igual ou menor que o minimo
-            definido.
-          </span>
-        </div>
-        <AlertTriangle size={18} />
-      </div>
-      <div className="table-shell">
-        <table className="responsive-card-table">
-          <thead>
-            <tr>
-              <th>Produto</th>
-              <th>Fabricante</th>
-              <th>Locacao</th>
-              <th>Disponivel</th>
-              <th>Minimo</th>
-              <th>Faltam p/ minimo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((product) => (
-              <tr key={product.id}>
-                <td data-label="Produto">{productDisplayName(product)}</td>
-                <td data-label="Fabricante">{product.brandName ?? "-"}</td>
-                <td data-label="Locacao">{product.location ?? "-"}</td>
-                <td className="stock-warning" data-label="Disponivel">
-                  {formatQuantity(product.availableStock)}
-                </td>
-                <td data-label="Minimo">
-                  {formatQuantity(product.minimumStock)}
-                </td>
-                <td data-label="Faltam p/ minimo">
-                  {formatQuantity(
-                    String(
-                      Number(product.minimumStock) -
-                        Number(product.availableStock),
-                    ),
-                  )}
-                </td>
-              </tr>
-            ))}
-            {products.length === 0 ? (
-              <tr>
-                <td colSpan={6}>Nenhum produto requer reposicao.</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <PagePanel wide>
+      <PageHeader
+        description="Produtos ativos com saldo disponivel igual ou menor que o minimo definido."
+        icon={<AlertTriangle size={18} />}
+        title="Produtos para reposicao"
+      />
+      <ResponsiveTable
+        columns={[
+          {
+            header: "Produto",
+            render: (product) => productDisplayName(product),
+          },
+          {
+            header: "Fabricante",
+            render: (product) => product.brandName ?? "-",
+          },
+          {
+            header: "Locacao",
+            render: (product) => product.location ?? "-",
+          },
+          {
+            header: "Disponivel",
+            render: (product) => (
+              <strong className="text-[#9f3a2c]">
+                {formatQuantity(product.availableStock)}
+              </strong>
+            ),
+          },
+          {
+            header: "Minimo",
+            render: (product) => formatQuantity(product.minimumStock),
+          },
+          {
+            header: "Faltam p/ minimo",
+            render: (product) =>
+              formatQuantity(
+                String(
+                  Number(product.minimumStock) -
+                    Number(product.availableStock),
+                ),
+              ),
+          },
+        ]}
+        emptyMessage="Nenhum produto requer reposicao."
+        getRowId={(product) => product.id}
+        items={visibleItems}
+        pagination={pagination}
+      />
+    </PagePanel>
   );
 }
 
@@ -327,59 +302,58 @@ export function StockMovementsPage({
 }: {
   movements: StockMovement[];
 }) {
+  const { pagination, visibleItems } =
+    usePaginatedRows<StockMovement>(movements);
+
   return (
-    <div className="panel wide">
-      <div className="panel-header compact">
-        <div>
-          <h2>Movimentacoes registradas</h2>
-          <span>Entradas, vendas, estornos e ajustes de estoque.</span>
-        </div>
-        <ArrowLeftRight size={18} />
-      </div>
-      <div className="table-shell">
-        <table className="responsive-card-table">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Tipo</th>
-              <th>Produto</th>
-              <th>Quantidade</th>
-              <th>Fornecedor</th>
-              <th>Operador</th>
-              <th>Custo un.</th>
-              <th>Observacao</th>
-            </tr>
-          </thead>
-          <tbody>
-            {movements.map((movement) => (
-              <tr key={movement.id}>
-                <td data-label="Data">
-                  {formatDateTime(movement.createdAt)}
-                </td>
-                <td data-label="Tipo">{movementTypeLabel(movement.type)}</td>
-                <td data-label="Produto">{movement.productName}</td>
-                <td data-label="Quantidade">
-                  {formatSignedQuantity(movement.quantity)}
-                </td>
-                <td data-label="Fornecedor">{movement.supplierName ?? "-"}</td>
-                <td data-label="Operador">
-                  {movement.createdByUserName ?? "-"}
-                </td>
-                <td data-label="Custo un.">
-                  {movement.unitCost ? formatCurrency(movement.unitCost) : "-"}
-                </td>
-                <td data-label="Observacao">{movement.notes ?? "-"}</td>
-              </tr>
-            ))}
-            {movements.length === 0 ? (
-              <tr>
-                <td colSpan={8}>Nenhuma movimentacao registrada.</td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <PagePanel wide>
+      <PageHeader
+        description="Entradas, vendas, estornos e ajustes de estoque."
+        icon={<ArrowLeftRight size={18} />}
+        title="Movimentacoes registradas"
+      />
+      <ResponsiveTable
+        columns={[
+          {
+            header: "Data",
+            render: (movement) => formatDateTime(movement.createdAt),
+          },
+          {
+            header: "Tipo",
+            render: (movement) => movementTypeLabel(movement.type),
+          },
+          {
+            header: "Produto",
+            render: (movement) => movement.productName,
+          },
+          {
+            header: "Quantidade",
+            render: (movement) => formatSignedQuantity(movement.quantity),
+          },
+          {
+            header: "Fornecedor",
+            render: (movement) => movement.supplierName ?? "-",
+          },
+          {
+            header: "Operador",
+            render: (movement) => movement.createdByUserName ?? "-",
+          },
+          {
+            header: "Custo un.",
+            render: (movement) =>
+              movement.unitCost ? formatCurrency(movement.unitCost) : "-",
+          },
+          {
+            header: "Observacao",
+            render: (movement) => movement.notes ?? "-",
+          },
+        ]}
+        emptyMessage="Nenhuma movimentacao registrada."
+        getRowId={(movement) => movement.id}
+        items={visibleItems}
+        pagination={pagination}
+      />
+    </PagePanel>
   );
 }
 
