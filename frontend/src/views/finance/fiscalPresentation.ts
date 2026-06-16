@@ -86,6 +86,9 @@ const fiscalDocumentStatusPresentations: Record<
 }
 
 const fiscalReadinessIssueLabelPatterns = [
+  { label: 'Configuracao fiscal', pattern: /configuracao fiscal/i },
+  { label: 'CNPJ da loja', pattern: /cnpj fiscal da loja/i },
+  { label: 'Producao bloqueada', pattern: /producao bloqueada/i },
   { label: 'Cliente cadastrado', pattern: /cliente deve estar cadastrado/i },
   { label: 'Nome cliente', pattern: /nome do cliente/i },
   { label: 'CPF/CNPJ cliente', pattern: /cpf\/cnpj/i },

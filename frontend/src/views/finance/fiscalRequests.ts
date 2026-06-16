@@ -1,6 +1,7 @@
 import type {
   Client,
   FiscalDocument,
+  FiscalSettings,
   PickupReservation,
   Product,
   Sale,
@@ -26,6 +27,7 @@ export type FiscalRequest = {
 type FiscalRequestFactoryInput = {
   clients: Client[]
   fiscalDocuments: FiscalDocument[]
+  fiscalSettings: FiscalSettings | null
   pickupReservations: PickupReservation[]
   products: Product[]
   sales: Sale[]
@@ -149,7 +151,7 @@ function fiscalRequestState(request: FiscalRequest) {
 const fiscalRequestFactories: Array<
   (input: FiscalRequestFactoryInput) => FiscalRequest[]
 > = [
-  ({ clients, fiscalDocuments, products, sales }) =>
+  ({ clients, fiscalDocuments, fiscalSettings, products, sales }) =>
     sales
       .filter((sale) => sale.status === 'COMPLETED')
       .map((sale) => ({
@@ -160,15 +162,18 @@ const fiscalRequestFactories: Array<
         clientName: sale.clientName ?? 'Nao identificado',
         totalAmount: sale.totalAmount,
         operatorName: sale.createdByUserName,
-        readinessIssues: fiscalReadinessIssues({
-          client: findClient(clients, sale.clientId),
-          items: sale.items,
-          products,
-        }),
+        readinessIssues: [
+          ...fiscalSettingsReadinessIssues(fiscalSettings),
+          ...fiscalReadinessIssues({
+            client: findClient(clients, sale.clientId),
+            items: sale.items,
+            products,
+          }),
+        ],
         sale,
         document: findFiscalDocument(fiscalDocuments, 'SALE', sale.id),
       })),
-  ({ clients, fiscalDocuments, products, shippingOrders }) =>
+  ({ clients, fiscalDocuments, fiscalSettings, products, shippingOrders }) =>
     shippingOrders
       .filter((order) => order.status === 'COMPLETED')
       .map((order) => ({
@@ -179,11 +184,14 @@ const fiscalRequestFactories: Array<
         clientName: order.clientName,
         totalAmount: order.totalAmount,
         operatorName: order.completedByUserName ?? order.createdByUserName,
-        readinessIssues: fiscalReadinessIssues({
-          client: findClient(clients, order.clientId),
-          items: order.items,
-          products,
-        }),
+        readinessIssues: [
+          ...fiscalSettingsReadinessIssues(fiscalSettings),
+          ...fiscalReadinessIssues({
+            client: findClient(clients, order.clientId),
+            items: order.items,
+            products,
+          }),
+        ],
         shippingOrder: order,
         document: findFiscalDocument(
           fiscalDocuments,
@@ -191,7 +199,13 @@ const fiscalRequestFactories: Array<
           order.id,
         ),
       })),
-  ({ clients, fiscalDocuments, pickupReservations, products }) =>
+  ({
+    clients,
+    fiscalDocuments,
+    fiscalSettings,
+    pickupReservations,
+    products,
+  }) =>
     pickupReservations
       .filter((reservation) => reservation.status === 'COMPLETED')
       .map((reservation) => ({
@@ -203,11 +217,14 @@ const fiscalRequestFactories: Array<
         totalAmount: reservation.totalAmount,
         operatorName:
           reservation.completedByUserName ?? reservation.createdByUserName,
-        readinessIssues: fiscalReadinessIssues({
-          client: findClient(clients, reservation.clientId),
-          items: reservation.items,
-          products,
-        }),
+        readinessIssues: [
+          ...fiscalSettingsReadinessIssues(fiscalSettings),
+          ...fiscalReadinessIssues({
+            client: findClient(clients, reservation.clientId),
+            items: reservation.items,
+            products,
+          }),
+        ],
         pickupReservation: reservation,
         document: findFiscalDocument(
           fiscalDocuments,
@@ -216,6 +233,28 @@ const fiscalRequestFactories: Array<
         ),
       })),
 ]
+
+function fiscalSettingsReadinessIssues(settings: FiscalSettings | null) {
+  const issues = [
+    !settings ? 'Configuracao fiscal ainda nao foi carregada.' : null,
+    settings?.provider === 'FOCUS' && !validFiscalCompanyCnpj(settings)
+      ? 'CNPJ fiscal da loja deve ter 14 digitos para usar Focus NFe.'
+      : null,
+    settings?.environment === 'PRODUCTION' && !settings.allowProduction
+      ? 'Emissao em producao bloqueada pela configuracao fiscal.'
+      : null,
+  ]
+
+  return issues.filter((issue): issue is string => Boolean(issue))
+}
+
+function validFiscalCompanyCnpj(settings: FiscalSettings) {
+  return fiscalDigits(settings.companyCnpj).length === 14
+}
+
+function fiscalDigits(value?: string | null) {
+  return value?.replace(/\D/g, '') ?? ''
+}
 
 function findFiscalDocument(
   fiscalDocuments: FiscalDocument[],

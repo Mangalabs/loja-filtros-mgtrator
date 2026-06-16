@@ -78,6 +78,7 @@ export function FiscalDocumentsPage({
   const fiscalRequests = buildFiscalRequests({
     clients,
     fiscalDocuments,
+    fiscalSettings,
     pickupReservations,
     products,
     sales,
@@ -345,10 +346,13 @@ function fiscalReadinessIssueSummary(issues: string[]) {
       const category = fiscalReadinessIssueCategory(issue)
       return { ...counts, [category]: counts[category] + 1 }
     },
-    { client: 0, product: 0 },
+    { client: 0, configuration: 0, product: 0 },
   )
 
   return [
+    issueCounts.configuration > 0
+      ? `Configuracao: ${issueCounts.configuration}`
+      : null,
     issueCounts.client > 0 ? `Cliente: ${issueCounts.client}` : null,
     issueCounts.product > 0 ? `Produtos: ${issueCounts.product}` : null,
   ]
@@ -357,9 +361,15 @@ function fiscalReadinessIssueSummary(issues: string[]) {
 }
 
 function fiscalReadinessIssueCategory(issue: string) {
-  return issue.includes('cliente') || issue.includes('Cliente')
-    ? 'client'
-    : 'product'
+  const categoryByPattern = [
+    { category: 'configuration', pattern: /configuracao|produção|producao/i },
+    { category: 'client', pattern: /cliente/i },
+  ] as const
+
+  return (
+    categoryByPattern.find(({ pattern }) => pattern.test(issue))?.category ??
+    'product'
+  )
 }
 
 function FiscalDocumentStatus({ document }: { document: FiscalDocument }) {
