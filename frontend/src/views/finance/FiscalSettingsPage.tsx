@@ -4,6 +4,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import { Settings2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import type { FiscalSettings } from '../../api'
 import { FormCard, FormGrid, FormRow, PageHeader } from '../../components/layout'
 import { PrimaryButton, StatusChip } from '../../components/ui'
@@ -13,6 +14,22 @@ type FiscalSettingsInput = Pick<
   'allowProduction' | 'companyCnpj' | 'environment' | 'provider'
 >
 
+const providerOptions: Array<{
+  label: string
+  value: FiscalSettings['provider']
+}> = [
+  { label: 'Mock interno', value: 'MOCK' },
+  { label: 'Focus NFe', value: 'FOCUS' },
+]
+
+const environmentOptions: Array<{
+  label: string
+  value: FiscalSettings['environment']
+}> = [
+  { label: 'Homologacao', value: 'HOMOLOGATION' },
+  { label: 'Producao', value: 'PRODUCTION' },
+]
+
 export function FiscalSettingsPage({
   settings,
   onSubmit,
@@ -20,22 +37,22 @@ export function FiscalSettingsPage({
   settings: FiscalSettings | null
   onSubmit: (input: FiscalSettingsInput) => void
 }) {
+  const [draft, setDraft] = useState<FiscalSettingsInput>(
+    fiscalSettingsInput(settings),
+  )
+
+  useEffect(() => {
+    setDraft(fiscalSettingsInput(settings))
+  }, [settings])
+
   return (
     <FormGrid
       className='max-w-4xl'
       onSubmit={(event) => {
         event.preventDefault()
-        const form = new FormData(event.currentTarget)
-
         onSubmit({
-          allowProduction: form.get('allowProduction') === 'on',
-          companyCnpj: String(form.get('companyCnpj') ?? '').trim() || null,
-          environment: String(
-            form.get('environment') ?? 'HOMOLOGATION',
-          ) as FiscalSettings['environment'],
-          provider: String(
-            form.get('provider') ?? 'MOCK',
-          ) as FiscalSettings['provider'],
+          ...draft,
+          companyCnpj: draft.companyCnpj?.trim() || null,
         })
       }}>
       <PageHeader
@@ -48,38 +65,68 @@ export function FiscalSettingsPage({
 
       <FormRow>
         <TextField
-          defaultValue={settings?.provider ?? 'MOCK'}
           label='Provedor fiscal'
           name='provider'
           select
-          required>
-          <MenuItem value='MOCK'>Mock interno</MenuItem>
-          <MenuItem value='FOCUS'>Focus NFe</MenuItem>
+          required
+          value={draft.provider}
+          onChange={(event) =>
+            setDraft((currentDraft) => ({
+              ...currentDraft,
+              provider: event.target.value as FiscalSettings['provider'],
+            }))
+          }>
+          {providerOptions.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
         </TextField>
         <TextField
-          defaultValue={settings?.environment ?? 'HOMOLOGATION'}
           label='Ambiente'
           name='environment'
           select
-          required>
-          <MenuItem value='HOMOLOGATION'>Homologacao</MenuItem>
-          <MenuItem value='PRODUCTION'>Producao</MenuItem>
+          required
+          value={draft.environment}
+          onChange={(event) =>
+            setDraft((currentDraft) => ({
+              ...currentDraft,
+              environment: event.target.value as FiscalSettings['environment'],
+            }))
+          }>
+          {environmentOptions.map((option) => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
         </TextField>
       </FormRow>
 
       <TextField
-        defaultValue={settings?.companyCnpj ?? ''}
         helperText='Informe 14 digitos para usar Focus NFe. O token da Focus continua no .env.'
         label='CNPJ emitente'
         name='companyCnpj'
+        value={draft.companyCnpj ?? ''}
+        onChange={(event) =>
+          setDraft((currentDraft) => ({
+            ...currentDraft,
+            companyCnpj: event.target.value,
+          }))
+        }
       />
 
       <FormCard>
         <FormControlLabel
           control={
             <Switch
-              defaultChecked={settings?.allowProduction ?? false}
+              checked={draft.allowProduction}
               name='allowProduction'
+              onChange={(event) =>
+                setDraft((currentDraft) => ({
+                  ...currentDraft,
+                  allowProduction: event.target.checked,
+                }))
+              }
             />
           }
           label='Permitir emissao em producao'
@@ -95,6 +142,17 @@ export function FiscalSettingsPage({
       </div>
     </FormGrid>
   )
+}
+
+function fiscalSettingsInput(
+  settings: FiscalSettings | null,
+): FiscalSettingsInput {
+  return {
+    allowProduction: settings?.allowProduction ?? false,
+    companyCnpj: settings?.companyCnpj ?? null,
+    environment: settings?.environment ?? 'HOMOLOGATION',
+    provider: settings?.provider ?? 'MOCK',
+  }
 }
 
 function FiscalSettingsStatus({
