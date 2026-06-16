@@ -63,15 +63,17 @@ type FocusNfeItemPayload = {
 
 export class FocusFiscalProvider implements FiscalProvider {
   async cancel(request: FiscalCancelRequest): Promise<FiscalCancelResult> {
-    ensureFocusConfiguration();
+    ensureFocusConfiguration(request.environment);
 
     const response = await focusFetch(
-      focusNfeReferenceUrl(request.providerReference),
+      focusNfeReferenceUrl(request.environment, request.providerReference),
       {
         method: "DELETE",
         headers: {
           Accept: "application/json",
-          Authorization: focusAuthorizationHeader(env.fiscal.focus.token),
+          Authorization: focusAuthorizationHeader(
+            focusToken(request.environment),
+          ),
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ justificativa: request.reason }),
@@ -82,6 +84,7 @@ export class FocusFiscalProvider implements FiscalProvider {
 
     return focusResultFromPayload({
       documentType: request.documentType,
+      environment: request.environment,
       providerReference: request.providerReference,
       responsePayload,
       status,
@@ -89,14 +92,16 @@ export class FocusFiscalProvider implements FiscalProvider {
   }
 
   async check(request: FiscalCheckRequest): Promise<FiscalCheckResult> {
-    ensureFocusConfiguration();
+    ensureFocusConfiguration(request.environment);
 
     const response = await focusFetch(
-      focusNfeReferenceUrl(request.providerReference),
+      focusNfeReferenceUrl(request.environment, request.providerReference),
       {
         headers: {
           Accept: "application/json",
-          Authorization: focusAuthorizationHeader(env.fiscal.focus.token),
+          Authorization: focusAuthorizationHeader(
+            focusToken(request.environment),
+          ),
         },
       },
     );
@@ -105,6 +110,7 @@ export class FocusFiscalProvider implements FiscalProvider {
 
     return focusResultFromPayload({
       documentType: request.documentType,
+      environment: request.environment,
       providerReference: request.providerReference,
       responsePayload,
       status,
@@ -112,13 +118,13 @@ export class FocusFiscalProvider implements FiscalProvider {
   }
 
   async issue(request: FiscalIssueRequest): Promise<FiscalIssueResult> {
-    ensureFocusConfiguration();
+    ensureFocusConfiguration(request.environment, request.companyCnpj);
 
-    const response = await focusFetch(focusNfeUrl(request.reference), {
+    const response = await focusFetch(focusNfeUrl(request), {
       method: "POST",
       headers: {
         Accept: "application/json",
-        Authorization: focusAuthorizationHeader(env.fiscal.focus.token),
+        Authorization: focusAuthorizationHeader(focusToken(request.environment)),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(buildFocusNfePayload(request)),
@@ -128,6 +134,7 @@ export class FocusFiscalProvider implements FiscalProvider {
 
     return focusResultFromPayload({
       documentType: request.documentType,
+      environment: request.environment,
       providerReference: request.reference,
       responsePayload,
       status,
@@ -136,11 +143,13 @@ export class FocusFiscalProvider implements FiscalProvider {
 }
 
 function focusResultFromPayload({
+  environment,
   providerReference,
   responsePayload,
   status,
 }: {
   documentType: FiscalCheckRequest["documentType"];
+  environment: FiscalCheckRequest["environment"];
   providerReference: string;
   responsePayload: FocusResponsePayload;
   status: FiscalProviderStatus;
@@ -155,18 +164,21 @@ function focusResultFromPayload({
       providerReference,
     number: focusNumber(responsePayload.numero),
     series: focusNumber(responsePayload.serie),
-    xmlUrl: focusFileUrl(responsePayload.caminho_xml_nota_fiscal),
-    pdfUrl: focusFileUrl(responsePayload.caminho_danfe),
+    xmlUrl: focusFileUrl(environment, responsePayload.caminho_xml_nota_fiscal),
+    pdfUrl: focusFileUrl(environment, responsePayload.caminho_danfe),
     rejectionReason:
       status === "REJECTED" ? focusRejectionReason(responsePayload) : null,
     responsePayload,
   };
 }
 
-function ensureFocusConfiguration() {
+function ensureFocusConfiguration(
+  environment: FiscalIssueRequest["environment"],
+  companyCnpj?: string | null,
+) {
   const missingFields = [
-    ["FOCUS_NFE_TOKEN", env.fiscal.focus.token],
-    ["FOCUS_NFE_COMPANY_CNPJ", env.fiscal.focus.companyCnpj],
+    [`FOCUS_NFE_${environment}_TOKEN`, focusToken(environment)],
+    ["CNPJ fiscal da loja", companyCnpj === undefined ? true : companyCnpj],
   ]
     .filter((field): field is [string, null] => !field[1])
     .map(([field]) => field);
@@ -190,7 +202,7 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
     finalidade_emissao: 1,
     consumidor_final: 1,
     presenca_comprador: 1,
-    cnpj_emitente: digits(env.fiscal.focus.companyCnpj),
+    cnpj_emitente: digits(request.companyCnpj),
     nome_destinatario: request.sale.clientName ?? "Consumidor final",
     ...focusCustomerDocument(request),
     inscricao_estadual_destinatario:
@@ -263,21 +275,28 @@ function focusNfeItemPayload(
   };
 }
 
-function focusNfeUrl(reference: string) {
-  const url = new URL(focusBaseUrl());
-  url.searchParams.set("ref", reference);
+function focusNfeUrl(request: FiscalIssueRequest) {
+  const url = new URL(focusBaseUrl(request.environment));
+  url.searchParams.set("ref", request.reference);
   return url;
 }
 
-function focusNfeReferenceUrl(reference: string) {
-  return `${focusBaseUrl()}/${encodeURIComponent(reference)}`;
+function focusNfeReferenceUrl(
+  environment: FiscalIssueRequest["environment"],
+  reference: string,
+) {
+  return `${focusBaseUrl(environment)}/${encodeURIComponent(reference)}`;
 }
 
-function focusBaseUrl() {
-  const baseUrl = env.fiscal.focus.baseUrl.replace(/\/$/, "");
+function focusBaseUrl(environment: FiscalIssueRequest["environment"]) {
+  const baseUrl = env.fiscal.focus.baseUrls[environment].replace(/\/$/, "");
   const path = baseUrl.endsWith("/v2/nfe") ? "" : "/v2/nfe";
 
   return `${baseUrl}${path}`;
+}
+
+function focusToken(environment: FiscalIssueRequest["environment"]) {
+  return env.fiscal.focus.tokens[environment] ?? env.fiscal.focus.token;
 }
 
 function focusAuthorizationHeader(token: string | null) {
@@ -408,7 +427,10 @@ function focusString(value: unknown) {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
-function focusFileUrl(value: unknown) {
+function focusFileUrl(
+  environment: FiscalIssueRequest["environment"],
+  value: unknown,
+) {
   const path = focusString(value);
 
   if (!path) {
@@ -419,14 +441,14 @@ function focusFileUrl(value: unknown) {
     return path;
   }
 
-  const baseUrl = focusFilesBaseUrl();
+  const baseUrl = focusFilesBaseUrl(environment);
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
   return `${baseUrl}${normalizedPath}`;
 }
 
-function focusFilesBaseUrl() {
-  return env.fiscal.focus.baseUrl
+function focusFilesBaseUrl(environment: FiscalIssueRequest["environment"]) {
+  return env.fiscal.focus.baseUrls[environment]
     .replace(/\/$/, "")
     .replace(/\/v2\/nfe$/, "")
     .replace(/\/v2$/, "");

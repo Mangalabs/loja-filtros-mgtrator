@@ -1,9 +1,6 @@
-import { env } from "../../config/env.js";
 import { db } from "../../database/knex.js";
-import {
-  makeFiscalProvider,
-  makeFiscalProviderByName,
-} from "../../integrations/fiscal/fiscal-provider-factory.js";
+import { makeFiscalProviderByName } from "../../integrations/fiscal/fiscal-provider-factory.js";
+import { currentFiscalSettings } from "../fiscal-settings/fiscal-settings.controller.js";
 import {
   findFiscalDocumentBySource,
   getFiscalDocumentById,
@@ -88,6 +85,7 @@ export async function syncFiscalDocument(id: string) {
   const provider = makeFiscalProviderByName(fiscalDocument.provider);
   const result = await provider.check({
     documentType: fiscalDocument.documentType,
+    environment: fiscalDocument.environment,
     providerReference: fiscalDocument.providerReference,
   });
   const updated = await updateFiscalDocumentStatus(id, {
@@ -182,6 +180,7 @@ export async function cancelFiscalDocument(
   const provider = makeFiscalProviderByName(fiscalDocument.provider);
   const result = await provider.cancel({
     documentType: fiscalDocument.documentType,
+    environment: fiscalDocument.environment,
     providerReference: fiscalDocument.providerReference,
     reason,
   });
@@ -360,14 +359,17 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       throw new AppError(input.duplicateMessage, 409);
     }
 
-    const provider = makeFiscalProvider();
+    const fiscalSettings = await currentFiscalSettings();
+    ensureFiscalSettingsCanIssue(fiscalSettings);
+    const provider = makeFiscalProviderByName(fiscalSettings.provider);
     const requestPayload = {
       reference: fiscalReference(input.sourceType, input.sourceId),
       documentType: input.documentType,
-      environment: env.fiscal.environment,
+      environment: fiscalSettings.environment,
+      companyCnpj: fiscalSettings.companyCnpj,
       sale,
     };
-    ensureFiscalReadiness(requestPayload.sale);
+    ensureFiscalReadiness(requestPayload.sale, fiscalSettings.provider);
     const result = await provider.issue(requestPayload);
 
     const fiscalDocumentInput = {
@@ -375,7 +377,7 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       sourceId: input.sourceId,
       documentType: input.documentType,
       provider: result.provider,
-      environment: env.fiscal.environment,
+      environment: fiscalSettings.environment,
       status: result.status,
       accessKey: result.accessKey,
       providerReference: result.providerReference,
@@ -407,6 +409,19 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
   };
 }
 
+function ensureFiscalSettingsCanIssue(
+  settings: Awaited<ReturnType<typeof currentFiscalSettings>>,
+) {
+  if (settings.environment !== "PRODUCTION" || settings.allowProduction) {
+    return;
+  }
+
+  throw new AppError(
+    "Emissao em producao bloqueada pela configuracao fiscal.",
+    422,
+  );
+}
+
 function fiscalReference(sourceType: FiscalDocumentSourceType, sourceId: string) {
   return `${sourceType}${sourceId}`.replace(/[^a-zA-Z0-9]/g, "");
 }
@@ -415,8 +430,11 @@ type FiscalSale = IssueFiscalDocumentInput extends never
   ? never
   : NonNullable<Awaited<ReturnType<typeof getSaleById>>>;
 
-function ensureFiscalReadiness(sale: FiscalSale) {
-  if (env.fiscal.provider !== "focus") {
+function ensureFiscalReadiness(
+  sale: FiscalSale,
+  provider: Awaited<ReturnType<typeof currentFiscalSettings>>["provider"],
+) {
+  if (provider !== "FOCUS") {
     return;
   }
 

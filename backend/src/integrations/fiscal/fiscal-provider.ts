@@ -16,6 +16,7 @@ export type FiscalIssueRequest = {
   reference: string;
   documentType: FiscalDocumentType;
   environment: FiscalEnvironment;
+  companyCnpj: string | null;
   sale: {
     id: string;
     clientPersonType: "PF" | "PJ" | "ES" | null;
@@ -68,6 +69,7 @@ export type FiscalIssueResult = {
 
 export type FiscalCheckRequest = {
   documentType: FiscalDocumentType;
+  environment: FiscalEnvironment;
   providerReference: string;
 };
 
@@ -75,6 +77,7 @@ export type FiscalCheckResult = FiscalIssueResult;
 
 export type FiscalCancelRequest = {
   documentType: FiscalDocumentType;
+  environment: FiscalEnvironment;
   providerReference: string;
   reason: string;
 };

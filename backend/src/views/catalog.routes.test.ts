@@ -345,7 +345,7 @@ beforeEach(async () => {
   env.fiscal.provider = "mock";
 
   await db.raw(
-    "truncate table fiscal_documents, cash_register_sessions, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
+    "truncate table fiscal_settings, fiscal_documents, cash_register_sessions, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
   await db("payment_methods").update({ active: true });
 });
@@ -1264,6 +1264,8 @@ describe("catalog routes", () => {
   it("returns Focus configuration errors after fiscal readiness passes", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusHomologationToken =
+      env.fiscal.focus.tokens.HOMOLOGATION;
     const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
     const product = await request<Product>("/products", {
       method: "POST",
@@ -1325,6 +1327,7 @@ describe("catalog routes", () => {
 
     env.fiscal.provider = "focus";
     env.fiscal.focus.token = null;
+    env.fiscal.focus.tokens.HOMOLOGATION = null;
     env.fiscal.focus.companyCnpj = null;
 
     try {
@@ -1339,11 +1342,12 @@ describe("catalog routes", () => {
       assert.equal(fiscalDocument.status, 503);
       assert.equal(
         fiscalDocument.body.message,
-        "Integracao Focus NFe sem configuracao: FOCUS_NFE_TOKEN, FOCUS_NFE_COMPANY_CNPJ.",
+        "Integracao Focus NFe sem configuracao: FOCUS_NFE_HOMOLOGATION_TOKEN, CNPJ fiscal da loja.",
       );
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.tokens.HOMOLOGATION = originalFocusHomologationToken;
       env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
     }
   });
@@ -1418,6 +1422,7 @@ describe("catalog routes", () => {
     try {
       await new FocusFiscalProvider().check({
         documentType: "NFE",
+        environment: "HOMOLOGATION",
         providerReference: "SALEfocusprovidertest",
       });
       assert.fail("Expected Focus token error");
@@ -1448,6 +1453,7 @@ describe("catalog routes", () => {
     try {
       await new FocusFiscalProvider().cancel({
         documentType: "NFE",
+        environment: "HOMOLOGATION",
         providerReference: "SALEfocusprovidertest",
         reason: "Cancelamento por teste fiscal",
       });
@@ -1482,6 +1488,7 @@ describe("catalog routes", () => {
     try {
       const result = await new FocusFiscalProvider().cancel({
         documentType: "NFE",
+        environment: "HOMOLOGATION",
         providerReference: "SALEfocusprovidertest",
         reason: "Cancelamento ainda em processamento pela Focus",
       });
@@ -3331,6 +3338,7 @@ function focusIssueRequest(): FiscalIssueRequest {
     reference: "SALEfocusprovidertest",
     documentType: "NFE",
     environment: "HOMOLOGATION",
+    companyCnpj: "12345678000199",
     sale: {
       id: "salefocusprovidertest",
       clientPersonType: "PF",

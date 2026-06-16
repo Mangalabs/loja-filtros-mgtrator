@@ -106,7 +106,15 @@ export const env = {
     environment: fiscalEnvironmentValue,
     focus: {
       baseUrl: focusBaseUrl(fiscalEnvironmentValue),
+      baseUrls: {
+        HOMOLOGATION: focusBaseUrl("HOMOLOGATION"),
+        PRODUCTION: focusBaseUrl("PRODUCTION"),
+      },
       token: focusToken(fiscalEnvironmentValue),
+      tokens: {
+        HOMOLOGATION: focusToken("HOMOLOGATION"),
+        PRODUCTION: focusToken("PRODUCTION"),
+      },
       companyCnpj: optionalEnv(process.env.FOCUS_NFE_COMPANY_CNPJ),
     },
   },
