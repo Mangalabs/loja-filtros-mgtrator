@@ -187,6 +187,7 @@ export function AppViewRenderer({
         <FiscalDocumentsPage
           clients={clients}
           fiscalDocuments={fiscalDocuments}
+          fiscalSettings={fiscalSettings}
           pickupReservations={pickupReservations}
           products={products}
           sales={sales}

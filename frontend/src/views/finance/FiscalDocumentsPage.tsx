@@ -10,6 +10,7 @@ import type { FormEvent } from 'react'
 import type {
   Client,
   FiscalDocument,
+  FiscalSettings,
   PickupReservation,
   Product,
   Sale,
@@ -45,6 +46,7 @@ import {
 export function FiscalDocumentsPage({
   clients,
   fiscalDocuments,
+  fiscalSettings,
   pickupReservations,
   products,
   sales,
@@ -57,6 +59,7 @@ export function FiscalDocumentsPage({
 }: {
   clients: Client[]
   fiscalDocuments: FiscalDocument[]
+  fiscalSettings: FiscalSettings | null
   pickupReservations: PickupReservation[]
   products: Product[]
   sales: Sale[]
@@ -92,7 +95,10 @@ export function FiscalDocumentsPage({
 
   return (
     <section className='grid min-w-0 gap-4'>
-      <FiscalDocumentsOverview summary={fiscalSummary} />
+      <FiscalDocumentsOverview
+        fiscalSettings={fiscalSettings}
+        summary={fiscalSummary}
+      />
 
       <PagePanel className='min-w-0'>
         <PageHeader
@@ -424,8 +430,10 @@ type FiscalDocumentSummary = {
 }
 
 function FiscalDocumentsOverview({
+  fiscalSettings,
   summary,
 }: {
+  fiscalSettings: FiscalSettings | null
   summary: FiscalDocumentSummary
 }) {
   const alerts = fiscalDocumentSummaryAlerts(summary)
@@ -451,6 +459,7 @@ function FiscalDocumentsOverview({
           </div>
         ))}
       </div>
+      <FiscalSettingsSummary settings={fiscalSettings} />
       <FiscalReadinessIssueHighlights
         issues={summary.frequentReadinessIssues}
       />
@@ -465,6 +474,71 @@ function FiscalDocumentsOverview({
       ) : null}
     </PagePanel>
   )
+}
+
+function FiscalSettingsSummary({
+  settings,
+}: {
+  settings: FiscalSettings | null
+}) {
+  const alerts = fiscalSettingsAlerts(settings)
+
+  return (
+    <Stack className='mt-3' spacing={1}>
+      <div className='flex flex-wrap gap-2'>
+        <StatusChip
+          label={`Provedor: ${settings?.provider ?? 'Carregando'}`}
+          tone={settings?.provider === 'FOCUS' ? 'success' : 'neutral'}
+        />
+        <StatusChip
+          label={`Ambiente: ${
+            settings?.environment
+              ? fiscalDocumentEnvironmentLabel(settings.environment)
+              : 'Carregando'
+          }`}
+          tone={settings?.environment === 'PRODUCTION' ? 'warning' : 'success'}
+        />
+        <StatusChip
+          label={
+            settings?.allowProduction
+              ? 'Producao liberada'
+              : 'Producao bloqueada'
+          }
+          tone={settings?.allowProduction ? 'warning' : 'success'}
+        />
+      </div>
+      {alerts.map((alert) => (
+        <Alert key={alert.message} severity={alert.severity}>
+          {alert.message}
+        </Alert>
+      ))}
+    </Stack>
+  )
+}
+
+function fiscalSettingsAlerts(settings: FiscalSettings | null) {
+  const alertOptions = [
+    {
+      active: !settings,
+      message: 'Configuracao fiscal ainda nao foi carregada.',
+      severity: 'info',
+    },
+    {
+      active: settings?.provider === 'MOCK',
+      message:
+        'Provedor fiscal em mock interno. As notas geradas nao serao enviadas para a Focus.',
+      severity: 'warning',
+    },
+    {
+      active:
+        settings?.environment === 'PRODUCTION' && !settings.allowProduction,
+      message:
+        'Ambiente de producao selecionado, mas emissao em producao continua bloqueada.',
+      severity: 'warning',
+    },
+  ] as const
+
+  return alertOptions.filter((alert) => alert.active)
 }
 
 function fiscalDocumentSummaryMetrics(summary: FiscalDocumentSummary) {
