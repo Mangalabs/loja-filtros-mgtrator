@@ -493,16 +493,34 @@ function focusNumber(value: unknown) {
   return Number.isFinite(number) ? number : null;
 }
 
-function focusMessage(value: unknown) {
-  if (typeof value === "string" && value.trim()) {
-    return value;
+function focusMessage(value: unknown): string | null {
+  const text = focusString(value);
+
+  if (text) {
+    return text;
   }
 
   if (Array.isArray(value) && value.length > 0) {
-    return value.map(String).join("; ");
+    const messages: string[] = value
+      .map(focusMessage)
+      .filter((message): message is string => Boolean(message));
+
+    return messages.length > 0 ? messages.join("; ") : null;
   }
 
-  return value && typeof value === "object" ? JSON.stringify(value) : null;
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const payload = value as FocusResponsePayload;
+
+  return (
+    focusMessage(payload.mensagem_sefaz) ??
+    focusMessage(payload.mensagem) ??
+    focusMessage(payload.message) ??
+    focusMessage(payload.erro) ??
+    JSON.stringify(value)
+  );
 }
 
 function focusProductUnit(unit: string) {

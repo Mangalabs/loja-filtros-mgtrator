@@ -1869,16 +1869,21 @@ describe("catalog routes", () => {
     env.fiscal.focus.token = "token-focus-teste";
     env.fiscal.focus.companyCnpj = "12345678000199";
     globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ erros: ["NCM invalido"] }), {
-        status: 422,
-      })) as typeof fetch;
+      new Response(
+        JSON.stringify({
+          erros: [{ mensagem: "NCM invalido" }, "CFOP invalido"],
+        }),
+        {
+          status: 422,
+        },
+      )) as typeof fetch;
 
     try {
       const result = await new FocusFiscalProvider().issue(focusIssueRequest());
 
       assert.equal(result.provider, "FOCUS");
       assert.equal(result.status, "REJECTED");
-      assert.equal(result.rejectionReason, "NCM invalido");
+      assert.equal(result.rejectionReason, "NCM invalido; CFOP invalido");
       assert.equal(result.providerReference, "SALEfocusprovidertest");
     } finally {
       env.fiscal.provider = originalFiscalProvider;
