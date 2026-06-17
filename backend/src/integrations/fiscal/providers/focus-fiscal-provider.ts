@@ -382,7 +382,7 @@ function focusStatusFromPayload(
 function focusStatusFromPayloadValue(
   payload: FocusResponsePayload,
 ): FiscalProviderStatus | null {
-  const status = focusString(payload.status)?.toLowerCase() ?? "";
+  const status = focusStatusKey(payload.status);
   const statusByFocusStatus: Record<string, FiscalProviderStatus> = {
     autorizado: "AUTHORIZED",
     cancelado: "CANCELLED",
@@ -402,7 +402,7 @@ function focusCancelStatusFromPayload(
     throw focusHttpError(response, payload);
   }
 
-  const status = focusString(payload.status)?.toLowerCase() ?? "";
+  const status = focusStatusKey(payload.status);
   const statusByFocusStatus: Record<string, FiscalProviderStatus> = {
     cancelado: "CANCELLED",
     erro_cancelamento: "REJECTED",
@@ -411,6 +411,17 @@ function focusCancelStatusFromPayload(
   };
 
   return statusByFocusStatus[status] ?? "PROCESSING";
+}
+
+function focusStatusKey(value: unknown) {
+  return (
+    focusString(value)
+      ?.normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .toLowerCase() ?? ""
+  );
 }
 
 function focusHttpError(response: Response, payload: FocusResponsePayload) {

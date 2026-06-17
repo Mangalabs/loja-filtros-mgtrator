@@ -1689,6 +1689,42 @@ describe("catalog routes", () => {
     }
   });
 
+  it("normalizes Focus status values before mapping fiscal status", async () => {
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFetch = globalThis.fetch;
+    const responses = [
+      { status: "erro autorização", mensagem_sefaz: "Rejeicao com acento" },
+      { status: "PROCESSANDO CANCELAMENTO" },
+    ];
+
+    env.fiscal.focus.token = "token-focus-teste";
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(responses.shift()), {
+        status: 200,
+      })) as typeof fetch;
+
+    try {
+      const authorization = await new FocusFiscalProvider().check({
+        documentType: "NFE",
+        environment: "HOMOLOGATION",
+        providerReference: "SALEfocusstatusnormalizado",
+      });
+      const cancellation = await new FocusFiscalProvider().cancel({
+        documentType: "NFE",
+        environment: "HOMOLOGATION",
+        providerReference: "SALEfocusstatusnormalizado",
+        reason: "Cancelamento para testar status normalizado",
+      });
+
+      assert.equal(authorization.status, "REJECTED");
+      assert.equal(authorization.rejectionReason, "Rejeicao com acento");
+      assert.equal(cancellation.status, "PROCESSING");
+    } finally {
+      env.fiscal.focus.token = originalFocusToken;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("returns a rejected fiscal result when Focus rejects the payload", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
