@@ -86,7 +86,7 @@ export function useFinanceActions({
     input: Pick<
       FiscalSettings,
       "allowProduction" | "companyCnpj" | "environment" | "provider"
-    >,
+    > & { productionConfirmation?: string | null },
   ) {
     const productionWarning =
       input.environment === "PRODUCTION"

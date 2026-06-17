@@ -503,6 +503,15 @@ describe("catalog routes", () => {
         allowProduction: false,
       },
     });
+    const missingProductionConfirmation = await request("/fiscal-settings", {
+      method: "PUT",
+      body: {
+        provider: "FOCUS",
+        environment: "PRODUCTION",
+        companyCnpj: "12.345.678/0001-90",
+        allowProduction: true,
+      },
+    });
     const homologationProductionFlag = await request<FiscalSettings>(
       "/fiscal-settings",
       {
@@ -522,6 +531,7 @@ describe("catalog routes", () => {
         environment: "PRODUCTION",
         companyCnpj: "12.345.678/0001-90",
         allowProduction: true,
+        productionConfirmation: "EMITIR EM PRODUCAO",
       },
     });
 
@@ -546,6 +556,11 @@ describe("catalog routes", () => {
     assert.equal(
       invalidCompanyCnpj.body.message,
       "CNPJ fiscal da loja deve ter 14 digitos para usar Focus NFe.",
+    );
+    assert.equal(missingProductionConfirmation.status, 422);
+    assert.equal(
+      missingProductionConfirmation.body.message,
+      "Digite EMITIR EM PRODUCAO para habilitar emissao em producao.",
     );
     assert.equal(homologationProductionFlag.status, 200);
     assert.equal(

@@ -12,7 +12,11 @@ import { PrimaryButton, StatusChip } from '../../components/ui'
 type FiscalSettingsInput = Pick<
   FiscalSettings,
   'allowProduction' | 'companyCnpj' | 'environment' | 'provider'
->
+> & {
+  productionConfirmation?: string | null
+}
+
+const productionConfirmationPhrase = 'EMITIR EM PRODUCAO'
 
 const providerOptions: Array<{
   label: string
@@ -54,7 +58,13 @@ export function FiscalSettingsPage({
   const productionEnvironment = draft.environment === 'PRODUCTION'
   const productionConfirmationError =
     productionEnvironment && !draft.allowProduction
-  const submitBlocked = companyCnpjError || productionConfirmationError
+  const productionPhraseRequired =
+    productionEnvironment && draft.allowProduction
+  const productionPhraseError =
+    productionPhraseRequired &&
+    draft.productionConfirmation !== productionConfirmationPhrase
+  const submitBlocked =
+    companyCnpjError || productionConfirmationError || productionPhraseError
 
   return (
     <FormGrid
@@ -64,6 +74,8 @@ export function FiscalSettingsPage({
         onSubmit({
           ...draft,
           companyCnpj: draft.companyCnpj?.trim() || null,
+          productionConfirmation:
+            draft.productionConfirmation?.trim() || null,
         })
       }}>
       <PageHeader
@@ -107,6 +119,10 @@ export function FiscalSettingsPage({
                   ? currentDraft.allowProduction
                   : false,
               environment: event.target.value as FiscalSettings['environment'],
+              productionConfirmation:
+                event.target.value === 'PRODUCTION'
+                  ? currentDraft.productionConfirmation
+                  : null,
             }))
           }>
           {environmentOptions.map((option) => (
@@ -142,6 +158,9 @@ export function FiscalSettingsPage({
                 setDraft((currentDraft) => ({
                   ...currentDraft,
                   allowProduction: event.target.checked,
+                  productionConfirmation: event.target.checked
+                    ? currentDraft.productionConfirmation
+                    : null,
                 }))
               }
             />
@@ -156,6 +175,21 @@ export function FiscalSettingsPage({
           <Alert severity='error'>
             Para salvar o ambiente de producao, ative a confirmacao explicita.
           </Alert>
+        ) : null}
+        {productionPhraseRequired ? (
+          <TextField
+            error={productionPhraseError}
+            helperText={`Digite exatamente ${productionConfirmationPhrase} para liberar producao.`}
+            label='Confirmacao de producao'
+            name='productionConfirmation'
+            value={draft.productionConfirmation ?? ''}
+            onChange={(event) =>
+              setDraft((currentDraft) => ({
+                ...currentDraft,
+                productionConfirmation: event.target.value,
+              }))
+            }
+          />
         ) : null}
       </FormCard>
 
@@ -176,6 +210,7 @@ function fiscalSettingsInput(
     companyCnpj: settings?.companyCnpj ?? null,
     environment: settings?.environment ?? 'HOMOLOGATION',
     provider: settings?.provider ?? 'MOCK',
+    productionConfirmation: null,
   }
 }
 

@@ -6,6 +6,12 @@ import {
 } from "../../models/fiscal-settings/fiscal-settings.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
+export const FISCAL_PRODUCTION_CONFIRMATION = "EMITIR EM PRODUCAO";
+
+export type FiscalSettingsPayload = FiscalSettingsInput & {
+  productionConfirmation?: string | null;
+};
+
 export async function showFiscalSettings() {
   return {
     code: 200,
@@ -14,13 +20,14 @@ export async function showFiscalSettings() {
   };
 }
 
-export async function replaceFiscalSettings(input: FiscalSettingsInput) {
+export async function replaceFiscalSettings(input: FiscalSettingsPayload) {
   ensureProductionIsExplicitlyAllowed(input);
   const companyCnpj = fiscalDigits(input.companyCnpj);
   ensureFocusCompanyCnpj(input.provider, companyCnpj);
 
   const settings = await upsertFiscalSettings({
-    ...input,
+    provider: input.provider,
+    environment: input.environment,
     allowProduction: fiscalProductionAllowance(input),
     companyCnpj,
   });
@@ -52,13 +59,24 @@ function fiscalProductionAllowance(input: FiscalSettingsInput) {
   return input.environment === "PRODUCTION" && input.allowProduction;
 }
 
-function ensureProductionIsExplicitlyAllowed(input: FiscalSettingsInput) {
-  if (input.environment !== "PRODUCTION" || input.allowProduction) {
+function ensureProductionIsExplicitlyAllowed(input: FiscalSettingsPayload) {
+  if (input.environment !== "PRODUCTION") {
+    return;
+  }
+
+  if (!input.allowProduction) {
+    throw new AppError(
+      "Ambiente de producao exige confirmacao explicita.",
+      422,
+    );
+  }
+
+  if (input.productionConfirmation === FISCAL_PRODUCTION_CONFIRMATION) {
     return;
   }
 
   throw new AppError(
-    "Ambiente de producao exige confirmacao explicita.",
+    `Digite ${FISCAL_PRODUCTION_CONFIRMATION} para habilitar emissao em producao.`,
     422,
   );
 }

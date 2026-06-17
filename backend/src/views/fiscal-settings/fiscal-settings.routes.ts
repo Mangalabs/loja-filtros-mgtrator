@@ -16,6 +16,10 @@ const fiscalSettingsSchema = z
       .union([z.string().trim().min(1).max(32), z.literal(""), z.null()])
       .transform((value) => value || null),
     allowProduction: z.boolean(),
+    productionConfirmation: z
+      .union([z.string().trim().min(1).max(64), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
   })
   .strict();
 
