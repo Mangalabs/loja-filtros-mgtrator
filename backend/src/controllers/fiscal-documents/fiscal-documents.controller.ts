@@ -101,7 +101,11 @@ export async function syncFiscalDocument(id: string) {
     series: result.series ?? fiscalDocument.series,
     xmlUrl: result.xmlUrl ?? fiscalDocument.xmlUrl,
     pdfUrl: result.pdfUrl ?? fiscalDocument.pdfUrl,
-    rejectionReason: result.rejectionReason,
+    rejectionReason: fiscalSyncRejectionReason(
+      status,
+      fiscalDocument,
+      result.rejectionReason,
+    ),
     responsePayload: result.responsePayload,
     ...fiscalSyncCancellationAudit(status, fiscalDocument),
   });
@@ -130,6 +134,20 @@ function fiscalCancellationSyncStatus(providerStatus: FiscalDocumentStatus) {
   };
 
   return statusByProviderStatus[providerStatus] ?? providerStatus;
+}
+
+function fiscalSyncRejectionReason(
+  status: FiscalDocumentStatus,
+  fiscalDocument: Awaited<ReturnType<typeof getFiscalDocumentById>>,
+  rejectionReason: string | null,
+) {
+  if (rejectionReason || status !== "AUTHORIZED") {
+    return rejectionReason;
+  }
+
+  return fiscalDocument?.status === "AUTHORIZED"
+    ? fiscalDocument.rejectionReason
+    : null;
 }
 
 function mockFiscalDocumentPdf(reference: string) {

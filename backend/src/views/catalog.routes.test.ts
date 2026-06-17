@@ -1100,17 +1100,21 @@ describe("catalog routes", () => {
       })
       .returning("id");
 
+    const responses = [
+      {
+        status: "erro_cancelamento",
+        mensagem_sefaz: "Cancelamento fora do prazo permitido",
+      },
+      { status: "autorizado" },
+    ];
+
     env.fiscal.provider = "focus";
     env.fiscal.focus.token = "token-focus-teste";
     env.fiscal.focus.companyCnpj = "12345678000199";
     globalThis.fetch = (async () =>
-      new Response(
-        JSON.stringify({
-          status: "erro_cancelamento",
-          mensagem_sefaz: "Cancelamento fora do prazo permitido",
-        }),
-        { status: 200 },
-      )) as typeof fetch;
+      new Response(JSON.stringify(responses.shift()), {
+        status: 200,
+      })) as typeof fetch;
 
     try {
       const result = await cancelFiscalDocument(
@@ -1118,6 +1122,7 @@ describe("catalog routes", () => {
         "Cancelamento rejeitado pela Focus",
         administrator.id,
       );
+      const synced = await syncFiscalDocument(inserted.id);
 
       assert.equal(result.code, 200);
       assert.equal(result.data.status, "AUTHORIZED");
@@ -1126,6 +1131,12 @@ describe("catalog routes", () => {
       assert.equal(result.data.cancellationReason, null);
       assert.equal(
         result.data.rejectionReason,
+        "Cancelamento fora do prazo permitido",
+      );
+      assert.equal(synced.code, 200);
+      assert.equal(synced.data.status, "AUTHORIZED");
+      assert.equal(
+        synced.data.rejectionReason,
         "Cancelamento fora do prazo permitido",
       );
     } finally {
