@@ -76,7 +76,7 @@ export function useCatalogData() {
         shippingOrdersResult,
         pickupReservationsResult,
       ] = await Promise.all([
-        apiGet<ApiResult<Product[]>>("/products"),
+        fetchProductCatalog(),
         apiGet<ApiResult<NamedEntity[]>>("/brands"),
         apiGet<ApiResult<Client[]>>("/clients"),
         apiGet<ApiResult<Supplier[]>>("/suppliers"),
@@ -95,7 +95,7 @@ export function useCatalogData() {
         apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
       ]);
 
-      setProducts(productsResult.data);
+      setProducts(productsResult);
       setBrands(brandsResult.data);
       setClients(clientsResult.data);
       setSuppliers(suppliersResult.data);
@@ -185,4 +185,23 @@ export function useCatalogData() {
     stockMovements,
     suppliers,
   };
+}
+
+async function fetchProductCatalog() {
+  const limit = 100;
+  const products: Product[] = [];
+  let page = 1;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const result = await apiGet<ApiResult<Product[]>>(
+      `/products?page=${page}&limit=${limit}`,
+    );
+
+    products.push(...result.data);
+    hasNextPage = result.data.length === limit;
+    page += 1;
+  }
+
+  return products;
 }
