@@ -214,21 +214,27 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
     consumidor_final: 1,
     presenca_comprador: 1,
     cnpj_emitente: digits(request.companyCnpj),
-    nome_destinatario: request.sale.clientName ?? "Consumidor final",
+    nome_destinatario:
+      focusString(request.sale.clientName) ?? "Consumidor final",
     ...focusCustomerDocument(request),
     inscricao_estadual_destinatario:
-      request.sale.clientStateRegistration ?? undefined,
+      focusString(request.sale.clientStateRegistration) ?? undefined,
     indicador_inscricao_estadual_destinatario:
       focusCustomerStateRegistrationIndicator(request),
-    logradouro_destinatario: request.sale.clientAddressStreet ?? undefined,
-    numero_destinatario: request.sale.clientAddressNumber ?? undefined,
-    complemento_destinatario: request.sale.clientAddressComplement ?? undefined,
-    bairro_destinatario: request.sale.clientAddressDistrict ?? undefined,
-    municipio_destinatario: request.sale.clientAddressCity ?? undefined,
-    uf_destinatario: request.sale.clientAddressState?.toUpperCase(),
+    logradouro_destinatario:
+      focusString(request.sale.clientAddressStreet) ?? undefined,
+    numero_destinatario:
+      focusString(request.sale.clientAddressNumber) ?? undefined,
+    complemento_destinatario:
+      focusString(request.sale.clientAddressComplement) ?? undefined,
+    bairro_destinatario:
+      focusString(request.sale.clientAddressDistrict) ?? undefined,
+    municipio_destinatario:
+      focusString(request.sale.clientAddressCity) ?? undefined,
+    uf_destinatario: focusString(request.sale.clientAddressState)?.toUpperCase(),
     cep_destinatario: digits(request.sale.clientAddressZipCode),
     telefone_destinatario: digits(request.sale.clientPhone),
-    email_destinatario: request.sale.clientEmail ?? undefined,
+    email_destinatario: focusString(request.sale.clientEmail) ?? undefined,
     valor_total: totalAmount,
     valor_produtos: totalAmount,
     modalidade_frete: 9,
@@ -268,9 +274,9 @@ function focusNfeItemPayload(
 
   return {
     numero_item: item.position,
-    codigo_produto: item.productInternalCode ?? item.productId,
-    descricao: item.productName,
-    codigo_ncm: item.productNcm ?? undefined,
+    codigo_produto: focusString(item.productInternalCode) ?? item.productId,
+    descricao: focusString(item.productName) ?? item.productId,
+    codigo_ncm: focusString(item.productNcm) ?? undefined,
     cfop: focusProductCfop(item.productCfop),
     icms_origem: focusProductOrigin(item.productOrigin),
     icms_situacao_tributaria: focusTaxCode(item.productIcmsCst, "102"),

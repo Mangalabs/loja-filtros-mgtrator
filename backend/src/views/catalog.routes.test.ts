@@ -1970,6 +1970,77 @@ describe("catalog routes", () => {
     }
   });
 
+  it("trims Focus payload text fields before issuing", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const requestPayload = focusIssueRequest();
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    requestPayload.sale.clientName = " Cliente Focus ";
+    requestPayload.sale.clientEmail = " fiscal@example.com ";
+    requestPayload.sale.clientStateRegistration = " 123456 ";
+    requestPayload.sale.clientAddressStreet = " Rua Fiscal ";
+    requestPayload.sale.clientAddressNumber = " 123 ";
+    requestPayload.sale.clientAddressComplement = " Sala 1 ";
+    requestPayload.sale.clientAddressDistrict = " Centro ";
+    requestPayload.sale.clientAddressCity = " Araguaina ";
+    requestPayload.sale.clientAddressState = " to ";
+    requestPayload.sale.items[0].productInternalCode = " FISCAL-1 ";
+    requestPayload.sale.items[0].productName = " Filtro Focus ";
+    requestPayload.sale.items[0].productNcm = " 84212300 ";
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocusprovidertest",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(requestPayload);
+      assert.ok(submittedPayload);
+
+      const payload = submittedPayload as Record<string, unknown>;
+
+      assert.equal(payload.nome_destinatario, "Cliente Focus");
+      assert.equal(
+        payload.inscricao_estadual_destinatario,
+        "123456",
+      );
+      assert.equal(payload.logradouro_destinatario, "Rua Fiscal");
+      assert.equal(payload.numero_destinatario, "123");
+      assert.equal(payload.complemento_destinatario, "Sala 1");
+      assert.equal(payload.bairro_destinatario, "Centro");
+      assert.equal(payload.municipio_destinatario, "Araguaina");
+      assert.equal(payload.uf_destinatario, "TO");
+      assert.equal(payload.email_destinatario, "fiscal@example.com");
+
+      const item = (payload.items as Array<Record<string, unknown>>)[0];
+
+      assert.equal(item.codigo_produto, "FISCAL-1");
+      assert.equal(item.descricao, "Filtro Focus");
+      assert.equal(item.codigo_ncm, "84212300");
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("reissues a rejected fiscal document without duplicating the source", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
