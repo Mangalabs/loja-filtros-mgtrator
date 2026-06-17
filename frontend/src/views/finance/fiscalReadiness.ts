@@ -38,6 +38,12 @@ function clientReadinessIssues(client?: Client) {
     [client?.addressCity, 'Cidade do cliente pendente.'],
     [client?.addressState, 'UF do cliente pendente.'],
     [client?.addressZipCode, 'CEP do cliente pendente.'],
+    [
+      client?.stateRegistrationIndicator === '1'
+        ? client?.stateRegistration
+        : true,
+      'Inscricao estadual do cliente pendente.',
+    ],
   ]
 
   return [

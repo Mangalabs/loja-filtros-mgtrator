@@ -565,6 +565,13 @@ function requiredClientFiscalFields(sale: FiscalSale): AppErrorDetail[] {
       sale.clientAddressZipCode,
       "CEP do cliente e obrigatorio.",
     ],
+    [
+      "clientStateRegistration",
+      sale.clientStateRegistrationIndicator === "1"
+        ? sale.clientStateRegistration
+        : true,
+      "Inscricao estadual do cliente e obrigatoria para contribuinte ICMS.",
+    ],
   ];
 
   return [

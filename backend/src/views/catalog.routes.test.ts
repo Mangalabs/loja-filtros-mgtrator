@@ -1215,6 +1215,7 @@ describe("catalog routes", () => {
         personType: "PF",
         name: "Cliente sem endereco fiscal",
         document: "12345678901",
+        stateRegistrationIndicator: "1",
       },
     });
     const paymentMethods = await request<PaymentMethod[]>(
@@ -1266,6 +1267,11 @@ describe("catalog routes", () => {
       assert.ok(
         fiscalDocument.body.errors?.some(
           (error) => error.field === "clientAddressStreet",
+        ),
+      );
+      assert.ok(
+        fiscalDocument.body.errors?.some(
+          (error) => error.field === "clientStateRegistration",
         ),
       );
       assert.ok(

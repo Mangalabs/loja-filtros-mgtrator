@@ -93,6 +93,7 @@ const fiscalReadinessIssueLabelPatterns = [
   { label: 'Cliente cadastrado', pattern: /cliente deve estar cadastrado/i },
   { label: 'Nome cliente', pattern: /nome do cliente/i },
   { label: 'CPF/CNPJ cliente', pattern: /cpf\/cnpj/i },
+  { label: 'IE cliente', pattern: /inscricao estadual/i },
   { label: 'Logradouro cliente', pattern: /logradouro/i },
   { label: 'Numero cliente', pattern: /numero do cliente/i },
   { label: 'Bairro cliente', pattern: /bairro/i },
