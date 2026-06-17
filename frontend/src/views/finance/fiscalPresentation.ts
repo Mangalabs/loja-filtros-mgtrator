@@ -27,6 +27,7 @@ export function fiscalDocumentStatusTone(
 export function fiscalDocumentStatusDetail(document: FiscalDocument) {
   const detailByStatus: Partial<Record<FiscalDocument['status'], string | null>> =
     {
+      AUTHORIZED: document.rejectionReason,
       CANCELLED: document.cancellationReason,
       PROCESSING: document.cancellationReason,
       REJECTED: document.rejectionReason,
