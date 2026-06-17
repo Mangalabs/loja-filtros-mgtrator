@@ -997,6 +997,72 @@ describe("catalog routes", () => {
     assert.equal(syncedAfterCancellation.body.data?.status, "CANCELLED");
   });
 
+  it("blocks fiscal issue when production is not explicitly allowed", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro producao bloqueada", salePrice: 42 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente producao bloqueada",
+        document: "12345678901",
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 1,
+        reason: "Saldo para testar trava de producao fiscal",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+      },
+    });
+
+    await db("fiscal_settings").insert({
+      provider: "MOCK",
+      environment: "PRODUCTION",
+      allow_production: false,
+    });
+
+    const blocked = await request(
+      `/sales/${sale.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
+    const listed = await request<FiscalDocument[]>("/fiscal-documents");
+
+    assert.equal(blocked.status, 422);
+    assert.equal(
+      blocked.body.message,
+      "Emissao em producao bloqueada pela configuracao fiscal.",
+    );
+    assert.deepEqual(listed.body.data, []);
+  });
+
   it("preserves fiscal cancellation audit while Focus cancellation is processing", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
