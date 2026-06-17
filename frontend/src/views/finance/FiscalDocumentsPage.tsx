@@ -431,6 +431,7 @@ function fiscalDocumentDownloadName(
 }
 
 type FiscalDocumentSummary = {
+  cancellationRejections: number
   frequentReadinessIssues: Array<{ count: number; label: string }>
   readyRequests: number
   pendingRequests: number
@@ -603,6 +604,9 @@ function fiscalDocumentSummary(
   fiscalDocuments: FiscalDocument[],
 ): FiscalDocumentSummary {
   return {
+    cancellationRejections: fiscalDocuments.filter(
+      fiscalDocumentHasRejectedCancellation,
+    ).length,
     frequentReadinessIssues: frequentFiscalReadinessIssues(fiscalRequests),
     pendingRequests: fiscalRequests.filter(
       (request) =>
@@ -633,6 +637,10 @@ function fiscalDocumentHasPendingAuthorization(document: FiscalDocument) {
     ['PENDING', 'PROCESSING'].includes(document.status) &&
     !fiscalDocumentHasPendingCancellation(document)
   )
+}
+
+function fiscalDocumentHasRejectedCancellation(document: FiscalDocument) {
+  return document.status === 'AUTHORIZED' && Boolean(document.rejectionReason)
 }
 
 function frequentFiscalReadinessIssues(fiscalRequests: FiscalRequest[]) {
@@ -672,6 +680,12 @@ function fiscalDocumentSummaryAlerts(summary: FiscalDocumentSummary) {
       message:
         'Existem cancelamentos de NF-e em processamento. Use Atualizar ate a Focus confirmar o cancelamento.',
       severity: 'info' as const,
+    },
+    {
+      enabled: summary.cancellationRejections > 0,
+      message:
+        'Existem cancelamentos rejeitados. Confira o motivo na nota autorizada antes de tentar novamente.',
+      severity: 'warning' as const,
     },
     {
       enabled: summary.pendingRequests > 0,
