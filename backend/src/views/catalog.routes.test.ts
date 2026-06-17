@@ -1479,6 +1479,65 @@ describe("catalog routes", () => {
     }
   });
 
+  it("uses Focus credentials and URLs by environment", async () => {
+    const originalFocusBaseUrls = { ...env.fiscal.focus.baseUrls };
+    const originalFocusTokens = { ...env.fiscal.focus.tokens };
+    const originalFetch = globalThis.fetch;
+    const requests: Array<{ authorization: string | null; url: string }> = [];
+
+    env.fiscal.focus.baseUrls.HOMOLOGATION =
+      "https://homologacao.focus-teste.local";
+    env.fiscal.focus.baseUrls.PRODUCTION =
+      "https://producao.focus-teste.local/v2/nfe";
+    env.fiscal.focus.tokens.HOMOLOGATION = "token-homologacao";
+    env.fiscal.focus.tokens.PRODUCTION = "token-producao";
+    globalThis.fetch = (async (input, init) => {
+      const headers = init?.headers as Record<string, string> | undefined;
+
+      requests.push({
+        authorization: headers?.Authorization ?? null,
+        url: String(input),
+      });
+
+      return new Response(JSON.stringify({ status: "autorizado" }), {
+        status: 200,
+      });
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().check({
+        documentType: "NFE",
+        environment: "HOMOLOGATION",
+        providerReference: "SALEhomologacao",
+      });
+      await new FocusFiscalProvider().check({
+        documentType: "NFE",
+        environment: "PRODUCTION",
+        providerReference: "SALEproducao",
+      });
+
+      assert.deepEqual(requests, [
+        {
+          authorization: focusBasicAuth("token-homologacao"),
+          url: "https://homologacao.focus-teste.local/v2/nfe/SALEhomologacao",
+        },
+        {
+          authorization: focusBasicAuth("token-producao"),
+          url: "https://producao.focus-teste.local/v2/nfe/SALEproducao",
+        },
+      ]);
+    } finally {
+      env.fiscal.focus.baseUrls.HOMOLOGATION =
+        originalFocusBaseUrls.HOMOLOGATION;
+      env.fiscal.focus.baseUrls.PRODUCTION =
+        originalFocusBaseUrls.PRODUCTION;
+      env.fiscal.focus.tokens.HOMOLOGATION =
+        originalFocusTokens.HOMOLOGATION;
+      env.fiscal.focus.tokens.PRODUCTION = originalFocusTokens.PRODUCTION;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("returns a clear error when Focus cannot be reached", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
@@ -3511,6 +3570,10 @@ function focusUnauthorizedFetch() {
     new Response(JSON.stringify({ mensagem: "Nao autorizado" }), {
       status: 401,
     })) as typeof fetch;
+}
+
+function focusBasicAuth(token: string) {
+  return `Basic ${Buffer.from(`${token}:`).toString("base64")}`;
 }
 
 async function request<T = unknown>(
