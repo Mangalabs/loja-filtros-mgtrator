@@ -2428,6 +2428,97 @@ describe("catalog routes", () => {
     assert.equal(fiscalDocument.body.data?.sourceId, completed.body.data?.id);
   });
 
+  it("blocks shipping fiscal issue when the linked sale already has an active fiscal document", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro envio fiscal legado", salePrice: 80 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente envio fiscal legado",
+      },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para fiscal legado",
+      },
+    });
+
+    const quoted = await request<ShippingOrder>("/shipping-orders", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 1,
+      },
+    });
+    await request(`/shipping-orders/${quoted.body.data?.id}/approve`, {
+      method: "PATCH",
+      body: {},
+    });
+    await request(`/shipping-orders/${quoted.body.data?.id}/separate`, {
+      method: "PATCH",
+      body: {},
+    });
+
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const boleto = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "BOLETO",
+    );
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const completed = await request<ShippingOrder>(
+      `/shipping-orders/${quoted.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: boleto?.id },
+      },
+    );
+    const administrator = await db("users")
+      .select("id")
+      .where("email", "admin@example.com")
+      .first();
+
+    await db("fiscal_documents").insert({
+      source_type: "SALE",
+      source_id: completed.body.data?.saleId,
+      document_type: "NFE",
+      provider: "MOCK",
+      environment: "HOMOLOGATION",
+      status: "AUTHORIZED",
+      provider_reference: `SALE${completed.body.data?.saleId?.replace(/-/g, "")}`,
+      response_payload: {},
+      issued_by_user_id: administrator.id,
+      issued_at: db.fn.now(),
+    });
+
+    const fiscalDocument = await request(
+      `/shipping-orders/${completed.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
+
+    assert.equal(fiscalDocument.status, 409);
+    assert.equal(
+      fiscalDocument.body.message,
+      "Documento fiscal ja emitido para esta venda operacional.",
+    );
+  });
+
   it("completes a multi-item quoted shipping order as a sale", async () => {
     const firstProduct = await request<Product>("/products", {
       method: "POST",

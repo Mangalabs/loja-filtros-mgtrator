@@ -135,6 +135,38 @@ export async function findFiscalDocumentBySource(
     .first();
 }
 
+export async function findBlockingFiscalDocumentBySale(
+  transaction: Knex.Transaction,
+  saleId: string,
+  documentType: FiscalDocumentType,
+): Promise<FiscalDocument | undefined> {
+  return fiscalDocumentQuery(transaction)
+    .where("fiscal_documents.document_type", documentType)
+    .whereNot("fiscal_documents.status", "REJECTED")
+    .where((query) => {
+      query
+        .where({
+          "fiscal_documents.source_type": "SALE",
+          "fiscal_documents.source_id": saleId,
+        })
+        .orWhereExists(function linkedShippingOrder() {
+          this.select(transaction.raw("1"))
+            .from("shipping_orders")
+            .whereRaw("shipping_orders.id = fiscal_documents.source_id")
+            .where("fiscal_documents.source_type", "SHIPPING_ORDER")
+            .where("shipping_orders.sale_id", saleId);
+        })
+        .orWhereExists(function linkedPickupReservation() {
+          this.select(transaction.raw("1"))
+            .from("pickup_reservations")
+            .whereRaw("pickup_reservations.id = fiscal_documents.source_id")
+            .where("fiscal_documents.source_type", "PICKUP_RESERVATION")
+            .where("pickup_reservations.sale_id", saleId);
+        });
+    })
+    .first();
+}
+
 export async function insertFiscalDocument(
   transaction: Knex.Transaction,
   input: FiscalDocumentInput,

@@ -2,6 +2,7 @@ import { db } from "../../database/knex.js";
 import { makeFiscalProviderByName } from "../../integrations/fiscal/fiscal-provider-factory.js";
 import { currentFiscalSettings } from "../fiscal-settings/fiscal-settings.controller.js";
 import {
+  findBlockingFiscalDocumentBySale,
   findFiscalDocumentBySource,
   getFiscalDocumentById,
   insertFiscalDocument,
@@ -404,6 +405,19 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
 
     if (existing && existing.status !== "REJECTED") {
       throw new AppError(input.duplicateMessage, 409);
+    }
+
+    const blockingFiscalDocument = await findBlockingFiscalDocumentBySale(
+      transaction,
+      input.saleId,
+      input.documentType,
+    );
+
+    if (blockingFiscalDocument) {
+      throw new AppError(
+        "Documento fiscal ja emitido para esta venda operacional.",
+        409,
+      );
     }
 
     const fiscalSettings = await currentFiscalSettings();
