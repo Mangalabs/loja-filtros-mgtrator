@@ -163,9 +163,14 @@ function fiscalRequestState(request: FiscalRequest) {
 const fiscalRequestFactories: Array<
   (input: FiscalRequestFactoryInput) => FiscalRequest[]
 > = [
-  ({ clients, fiscalDocuments, fiscalSettings, products, sales }) =>
-    sales
-      .filter((sale) => sale.status === 'COMPLETED')
+  (input) => {
+    const linkedSaleIds = linkedFiscalSaleIds(input)
+
+    return input.sales
+      .filter(
+        (sale) =>
+          sale.status === 'COMPLETED' && !linkedSaleIds.has(sale.id),
+      )
       .map((sale) => ({
         sourceType: 'SALE',
         sourceId: sale.id,
@@ -175,14 +180,15 @@ const fiscalRequestFactories: Array<
         totalAmount: sale.totalAmount,
         operatorName: sale.createdByUserName,
         readinessIssues: sourceFiscalReadinessIssues({
-          client: findClient(clients, sale.clientId),
-          fiscalSettings,
+          client: findClient(input.clients, sale.clientId),
+          fiscalSettings: input.fiscalSettings,
           items: sale.items,
-          products,
+          products: input.products,
         }),
         sale,
-        document: findFiscalDocument(fiscalDocuments, 'SALE', sale.id),
-      })),
+        document: findFiscalDocument(input.fiscalDocuments, 'SALE', sale.id),
+      }))
+  },
   ({ clients, fiscalDocuments, fiscalSettings, products, shippingOrders }) =>
     shippingOrders
       .filter((order) => order.status === 'COMPLETED')
@@ -264,6 +270,25 @@ function sourceFiscalReadinessIssues({
     ...fiscalSettingsReadinessIssues(fiscalSettings),
     ...(readinessByProvider[fiscalSettings?.provider ?? ''] ?? []),
   ]
+}
+
+function linkedFiscalSaleIds({
+  pickupReservations,
+  shippingOrders,
+}: {
+  pickupReservations: PickupReservation[]
+  shippingOrders: ShippingOrder[]
+}) {
+  return new Set([
+    ...shippingOrders
+      .filter((order) => order.status === 'COMPLETED')
+      .flatMap((order) => (order.saleId ? [order.saleId] : [])),
+    ...pickupReservations
+      .filter((reservation) => reservation.status === 'COMPLETED')
+      .flatMap((reservation) =>
+        reservation.saleId ? [reservation.saleId] : [],
+      ),
+  ])
 }
 
 function fiscalSettingsReadinessIssues(settings: FiscalSettings | null) {

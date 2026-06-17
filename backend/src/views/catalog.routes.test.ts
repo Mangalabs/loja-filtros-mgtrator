@@ -2374,6 +2374,13 @@ describe("catalog routes", () => {
         body: { reason: "Tentativa pelo fluxo de balcao" },
       },
     );
+    const linkedSaleFiscalDocument = await request(
+      `/sales/${sales.body.data?.[0]?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
 
     assert.equal(withoutCash.status, 422);
     assert.equal(
@@ -2394,6 +2401,11 @@ describe("catalog routes", () => {
     assert.equal(
       linkedSaleCancellation.body.message,
       "Venda gerada por envio ou retirada nao pode ser cancelada por este fluxo.",
+    );
+    assert.equal(linkedSaleFiscalDocument.status, 409);
+    assert.equal(
+      linkedSaleFiscalDocument.body.message,
+      "Venda gerada por envio ou retirada deve emitir NF-e pelo fluxo de origem.",
     );
     assert.equal(sales.body.data?.length, 1);
     assert.equal(sales.body.data?.[0]?.clientName, "Cliente do envio");

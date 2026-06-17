@@ -12,7 +12,10 @@ import {
   type FiscalDocumentSourceType,
 } from "../../models/fiscal-documents/fiscal-documents.model.js";
 import { getPickupReservationById } from "../../models/pickup-reservations/pickup-reservations.model.js";
-import { getSaleById } from "../../models/sales/sales.model.js";
+import {
+  getSaleById,
+  saleHasLinkedOperation,
+} from "../../models/sales/sales.model.js";
 import { getShippingOrderById } from "../../models/shipping-orders/shipping-orders.model.js";
 import { AppError, type AppErrorDetail } from "../../shared/errors/app-error.js";
 import type { FiscalDocumentType } from "../../shared/fiscal/fiscal-types.js";
@@ -380,6 +383,16 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
 
     if (!sale) {
       throw new AppError("Venda informada nao encontrada.", 404);
+    }
+
+    if (
+      input.sourceType === "SALE" &&
+      (await saleHasLinkedOperation(transaction, input.saleId))
+    ) {
+      throw new AppError(
+        "Venda gerada por envio ou retirada deve emitir NF-e pelo fluxo de origem.",
+        409,
+      );
     }
 
     const existing = await findFiscalDocumentBySource(
