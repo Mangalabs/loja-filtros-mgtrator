@@ -1136,6 +1136,73 @@ describe("catalog routes", () => {
     }
   });
 
+  it("keeps authorized fiscal document when Focus rejects cancellation during sync", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const administrator = await db("users")
+      .select("id")
+      .where("email", "admin@example.com")
+      .first();
+    const sourceId = randomUUID();
+    const [inserted] = await db("fiscal_documents")
+      .insert({
+        source_type: "SALE",
+        source_id: sourceId,
+        document_type: "NFE",
+        provider: "FOCUS",
+        environment: "HOMOLOGATION",
+        status: "AUTHORIZED",
+        provider_reference: `SALE${sourceId.replace(/-/g, "")}`,
+        response_payload: {},
+        issued_by_user_id: administrator.id,
+        issued_at: db.fn.now(),
+      })
+      .returning("id");
+    const responses = [
+      { status: "processando_cancelamento" },
+      {
+        status: "erro_cancelamento",
+        mensagem_sefaz: "Cancelamento rejeitado na sincronizacao",
+      },
+    ];
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(responses.shift()), {
+        status: 200,
+      })) as typeof fetch;
+
+    try {
+      const processing = await cancelFiscalDocument(
+        inserted.id,
+        "Cancelamento pendente que sera rejeitado pela Focus",
+        administrator.id,
+      );
+      const synced = await syncFiscalDocument(inserted.id);
+
+      assert.equal(processing.code, 200);
+      assert.equal(processing.data.status, "PROCESSING");
+      assert.equal(synced.code, 200);
+      assert.equal(synced.data.status, "AUTHORIZED");
+      assert.equal(synced.data.cancelledByUserName, null);
+      assert.equal(synced.data.cancelledAt, null);
+      assert.equal(synced.data.cancellationReason, null);
+      assert.equal(
+        synced.data.rejectionReason,
+        "Cancelamento rejeitado na sincronizacao",
+      );
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("returns fiscal readiness errors before issuing through Focus", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const product = await request<Product>("/products", {

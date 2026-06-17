@@ -88,8 +88,9 @@ export async function syncFiscalDocument(id: string) {
     environment: fiscalDocument.environment,
     providerReference: fiscalDocument.providerReference,
   });
+  const status = fiscalSyncStatus(fiscalDocument, result.status);
   const updated = await updateFiscalDocumentStatus(id, {
-    status: result.status,
+    status,
     accessKey: result.accessKey ?? fiscalDocument.accessKey,
     providerReference: result.providerReference,
     number: result.number ?? fiscalDocument.number,
@@ -98,7 +99,7 @@ export async function syncFiscalDocument(id: string) {
     pdfUrl: result.pdfUrl ?? fiscalDocument.pdfUrl,
     rejectionReason: result.rejectionReason,
     responsePayload: result.responsePayload,
-    ...existingFiscalCancellationAudit(fiscalDocument),
+    ...fiscalSyncCancellationAudit(status, fiscalDocument),
   });
 
   return {
@@ -106,6 +107,25 @@ export async function syncFiscalDocument(id: string) {
     status: "success",
     data: updated,
   };
+}
+
+function fiscalSyncStatus(
+  fiscalDocument: Awaited<ReturnType<typeof getFiscalDocumentById>>,
+  providerStatus: FiscalDocumentStatus,
+) {
+  return fiscalDocument?.cancellationReason
+    ? fiscalCancellationSyncStatus(providerStatus)
+    : providerStatus;
+}
+
+function fiscalCancellationSyncStatus(providerStatus: FiscalDocumentStatus) {
+  const statusByProviderStatus: Partial<
+    Record<FiscalDocumentStatus, FiscalDocumentStatus>
+  > = {
+    REJECTED: "AUTHORIZED",
+  };
+
+  return statusByProviderStatus[providerStatus] ?? providerStatus;
 }
 
 function mockFiscalDocumentPdf(reference: string) {
@@ -254,6 +274,20 @@ function existingFiscalCancellationAudit(
         cancellationReason: fiscalDocument.cancellationReason,
       }
     : {};
+}
+
+function fiscalSyncCancellationAudit(
+  status: FiscalDocumentStatus,
+  fiscalDocument: Awaited<ReturnType<typeof getFiscalDocumentById>>,
+) {
+  const auditByStatus: Partial<
+    Record<FiscalDocumentStatus, ReturnType<typeof existingFiscalCancellationAudit>>
+  > = {
+    CANCELLED: existingFiscalCancellationAudit(fiscalDocument),
+    PROCESSING: existingFiscalCancellationAudit(fiscalDocument),
+  };
+
+  return auditByStatus[status] ?? {};
 }
 
 export async function issueSaleFiscalDocument(

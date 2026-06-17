@@ -386,7 +386,9 @@ function focusStatusFromPayloadValue(
   const statusByFocusStatus: Record<string, FiscalProviderStatus> = {
     autorizado: "AUTHORIZED",
     cancelado: "CANCELLED",
+    erro_cancelamento: "REJECTED",
     erro_autorizacao: "REJECTED",
+    processando_cancelamento: "PROCESSING",
     processando_autorizacao: "PROCESSING",
     requisicao_recebida: "PROCESSING",
   };
