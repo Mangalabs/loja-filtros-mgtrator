@@ -1929,6 +1929,47 @@ describe("catalog routes", () => {
     }
   });
 
+  it("normalizes blank Focus optional fields before saving fiscal metadata", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          ref: " SALEfocusprovidertest ",
+          status: "autorizado",
+          chave_nfe: " ",
+          numero: " ",
+          serie: "",
+          caminho_xml_nota_fiscal: " ",
+          caminho_danfe: "",
+        }),
+        { status: 201 },
+      )) as typeof fetch;
+
+    try {
+      const result = await new FocusFiscalProvider().issue(focusIssueRequest());
+
+      assert.equal(result.status, "AUTHORIZED");
+      assert.equal(result.providerReference, "SALEfocusprovidertest");
+      assert.equal(result.accessKey, null);
+      assert.equal(result.number, null);
+      assert.equal(result.series, null);
+      assert.equal(result.xmlUrl, null);
+      assert.equal(result.pdfUrl, null);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("reissues a rejected fiscal document without duplicating the source", async () => {
     const product = await request<Product>("/products", {
       method: "POST",

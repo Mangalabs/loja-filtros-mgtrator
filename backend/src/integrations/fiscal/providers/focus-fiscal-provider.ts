@@ -448,7 +448,7 @@ function focusRejectionReason(payload: FocusResponsePayload) {
 }
 
 function focusString(value: unknown) {
-  return typeof value === "string" && value.trim() ? value : null;
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function focusFileUrl(
@@ -479,6 +479,10 @@ function focusFilesBaseUrl(environment: FiscalIssueRequest["environment"]) {
 }
 
 function focusNumber(value: unknown) {
+  if (typeof value === "string" && !value.trim()) {
+    return null;
+  }
+
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
