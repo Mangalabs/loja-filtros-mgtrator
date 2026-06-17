@@ -2221,6 +2221,150 @@ describe("catalog routes", () => {
     assert.equal(listed.body.data?.length, 1);
   });
 
+  it("reissues a Focus rejected fiscal document with the same source reference", async () => {
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusHomologationToken =
+      env.fiscal.focus.tokens.HOMOLOGATION;
+    const originalFetch = globalThis.fetch;
+    const focusRequests: string[] = [];
+    const focusResponses = [
+      {
+        status: "erro_autorizacao",
+        mensagem_sefaz: "CPF do destinatario invalido",
+      },
+      {
+        status: "autorizado",
+        chave_nfe: "35260612345678000199550010000000011000000010",
+        numero: 1,
+        serie: 1,
+        caminho_xml_nota_fiscal: "/arquivos/nfe/reemitida.xml",
+        caminho_danfe: "/arquivos/nfe/reemitida.pdf",
+      },
+    ];
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro Focus reemissao",
+        salePrice: 35,
+        ncm: "84212300",
+        cfop: "5102",
+        icmsCst: "102",
+        pisCst: "49",
+        cofinsCst: "49",
+        origin: "0",
+      },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente Focus reemissao",
+        document: "12345678901",
+        stateRegistrationIndicator: "9",
+        addressStreet: "Rua Fiscal",
+        addressNumber: "123",
+        addressDistrict: "Centro",
+        addressCity: "Araguaina",
+        addressState: "TO",
+        addressZipCode: "77800000",
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.tokens.HOMOLOGATION = "token-focus-teste";
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+
+      if (url.startsWith(baseUrl)) {
+        return originalFetch(input, init);
+      }
+
+      focusRequests.push(url);
+
+      return new Response(JSON.stringify(focusResponses.shift()), {
+        status: 200,
+      });
+    }) as typeof fetch;
+
+    try {
+      await request("/fiscal-settings", {
+        method: "PUT",
+        body: {
+          provider: "FOCUS",
+          environment: "HOMOLOGATION",
+          companyCnpj: "12.345.678/0001-99",
+          allowProduction: false,
+        },
+      });
+      await request("/stock-adjustments", {
+        method: "POST",
+        body: {
+          productId: product.body.data?.id,
+          quantity: 2,
+          reason: "Saldo para reemissao Focus",
+        },
+      });
+      await request("/cash-register/open", {
+        method: "POST",
+        body: { openingBalance: 0 },
+      });
+
+      const sale = await request<Sale>("/sales", {
+        method: "POST",
+        body: {
+          productId: product.body.data?.id,
+          clientId: client.body.data?.id,
+          paymentMethodId: pix?.id,
+          quantity: 1,
+        },
+      });
+      const rejected = await request<FiscalDocument>(
+        `/sales/${sale.body.data?.id}/fiscal-documents`,
+        {
+          method: "POST",
+          body: { documentType: "NFE" },
+        },
+      );
+      const reissued = await request<FiscalDocument>(
+        `/sales/${sale.body.data?.id}/fiscal-documents`,
+        {
+          method: "POST",
+          body: { documentType: "NFE" },
+        },
+      );
+      const listed = await request<FiscalDocument[]>("/fiscal-documents");
+      const reference = `SALE${sale.body.data?.id?.replace(/-/g, "")}`;
+
+      assert.equal(rejected.status, 201);
+      assert.equal(rejected.body.data?.status, "REJECTED");
+      assert.equal(
+        rejected.body.data?.rejectionReason,
+        "CPF do destinatario invalido",
+      );
+      assert.equal(reissued.status, 201);
+      assert.equal(reissued.body.data?.id, rejected.body.data?.id);
+      assert.equal(reissued.body.data?.status, "AUTHORIZED");
+      assert.equal(reissued.body.data?.provider, "FOCUS");
+      assert.equal(reissued.body.data?.providerReference, reference);
+      assert.equal(reissued.body.data?.rejectionReason, null);
+      assert.equal(listed.body.data?.length, 1);
+      assert.deepEqual(
+        focusRequests.map((url) => new URL(url).searchParams.get("ref")),
+        [reference, reference],
+      );
+    } finally {
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.tokens.HOMOLOGATION = originalFocusHomologationToken;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("returns a management reports overview", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
