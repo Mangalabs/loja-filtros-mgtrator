@@ -87,13 +87,25 @@ export function fiscalRequestActionLabel(
     future: 'Emissao futura',
     pending: 'Corrija pendencias',
   }
-  const labelKey = request.document
-    ? 'documented'
-    : hasAction && request.readinessIssues.length > 0
-      ? 'pending'
-      : 'future'
+  const labelState = [
+    {
+      active:
+        request.document?.status === 'REJECTED' &&
+        request.readinessIssues.length > 0,
+      key: 'pending',
+    },
+    {
+      active:
+        Boolean(request.document) && request.document?.status !== 'REJECTED',
+      key: 'documented',
+    },
+    {
+      active: hasAction && request.readinessIssues.length > 0,
+      key: 'pending',
+    },
+  ].find((state) => state.active)
 
-  return labels[labelKey]
+  return labels[labelState?.key ?? 'future']
 }
 
 export function fiscalRequestActionText(request: FiscalRequest) {
