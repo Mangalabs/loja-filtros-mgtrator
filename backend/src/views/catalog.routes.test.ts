@@ -1075,6 +1075,67 @@ describe("catalog routes", () => {
     }
   });
 
+  it("keeps authorized fiscal document when Focus rejects cancellation", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const administrator = await db("users")
+      .select("id")
+      .where("email", "admin@example.com")
+      .first();
+    const sourceId = randomUUID();
+    const [inserted] = await db("fiscal_documents")
+      .insert({
+        source_type: "SALE",
+        source_id: sourceId,
+        document_type: "NFE",
+        provider: "FOCUS",
+        environment: "HOMOLOGATION",
+        status: "AUTHORIZED",
+        provider_reference: `SALE${sourceId.replace(/-/g, "")}`,
+        response_payload: {},
+        issued_by_user_id: administrator.id,
+        issued_at: db.fn.now(),
+      })
+      .returning("id");
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          status: "erro_cancelamento",
+          mensagem_sefaz: "Cancelamento fora do prazo permitido",
+        }),
+        { status: 200 },
+      )) as typeof fetch;
+
+    try {
+      const result = await cancelFiscalDocument(
+        inserted.id,
+        "Cancelamento rejeitado pela Focus",
+        administrator.id,
+      );
+
+      assert.equal(result.code, 200);
+      assert.equal(result.data.status, "AUTHORIZED");
+      assert.equal(result.data.cancelledByUserName, null);
+      assert.equal(result.data.cancelledAt, null);
+      assert.equal(result.data.cancellationReason, null);
+      assert.equal(
+        result.data.rejectionReason,
+        "Cancelamento fora do prazo permitido",
+      );
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("returns fiscal readiness errors before issuing through Focus", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const product = await request<Product>("/products", {
