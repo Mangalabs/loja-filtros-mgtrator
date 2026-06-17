@@ -174,14 +174,12 @@ const fiscalRequestFactories: Array<
         clientName: sale.clientName ?? 'Nao identificado',
         totalAmount: sale.totalAmount,
         operatorName: sale.createdByUserName,
-        readinessIssues: [
-          ...fiscalSettingsReadinessIssues(fiscalSettings),
-          ...fiscalReadinessIssues({
-            client: findClient(clients, sale.clientId),
-            items: sale.items,
-            products,
-          }),
-        ],
+        readinessIssues: sourceFiscalReadinessIssues({
+          client: findClient(clients, sale.clientId),
+          fiscalSettings,
+          items: sale.items,
+          products,
+        }),
         sale,
         document: findFiscalDocument(fiscalDocuments, 'SALE', sale.id),
       })),
@@ -196,14 +194,12 @@ const fiscalRequestFactories: Array<
         clientName: order.clientName,
         totalAmount: order.totalAmount,
         operatorName: order.completedByUserName ?? order.createdByUserName,
-        readinessIssues: [
-          ...fiscalSettingsReadinessIssues(fiscalSettings),
-          ...fiscalReadinessIssues({
-            client: findClient(clients, order.clientId),
-            items: order.items,
-            products,
-          }),
-        ],
+        readinessIssues: sourceFiscalReadinessIssues({
+          client: findClient(clients, order.clientId),
+          fiscalSettings,
+          items: order.items,
+          products,
+        }),
         shippingOrder: order,
         document: findFiscalDocument(
           fiscalDocuments,
@@ -229,14 +225,12 @@ const fiscalRequestFactories: Array<
         totalAmount: reservation.totalAmount,
         operatorName:
           reservation.completedByUserName ?? reservation.createdByUserName,
-        readinessIssues: [
-          ...fiscalSettingsReadinessIssues(fiscalSettings),
-          ...fiscalReadinessIssues({
-            client: findClient(clients, reservation.clientId),
-            items: reservation.items,
-            products,
-          }),
-        ],
+        readinessIssues: sourceFiscalReadinessIssues({
+          client: findClient(clients, reservation.clientId),
+          fiscalSettings,
+          items: reservation.items,
+          products,
+        }),
         pickupReservation: reservation,
         document: findFiscalDocument(
           fiscalDocuments,
@@ -245,6 +239,32 @@ const fiscalRequestFactories: Array<
         ),
       })),
 ]
+
+function sourceFiscalReadinessIssues({
+  client,
+  fiscalSettings,
+  items,
+  products,
+}: {
+  client?: Client
+  fiscalSettings: FiscalSettings | null
+  items: Array<{ productId: string; productName: string }>
+  products: Product[]
+}) {
+  const readinessByProvider: Record<string, string[]> = {
+    FOCUS: fiscalReadinessIssues({
+      client,
+      items,
+      products,
+    }),
+    MOCK: [],
+  }
+
+  return [
+    ...fiscalSettingsReadinessIssues(fiscalSettings),
+    ...(readinessByProvider[fiscalSettings?.provider ?? ''] ?? []),
+  ]
+}
 
 function fiscalSettingsReadinessIssues(settings: FiscalSettings | null) {
   const issues = [
