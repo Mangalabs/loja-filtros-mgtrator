@@ -1720,13 +1720,14 @@ describe("catalog routes", () => {
 
   it("builds Focus file URLs from API endpoint base URL", async () => {
     const originalFiscalProvider = env.fiscal.provider;
-    const originalFocusBaseUrl = env.fiscal.focus.baseUrl;
+    const originalFocusBaseUrls = { ...env.fiscal.focus.baseUrls };
     const originalFocusToken = env.fiscal.focus.token;
     const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
     const originalFetch = globalThis.fetch;
 
     env.fiscal.provider = "focus";
-    env.fiscal.focus.baseUrl = "https://homologacao.focusnfe.com.br/v2/nfe";
+    env.fiscal.focus.baseUrls.HOMOLOGATION =
+      "https://arquivos.focus-teste.local/v2/nfe";
     env.fiscal.focus.token = "token-focus-teste";
     env.fiscal.focus.companyCnpj = "12345678000199";
     globalThis.fetch = (async () =>
@@ -1746,15 +1747,18 @@ describe("catalog routes", () => {
       assert.equal(result.status, "AUTHORIZED");
       assert.equal(
         result.xmlUrl,
-        "https://homologacao.focusnfe.com.br/arquivos/notas/teste.xml",
+        "https://arquivos.focus-teste.local/arquivos/notas/teste.xml",
       );
       assert.equal(
         result.pdfUrl,
-        "https://homologacao.focusnfe.com.br/arquivos/notas/teste.pdf",
+        "https://arquivos.focus-teste.local/arquivos/notas/teste.pdf",
       );
     } finally {
       env.fiscal.provider = originalFiscalProvider;
-      env.fiscal.focus.baseUrl = originalFocusBaseUrl;
+      env.fiscal.focus.baseUrls.HOMOLOGATION =
+        originalFocusBaseUrls.HOMOLOGATION;
+      env.fiscal.focus.baseUrls.PRODUCTION =
+        originalFocusBaseUrls.PRODUCTION;
       env.fiscal.focus.token = originalFocusToken;
       env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
       globalThis.fetch = originalFetch;
