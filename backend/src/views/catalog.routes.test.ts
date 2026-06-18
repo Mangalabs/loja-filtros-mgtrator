@@ -1244,6 +1244,67 @@ describe("catalog routes", () => {
     }
   });
 
+  it("clears rejected cancellation reason when Focus accepts a new cancellation", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const administrator = await db("users")
+      .select("id")
+      .where("email", "admin@example.com")
+      .first();
+    const sourceId = randomUUID();
+    const [inserted] = await db("fiscal_documents")
+      .insert({
+        source_type: "SALE",
+        source_id: sourceId,
+        document_type: "NFE",
+        provider: "FOCUS",
+        environment: "HOMOLOGATION",
+        status: "AUTHORIZED",
+        provider_reference: `SALE${sourceId.replace(/-/g, "")}`,
+        rejection_reason: "Cancelamento rejeitado anteriormente",
+        response_payload: {},
+        issued_by_user_id: administrator.id,
+        issued_at: db.fn.now(),
+      })
+      .returning("id");
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({ status: "processando_cancelamento" }),
+        { status: 200 },
+      )) as typeof fetch;
+
+    try {
+      const result = await cancelFiscalDocument(
+        inserted.id,
+        "Nova tentativa de cancelamento aceita pela Focus",
+        administrator.id,
+      );
+
+      assert.equal(result.code, 200);
+      assert.equal(result.data.status, "PROCESSING");
+      assert.equal(result.data.rejectionReason, null);
+      assert.equal(
+        result.data.cancellationReason,
+        "Nova tentativa de cancelamento aceita pela Focus",
+      );
+      assert.equal(
+        result.data.cancelledByUserName,
+        "Administrador de teste",
+      );
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("keeps authorized fiscal document when Focus rejects cancellation during sync", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
