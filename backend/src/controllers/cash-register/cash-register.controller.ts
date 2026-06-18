@@ -3,7 +3,9 @@ import {
   closeCashRegisterSession,
   createCashRegisterSession,
   getCurrentCashRegisterSession,
+  insertCashRegisterMovement,
   lockOpenCashRegisterSession,
+  type CashRegisterMovementInput,
 } from "../../models/cash-register/cash-register.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
@@ -54,6 +56,32 @@ export async function closeCurrentCashRegister(
 
   return {
     code: 200,
+    status: "success",
+    data: session,
+  };
+}
+
+export async function recordCashRegisterMovement(
+  createdByUserId: string,
+  input: CashRegisterMovementInput,
+) {
+  const session = await db.transaction(async (transaction) => {
+    const currentSession = await lockOpenCashRegisterSession(transaction);
+
+    if (!currentSession) {
+      throw new AppError("Abra o caixa antes de registrar movimentacoes.", 422);
+    }
+
+    return insertCashRegisterMovement(
+      transaction,
+      currentSession.id,
+      createdByUserId,
+      input,
+    );
+  });
+
+  return {
+    code: 201,
     status: "success",
     data: session,
   };

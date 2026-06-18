@@ -124,8 +124,20 @@ export type CashRegisterSession = {
   openedAt: string;
   closedAt: string | null;
   salesTotal: string;
+  supplyTotal: string;
+  withdrawalTotal: string;
   expectedClosingBalance: string;
   difference: string | null;
+  movements: Array<{
+    id: string;
+    cashRegisterSessionId: string;
+    type: "SUPPLY" | "WITHDRAWAL";
+    amount: string;
+    reason: string;
+    createdByUserId: string;
+    createdByUserName: string;
+    createdAt: string;
+  }>;
   paymentSummary: Array<{
     paymentMethodId: string;
     paymentMethodName: string;

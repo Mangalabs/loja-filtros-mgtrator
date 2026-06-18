@@ -13,9 +13,12 @@ export type CashRegisterSession = {
   openedAt: Date;
   closedAt: Date | null;
   salesTotal: string;
+  supplyTotal: string;
+  withdrawalTotal: string;
   expectedClosingBalance: string;
   difference: string | null;
   paymentSummary: CashRegisterPaymentSummary[];
+  movements: CashRegisterMovement[];
 };
 
 export type CashRegisterPaymentSummary = {
@@ -23,6 +26,25 @@ export type CashRegisterPaymentSummary = {
   paymentMethodName: string;
   paymentMethodCode: string;
   amount: string;
+};
+
+export type CashRegisterMovementType = "SUPPLY" | "WITHDRAWAL";
+
+export type CashRegisterMovement = {
+  id: string;
+  cashRegisterSessionId: string;
+  type: CashRegisterMovementType;
+  amount: string;
+  reason: string;
+  createdByUserId: string;
+  createdByUserName: string;
+  createdAt: Date;
+};
+
+export type CashRegisterMovementInput = {
+  type: CashRegisterMovementType;
+  amount: number;
+  reason: string;
 };
 
 const sessionColumns = [
@@ -105,6 +127,31 @@ export async function closeCashRegisterSession(
   return withCashRegisterTotals(transaction, session);
 }
 
+export async function insertCashRegisterMovement(
+  transaction: Knex.Transaction,
+  cashRegisterSessionId: string,
+  createdByUserId: string,
+  input: CashRegisterMovementInput,
+): Promise<CashRegisterSession> {
+  await transaction("cash_register_movements").insert({
+    cash_register_session_id: cashRegisterSessionId,
+    created_by_user_id: createdByUserId,
+    type: input.type,
+    amount: input.amount,
+    reason: input.reason,
+  });
+
+  const session = await sessionQuery(transaction)
+    .where("cash_register_sessions.id", cashRegisterSessionId)
+    .first();
+
+  if (!session) {
+    throw new Error("Cash register session was not found after movement");
+  }
+
+  return withCashRegisterTotals(transaction, session);
+}
+
 function sessionQuery(database: Knex | Knex.Transaction) {
   return database("cash_register_sessions")
     .join(
@@ -124,16 +171,28 @@ async function withCashRegisterTotals(
   database: Knex | Knex.Transaction,
   session: Omit<
     CashRegisterSession,
-    "salesTotal" | "expectedClosingBalance" | "difference" | "paymentSummary"
+    | "difference"
+    | "expectedClosingBalance"
+    | "movements"
+    | "paymentSummary"
+    | "salesTotal"
+    | "supplyTotal"
+    | "withdrawalTotal"
   >,
 ): Promise<CashRegisterSession> {
   const paymentSummary = await listPaymentSummary(database, session.id);
+  const movements = await listCashRegisterMovements(database, session.id);
   const salesTotalInCents = paymentSummary.reduce(
     (total, payment) => total + toCents(payment.amount),
     0,
   );
+  const supplyTotalInCents = movementTotalInCents(movements, "SUPPLY");
+  const withdrawalTotalInCents = movementTotalInCents(movements, "WITHDRAWAL");
   const expectedClosingBalanceInCents =
-    toCents(session.openingBalance) + salesTotalInCents;
+    toCents(session.openingBalance) +
+    salesTotalInCents +
+    supplyTotalInCents -
+    withdrawalTotalInCents;
   const difference =
     session.closingBalance === null
       ? null
@@ -142,9 +201,12 @@ async function withCashRegisterTotals(
   return {
     ...session,
     salesTotal: fromCents(salesTotalInCents),
+    supplyTotal: fromCents(supplyTotalInCents),
+    withdrawalTotal: fromCents(withdrawalTotalInCents),
     expectedClosingBalance: fromCents(expectedClosingBalanceInCents),
     difference: difference === null ? null : fromCents(difference),
     paymentSummary,
+    movements,
   };
 }
 
@@ -176,6 +238,38 @@ async function listPaymentSummary(
       "case payment_methods.code when 'PIX' then 1 when 'DEBIT' then 2 when 'BOLETO' then 3 else 4 end",
     )
     .orderBy("payment_methods.name", "asc");
+}
+
+async function listCashRegisterMovements(
+  database: Knex | Knex.Transaction,
+  cashRegisterSessionId: string,
+): Promise<CashRegisterMovement[]> {
+  return database("cash_register_movements")
+    .join("users", "users.id", "cash_register_movements.created_by_user_id")
+    .where(
+      "cash_register_movements.cash_register_session_id",
+      cashRegisterSessionId,
+    )
+    .select([
+      "cash_register_movements.id",
+      "cash_register_movements.cash_register_session_id as cashRegisterSessionId",
+      "cash_register_movements.type",
+      "cash_register_movements.amount",
+      "cash_register_movements.reason",
+      "cash_register_movements.created_by_user_id as createdByUserId",
+      "users.name as createdByUserName",
+      "cash_register_movements.created_at as createdAt",
+    ])
+    .orderBy("cash_register_movements.created_at", "desc");
+}
+
+function movementTotalInCents(
+  movements: CashRegisterMovement[],
+  type: CashRegisterMovementType,
+) {
+  return movements
+    .filter((movement) => movement.type === type)
+    .reduce((total, movement) => total + toCents(movement.amount), 0);
 }
 
 function toCents(value: string) {

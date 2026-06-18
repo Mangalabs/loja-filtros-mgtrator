@@ -253,8 +253,17 @@ type CashRegisterSession = {
   openedAt: string;
   closedAt: string | null;
   salesTotal: string;
+  supplyTotal: string;
+  withdrawalTotal: string;
   expectedClosingBalance: string;
   difference: string | null;
+  movements: Array<{
+    id: string;
+    type: "SUPPLY" | "WITHDRAWAL";
+    amount: string;
+    reason: string;
+    createdByUserName: string;
+  }>;
   paymentSummary: Array<{
     paymentMethodId: string;
     paymentMethodName: string;
@@ -602,6 +611,71 @@ describe("catalog routes", () => {
     assert.equal(current.body.data?.id, opened.body.data?.id);
     assert.equal(duplicate.status, 409);
     assert.equal(duplicate.body.message, "Ja existe um caixa aberto.");
+  });
+
+  it("records cash register supply and withdrawal movements", async () => {
+    const movementWithoutCash = await request("/cash-register/movements", {
+      method: "POST",
+      body: {
+        type: "SUPPLY",
+        amount: 50,
+        reason: "Troco inicial complementar",
+      },
+    });
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 100 },
+    });
+
+    const supply = await request<CashRegisterSession>(
+      "/cash-register/movements",
+      {
+        method: "POST",
+        body: {
+          type: "SUPPLY",
+          amount: 50,
+          reason: "Troco inicial complementar",
+        },
+      },
+    );
+    const withdrawal = await request<CashRegisterSession>(
+      "/cash-register/movements",
+      {
+        method: "POST",
+        body: {
+          type: "WITHDRAWAL",
+          amount: 20,
+          reason: "Sangria para cofre",
+        },
+      },
+    );
+    const closed = await request<CashRegisterSession>("/cash-register/close", {
+      method: "PATCH",
+      body: { closingBalance: 125 },
+    });
+
+    assert.equal(movementWithoutCash.status, 422);
+    assert.equal(
+      movementWithoutCash.body.message,
+      "Abra o caixa antes de registrar movimentacoes.",
+    );
+    assert.equal(supply.status, 201);
+    assert.equal(supply.body.data?.supplyTotal, "50.00");
+    assert.equal(supply.body.data?.withdrawalTotal, "0.00");
+    assert.equal(supply.body.data?.expectedClosingBalance, "150.00");
+    assert.equal(withdrawal.status, 201);
+    assert.equal(withdrawal.body.data?.supplyTotal, "50.00");
+    assert.equal(withdrawal.body.data?.withdrawalTotal, "20.00");
+    assert.equal(withdrawal.body.data?.expectedClosingBalance, "130.00");
+    assert.equal(withdrawal.body.data?.movements.length, 2);
+    assert.equal(withdrawal.body.data?.movements[0]?.type, "WITHDRAWAL");
+    assert.equal(
+      withdrawal.body.data?.movements[0]?.createdByUserName,
+      "Administrador de teste",
+    );
+    assert.equal(closed.body.data?.expectedClosingBalance, "130.00");
+    assert.equal(closed.body.data?.difference, "-5.00");
   });
 
   it("closes the current cash register with a payment summary", async () => {

@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   closeCurrentCashRegister,
   openCashRegister,
+  recordCashRegisterMovement,
   showCurrentCashRegister,
 } from "../../controllers/cash-register/cash-register.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
@@ -18,6 +19,14 @@ const openCashRegisterSchema = z
 const closeCashRegisterSchema = z
   .object({
     closingBalance: z.coerce.number().min(0),
+  })
+  .strict();
+
+const cashRegisterMovementSchema = z
+  .object({
+    type: z.enum(["SUPPLY", "WITHDRAWAL"]),
+    amount: z.coerce.number().positive(),
+    reason: z.string().trim().min(1).max(500),
   })
   .strict();
 
@@ -42,3 +51,14 @@ cashRegisterRoutes.patch("/cash-register/close", async (request, response) => {
 
   response.status(200).json(result);
 });
+
+cashRegisterRoutes.post(
+  "/cash-register/movements",
+  async (request, response) => {
+    const body = validateBody(request, cashRegisterMovementSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+    const result = await recordCashRegisterMovement(userId, body);
+
+    response.status(201).json(result);
+  },
+);
