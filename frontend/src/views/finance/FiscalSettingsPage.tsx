@@ -1,5 +1,7 @@
 import Alert from '@mui/material/Alert'
+import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
+import FormGroup from '@mui/material/FormGroup'
 import MenuItem from '@mui/material/MenuItem'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
@@ -17,6 +19,21 @@ type FiscalSettingsInput = Pick<
 }
 
 const productionConfirmationPhrase = 'EMITIR EM PRODUCAO'
+
+const productionChecklistItems = [
+  {
+    id: 'homologation',
+    label: 'Emissao, sincronizacao, reemissao e cancelamento foram testados em homologacao.',
+  },
+  {
+    id: 'focusPanel',
+    label: 'Token, serie, proximo numero e certificado foram conferidos no painel Focus.',
+  },
+  {
+    id: 'fiscalData',
+    label: 'Dados fiscais da loja, clientes e produtos foram revisados antes da producao.',
+  },
+]
 
 const providerOptions: Array<{
   label: string
@@ -44,9 +61,13 @@ export function FiscalSettingsPage({
   const [draft, setDraft] = useState<FiscalSettingsInput>(
     fiscalSettingsInput(settings),
   )
+  const [productionChecklist, setProductionChecklist] = useState<
+    Record<string, boolean>
+  >({})
 
   useEffect(() => {
     setDraft(fiscalSettingsInput(settings))
+    setProductionChecklist({})
   }, [settings])
 
   const companyCnpjDigits = fiscalDigits(draft.companyCnpj)
@@ -63,8 +84,16 @@ export function FiscalSettingsPage({
   const productionPhraseError =
     productionPhraseRequired &&
     draft.productionConfirmation !== productionConfirmationPhrase
+  const productionChecklistComplete = productionChecklistItems.every(
+    (item) => productionChecklist[item.id],
+  )
+  const productionChecklistBlocked =
+    productionPhraseRequired && !productionChecklistComplete
   const submitBlocked =
-    companyCnpjError || productionConfirmationError || productionPhraseError
+    companyCnpjError ||
+    productionConfirmationError ||
+    productionPhraseError ||
+    productionChecklistBlocked
 
   return (
     <FormGrid
@@ -177,16 +206,20 @@ export function FiscalSettingsPage({
           </Alert>
         ) : null}
         {productionPhraseRequired ? (
-          <TextField
-            error={productionPhraseError}
-            helperText={`Digite exatamente ${productionConfirmationPhrase} para liberar producao.`}
-            label='Confirmacao de producao'
-            name='productionConfirmation'
-            value={draft.productionConfirmation ?? ''}
-            onChange={(event) =>
+          <FiscalProductionChecklist
+            checklist={productionChecklist}
+            phrase={draft.productionConfirmation}
+            phraseError={productionPhraseError}
+            onChecklistChange={(id, checked) =>
+              setProductionChecklist((currentChecklist) => ({
+                ...currentChecklist,
+                [id]: checked,
+              }))
+            }
+            onPhraseChange={(value) =>
               setDraft((currentDraft) => ({
                 ...currentDraft,
-                productionConfirmation: event.target.value,
+                productionConfirmation: value,
               }))
             }
           />
@@ -199,6 +232,52 @@ export function FiscalSettingsPage({
         </PrimaryButton>
       </div>
     </FormGrid>
+  )
+}
+
+function FiscalProductionChecklist({
+  checklist,
+  phrase,
+  phraseError,
+  onChecklistChange,
+  onPhraseChange,
+}: {
+  checklist: Record<string, boolean>
+  phrase?: string | null
+  phraseError: boolean
+  onChecklistChange: (id: string, checked: boolean) => void
+  onPhraseChange: (value: string) => void
+}) {
+  return (
+    <div className='grid gap-4 rounded-lg border border-amber-200 bg-amber-50 p-4'>
+      <Alert severity='warning'>
+        Checklist final antes de liberar NF-e em producao.
+      </Alert>
+      <FormGroup className='grid gap-2'>
+        {productionChecklistItems.map((item) => (
+          <FormControlLabel
+            key={item.id}
+            control={
+              <Checkbox
+                checked={Boolean(checklist[item.id])}
+                onChange={(event) =>
+                  onChecklistChange(item.id, event.target.checked)
+                }
+              />
+            }
+            label={item.label}
+          />
+        ))}
+      </FormGroup>
+      <TextField
+        error={phraseError}
+        helperText={`Digite exatamente ${productionConfirmationPhrase} para liberar producao.`}
+        label='Confirmacao de producao'
+        name='productionConfirmation'
+        value={phrase ?? ''}
+        onChange={(event) => onPhraseChange(event.target.value)}
+      />
+    </div>
   )
 }
 
