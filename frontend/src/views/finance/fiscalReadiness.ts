@@ -80,6 +80,10 @@ function missingMessages(fieldChecks: Array<[unknown, string]>) {
 }
 
 function clientFiscalFormatIssues(client?: Client) {
+  if (!client) {
+    return []
+  }
+
   const documentPatternsByPersonType: Record<Client['personType'], RegExp | null> =
     {
       ES: null,
@@ -89,7 +93,7 @@ function clientFiscalFormatIssues(client?: Client) {
   const fieldChecks: Array<[unknown, RegExp | null, string]> = [
     [
       fiscalDigits(client?.document),
-      client ? documentPatternsByPersonType[client.personType] : null,
+      documentPatternsByPersonType[client.personType],
       'CPF/CNPJ do cliente deve conter 11 ou 14 digitos.',
     ],
     [
