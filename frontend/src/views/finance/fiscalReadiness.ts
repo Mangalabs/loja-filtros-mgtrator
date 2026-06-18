@@ -112,6 +112,10 @@ function clientFiscalFormatIssues(client?: Client) {
 }
 
 function productFiscalFormatIssues(product: Product | undefined, label: string) {
+  if (!product) {
+    return []
+  }
+
   const fieldChecks: Array<[unknown, RegExp, string]> = [
     [product?.ncm, /^\d{8}$/, `NCM de ${label} deve conter 8 digitos.`],
     [product?.cfop, /^\d{4}$/, `CFOP de ${label} deve conter 4 digitos.`],
