@@ -56,6 +56,7 @@ export function useFinanceActions({
     await runAction(async () => {
       await apiPatch("/cash-register/close", {
         closingBalance: Number(form.get("closingBalance") || 0),
+        closingPayments: cashRegisterClosingPayments(form),
       });
 
       formElement.reset();
@@ -186,4 +187,13 @@ export function useFinanceActions({
     saveFiscalSettings,
     syncFiscalDocument,
   };
+}
+
+function cashRegisterClosingPayments(form: FormData) {
+  return Array.from(form.entries())
+    .filter(([key]) => key.startsWith("closingPayment."))
+    .map(([key, value]) => ({
+      paymentMethodId: key.replace("closingPayment.", ""),
+      amount: Number(value || 0),
+    }));
 }

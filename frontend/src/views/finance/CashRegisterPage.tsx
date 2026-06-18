@@ -140,14 +140,15 @@ export function CashRegisterPage({
             />
             <div className='grid gap-2'>
               {session.paymentSummary.map((payment) => (
-                <div
-                  className='flex min-h-11 items-center justify-between gap-3 border-b border-[#e4e9e5] py-2 last:border-b-0'
-                  key={payment.paymentMethodId}>
-                  <strong>{payment.paymentMethodName}</strong>
-                  <span className='text-sm text-[#5f665f]'>
-                    {formatCurrency(payment.amount)}
-                  </span>
-                </div>
+                <TextField
+                  defaultValue={payment.amount}
+                  helperText={`Esperado: ${formatCurrency(payment.amount)}`}
+                  key={payment.paymentMethodId}
+                  label={payment.paymentMethodName}
+                  name={`closingPayment.${payment.paymentMethodId}`}
+                  type='number'
+                  slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+                />
               ))}
               {session.paymentSummary.length === 0 ? (
                 <EmptyState message='Nenhuma venda registrada.' />
