@@ -936,6 +936,15 @@ describe("catalog routes", () => {
         body: { reason: "Tentativa com NF-e ativa" },
       },
     );
+    const invalidCancellationReason = await request(
+      `/fiscal-documents/${issued.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: {
+          reason: "Curto",
+        },
+      },
+    );
     const cancelled = await request<FiscalDocument>(
       `/fiscal-documents/${issued.body.data?.id}/cancel`,
       {
@@ -996,6 +1005,13 @@ describe("catalog routes", () => {
     assert.equal(
       saleCancellationWithFiscalDocument.body.message,
       "Cancele a NF-e antes de cancelar esta venda.",
+    );
+    assert.equal(invalidCancellationReason.status, 422);
+    assert.equal(invalidCancellationReason.body.message, "Dados invalidos.");
+    assert.ok(
+      invalidCancellationReason.body.errors?.some(
+        (error) => error.field === "reason",
+      ),
     );
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
