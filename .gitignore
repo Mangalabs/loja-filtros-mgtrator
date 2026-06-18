@@ -5,7 +5,11 @@ dist/
 .codex
 
 # Internal project and integration documentation
-docs/
+docs/*
+!docs/
+!docs/plano-emissao-fiscal-focus.md
+!docs/pontos-atencao-revisao.md
+!docs/projeto-loja-filtros.md
 gestaoclick (3).apib
 
 # Environment files stay local
