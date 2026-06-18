@@ -50,6 +50,7 @@ type PickupReservationDraftItem = {
 
 export type SaleDraftInput = {
   clientId?: string | null
+  discountAmount: number
   paymentMethodId: string
   items: Array<{
     productId: string
@@ -81,18 +82,22 @@ export function SalesPage({
   onSubmit: (input: SaleDraftInput) => Promise<boolean>
 }) {
   const [clientId, setClientId] = useState('')
+  const [discountAmount, setDiscountAmount] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('')
   const [items, setItems] = useState<SaleDraftItem[]>([emptySaleItem()])
   const { pagination, visibleItems } = usePaginatedRows<Sale>(sales)
   const availableProducts = products.filter(
     (product) => product.active && Number(product.availableStock) > 0,
   )
-  const saleTotal = items.reduce((sum, item) => {
+  const saleSubtotal = items.reduce((sum, item) => {
     const product = availableProducts.find(
       (currentProduct) => currentProduct.id === item.productId,
     )
     return sum + Number(item.quantity || 0) * Number(product?.salePrice ?? 0)
   }, 0)
+  const saleDiscount = moneyInputValue(discountAmount)
+  const discountExceedsSubtotal = saleDiscount > saleSubtotal
+  const saleTotal = Math.max(saleSubtotal - saleDiscount, 0)
 
   function updateItem(index: number, changes: Partial<SaleDraftItem>) {
     setItems((currentItems) =>
@@ -110,6 +115,7 @@ export function SalesPage({
 
   function resetForm() {
     setClientId('')
+    setDiscountAmount('')
     setPaymentMethodId('')
     setItems([emptySaleItem()])
   }
@@ -119,6 +125,7 @@ export function SalesPage({
 
     const saved = await onSubmit({
       clientId: clientId || null,
+      discountAmount: saleDiscount,
       paymentMethodId,
       items: items.map((item) => ({
         productId: item.productId,
@@ -215,7 +222,30 @@ export function SalesPage({
           </TextField>
           <TextField
             disabled
-            label='Total estimado'
+            label='Subtotal'
+            size='medium'
+            value={formatCurrency(saleSubtotal)}
+          />
+        </FormRow>
+        <FormRow>
+          <TextField
+            disabled={!cashRegister}
+            error={discountExceedsSubtotal}
+            helperText={
+              discountExceedsSubtotal
+                ? 'Desconto maior que o subtotal.'
+                : 'Informe o desconto em reais, se houver.'
+            }
+            label='Desconto'
+            size='medium'
+            type='number'
+            value={discountAmount}
+            onChange={(event) => setDiscountAmount(event.target.value)}
+            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+          />
+          <TextField
+            disabled
+            label='Total final'
             size='medium'
             value={formatCurrency(saleTotal)}
           />
@@ -240,7 +270,7 @@ export function SalesPage({
           <PrimaryButton
             icon={<Plus size={17} />}
             type='submit'
-            disabled={!cashRegister}>
+            disabled={!cashRegister || discountExceedsSubtotal}>
             Concluir venda
           </PrimaryButton>
         </ActionGroup>
@@ -267,7 +297,7 @@ export function SalesPage({
             },
             {
               header: 'Total',
-              render: (sale) => formatCurrency(sale.totalAmount),
+              render: (sale) => <SaleAmountSummary sale={sale} />,
             },
             {
               header: 'Pagamento',
@@ -297,6 +327,11 @@ function emptySaleItem(): SaleDraftItem {
     productId: '',
     quantity: '',
   }
+}
+
+function moneyInputValue(value: string) {
+  const parsedValue = Number(value || 0)
+  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0
 }
 
 function emptyPickupReservationItem(): PickupReservationDraftItem {
@@ -762,6 +797,22 @@ function SaleItemsSummary({ sale }: { sale: Sale }) {
     <>
       {sale.items.length} item(ns)
       <InlineNote>{sale.items.map((item) => item.productName).join(', ')}</InlineNote>
+    </>
+  )
+}
+
+function SaleAmountSummary({ sale }: { sale: Sale }) {
+  const discountAmount = Number(sale.discountAmount)
+
+  return (
+    <>
+      <strong>{formatCurrency(sale.totalAmount)}</strong>
+      {discountAmount > 0 ? (
+        <InlineNote>
+          Subtotal {formatCurrency(sale.subtotalAmount)} | Desconto{' '}
+          {formatCurrency(sale.discountAmount)}
+        </InlineNote>
+      ) : null}
     </>
   )
 }
