@@ -78,9 +78,19 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
       throw new AppError("Cliente informado nao disponivel.", 422);
     }
 
-    const totalAmount = Number(
+    const subtotalAmount = Number(
       saleItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
     );
+    const discountAmount = Number(input.discountAmount.toFixed(2));
+
+    if (discountAmount > subtotalAmount) {
+      throw new AppError(
+        "Desconto nao pode ser maior que o subtotal da venda.",
+        422,
+      );
+    }
+
+    const totalAmount = Number((subtotalAmount - discountAmount).toFixed(2));
 
     return insertSale(
       transaction,
@@ -88,6 +98,7 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
       cashRegister.id,
       createdByUserId,
       saleItems,
+      subtotalAmount,
       totalAmount,
     );
   });

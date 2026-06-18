@@ -18,6 +18,7 @@ const createSaleSchema = z
     productId: z.uuid().optional(),
     quantity: z.coerce.number().positive().optional(),
     paymentMethodId: z.uuid(),
+    discountAmount: z.coerce.number().min(0).optional(),
     clientId: z
       .union([z.uuid(), z.literal(""), z.null()])
       .transform((value) => value || null)
@@ -50,6 +51,7 @@ const createSaleSchema = z
   .transform((value) => ({
     paymentMethodId: value.paymentMethodId,
     clientId: value.clientId,
+    discountAmount: value.discountAmount ?? 0,
     items: value.items ?? [
       {
         productId: value.productId as string,

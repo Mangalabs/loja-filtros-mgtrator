@@ -97,6 +97,8 @@ type Sale = {
   productName: string;
   quantity: string;
   unitPrice: string;
+  subtotalAmount: string;
+  discountAmount: string;
   totalAmount: string;
   items: Array<{
     id: string;
@@ -688,6 +690,66 @@ describe("catalog routes", () => {
       "Abra o caixa antes de registrar uma venda.",
     );
     assert.equal(reopened.status, 201);
+  });
+
+  it("records a counter sale with discount", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro com desconto", salePrice: 40 },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 3,
+        reason: "Saldo inicial para venda com desconto",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const excessiveDiscount = await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 2,
+        discountAmount: 90,
+      },
+    });
+    const created = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 2,
+        discountAmount: 15,
+      },
+    });
+    const cash = await request<CashRegisterSession | null>(
+      "/cash-register/current",
+    );
+
+    assert.equal(excessiveDiscount.status, 422);
+    assert.equal(
+      excessiveDiscount.body.message,
+      "Desconto nao pode ser maior que o subtotal da venda.",
+    );
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.subtotalAmount, "80.00");
+    assert.equal(created.body.data?.discountAmount, "15.00");
+    assert.equal(created.body.data?.totalAmount, "65.00");
+    assert.equal(cash.body.data?.salesTotal, "65.00");
+    assert.equal(cash.body.data?.paymentSummary[0]?.amount, "65.00");
   });
 
   it("records a one-item counter sale and decreases product stock", async () => {

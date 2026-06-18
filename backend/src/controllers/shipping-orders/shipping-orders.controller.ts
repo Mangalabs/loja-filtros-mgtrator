@@ -291,6 +291,7 @@ export async function completeSeparatedShippingOrder(
       transaction,
       {
         clientId: currentOrder.clientId,
+        discountAmount: 0,
         paymentMethodId,
         items: currentOrder.items.map((item) => ({
           productId: item.productId,
@@ -306,6 +307,7 @@ export async function completeSeparatedShippingOrder(
         totalAmount: Number(item.totalAmount),
         position: item.position,
       })),
+      Number(currentOrder.totalAmount),
       Number(currentOrder.totalAmount),
     );
 

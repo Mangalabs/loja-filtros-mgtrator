@@ -4,6 +4,7 @@ import { db } from "../../database/knex.js";
 export type SaleInput = {
   paymentMethodId: string;
   clientId?: string | null;
+  discountAmount: number;
   items: Array<{
     productId: string;
     quantity: number;
@@ -16,6 +17,8 @@ export type Sale = {
   productName: string;
   quantity: string;
   unitPrice: string;
+  subtotalAmount: string;
+  discountAmount: string;
   totalAmount: string;
   items: SaleItem[];
   clientId: string | null;
@@ -71,6 +74,8 @@ export type SaleProduct = {
 
 const saleColumns = [
   "sales.id",
+  "sales.subtotal_amount as subtotalAmount",
+  "sales.discount_amount as discountAmount",
   "sales.total_amount as totalAmount",
   "sales.client_id as clientId",
   "clients.person_type as clientPersonType",
@@ -308,6 +313,7 @@ export async function insertSale(
     totalAmount: number;
     position: number;
   }>,
+  subtotalAmount: number,
   totalAmount: number,
 ): Promise<Sale> {
   const [created] = await transaction("sales")
@@ -315,6 +321,8 @@ export async function insertSale(
       cash_register_session_id: cashRegisterSessionId,
       created_by_user_id: createdByUserId,
       client_id: input.clientId,
+      subtotal_amount: subtotalAmount,
+      discount_amount: input.discountAmount,
       total_amount: totalAmount,
     })
     .returning("id");

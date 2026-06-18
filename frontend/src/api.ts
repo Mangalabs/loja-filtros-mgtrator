@@ -153,6 +153,8 @@ export type Sale = {
   productName: string;
   quantity: string;
   unitPrice: string;
+  subtotalAmount: string;
+  discountAmount: string;
   totalAmount: string;
   items: Array<{
     id: string;

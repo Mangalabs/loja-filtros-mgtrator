@@ -211,6 +211,7 @@ export async function completeReservedPickup(
       transaction,
       {
         clientId: currentReservation.clientId,
+        discountAmount: 0,
         paymentMethodId,
         items: currentReservation.items.map((item) => ({
           productId: item.productId,
@@ -226,6 +227,7 @@ export async function completeReservedPickup(
         totalAmount: Number(item.totalAmount),
         position: item.position,
       })),
+      Number(currentReservation.totalAmount),
       Number(currentReservation.totalAmount),
     );
 
