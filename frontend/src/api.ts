@@ -144,6 +144,14 @@ export type CashRegisterSession = {
     paymentMethodCode: string;
     amount: string;
   }>;
+  closingPaymentSummary: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    paymentMethodCode: string;
+    amount: string;
+    expectedAmount: string;
+    difference: string;
+  }>;
 };
 
 export type ReportsOverview = {

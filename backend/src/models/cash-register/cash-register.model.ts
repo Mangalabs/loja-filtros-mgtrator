@@ -18,6 +18,7 @@ export type CashRegisterSession = {
   expectedClosingBalance: string;
   difference: string | null;
   paymentSummary: CashRegisterPaymentSummary[];
+  closingPaymentSummary: CashRegisterClosingPaymentSummary[];
   movements: CashRegisterMovement[];
 };
 
@@ -26,6 +27,11 @@ export type CashRegisterPaymentSummary = {
   paymentMethodName: string;
   paymentMethodCode: string;
   amount: string;
+};
+
+export type CashRegisterClosingPaymentSummary = CashRegisterPaymentSummary & {
+  expectedAmount: string;
+  difference: string;
 };
 
 export type CashRegisterMovementType = "SUPPLY" | "WITHDRAWAL";
@@ -45,6 +51,11 @@ export type CashRegisterMovementInput = {
   type: CashRegisterMovementType;
   amount: number;
   reason: string;
+};
+
+export type CashRegisterClosingPaymentInput = {
+  paymentMethodId: string;
+  amount: number;
 };
 
 const sessionColumns = [
@@ -108,6 +119,7 @@ export async function closeCashRegisterSession(
   id: string,
   closedByUserId: string,
   closingBalance: number,
+  closingPayments: CashRegisterClosingPaymentInput[],
 ): Promise<CashRegisterSession> {
   await transaction("cash_register_sessions").where("id", id).update({
     status: "CLOSED",
@@ -115,6 +127,20 @@ export async function closeCashRegisterSession(
     closing_balance: closingBalance,
     closed_at: transaction.fn.now(),
   });
+
+  await transaction("cash_register_closing_payments")
+    .where("cash_register_session_id", id)
+    .del();
+
+  if (closingPayments.length > 0) {
+    await transaction("cash_register_closing_payments").insert(
+      closingPayments.map((payment) => ({
+        cash_register_session_id: id,
+        payment_method_id: payment.paymentMethodId,
+        amount: payment.amount,
+      })),
+    );
+  }
 
   const session = await sessionQuery(transaction)
     .where("cash_register_sessions.id", id)
@@ -172,6 +198,7 @@ async function withCashRegisterTotals(
   session: Omit<
     CashRegisterSession,
     | "difference"
+    | "closingPaymentSummary"
     | "expectedClosingBalance"
     | "movements"
     | "paymentSummary"
@@ -181,6 +208,11 @@ async function withCashRegisterTotals(
   >,
 ): Promise<CashRegisterSession> {
   const paymentSummary = await listPaymentSummary(database, session.id);
+  const closingPaymentSummary = await listClosingPaymentSummary(
+    database,
+    session.id,
+    paymentSummary,
+  );
   const movements = await listCashRegisterMovements(database, session.id);
   const salesTotalInCents = paymentSummary.reduce(
     (total, payment) => total + toCents(payment.amount),
@@ -206,6 +238,7 @@ async function withCashRegisterTotals(
     expectedClosingBalance: fromCents(expectedClosingBalanceInCents),
     difference: difference === null ? null : fromCents(difference),
     paymentSummary,
+    closingPaymentSummary,
     movements,
   };
 }
@@ -238,6 +271,50 @@ async function listPaymentSummary(
       "case payment_methods.code when 'PIX' then 1 when 'DEBIT' then 2 when 'BOLETO' then 3 else 4 end",
     )
     .orderBy("payment_methods.name", "asc");
+}
+
+async function listClosingPaymentSummary(
+  database: Knex | Knex.Transaction,
+  cashRegisterSessionId: string,
+  paymentSummary: CashRegisterPaymentSummary[],
+): Promise<CashRegisterClosingPaymentSummary[]> {
+  const closingPayments = await database("cash_register_closing_payments")
+    .join(
+      "payment_methods",
+      "payment_methods.id",
+      "cash_register_closing_payments.payment_method_id",
+    )
+    .where(
+      "cash_register_closing_payments.cash_register_session_id",
+      cashRegisterSessionId,
+    )
+    .select<
+      Array<{
+        paymentMethodId: string;
+        paymentMethodName: string;
+        paymentMethodCode: string;
+        amount: string;
+      }>
+    >([
+      "payment_methods.id as paymentMethodId",
+      "payment_methods.name as paymentMethodName",
+      "payment_methods.code as paymentMethodCode",
+      "cash_register_closing_payments.amount",
+    ]);
+
+  return closingPayments.map((payment) => {
+    const expectedAmount =
+      paymentSummary.find(
+        (summary) => summary.paymentMethodId === payment.paymentMethodId,
+      )?.amount ?? "0.00";
+    const difference = toCents(payment.amount) - toCents(expectedAmount);
+
+    return {
+      ...payment,
+      expectedAmount,
+      difference: fromCents(difference),
+    };
+  });
 }
 
 async function listCashRegisterMovements(

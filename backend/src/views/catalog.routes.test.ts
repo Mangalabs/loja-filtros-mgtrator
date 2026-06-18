@@ -270,6 +270,14 @@ type CashRegisterSession = {
     paymentMethodCode: string;
     amount: string;
   }>;
+  closingPaymentSummary: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    paymentMethodCode: string;
+    amount: string;
+    expectedAmount: string;
+    difference: string;
+  }>;
 };
 
 type ReportsOverview = {
@@ -720,7 +728,10 @@ describe("catalog routes", () => {
     );
     const closed = await request<CashRegisterSession>("/cash-register/close", {
       method: "PATCH",
-      body: { closingBalance: 160 },
+      body: {
+        closingBalance: 160,
+        closingPayments: [{ paymentMethodId: pix?.id, amount: 60 }],
+      },
     });
     const currentAfterClose = await request<CashRegisterSession | null>(
       "/cash-register/current",
@@ -757,6 +768,19 @@ describe("catalog routes", () => {
     assert.equal(closed.body.data?.salesTotal, "59.80");
     assert.equal(closed.body.data?.expectedClosingBalance, "159.80");
     assert.equal(closed.body.data?.difference, "0.20");
+    assert.equal(
+      closed.body.data?.closingPaymentSummary[0]?.paymentMethodCode,
+      "PIX",
+    );
+    assert.equal(closed.body.data?.closingPaymentSummary[0]?.amount, "60.00");
+    assert.equal(
+      closed.body.data?.closingPaymentSummary[0]?.expectedAmount,
+      "59.80",
+    );
+    assert.equal(
+      closed.body.data?.closingPaymentSummary[0]?.difference,
+      "0.20",
+    );
     assert.equal(currentAfterClose.body.data, null);
     assert.equal(saleAfterClose.status, 422);
     assert.equal(

@@ -19,6 +19,16 @@ const openCashRegisterSchema = z
 const closeCashRegisterSchema = z
   .object({
     closingBalance: z.coerce.number().min(0),
+    closingPayments: z
+      .array(
+        z
+          .object({
+            paymentMethodId: z.uuid(),
+            amount: z.coerce.number().min(0),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict();
 
@@ -47,7 +57,11 @@ cashRegisterRoutes.post("/cash-register/open", async (request, response) => {
 cashRegisterRoutes.patch("/cash-register/close", async (request, response) => {
   const body = validateBody(request, closeCashRegisterSchema);
   const userId = response.locals.authenticatedUser.id as string;
-  const result = await closeCurrentCashRegister(userId, body.closingBalance);
+  const result = await closeCurrentCashRegister(
+    userId,
+    body.closingBalance,
+    body.closingPayments ?? [],
+  );
 
   response.status(200).json(result);
 });

@@ -5,6 +5,7 @@ import {
   getCurrentCashRegisterSession,
   insertCashRegisterMovement,
   lockOpenCashRegisterSession,
+  type CashRegisterClosingPaymentInput,
   type CashRegisterMovementInput,
 } from "../../models/cash-register/cash-register.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
@@ -38,6 +39,7 @@ export async function openCashRegister(
 export async function closeCurrentCashRegister(
   closedByUserId: string,
   closingBalance: number,
+  closingPayments: CashRegisterClosingPaymentInput[] = [],
 ) {
   const session = await db.transaction(async (transaction) => {
     const currentSession = await lockOpenCashRegisterSession(transaction);
@@ -51,6 +53,7 @@ export async function closeCurrentCashRegister(
       currentSession.id,
       closedByUserId,
       closingBalance,
+      closingPayments,
     );
   });
 
