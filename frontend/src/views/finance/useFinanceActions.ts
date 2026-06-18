@@ -63,6 +63,40 @@ export function useFinanceActions({
     });
   }
 
+  async function createCashRegisterMovement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const type = String(form.get("cashMovementType") ?? "");
+    const amount = Number(form.get("cashMovementAmount") || 0);
+    const reason = String(form.get("cashMovementReason") ?? "").trim();
+    const movementLabelByType: Record<string, string> = {
+      SUPPLY: "suprimento",
+      WITHDRAWAL: "sangria",
+    };
+    const movementLabel = movementLabelByType[type] ?? "movimentacao";
+    const confirmed = await requestConfirmation(
+      `Registrar ${movementLabel} no valor de ${amount.toFixed(2)}?`,
+      "Registrar movimentacao de caixa?",
+      "Registrar",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPost("/cash-register/movements", {
+        type,
+        amount,
+        reason,
+      });
+
+      formElement.reset();
+      await loadCatalog();
+    });
+  }
+
   async function changePaymentMethodStatus(paymentMethod: PaymentMethod) {
     const nextStatus = paymentMethod.active ? "inativar" : "ativar";
     const confirmed = await requestConfirmation(
@@ -147,6 +181,7 @@ export function useFinanceActions({
     cancelFiscalDocument,
     changePaymentMethodStatus,
     closeCashRegister,
+    createCashRegisterMovement,
     openCashRegister,
     saveFiscalSettings,
     syncFiscalDocument,

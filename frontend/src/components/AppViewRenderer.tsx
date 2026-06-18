@@ -215,6 +215,7 @@ export function AppViewRenderer({
           user={user}
           onOpen={financeActions.openCashRegister}
           onClose={financeActions.closeCashRegister}
+          onCreateMovement={financeActions.createCashRegisterMovement}
         />
       ),
     reports: <ReportsPage overview={reportsOverview} />,

@@ -308,7 +308,7 @@ Estado: parcialmente entregue.
 Estado: parcialmente entregue.
 
 - Venda de balcao, reserva, envio, baixa de estoque e cancelamentos principais existem.
-- Caixa ja possui abertura, fechamento, divergencia e base backend de sangria/suprimento.
+- Caixa ja possui abertura, fechamento, divergencia, sangria e suprimento.
 - Falta devolucao/estorno de itens.
 - Desconto em venda de balcao entregue no backend e no frontend.
 
@@ -347,7 +347,6 @@ Estado: inicial entregue.
 
 ### 2. Completar PDV/Caixa
 
-- Expor sangria e suprimento na tela de caixa.
 - Cancelamento, estorno e devolucao por item.
 - Fechamento de caixa com conferencia real por forma de pagamento.
 
