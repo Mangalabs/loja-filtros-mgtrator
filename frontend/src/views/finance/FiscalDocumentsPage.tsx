@@ -204,17 +204,13 @@ export function FiscalDocumentsPage({
             {
               header: 'Status',
               render: (document) => (
-                <>
+                <div className='min-w-[220px]'>
                   <StatusChip
                     label={fiscalDocumentStatusLabel(document.status)}
                     tone={fiscalDocumentStatusTone(document.status)}
                   />
-                  {fiscalDocumentStatusDetail(document) ? (
-                    <InlineNote>
-                      {fiscalDocumentStatusDetail(document)}
-                    </InlineNote>
-                  ) : null}
-                </>
+                  <FiscalDocumentStatusDetail document={document} />
+                </div>
               ),
             },
             {
@@ -384,6 +380,51 @@ function FiscalDocumentStatus({ document }: { document: FiscalDocument }) {
       </InlineNote>
     </Stack>
   )
+}
+
+function FiscalDocumentStatusDetail({
+  document,
+}: {
+  document: FiscalDocument
+}) {
+  const detail = fiscalDocumentStatusDetail(document)
+
+  if (!detail) {
+    return null
+  }
+
+  return (
+    <Alert
+      className='mt-2 max-w-sm'
+      severity={fiscalDocumentDetailSeverity(document)}
+      variant='outlined'>
+      {fiscalDocumentDetailLabel(document)}: {detail}
+    </Alert>
+  )
+}
+
+function fiscalDocumentDetailSeverity(document: FiscalDocument) {
+  const severityByStatus = {
+    AUTHORIZED: 'warning',
+    CANCELLED: 'info',
+    PENDING: 'info',
+    PROCESSING: 'info',
+    REJECTED: 'error',
+  } as const
+
+  return severityByStatus[document.status]
+}
+
+function fiscalDocumentDetailLabel(document: FiscalDocument) {
+  const labelByStatus = {
+    AUTHORIZED: 'Cancelamento rejeitado',
+    CANCELLED: 'Motivo do cancelamento',
+    PENDING: 'Detalhe',
+    PROCESSING: 'Cancelamento em processamento',
+    REJECTED: 'Motivo da rejeicao',
+  }
+
+  return labelByStatus[document.status]
 }
 
 function FiscalDocumentLinks({ document }: { document: FiscalDocument }) {
