@@ -63,6 +63,13 @@ export type SaleItem = {
   position: number;
 };
 
+export type SaleItemForReturn = {
+  id: string;
+  saleId: string;
+  productId: string;
+  quantity: string;
+};
+
 export type SaleProduct = {
   id: string;
   name: string;
@@ -205,6 +212,35 @@ export async function saleHasBlockingFiscalDocument(
   return Boolean(fiscalDocument);
 }
 
+export async function lockSaleItemForReturn(
+  transaction: Knex.Transaction,
+  saleId: string,
+  saleItemId: string,
+): Promise<SaleItemForReturn | undefined> {
+  return transaction("sale_items")
+    .select([
+      "id",
+      "sale_id as saleId",
+      "product_id as productId",
+      "quantity",
+    ])
+    .where({ id: saleItemId, sale_id: saleId })
+    .forUpdate()
+    .first();
+}
+
+export async function returnedSaleItemQuantity(
+  transaction: Knex.Transaction,
+  saleItemId: string,
+): Promise<number> {
+  const result = await transaction("sale_item_returns")
+    .where("sale_item_id", saleItemId)
+    .sum<{ total: string | null }>("quantity as total")
+    .first();
+
+  return Number(result?.total ?? 0);
+}
+
 export async function lockSaleProduct(
   transaction: Knex.Transaction,
   productId: string,
@@ -296,6 +332,48 @@ export async function cancelSale(
 
   if (!sale) {
     throw new Error("Sale was not found after cancellation");
+  }
+
+  return sale;
+}
+
+export async function returnSaleItem(
+  transaction: Knex.Transaction,
+  saleId: string,
+  saleItem: SaleItemForReturn,
+  quantity: number,
+  createdByUserId: string,
+  reason: string,
+): Promise<Sale> {
+  await transaction("sale_item_returns").insert({
+    sale_id: saleId,
+    sale_item_id: saleItem.id,
+    product_id: saleItem.productId,
+    created_by_user_id: createdByUserId,
+    quantity,
+    reason,
+  });
+
+  await transaction("stock_movements").insert({
+    product_id: saleItem.productId,
+    sale_id: saleId,
+    created_by_user_id: createdByUserId,
+    type: "SALE_RETURN",
+    quantity,
+    notes: reason,
+  });
+
+  await transaction("products")
+    .where("id", saleItem.productId)
+    .update({
+      current_stock: transaction.raw("current_stock + ?", [quantity]),
+      updated_at: transaction.fn.now(),
+    });
+
+  const sale = await getSaleById(saleId, transaction);
+
+  if (!sale) {
+    throw new Error("Sale was not found after item return");
   }
 
   return sale;

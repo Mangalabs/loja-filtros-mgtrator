@@ -80,7 +80,7 @@ type StockAdjustment = {
 
 type StockMovement = {
   id: string;
-  type: "ENTRY" | "ADJUSTMENT" | "SALE" | "SALE_CANCEL";
+  type: "ENTRY" | "ADJUSTMENT" | "SALE" | "SALE_CANCEL" | "SALE_RETURN";
   productId: string;
   productName: string;
   supplierName: string | null;
@@ -1001,6 +1001,82 @@ describe("catalog routes", () => {
     assert.equal(cashAfterCancellation.body.data?.salesTotal, "0.00");
     assert.equal(reportsAfterCancellation.body.data?.salesCount, 0);
     assert.equal(reversalMovement?.quantity, "2.000");
+  });
+
+  it("returns a counter sale item to stock", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro para devolucao", salePrice: 50 },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 5,
+        reason: "Saldo inicial para devolucao",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const created = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 3,
+      },
+    });
+    const returned = await request<Sale>(
+      `/sales/${created.body.data?.id}/returns`,
+      {
+        method: "POST",
+        body: {
+          saleItemId: created.body.data?.items[0]?.id,
+          quantity: 1,
+          reason: "Cliente devolveu uma unidade",
+        },
+      },
+    );
+    const excessiveReturn = await request(
+      `/sales/${created.body.data?.id}/returns`,
+      {
+        method: "POST",
+        body: {
+          saleItemId: created.body.data?.items[0]?.id,
+          quantity: 3,
+          reason: "Tentativa acima do saldo vendido",
+        },
+      },
+    );
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+    const movements = await request<StockMovement[]>("/stock-movements");
+    const returnMovement = movements.body.data?.find(
+      (movement) => movement.type === "SALE_RETURN",
+    );
+
+    assert.equal(returned.status, 200);
+    assert.equal(returned.body.data?.status, "COMPLETED");
+    assert.equal(excessiveReturn.status, 422);
+    assert.equal(
+      excessiveReturn.body.message,
+      "Quantidade de devolucao maior que quantidade disponivel do item.",
+    );
+    assert.equal(updatedProduct.body.data?.currentStock, "3.000");
+    assert.equal(returnMovement?.quantity, "1.000");
+    assert.equal(returnMovement?.notes, "Cliente devolveu uma unidade");
+    assert.equal(returnMovement?.createdByUserName, "Administrador de teste");
   });
 
   it("issues a mock fiscal document for a completed sale", async () => {

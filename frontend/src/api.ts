@@ -84,7 +84,7 @@ export type StockAdjustment = {
 
 export type StockMovement = {
   id: string;
-  type: "ENTRY" | "ADJUSTMENT" | "SALE" | "SALE_CANCEL";
+  type: "ENTRY" | "ADJUSTMENT" | "SALE" | "SALE_CANCEL" | "SALE_RETURN";
   productId: string;
   productName: string;
   supplierName: string | null;

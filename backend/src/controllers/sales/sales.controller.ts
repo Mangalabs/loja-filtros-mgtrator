@@ -6,8 +6,11 @@ import {
   findOpenCashRegister,
   insertSale,
   listSales,
+  lockSaleItemForReturn,
   lockSaleProduct,
   lockSaleForCancellation,
+  returnSaleItem,
+  returnedSaleItemQuantity,
   saleHasBlockingFiscalDocument,
   saleHasLinkedOperation,
   type SaleInput,
@@ -141,6 +144,74 @@ export async function cancelCounterSale(
     }
 
     return cancelSale(transaction, id, cancelledByUserId, reason);
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: sale,
+  };
+}
+
+export async function returnCounterSaleItem(
+  id: string,
+  saleItemId: string,
+  quantity: number,
+  reason: string,
+  createdByUserId: string,
+) {
+  const sale = await db.transaction(async (transaction) => {
+    const lockedSale = await lockSaleForCancellation(transaction, id);
+
+    if (!lockedSale) {
+      throw new AppError("Venda nao encontrada.", 404);
+    }
+
+    if (lockedSale.status === "CANCELLED") {
+      throw new AppError("Venda cancelada nao pode receber devolucao.", 409);
+    }
+
+    if (await saleHasLinkedOperation(transaction, id)) {
+      throw new AppError(
+        "Venda gerada por envio ou retirada nao pode receber devolucao por este fluxo.",
+        409,
+      );
+    }
+
+    if (await saleHasBlockingFiscalDocument(transaction, id)) {
+      throw new AppError(
+        "Cancele a NF-e antes de devolver itens desta venda.",
+        409,
+      );
+    }
+
+    const saleItem = await lockSaleItemForReturn(transaction, id, saleItemId);
+
+    if (!saleItem) {
+      throw new AppError("Item da venda nao encontrado.", 404);
+    }
+
+    const returnedQuantity = await returnedSaleItemQuantity(
+      transaction,
+      saleItemId,
+    );
+    const availableQuantity = Number(saleItem.quantity) - returnedQuantity;
+
+    if (quantity > availableQuantity) {
+      throw new AppError(
+        "Quantidade de devolucao maior que quantidade disponivel do item.",
+        422,
+      );
+    }
+
+    return returnSaleItem(
+      transaction,
+      id,
+      saleItem,
+      quantity,
+      createdByUserId,
+      reason,
+    );
   });
 
   return {

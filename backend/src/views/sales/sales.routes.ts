@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   cancelCounterSale,
   indexSales,
+  returnCounterSaleItem,
   storeSale,
 } from "../../controllers/sales/sales.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
@@ -66,6 +67,14 @@ const cancelSaleSchema = z
   })
   .strict();
 
+const returnSaleItemSchema = z
+  .object({
+    saleItemId: z.uuid(),
+    quantity: z.coerce.number().positive(),
+    reason: z.string().trim().min(1).max(500),
+  })
+  .strict();
+
 salesRoutes.get("/sales", async (_request, response) => {
   response.status(200).json(await indexSales());
 });
@@ -83,4 +92,22 @@ salesRoutes.patch("/sales/:id/cancel", async (request, response) => {
   const userId = response.locals.authenticatedUser.id as string;
 
   response.status(200).json(await cancelCounterSale(id, body.reason, userId));
+});
+
+salesRoutes.post("/sales/:id/returns", async (request, response) => {
+  const { id } = saleParamsSchema.parse(request.params);
+  const body = validateBody(request, returnSaleItemSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response
+    .status(200)
+    .json(
+      await returnCounterSaleItem(
+        id,
+        body.saleItemId,
+        body.quantity,
+        body.reason,
+        userId,
+      ),
+    );
 });
