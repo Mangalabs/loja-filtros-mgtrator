@@ -128,10 +128,11 @@ function fiscalRequestSort(current: FiscalRequest, next: FiscalRequest) {
 
 function fiscalRequestPriority(request: FiscalRequest) {
   const priorityByState: Record<string, number> = {
-    blocked: 0,
-    documented: 3,
-    processing: 2,
+    blocked: 2,
+    documented: 4,
+    processing: 3,
     ready: 1,
+    reissue: 0,
   }
 
   return priorityByState[fiscalRequestState(request)]
@@ -139,6 +140,12 @@ function fiscalRequestPriority(request: FiscalRequest) {
 
 function fiscalRequestState(request: FiscalRequest) {
   const states = [
+    {
+      active:
+        request.document?.status === 'REJECTED' &&
+        request.readinessIssues.length === 0,
+      key: 'reissue',
+    },
     {
       active:
         canIssueFiscalRequest(request) && request.readinessIssues.length > 0,
