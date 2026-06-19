@@ -194,6 +194,7 @@ Relatorios posteriores:
 
 ## Pontos Pendentes
 
+- Seguir `docs/plano-producao.md` antes de expor o ambiente de producao.
 - Confirmar se a emissao fiscal sera NFC-e, NF-e ou ambas.
 - Confirmar se havera venda a prazo, crediario ou conta de cliente.
 - Confirmar se cartao de credito entrara no MVP.

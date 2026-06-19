@@ -1,0 +1,244 @@
+# Plano de subida para producao
+
+Este documento separa os passos de preparacao e validacao do ambiente de producao do `loja-filtros`.
+
+Objetivo imediato: subir o sistema com seguranca minima, trocar senhas padrao, validar backend, banco, Puppeteer/Chromium e rotas publicas antes de liberar uso real.
+
+## Estado atual
+
+- O `compose.yml` sobe apenas PostgreSQL.
+- Backend e frontend rodam fora do Docker neste momento.
+- A porta host do PostgreSQL em desenvolvimento e `5433`.
+- O servidor de producao foi desligado temporariamente porque a senha do PostgreSQL estava padrao.
+- Antes de religar o ambiente publico, a senha padrao precisa ser trocada.
+
+## 1. Seguranca inicial do banco
+
+1. Gerar uma senha forte para o PostgreSQL.
+2. Alterar a senha do usuario `postgres` no ambiente de producao.
+3. Atualizar `DATABASE_URL` do backend com a nova senha.
+4. Atualizar qualquer variavel usada pelo Docker/servico do banco.
+5. Confirmar que o PostgreSQL nao esta exposto publicamente.
+6. Permitir acesso ao banco apenas localmente ou por rede interna controlada.
+7. Confirmar firewall bloqueando acesso externo direto ao banco.
+8. Subir somente o banco.
+9. Testar login no banco com a nova senha.
+
+Comandos uteis:
+
+```bash
+docker compose up -d postgres
+docker compose ps
+```
+
+Teste local no servidor:
+
+```bash
+psql "$DATABASE_URL" -c "select 1;"
+```
+
+## 2. Validar backend com PostgreSQL
+
+1. Configurar `.env` de producao com a nova `DATABASE_URL`.
+2. Conferir `HOST` e `PORT`.
+3. Conferir `JWT_SECRET` forte, unico e com pelo menos 32 caracteres.
+4. Subir backend em modo de producao.
+5. Rodar migrations.
+6. Testar health da API.
+7. Testar health do banco.
+8. Conferir logs do backend.
+
+Comandos:
+
+```bash
+cd backend
+npm run db:migrate
+npm run build
+npm run start
+```
+
+Rotas:
+
+```bash
+curl http://37.59.103.70:3333/
+curl http://37.59.103.70:3333/health
+curl http://37.59.103.70:3333/health/database
+```
+
+Resultado esperado:
+
+- `/` responde identificacao da API.
+- `/health` responde sucesso.
+- `/health/database` responde sucesso de conexao.
+
+## 3. Validar Chromium no servidor
+
+1. Instalar Chromium no servidor.
+2. Confirmar caminho do binario.
+3. Confirmar versao instalada.
+4. Confirmar que o usuario do processo do backend consegue executar Chromium.
+
+Comandos:
+
+```bash
+which chromium
+chromium --version
+```
+
+Se nao estiver instalado:
+
+```bash
+sudo apt update
+sudo apt install chromium -y
+```
+
+## 4. Validar Puppeteer em producao
+
+Configuracao desejada para ambiente Linux/servidor:
+
+```ts
+const browser = await puppeteer.launch({
+  executablePath: '/usr/bin/chromium',
+  headless: true,
+  args: ['--no-sandbox', '--disable-setuid-sandbox'],
+});
+```
+
+Tarefas:
+
+1. Tornar `executablePath` configuravel por `.env`.
+2. Tornar flags de no-sandbox configuraveis ou aplicadas apenas em producao/Linux.
+3. Subir backend com Chromium configurado.
+4. Criar ou usar um orcamento de teste.
+5. Baixar PDF do orcamento.
+6. Confirmar que o PDF e gerado sem erro 500.
+7. Conferir logs do backend.
+8. Confirmar que processos Chromium nao ficam presos apos a geracao.
+
+Variaveis sugeridas:
+
+```env
+PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+PUPPETEER_NO_SANDBOX=true
+```
+
+## 5. Validar rota publica de producao
+
+Rota principal:
+
+```bash
+curl http://37.59.103.70:3333/
+```
+
+Validacoes:
+
+1. A API responde na porta `3333`.
+2. A resposta nao expõe segredo.
+3. CORS esta adequado para o frontend de producao.
+4. Logs nao mostram erro de banco, JWT, fiscal ou PDF.
+
+## 6. Validar fluxo operacional minimo
+
+Depois que banco, backend e Puppeteer estiverem ok:
+
+1. Login.
+2. Criar cliente de teste.
+3. Criar produto de teste.
+4. Fazer ajuste de estoque positivo.
+5. Abrir caixa.
+6. Fazer venda de balcao.
+7. Conferir baixa de estoque.
+8. Registrar sangria ou suprimento teste, se necessario.
+9. Fechar caixa.
+10. Criar orcamento.
+11. Baixar PDF do orcamento.
+12. Emitir NF-e em homologacao Focus.
+13. Sincronizar NF-e.
+14. Baixar XML.
+15. Baixar DANFE.
+16. Cancelar NF-e em homologacao.
+
+## 7. Variaveis criticas para revisar
+
+Backend:
+
+```env
+HOST=
+PORT=
+DATABASE_URL=
+JWT_SECRET=
+```
+
+PDF/orcamento:
+
+```env
+QUOTE_PDF_STORE_NAME=
+QUOTE_PDF_STORE_ADDRESS=
+QUOTE_PDF_STORE_CITY=
+QUOTE_PDF_STORE_DOCUMENT=
+QUOTE_PDF_STORE_PHONE=
+QUOTE_PDF_STORE_EMAIL=
+PUPPETEER_EXECUTABLE_PATH=
+PUPPETEER_NO_SANDBOX=
+```
+
+Fiscal:
+
+```env
+FISCAL_PROVIDER=
+FISCAL_ENVIRONMENT=
+FOCUS_NFE_HOMOLOGATION_TOKEN=
+FOCUS_NFE_PRODUCTION_TOKEN=
+FOCUS_NFE_COMPANY_CNPJ=
+```
+
+Cuidados:
+
+- Nao commitar `.env`.
+- Nao colar tokens em issues, commits ou docs.
+- Usar homologacao Focus ate concluir checklist fiscal final.
+- Producao fiscal so deve ser liberada depois de validacao manual com dados reais.
+
+## 8. Firewall e exposicao
+
+Expor publicamente apenas o necessario:
+
+- API via `3333` ou via proxy `80/443`.
+- Frontend via `80/443`, se estiver no mesmo servidor.
+- SSH, preferencialmente restrito.
+
+Nao expor:
+
+- PostgreSQL.
+- Docker daemon.
+- Portas internas.
+- Painel administrativo sem autenticacao.
+
+## 9. Ordem recomendada de execucao
+
+1. Trocar senha do PostgreSQL.
+2. Bloquear acesso externo direto ao PostgreSQL.
+3. Subir banco.
+4. Testar conexao direta local com banco.
+5. Atualizar `.env` do backend.
+6. Rodar migrations.
+7. Subir backend.
+8. Testar `/`, `/health` e `/health/database`.
+9. Instalar/validar Chromium.
+10. Configurar Puppeteer.
+11. Testar PDF de orcamento.
+12. Testar fluxo operacional minimo.
+13. Testar Focus em homologacao.
+14. Revisar logs.
+15. Decidir se o ambiente fica liberado para uso assistido.
+
+## 10. Pontos pendentes apos a primeira subida
+
+- Decidir se backend tambem sera containerizado.
+- Decidir se frontend sera servido por Nginx ou outro proxy.
+- Configurar HTTPS.
+- Configurar backup automatico do PostgreSQL.
+- Configurar rotina de restore testado.
+- Configurar logs persistentes.
+- Configurar monitoramento basico de processo, disco e memoria.
+- Criar checklist de deploy/rollback.
