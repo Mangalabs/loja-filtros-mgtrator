@@ -27,9 +27,31 @@ Objetivo imediato: subir o sistema com seguranca minima, trocar senhas padrao, v
 Comandos uteis:
 
 ```bash
+cp .env.example .env
 docker compose up -d postgres
 docker compose ps
 ```
+
+O `compose.yml` exige `POSTGRES_DB`, `POSTGRES_USER` e `POSTGRES_PASSWORD`.
+Em producao, `POSTGRES_PASSWORD` deve ser forte e diferente do exemplo.
+
+O bind da porta do PostgreSQL fica restrito a `127.0.0.1`:
+
+```yaml
+127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432
+```
+
+Isso evita exposicao externa direta do banco pelo Docker Compose.
+
+Atencao: se o volume PostgreSQL ja existir, mudar `POSTGRES_PASSWORD` no
+Compose nao altera automaticamente a senha do usuario dentro do banco. Nesse
+caso, altere a senha via SQL antes de expor o ambiente:
+
+```sql
+alter user postgres with password 'NOVA_SENHA_FORTE';
+```
+
+Depois atualize `DATABASE_URL` do backend para usar a mesma senha.
 
 Teste local no servidor:
 
