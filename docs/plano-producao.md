@@ -93,6 +93,13 @@ Resultado esperado:
 - `/health` responde sucesso.
 - `/health/database` responde sucesso de conexao.
 
+Trava de startup em `NODE_ENV=production`:
+
+- o backend nao sobe se `JWT_SECRET` parecer placeholder;
+- o backend nao sobe se `DATABASE_URL` estiver invalida, sem senha ou usando a senha padrao `postgres`;
+- o backend nao sobe se `PUPPETEER_EXECUTABLE_PATH` apontar para arquivo inexistente;
+- o backend nao sobe se Focus estiver em producao sem `FOCUS_NFE_PRODUCTION_TOKEN`.
+
 ## 3. Validar Chromium no servidor
 
 1. Instalar Chromium no servidor.
