@@ -75,7 +75,7 @@ Comandos:
 ```bash
 cd backend
 npm run db:migrate
-npm run build
+npm run check:production
 npm run start
 ```
 

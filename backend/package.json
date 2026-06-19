@@ -7,6 +7,7 @@
     "dev": "tsx watch src/main.ts",
     "dev:build": "npm run build && node dist/main.js",
     "build": "tsc -p tsconfig.json",
+    "check:production": "npm run build && NODE_ENV=production node dist/config/check-production-config.js",
     "start": "node dist/main.js",
     "test": "NODE_ENV=test node --import tsx --test src/views/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
