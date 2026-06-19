@@ -5,7 +5,8 @@ import { quotePdfHtml } from './templates/quote-pdf-template.js'
 
 export async function generateQuotePdf(quote: Quote): Promise<Buffer> {
   const browser = await puppeteer.launch({
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: puppeteerArgs(),
+    executablePath: env.puppeteer.executablePath ?? undefined,
   })
 
   try {
@@ -29,4 +30,10 @@ export async function generateQuotePdf(quote: Quote): Promise<Buffer> {
   } finally {
     await browser.close()
   }
+}
+
+function puppeteerArgs() {
+  return env.puppeteer.noSandbox
+    ? ['--no-sandbox', '--disable-setuid-sandbox']
+    : []
 }

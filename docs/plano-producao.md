@@ -106,8 +106,8 @@ const browser = await puppeteer.launch({
 
 Tarefas:
 
-1. Tornar `executablePath` configuravel por `.env`.
-2. Tornar flags de no-sandbox configuraveis ou aplicadas apenas em producao/Linux.
+1. Configurar `PUPPETEER_EXECUTABLE_PATH` no `.env` de producao.
+2. Manter `PUPPETEER_NO_SANDBOX=true` em producao Linux, quando necessario.
 3. Subir backend com Chromium configurado.
 4. Criar ou usar um orcamento de teste.
 5. Baixar PDF do orcamento.
@@ -121,6 +121,12 @@ Variaveis sugeridas:
 PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 PUPPETEER_NO_SANDBOX=true
 ```
+
+Status no codigo:
+
+- `PUPPETEER_EXECUTABLE_PATH` ja e lido pelo backend.
+- `PUPPETEER_NO_SANDBOX` ja controla as flags `--no-sandbox` e `--disable-setuid-sandbox`.
+- O padrao atual permanece com no-sandbox ligado para preservar o comportamento anterior do gerador de PDF.
 
 ## 5. Validar rota publica de producao
 

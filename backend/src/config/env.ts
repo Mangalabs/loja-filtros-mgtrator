@@ -27,6 +27,20 @@ function envOrDefault(value: string | undefined, fallback: string) {
   return value?.trim() || fallback;
 }
 
+function booleanEnv(value: string | undefined, fallback = false) {
+  const normalized = value?.trim().toLowerCase();
+  const values: Record<string, boolean> = {
+    "1": true,
+    false: false,
+    no: false,
+    off: false,
+    true: true,
+    yes: true,
+  };
+
+  return normalized ? values[normalized] ?? fallback : fallback;
+}
+
 function fiscalProvider(value: string | undefined) {
   const provider = envOrDefault(value, "mock").toLowerCase();
   const providers: Record<string, "mock" | "focus"> = {
@@ -100,6 +114,10 @@ export const env = {
     ),
     phone: optionalEnv(process.env.QUOTE_PDF_STORE_PHONE),
     email: optionalEnv(process.env.QUOTE_PDF_STORE_EMAIL),
+  },
+  puppeteer: {
+    executablePath: optionalEnv(process.env.PUPPETEER_EXECUTABLE_PATH),
+    noSandbox: booleanEnv(process.env.PUPPETEER_NO_SANDBOX, true),
   },
   fiscal: {
     provider: fiscalProvider(process.env.FISCAL_PROVIDER),
