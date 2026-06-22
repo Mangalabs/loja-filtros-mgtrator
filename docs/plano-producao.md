@@ -6,8 +6,8 @@ Objetivo imediato: subir o sistema com seguranca minima, trocar senhas padrao, v
 
 ## Estado atual
 
-- O `compose.yml` sobe apenas PostgreSQL.
-- Backend e frontend rodam fora do Docker neste momento.
+- O `compose.yml` sobe PostgreSQL e backend.
+- O frontend ainda roda fora do Docker neste momento.
 - A porta host do PostgreSQL em desenvolvimento e `5433`.
 - O servidor de producao foi desligado temporariamente porque a senha do PostgreSQL estava padrao.
 - Antes de religar o ambiente publico, a senha padrao precisa ser trocada.
@@ -59,6 +59,14 @@ Teste local no servidor:
 psql "$DATABASE_URL" -c "select 1;"
 ```
 
+Para o backend containerizado, a URL interna do banco usa o host `postgres`
+e a porta `5432` dentro da rede Docker. O `compose.yml` monta `DATABASE_URL`
+a partir de `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB`.
+
+Se a senha tiver caracteres reservados de URL como `@`, `/`, `?`, `#` ou `:`,
+configure `BACKEND_DATABASE_URL` manualmente no `.env` da raiz com a senha
+URL-encoded.
+
 ## 2. Validar backend com PostgreSQL
 
 1. Configurar `.env` de producao com a nova `DATABASE_URL`.
@@ -70,13 +78,29 @@ psql "$DATABASE_URL" -c "select 1;"
 7. Testar health do banco.
 8. Conferir logs do backend.
 
-Comandos:
+Comandos para backend fora do Docker:
 
 ```bash
 cd backend
 npm run db:migrate
 npm run check:production
 npm run start
+```
+
+Comandos para backend no Docker:
+
+```bash
+docker compose build backend
+docker compose run --rm backend npm run db:migrate
+docker compose up -d backend
+```
+
+Se a porta local `3333` ja estiver ocupada em desenvolvimento, suba o
+backend Docker em outra porta host sem alterar a porta interna do container:
+
+```bash
+BACKEND_HOST_PORT=3334 docker compose up -d backend
+curl http://127.0.0.1:3334/health
 ```
 
 Rotas:
