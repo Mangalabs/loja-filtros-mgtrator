@@ -101,8 +101,8 @@ function setAuthCookie(response: Response, token: string) {
 function cookieOptions() {
   return {
     httpOnly: true,
-    sameSite: "strict" as const,
-    secure: env.nodeEnv === "production",
+    sameSite: env.authCookie.sameSite,
+    secure: env.authCookie.secure,
     path: "/",
   };
 }

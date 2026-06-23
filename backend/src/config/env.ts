@@ -41,6 +41,26 @@ function booleanEnv(value: string | undefined, fallback = false) {
   return normalized ? values[normalized] ?? fallback : fallback;
 }
 
+function listEnv(value: string | undefined) {
+  return (
+    value
+      ?.split(",")
+      .map((item) => item.trim())
+      .filter(Boolean) ?? []
+  );
+}
+
+function sameSiteEnv(value: string | undefined) {
+  const sameSite = envOrDefault(value, "strict").toLowerCase();
+  const values: Record<string, "lax" | "none" | "strict"> = {
+    lax: "lax",
+    none: "none",
+    strict: "strict",
+  };
+
+  return values[sameSite] ?? "strict";
+}
+
 function fiscalProvider(value: string | undefined) {
   const provider = envOrDefault(value, "mock").toLowerCase();
   const providers: Record<string, "mock" | "focus"> = {
@@ -98,6 +118,13 @@ export const env = {
   port: Number(process.env.PORT ?? 3333),
   databaseUrl: nodeEnv === "test" ? testDatabaseUrl : developmentDatabaseUrl,
   jwtSecret,
+  authCookie: {
+    sameSite: sameSiteEnv(process.env.AUTH_COOKIE_SAME_SITE),
+    secure: booleanEnv(process.env.AUTH_COOKIE_SECURE, nodeEnv === "production"),
+  },
+  cors: {
+    allowedOrigins: listEnv(process.env.CORS_ORIGIN),
+  },
   quotePdfStore: {
     name: envOrDefault(process.env.QUOTE_PDF_STORE_NAME, "Filtros MG"),
     address: envOrDefault(
