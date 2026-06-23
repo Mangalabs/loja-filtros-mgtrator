@@ -16,6 +16,7 @@ import type {
   Sale,
   ShippingOrder,
 } from '../../api'
+import { apiUrl } from '../../api'
 import {
   InlineNote,
   PageHeader,
@@ -455,7 +456,7 @@ function FiscalDocumentLinks({ document }: { document: FiscalDocument }) {
 }
 
 function fiscalDocumentFileHref(url: string) {
-  return url.startsWith('/') ? `/api${url}` : url
+  return url.startsWith('/') ? apiUrl(url) : url
 }
 
 function fiscalDocumentDownloadName(

@@ -4,6 +4,12 @@ export type ApiResult<T> = {
   data: T;
 };
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
+
+export function apiUrl(path: string) {
+  return `${apiBaseUrl}/api${path}`;
+}
+
 export type Product = {
   id: string;
   name: string;
@@ -340,8 +346,8 @@ export type Quote = {
 };
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    credentials: "same-origin",
+  const response = await fetch(apiUrl(path), {
+    credentials: "include",
   });
   return parseResponse<T>(response);
 }
@@ -363,9 +369,9 @@ async function apiWrite<T>(
   method: "POST" | "PUT" | "PATCH",
   body: unknown,
 ): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(apiUrl(path), {
     method,
-    credentials: "same-origin",
+    credentials: "include",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });

@@ -5,6 +5,7 @@ import TextField from '@mui/material/TextField'
 import { List as ListIcon, Plus } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import type { Client, Product, Quote } from '../../api'
+import { apiUrl } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
 import {
   ActionGroup,
@@ -374,7 +375,7 @@ function QuoteActions({
     return (
       <ActionStack>
         <ActionGroup>
-          <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
+          <TableActionButton href={quotePdfHref(quote)}>
             Baixar PDF
           </TableActionButton>
         </ActionGroup>
@@ -387,7 +388,7 @@ function QuoteActions({
     return (
       <ActionStack>
         <ActionGroup>
-          <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
+          <TableActionButton href={quotePdfHref(quote)}>
             Baixar PDF
           </TableActionButton>
         </ActionGroup>
@@ -399,7 +400,7 @@ function QuoteActions({
   return (
     <ActionStack>
       <ActionGroup>
-        <TableActionButton href={`/api/quotes/${quote.id}/pdf`}>
+        <TableActionButton href={quotePdfHref(quote)}>
           Baixar PDF
         </TableActionButton>
         <TableActionButton
@@ -424,6 +425,10 @@ function QuoteActions({
       </form>
     </ActionStack>
   )
+}
+
+function quotePdfHref(quote: Quote) {
+  return apiUrl(`/quotes/${quote.id}/pdf`)
 }
 
 const quoteShippingStatusLabels: Record<
