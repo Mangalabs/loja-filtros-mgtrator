@@ -7,7 +7,7 @@ export type ApiResult<T> = {
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
 
 export function apiUrl(path: string) {
-  return `${apiBaseUrl}/api${path}`;
+  return apiBaseUrl ? `${apiBaseUrl}${path}` : `/api${path}`;
 }
 
 export type Product = {
