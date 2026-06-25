@@ -32,6 +32,7 @@ type QuoteDraftItem = {
   description: string
   quantity: string
   unitPrice: string
+  discountAmount: string
 }
 
 export type QuoteDraftInput = {
@@ -39,11 +40,13 @@ export type QuoteDraftInput = {
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
+  discountAmount?: number
   items: Array<{
     productId: string
     description?: string | null
     quantity: number
     unitPrice?: number | null
+    discountAmount?: number
   }>
 }
 
@@ -69,13 +72,22 @@ export function QuotesPage({
   const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
   const [showBrand, setShowBrand] = useState(true)
+  const [discountAmount, setDiscountAmount] = useState('')
   const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
   const { pagination, visibleItems } = usePaginatedRows<Quote>(quotes)
   const activeProducts = products.filter((product) => product.active)
   const isEditing = Boolean(editingQuoteId)
-  const quoteTotal = items.reduce((sum, item) => {
+  const quoteSubtotal = items.reduce((sum, item) => {
     return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0)
   }, 0)
+  const itemDiscountTotal = items.reduce((sum, item) => {
+    return sum + Number(item.discountAmount || 0)
+  }, 0)
+  const generalDiscount = Number(discountAmount || 0)
+  const quoteTotal = Math.max(
+    quoteSubtotal - itemDiscountTotal - generalDiscount,
+    0,
+  )
 
   function updateItem(index: number, changes: Partial<QuoteDraftItem>) {
     setItems((currentItems) =>
@@ -115,6 +127,7 @@ export function QuotesPage({
     setValidUntil('')
     setNotes('')
     setShowBrand(true)
+    setDiscountAmount('')
     setItems([emptyQuoteItem()])
   }
 
@@ -126,11 +139,13 @@ export function QuotesPage({
       validUntil: validUntil || null,
       notes: notes.trim() || null,
       showBrand,
+      discountAmount: generalDiscount,
       items: items.map((item) => ({
         productId: item.productId,
         description: item.description.trim() || null,
         quantity: Number(item.quantity),
         unitPrice: item.unitPrice === '' ? null : Number(item.unitPrice),
+        discountAmount: Number(item.discountAmount || 0),
       })),
     }
     const saved = editingQuoteId
@@ -148,12 +163,14 @@ export function QuotesPage({
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
     setNotes(quote.notes ?? '')
     setShowBrand(quote.showBrand)
+    setDiscountAmount(quote.discountAmount)
     setItems(
       quote.items.map((item) => ({
         productId: item.productId,
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        discountAmount: item.discountAmount,
       })),
     )
   }
@@ -200,11 +217,30 @@ export function QuotesPage({
           />
           <TextField
             disabled
-            label='Total'
+            label='Subtotal'
+            size='medium'
+            value={formatCurrency(quoteSubtotal)}
+          />
+        </FormRow>
+        <FormRow>
+          <TextField
+            label='Desconto geral'
+            value={discountAmount}
+            type='number'
+            size='medium'
+            onChange={(event) => setDiscountAmount(event.target.value)}
+            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+          />
+          <TextField
+            disabled
+            label='Total final'
             size='medium'
             value={formatCurrency(quoteTotal)}
           />
         </FormRow>
+        <InlineNote>
+          Desconto nos itens: {formatCurrency(itemDiscountTotal)}
+        </InlineNote>
         <TextField
           label='Observacoes do orcamento'
           multiline
@@ -282,6 +318,16 @@ export function QuotesPage({
                   required
                 />
               </FormRow>
+              <TextField
+                label='Desconto do item'
+                value={item.discountAmount}
+                type='number'
+                size='medium'
+                onChange={(event) =>
+                  updateItem(index, { discountAmount: event.target.value })
+                }
+                slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+              />
             </FormCard>
           ))}
         </div>
@@ -343,7 +389,20 @@ export function QuotesPage({
             },
             {
               header: 'Total',
-              render: (quote) => formatCurrency(quote.totalAmount),
+              render: (quote) => (
+                <>
+                  {formatCurrency(quote.totalAmount)}
+                  {Number(quote.discountAmount) > 0 ||
+                  quote.items.some(
+                    (item) => Number(item.discountAmount) > 0,
+                  ) ? (
+                    <InlineNote>
+                      Subtotal {formatCurrency(quote.subtotalAmount)} | Desc.{' '}
+                      {formatCurrency(totalQuoteDiscount(quote))}
+                    </InlineNote>
+                  ) : null}
+                </>
+              ),
             },
             {
               header: 'Status',
@@ -555,5 +614,13 @@ function emptyQuoteItem(): QuoteDraftItem {
     description: '',
     quantity: '1',
     unitPrice: '',
+    discountAmount: '',
   }
+}
+
+function totalQuoteDiscount(quote: Quote) {
+  return (
+    Number(quote.discountAmount) +
+    quote.items.reduce((sum, item) => sum + Number(item.discountAmount), 0)
+  )
 }

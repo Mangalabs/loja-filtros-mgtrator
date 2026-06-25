@@ -310,6 +310,8 @@ export type Quote = {
   clientEmail: string | null;
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
+  subtotalAmount: string;
+  discountAmount: string;
   totalAmount: string;
   validUntil: string | null;
   notes: string | null;
@@ -340,6 +342,7 @@ export type Quote = {
     description: string;
     quantity: string;
     unitPrice: string;
+    discountAmount: string;
     totalAmount: string;
     position: number;
   }>;
