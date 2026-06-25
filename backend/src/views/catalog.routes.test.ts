@@ -3229,8 +3229,13 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        discountAmount: 10,
         items: [
-          { productId: firstProduct.body.data?.id, quantity: 2 },
+          {
+            productId: firstProduct.body.data?.id,
+            quantity: 2,
+            discountAmount: 5,
+          },
           { productId: secondProduct.body.data?.id, quantity: 1 },
         ],
       },
@@ -3282,14 +3287,18 @@ describe("catalog routes", () => {
 
     assert.equal(completed.status, 200);
     assert.equal(completed.body.data?.status, "COMPLETED");
+    assert.equal(completed.body.data?.totalAmount, "140.00");
     assert.equal(sales.body.data?.length, 1);
     assert.equal(sales.body.data?.[0]?.items.length, 2);
-    assert.equal(sales.body.data?.[0]?.totalAmount, "155.00");
+    assert.equal(sales.body.data?.[0]?.subtotalAmount, "150.00");
+    assert.equal(sales.body.data?.[0]?.discountAmount, "10.00");
+    assert.equal(sales.body.data?.[0]?.totalAmount, "140.00");
     assert.equal(
       sales.body.data?.[0]?.items[0]?.productName,
       "Filtro envio multi A",
     );
     assert.equal(sales.body.data?.[0]?.items[0]?.quantity, "2.000");
+    assert.equal(sales.body.data?.[0]?.items[0]?.totalAmount, "75.00");
     assert.equal(
       sales.body.data?.[0]?.items[1]?.productName,
       "Filtro envio multi B",

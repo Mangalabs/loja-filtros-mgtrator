@@ -290,11 +290,26 @@ export async function completeSeparatedShippingOrder(
       );
     }
 
+    const saleItems = currentOrder.items.map((item) => ({
+      productId: item.productId,
+      quantity: Number(item.quantity),
+      unitPrice: Number(item.unitPrice),
+      totalAmount: Number(item.totalAmount),
+      position: item.position,
+    }));
+    const saleSubtotalAmount = Number(
+      saleItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
+    );
+    const saleTotalAmount = Number(currentOrder.totalAmount);
+    const saleDiscountAmount = Number(
+      (saleSubtotalAmount - saleTotalAmount).toFixed(2),
+    );
+
     const sale = await insertSale(
       transaction,
       {
         clientId: currentOrder.clientId,
-        discountAmount: 0,
+        discountAmount: saleDiscountAmount,
         paymentMethodId,
         items: currentOrder.items.map((item) => ({
           productId: item.productId,
@@ -303,15 +318,9 @@ export async function completeSeparatedShippingOrder(
       },
       cashRegister.id,
       completedByUserId,
-      currentOrder.items.map((item) => ({
-        productId: item.productId,
-        quantity: Number(item.quantity),
-        unitPrice: Number(item.unitPrice),
-        totalAmount: Number(item.totalAmount),
-        position: item.position,
-      })),
-      Number(currentOrder.totalAmount),
-      Number(currentOrder.totalAmount),
+      saleItems,
+      saleSubtotalAmount,
+      saleTotalAmount,
     );
 
     return completeShippingOrder(transaction, id, sale.id, completedByUserId);
