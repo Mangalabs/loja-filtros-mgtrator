@@ -6,6 +6,7 @@ export type QuoteItemInput = {
   description?: string | null
   quantity: number
   unitPrice?: number | null
+  discountAmount?: number
 }
 
 export type QuoteInput = {
@@ -13,6 +14,7 @@ export type QuoteInput = {
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
+  discountAmount?: number
   items: QuoteItemInput[]
 }
 
@@ -27,6 +29,7 @@ export type QuoteItem = {
   description: string
   quantity: string
   unitPrice: string
+  discountAmount: string
   totalAmount: string
   position: number
 }
@@ -40,6 +43,8 @@ export type Quote = {
   clientEmail: string | null
   status: 'DRAFT' | 'CANCELLED'
   showBrand: boolean
+  subtotalAmount: string
+  discountAmount: string
   totalAmount: string
   validUntil: string | null
   notes: string | null
@@ -88,6 +93,8 @@ const quoteColumns = [
   'clients.email as clientEmail',
   'quotes.status',
   'quotes.show_brand as showBrand',
+  'quotes.subtotal_amount as subtotalAmount',
+  'quotes.discount_amount as discountAmount',
   'quotes.total_amount as totalAmount',
   'quotes.valid_until as validUntil',
   'quotes.notes',
@@ -117,6 +124,7 @@ const quoteItemColumns = [
   'quote_items.description',
   'quote_items.quantity',
   'quote_items.unit_price as unitPrice',
+  'quote_items.discount_amount as discountAmount',
   'quote_items.total_amount as totalAmount',
   'quote_items.position',
 ]
@@ -171,9 +179,12 @@ export async function insertQuote(
     description: string
     quantity: number
     unitPrice: number
+    discountAmount: number
     totalAmount: number
     position: number
   }>,
+  subtotalAmount: number,
+  discountAmount: number,
   totalAmount: number,
 ): Promise<Quote> {
   const [created] = await transaction('quotes')
@@ -182,6 +193,8 @@ export async function insertQuote(
       created_by_user_id: createdByUserId,
       status: 'DRAFT',
       show_brand: input.showBrand ?? true,
+      subtotal_amount: subtotalAmount,
+      discount_amount: discountAmount,
       total_amount: totalAmount,
       valid_until: input.validUntil,
       notes: input.notes,
@@ -195,6 +208,7 @@ export async function insertQuote(
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unitPrice,
+      discount_amount: item.discountAmount,
       total_amount: item.totalAmount,
       position: item.position,
     })),
@@ -221,14 +235,19 @@ export async function updateQuote(
     description: string
     quantity: number
     unitPrice: number
+    discountAmount: number
     totalAmount: number
     position: number
   }>,
+  subtotalAmount: number,
+  discountAmount: number,
   totalAmount: number,
 ): Promise<Quote> {
   await transaction('quotes').where('id', id).update({
     client_id: input.clientId,
     show_brand: input.showBrand ?? true,
+    subtotal_amount: subtotalAmount,
+    discount_amount: discountAmount,
     total_amount: totalAmount,
     valid_until: input.validUntil,
     notes: input.notes,
@@ -243,6 +262,7 @@ export async function updateQuote(
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unitPrice,
+      discount_amount: item.discountAmount,
       total_amount: item.totalAmount,
       position: item.position,
     })),

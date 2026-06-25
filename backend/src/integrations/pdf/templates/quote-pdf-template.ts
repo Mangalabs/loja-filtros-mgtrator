@@ -14,6 +14,10 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
     .map((item, index) => quoteItemRow(item, index, quote.showBrand))
     .join("");
   const storeContact = [store.phone, store.email].filter(Boolean).join(" | ");
+  const itemDiscountAmount = quote.items.reduce(
+    (sum, item) => sum + Number(item.discountAmount),
+    0,
+  );
 
   return `
     <!doctype html>
@@ -75,6 +79,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
                 ${quote.showBrand ? "<th>Marca</th>" : ""}
                 <th class="text-center">NCM</th>
                 <th class="text-right">Preco unit.</th>
+                <th class="text-right">Desc.</th>
                 <th class="text-right">IPI</th>
                 <th class="text-right">ST</th>
                 <th class="text-right">Total unit.</th>
@@ -94,7 +99,15 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
               <tbody>
                 <tr>
                   <td>Subtotal:</td>
-                  <td class="text-right">${formatCurrency(quote.totalAmount)}</td>
+                  <td class="text-right">${formatCurrency(quote.subtotalAmount)}</td>
+                </tr>
+                <tr>
+                  <td>Desc. itens:</td>
+                  <td class="text-right">${formatCurrency(itemDiscountAmount)}</td>
+                </tr>
+                <tr>
+                  <td>Desc. geral:</td>
+                  <td class="text-right">${formatCurrency(quote.discountAmount)}</td>
                 </tr>
                 <tr>
                   <td>Frete:</td>
@@ -132,6 +145,7 @@ function quoteItemRow(item: QuoteItem, index: number, showBrand: boolean) {
       ${showBrand ? `<td>${escapeHtml(item.productBrandName ?? "-")}</td>` : ""}
       <td class="text-center">${escapeHtml(item.productNcm ?? "-")}</td>
       <td class="text-right">${formatCurrency(item.unitPrice)}</td>
+      <td class="text-right">${formatCurrency(item.discountAmount)}</td>
       <td class="text-right">-</td>
       <td class="text-right">-</td>
       <td class="text-right">${formatCurrency(item.totalAmount)}</td>
@@ -274,14 +288,15 @@ function quotePdfCss() {
     .items-table th:nth-child(1) { width: 5%; }
     .items-table th:nth-child(2) { width: 6%; }
     .items-table th:nth-child(3) { width: 13%; }
-    .items-table th:nth-child(4) { width: 20%; }
-    .items-table th:nth-child(5) { width: 10%; }
-    .items-table th:nth-child(6) { width: 9%; }
-    .items-table th:nth-child(7) { width: 9%; }
-    .items-table th:nth-child(8) { width: 6%; }
-    .items-table th:nth-child(9) { width: 6%; }
-    .items-table th:nth-child(10) { width: 9%; }
-    .items-table th:nth-child(11) { width: 7%; }
+    .items-table th:nth-child(4) { width: 18%; }
+    .items-table th:nth-child(5) { width: 9%; }
+    .items-table th:nth-child(6) { width: 8%; }
+    .items-table th:nth-child(7) { width: 8%; }
+    .items-table th:nth-child(8) { width: 7%; }
+    .items-table th:nth-child(9) { width: 5%; }
+    .items-table th:nth-child(10) { width: 5%; }
+    .items-table th:nth-child(11) { width: 9%; }
+    .items-table th:nth-child(12) { width: 7%; }
     .items-table tr:nth-child(even) td {
       background-color: #f8fafc;
     }
@@ -342,7 +357,7 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
-function formatCurrency(value: string) {
+function formatCurrency(value: string | number) {
   return Number(value).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",

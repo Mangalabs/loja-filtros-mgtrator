@@ -179,6 +179,8 @@ type Quote = {
   clientPhone: string | null;
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
+  subtotalAmount: string;
+  discountAmount: string;
   totalAmount: string;
   validUntil: string | null;
   notes: string | null;
@@ -201,6 +203,7 @@ type Quote = {
     description: string;
     quantity: string;
     unitPrice: string;
+    discountAmount: string;
     totalAmount: string;
     position: number;
   }>;
@@ -3891,11 +3894,13 @@ describe("catalog routes", () => {
         validUntil: "2026-07-15",
         notes: "Orcamento revisado pelo cliente",
         showBrand: false,
+        discountAmount: 10,
         items: [
           {
             productId: secondProduct.body.data?.id,
             quantity: 2,
             unitPrice: 85,
+            discountAmount: 5,
           },
         ],
       },
@@ -3918,7 +3923,9 @@ describe("catalog routes", () => {
 
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.id, created.body.data?.id);
-    assert.equal(updated.body.data?.totalAmount, "170.00");
+    assert.equal(updated.body.data?.subtotalAmount, "170.00");
+    assert.equal(updated.body.data?.discountAmount, "10.00");
+    assert.equal(updated.body.data?.totalAmount, "155.00");
     assert.equal(updated.body.data?.showBrand, false);
     assert.ok(updated.body.data?.validUntil?.startsWith("2026-07-15"));
     assert.equal(updated.body.data?.notes, "Orcamento revisado pelo cliente");
@@ -3933,7 +3940,9 @@ describe("catalog routes", () => {
     );
     assert.equal(updated.body.data?.items[0]?.quantity, "2.000");
     assert.equal(updated.body.data?.items[0]?.unitPrice, "85.00");
-    assert.equal(shown.body.data?.totalAmount, "170.00");
+    assert.equal(updated.body.data?.items[0]?.discountAmount, "5.00");
+    assert.equal(updated.body.data?.items[0]?.totalAmount, "165.00");
+    assert.equal(shown.body.data?.totalAmount, "155.00");
     assert.equal(shown.body.data?.items.length, 1);
     assert.equal(updateAfterShippingOrder.status, 409);
     assert.equal(

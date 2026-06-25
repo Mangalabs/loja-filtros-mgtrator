@@ -25,6 +25,7 @@ const createQuoteSchema = z
       .transform((value) => value || null)
       .optional(),
     showBrand: z.boolean().optional(),
+    discountAmount: z.coerce.number().min(0).optional(),
     items: z
       .array(
         z
@@ -40,6 +41,7 @@ const createQuoteSchema = z
               .optional(),
             quantity: z.coerce.number().positive(),
             unitPrice: z.coerce.number().min(0).nullable().optional(),
+            discountAmount: z.coerce.number().min(0).optional(),
           })
           .strict(),
       )

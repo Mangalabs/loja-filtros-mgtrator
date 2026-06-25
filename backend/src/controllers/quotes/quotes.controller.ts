@@ -54,16 +54,16 @@ export async function showQuotePdf(id: string) {
 
 export async function storeQuote(input: QuoteInput, createdByUserId: string) {
   const quote = await db.transaction(async (transaction) => {
-    const { quoteItems, totalAmount } = await prepareQuoteInput(
-      transaction,
-      input,
-    );
+    const { discountAmount, quoteItems, subtotalAmount, totalAmount } =
+      await prepareQuoteInput(transaction, input);
 
     return insertQuote(
       transaction,
       input,
       createdByUserId,
       quoteItems,
+      subtotalAmount,
+      discountAmount,
       totalAmount,
     );
   });
@@ -96,12 +96,18 @@ export async function updateDraftQuote(id: string, input: QuoteInput) {
       );
     }
 
-    const { quoteItems, totalAmount } = await prepareQuoteInput(
-      transaction,
-      input,
-    );
+    const { discountAmount, quoteItems, subtotalAmount, totalAmount } =
+      await prepareQuoteInput(transaction, input);
 
-    return updateQuote(transaction, id, input, quoteItems, totalAmount);
+    return updateQuote(
+      transaction,
+      id,
+      input,
+      quoteItems,
+      subtotalAmount,
+      discountAmount,
+      totalAmount,
+    );
   });
 
   return {
@@ -218,20 +224,49 @@ async function prepareQuoteInput(
     }
 
     const unitPrice = item.unitPrice ?? Number(product.salePrice);
-    const totalAmount = Number((unitPrice * item.quantity).toFixed(2));
+    const itemSubtotalAmount = Number((unitPrice * item.quantity).toFixed(2));
+    const discountAmount = Number((item.discountAmount ?? 0).toFixed(2));
+
+    if (discountAmount > itemSubtotalAmount) {
+      throw new AppError(
+        "Desconto do item nao pode ser maior que o subtotal do item.",
+        422,
+      );
+    }
 
     return {
       productId: item.productId,
       description: item.description?.trim() || product.description || product.name,
       quantity: item.quantity,
       unitPrice,
-      totalAmount,
+      discountAmount,
       position: index + 1,
+      totalAmount: Number((itemSubtotalAmount - discountAmount).toFixed(2)),
     };
   });
-  const totalAmount = Number(
+  const subtotalAmount = Number(
+    quoteItems
+      .reduce(
+        (sum, item) => sum + Number((item.unitPrice * item.quantity).toFixed(2)),
+        0,
+      )
+      .toFixed(2),
+  );
+  const discountAmount = Number((input.discountAmount ?? 0).toFixed(2));
+  const totalBeforeGeneralDiscount = Number(
     quoteItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
   );
 
-  return { quoteItems, totalAmount };
+  if (discountAmount > totalBeforeGeneralDiscount) {
+    throw new AppError(
+      "Desconto geral nao pode ser maior que o total do orcamento.",
+      422,
+    );
+  }
+
+  const totalAmount = Number(
+    (totalBeforeGeneralDiscount - discountAmount).toFixed(2),
+  );
+
+  return { discountAmount, quoteItems, subtotalAmount, totalAmount };
 }
