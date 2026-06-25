@@ -67,7 +67,10 @@ export async function storePickupReservation(
     }
 
     for (const item of aggregatePickupItems(reservationItems)) {
-      if (item.availableStock < item.quantity) {
+      if (
+        item.availableStock < item.quantity &&
+        !input.allowInsufficientStock
+      ) {
         throw new AppError("Quantidade indisponivel para esta reserva.", 422);
       }
     }
@@ -150,6 +153,7 @@ export async function completeReservedPickup(
   id: string,
   paymentMethodId: string,
   completedByUserId: string,
+  allowInsufficientStock = false,
 ) {
   const reservation = await db.transaction(async (transaction) => {
     const currentReservation = await lockPickupReservation(transaction, id);
@@ -190,7 +194,8 @@ export async function completeReservedPickup(
       if (
         !product ||
         Number(product.reservedStock) < item.quantity ||
-        Number(product.currentStock) < item.quantity
+        (Number(product.currentStock) < item.quantity &&
+          !allowInsufficientStock)
       ) {
         throw new AppError(
           "Reserva insuficiente para concluir esta venda.",

@@ -63,7 +63,10 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
     }
 
     for (const item of aggregateSaleItems(saleItems)) {
-      if (item.availableStock < item.quantity) {
+      if (
+        item.availableStock < item.quantity &&
+        !input.allowInsufficientStock
+      ) {
         throw new AppError("Estoque insuficiente para concluir a venda.", 422);
       }
     }

@@ -45,10 +45,10 @@ export async function storeShippingOrder(
       );
     }
 
-    if (
-      Number(product.currentStock) - Number(product.reservedStock) <
-      input.quantity
-    ) {
+    const availableStock =
+      Number(product.currentStock) - Number(product.reservedStock);
+
+    if (availableStock < input.quantity && !input.allowInsufficientStock) {
       throw new AppError("Quantidade indisponivel para este orcamento.", 422);
     }
 
@@ -74,6 +74,7 @@ export async function storeShippingOrder(
 export async function approveQuotedShippingOrder(
   id: string,
   approvedByUserId: string,
+  allowInsufficientStock = false,
 ) {
   const order = await db.transaction(async (transaction) => {
     const quotedOrder = await lockShippingOrder(transaction, id);
@@ -113,10 +114,10 @@ export async function approveQuotedShippingOrder(
         );
       }
 
-      if (
-        Number(product.currentStock) - Number(product.reservedStock) <
-        item.quantity
-      ) {
+      const availableStock =
+        Number(product.currentStock) - Number(product.reservedStock);
+
+      if (availableStock < item.quantity && !allowInsufficientStock) {
         throw new AppError(
           "Estoque insuficiente para separar este pedido.",
           422,
@@ -234,6 +235,7 @@ export async function completeSeparatedShippingOrder(
   id: string,
   paymentMethodId: string,
   completedByUserId: string,
+  allowInsufficientStock = false,
 ) {
   const order = await db.transaction(async (transaction) => {
     const currentOrder = await lockShippingOrder(transaction, id);
@@ -270,7 +272,8 @@ export async function completeSeparatedShippingOrder(
       if (
         !product ||
         Number(product.reservedStock) < item.quantity ||
-        Number(product.currentStock) < item.quantity
+        (Number(product.currentStock) < item.quantity &&
+          !allowInsufficientStock)
       ) {
         throw new AppError(
           "Reserva insuficiente para concluir esta venda.",

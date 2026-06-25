@@ -3,6 +3,7 @@ import { db } from "../../database/knex.js";
 
 export type PickupReservationInput = {
   clientId: string;
+  allowInsufficientStock?: boolean;
   items: Array<{
     productId: string;
     quantity: number;

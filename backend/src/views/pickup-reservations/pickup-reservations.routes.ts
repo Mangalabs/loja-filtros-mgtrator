@@ -15,6 +15,7 @@ const createPickupReservationSchema = z
     clientId: z.uuid(),
     productId: z.uuid().optional(),
     quantity: z.coerce.number().positive().optional(),
+    allowInsufficientStock: z.boolean().optional(),
     items: z
       .array(
         z
@@ -42,6 +43,7 @@ const createPickupReservationSchema = z
   })
   .transform((value) => ({
     clientId: value.clientId,
+    allowInsufficientStock: value.allowInsufficientStock ?? false,
     items: value.items ?? [
       {
         productId: value.productId as string,
@@ -60,6 +62,7 @@ const cancelPickupReservationSchema = z.object({
 
 const completePickupReservationSchema = z.object({
   paymentMethodId: z.uuid(),
+  allowInsufficientStock: z.boolean().optional(),
 });
 
 pickupReservationsRoutes.get(
@@ -101,6 +104,13 @@ pickupReservationsRoutes.patch(
 
     response
       .status(200)
-      .json(await completeReservedPickup(id, body.paymentMethodId, userId));
+      .json(
+        await completeReservedPickup(
+          id,
+          body.paymentMethodId,
+          userId,
+          body.allowInsufficientStock ?? false,
+        ),
+      );
   },
 );

@@ -4078,6 +4078,149 @@ describe("catalog routes", () => {
     );
   });
 
+  it("requires explicit confirmation to sell without available stock", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro venda sem estoque", salePrice: 100 },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const blocked = await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+      },
+    });
+    const confirmed = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+        allowInsufficientStock: true,
+      },
+    });
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(blocked.status, 422);
+    assert.equal(blocked.body.message, "Estoque insuficiente para concluir a venda.");
+    assert.equal(confirmed.status, 201);
+    assert.equal(confirmed.body.data?.totalAmount, "100.00");
+    assert.equal(updatedProduct.body.data?.currentStock, "-1.000");
+  });
+
+  it("requires explicit confirmation to reserve pickup without available stock", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro retirada sem estoque", salePrice: 75 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente reserva sem estoque" },
+    });
+
+    const blocked = await request("/pickup-reservations", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 2,
+      },
+    });
+    const confirmed = await request<PickupReservation>("/pickup-reservations", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 2,
+        allowInsufficientStock: true,
+      },
+    });
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(blocked.status, 422);
+    assert.equal(blocked.body.message, "Quantidade indisponivel para esta reserva.");
+    assert.equal(confirmed.status, 201);
+    assert.equal(confirmed.body.data?.totalAmount, "150.00");
+    assert.equal(updatedProduct.body.data?.reservedStock, "2.000");
+    assert.equal(updatedProduct.body.data?.availableStock, "-2.000");
+  });
+
+  it("requires explicit confirmation to approve shipping without available stock", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro envio sem estoque", salePrice: 55 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente envio sem estoque" },
+    });
+
+    const blockedQuote = await request("/shipping-orders", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 2,
+      },
+    });
+    const quoted = await request<ShippingOrder>("/shipping-orders", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 2,
+        allowInsufficientStock: true,
+      },
+    });
+    const blockedApproval = await request(
+      `/shipping-orders/${quoted.body.data?.id}/approve`,
+      {
+        method: "PATCH",
+        body: {},
+      },
+    );
+    const approved = await request<ShippingOrder>(
+      `/shipping-orders/${quoted.body.data?.id}/approve`,
+      {
+        method: "PATCH",
+        body: { allowInsufficientStock: true },
+      },
+    );
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(blockedQuote.status, 422);
+    assert.equal(blockedQuote.body.message, "Quantidade indisponivel para este orcamento.");
+    assert.equal(quoted.status, 201);
+    assert.equal(blockedApproval.status, 422);
+    assert.equal(
+      blockedApproval.body.message,
+      "Estoque insuficiente para separar este pedido.",
+    );
+    assert.equal(approved.status, 200);
+    assert.equal(approved.body.data?.status, "APPROVED");
+    assert.equal(updatedProduct.body.data?.reservedStock, "2.000");
+    assert.equal(updatedProduct.body.data?.availableStock, "-2.000");
+  });
+
   it("creates and lists brands", async () => {
     const created = await request<NamedEntity>("/brands", {
       method: "POST",

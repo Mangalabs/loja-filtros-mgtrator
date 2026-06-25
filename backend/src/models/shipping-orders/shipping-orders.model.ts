@@ -6,6 +6,7 @@ export type ShippingOrderInput = {
   clientId: string;
   productId: string;
   quantity: number;
+  allowInsufficientStock?: boolean;
 };
 
 export type ShippingOrder = {

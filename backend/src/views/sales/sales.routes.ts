@@ -20,6 +20,7 @@ const createSaleSchema = z
     quantity: z.coerce.number().positive().optional(),
     paymentMethodId: z.uuid(),
     discountAmount: z.coerce.number().min(0).optional(),
+    allowInsufficientStock: z.boolean().optional(),
     clientId: z
       .union([z.uuid(), z.literal(""), z.null()])
       .transform((value) => value || null)
@@ -53,6 +54,7 @@ const createSaleSchema = z
     paymentMethodId: value.paymentMethodId,
     clientId: value.clientId,
     discountAmount: value.discountAmount ?? 0,
+    allowInsufficientStock: value.allowInsufficientStock ?? false,
     items: value.items ?? [
       {
         productId: value.productId as string,

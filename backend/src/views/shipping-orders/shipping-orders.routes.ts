@@ -17,6 +17,7 @@ const createShippingOrderSchema = z
     clientId: z.uuid(),
     productId: z.uuid(),
     quantity: z.coerce.number().positive(),
+    allowInsufficientStock: z.boolean().optional(),
   })
   .strict();
 
@@ -30,6 +31,11 @@ const cancelShippingOrderSchema = z.object({
 
 const completeShippingOrderSchema = z.object({
   paymentMethodId: z.uuid(),
+  allowInsufficientStock: z.boolean().optional(),
+});
+
+const approveShippingOrderSchema = z.object({
+  allowInsufficientStock: z.boolean().optional(),
 });
 
 shippingOrdersRoutes.get("/shipping-orders", async (_request, response) => {
@@ -47,9 +53,18 @@ shippingOrdersRoutes.patch(
   "/shipping-orders/:id/approve",
   async (request, response) => {
     const { id } = shippingOrderParamsSchema.parse(request.params);
+    const body = validateBody(request, approveShippingOrderSchema);
     const userId = response.locals.authenticatedUser.id as string;
 
-    response.status(200).json(await approveQuotedShippingOrder(id, userId));
+    response
+      .status(200)
+      .json(
+        await approveQuotedShippingOrder(
+          id,
+          userId,
+          body.allowInsufficientStock ?? false,
+        ),
+      );
   },
 );
 
@@ -86,7 +101,12 @@ shippingOrdersRoutes.patch(
     response
       .status(200)
       .json(
-        await completeSeparatedShippingOrder(id, body.paymentMethodId, userId),
+        await completeSeparatedShippingOrder(
+          id,
+          body.paymentMethodId,
+          userId,
+          body.allowInsufficientStock ?? false,
+        ),
       );
   },
 );

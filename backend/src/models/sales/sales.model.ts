@@ -5,6 +5,7 @@ export type SaleInput = {
   paymentMethodId: string;
   clientId?: string | null;
   discountAmount: number;
+  allowInsufficientStock?: boolean;
   items: Array<{
     productId: string;
     quantity: number;
