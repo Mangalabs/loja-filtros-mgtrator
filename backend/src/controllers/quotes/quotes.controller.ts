@@ -8,6 +8,7 @@ import {
   listActiveQuoteProducts,
   listQuotes,
   lockQuoteForCancellation,
+  updateQuote,
   type QuoteInput,
 } from "../../models/quotes/quotes.model.js";
 import {
@@ -53,47 +54,9 @@ export async function showQuotePdf(id: string) {
 
 export async function storeQuote(input: QuoteInput, createdByUserId: string) {
   const quote = await db.transaction(async (transaction) => {
-    if (!(await activeQuoteClientExists(transaction, input.clientId))) {
-      throw new AppError("Cliente informado nao disponivel.", 422);
-    }
-
-    const productIds = [...new Set(input.items.map((item) => item.productId))];
-    const products = await listActiveQuoteProducts(transaction, productIds);
-
-    if (products.length !== productIds.length) {
-      throw new AppError(
-        "Um ou mais produtos informados nao estao disponiveis para orcamento.",
-        422,
-      );
-    }
-
-    const quoteItems = input.items.map((item, index) => {
-      const product = products.find(
-        (currentProduct) => currentProduct.id === item.productId,
-      );
-
-      if (!product) {
-        throw new AppError(
-          "Produto informado nao disponivel para orcamento.",
-          422,
-        );
-      }
-
-      const unitPrice = item.unitPrice ?? Number(product.salePrice);
-      const totalAmount = Number((unitPrice * item.quantity).toFixed(2));
-
-      return {
-        productId: item.productId,
-        description:
-          item.description?.trim() || product.description || product.name,
-        quantity: item.quantity,
-        unitPrice,
-        totalAmount,
-        position: index + 1,
-      };
-    });
-    const totalAmount = Number(
-      quoteItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
+    const { quoteItems, totalAmount } = await prepareQuoteInput(
+      transaction,
+      input,
     );
 
     return insertQuote(
@@ -107,6 +70,42 @@ export async function storeQuote(input: QuoteInput, createdByUserId: string) {
 
   return {
     code: 201,
+    status: "success",
+    data: quote,
+  };
+}
+
+export async function updateDraftQuote(id: string, input: QuoteInput) {
+  const quote = await db.transaction(async (transaction) => {
+    const currentQuote = await getQuoteById(id, transaction);
+
+    if (!currentQuote) {
+      throw new AppError("Orcamento nao encontrado.", 404);
+    }
+
+    if (currentQuote.status === "CANCELLED") {
+      throw new AppError("Orcamento cancelado nao pode ser editado.", 409);
+    }
+
+    const existingOrder = await findShippingOrderByQuoteId(transaction, id);
+
+    if (existingOrder) {
+      throw new AppError(
+        "Orcamento enviado para pedido de envio deve seguir o fluxo do pedido.",
+        409,
+      );
+    }
+
+    const { quoteItems, totalAmount } = await prepareQuoteInput(
+      transaction,
+      input,
+    );
+
+    return updateQuote(transaction, id, input, quoteItems, totalAmount);
+  });
+
+  return {
+    code: 200,
     status: "success",
     data: quote,
   };
@@ -189,4 +188,50 @@ export async function cancelDraftQuote(
     status: "success",
     data: quote,
   };
+}
+
+async function prepareQuoteInput(
+  transaction: Parameters<typeof activeQuoteClientExists>[0],
+  input: QuoteInput,
+) {
+  if (!(await activeQuoteClientExists(transaction, input.clientId))) {
+    throw new AppError("Cliente informado nao disponivel.", 422);
+  }
+
+  const productIds = [...new Set(input.items.map((item) => item.productId))];
+  const products = await listActiveQuoteProducts(transaction, productIds);
+
+  if (products.length !== productIds.length) {
+    throw new AppError(
+      "Um ou mais produtos informados nao estao disponiveis para orcamento.",
+      422,
+    );
+  }
+
+  const quoteItems = input.items.map((item, index) => {
+    const product = products.find(
+      (currentProduct) => currentProduct.id === item.productId,
+    );
+
+    if (!product) {
+      throw new AppError("Produto informado nao disponivel para orcamento.", 422);
+    }
+
+    const unitPrice = item.unitPrice ?? Number(product.salePrice);
+    const totalAmount = Number((unitPrice * item.quantity).toFixed(2));
+
+    return {
+      productId: item.productId,
+      description: item.description?.trim() || product.description || product.name,
+      quantity: item.quantity,
+      unitPrice,
+      totalAmount,
+      position: index + 1,
+    };
+  });
+  const totalAmount = Number(
+    quoteItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
+  );
+
+  return { quoteItems, totalAmount };
 }

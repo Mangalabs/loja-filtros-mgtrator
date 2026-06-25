@@ -212,6 +212,51 @@ export async function insertQuote(
   return withItems
 }
 
+export async function updateQuote(
+  transaction: Knex.Transaction,
+  id: string,
+  input: QuoteInput,
+  items: Array<{
+    productId: string
+    description: string
+    quantity: number
+    unitPrice: number
+    totalAmount: number
+    position: number
+  }>,
+  totalAmount: number,
+): Promise<Quote> {
+  await transaction('quotes').where('id', id).update({
+    client_id: input.clientId,
+    show_brand: input.showBrand ?? true,
+    total_amount: totalAmount,
+    valid_until: input.validUntil,
+    notes: input.notes,
+    updated_at: transaction.fn.now(),
+  })
+
+  await transaction('quote_items').where('quote_id', id).delete()
+  await transaction('quote_items').insert(
+    items.map((item) => ({
+      quote_id: id,
+      product_id: item.productId,
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      total_amount: item.totalAmount,
+      position: item.position,
+    })),
+  )
+
+  const quote = await getQuoteById(id, transaction)
+
+  if (!quote) {
+    throw new Error('Quote was not found after update')
+  }
+
+  return quote
+}
+
 export async function lockQuoteForCancellation(
   transaction: Knex.Transaction,
   id: string,

@@ -7,6 +7,7 @@ import {
   showQuote,
   showQuotePdf,
   storeQuote,
+  updateDraftQuote,
 } from "../../controllers/quotes/quotes.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
@@ -80,6 +81,13 @@ quotesRoutes.post("/quotes", async (request, response) => {
   const userId = response.locals.authenticatedUser.id as string;
 
   response.status(201).json(await storeQuote(body, userId));
+});
+
+quotesRoutes.put("/quotes/:id", async (request, response) => {
+  const { id } = quoteParamsSchema.parse(request.params);
+  const body = validateBody(request, createQuoteSchema);
+
+  response.status(200).json(await updateDraftQuote(id, body));
 });
 
 quotesRoutes.post("/quotes/:id/shipping-order", async (request, response) => {

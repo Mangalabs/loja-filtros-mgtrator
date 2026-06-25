@@ -3859,6 +3859,89 @@ describe("catalog routes", () => {
     assert.equal(unchangedProduct.body.data?.reservedStock, "0.000");
   });
 
+  it("updates a draft quote before it becomes a shipping order", async () => {
+    const firstProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro quote edicao A", salePrice: 40 },
+    });
+    const secondProduct = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro quote edicao B",
+        salePrice: 90,
+        description: "Descricao comercial edicao B",
+      },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente edita orcamento" },
+    });
+    const created = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        items: [{ productId: firstProduct.body.data?.id, quantity: 1 }],
+      },
+    });
+
+    const updated = await request<Quote>(`/quotes/${created.body.data?.id}`, {
+      method: "PUT",
+      body: {
+        clientId: client.body.data?.id,
+        validUntil: "2026-07-15",
+        notes: "Orcamento revisado pelo cliente",
+        showBrand: false,
+        items: [
+          {
+            productId: secondProduct.body.data?.id,
+            quantity: 2,
+            unitPrice: 85,
+          },
+        ],
+      },
+    });
+    const shown = await request<Quote>(`/quotes/${created.body.data?.id}`);
+    await request(`/quotes/${created.body.data?.id}/shipping-order`, {
+      method: "POST",
+      body: {},
+    });
+    const updateAfterShippingOrder = await request(
+      `/quotes/${created.body.data?.id}`,
+      {
+        method: "PUT",
+        body: {
+          clientId: client.body.data?.id,
+          items: [{ productId: firstProduct.body.data?.id, quantity: 1 }],
+        },
+      },
+    );
+
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data?.id, created.body.data?.id);
+    assert.equal(updated.body.data?.totalAmount, "170.00");
+    assert.equal(updated.body.data?.showBrand, false);
+    assert.ok(updated.body.data?.validUntil?.startsWith("2026-07-15"));
+    assert.equal(updated.body.data?.notes, "Orcamento revisado pelo cliente");
+    assert.equal(updated.body.data?.items.length, 1);
+    assert.equal(
+      updated.body.data?.items[0]?.productName,
+      "Filtro quote edicao B",
+    );
+    assert.equal(
+      updated.body.data?.items[0]?.description,
+      "Descricao comercial edicao B",
+    );
+    assert.equal(updated.body.data?.items[0]?.quantity, "2.000");
+    assert.equal(updated.body.data?.items[0]?.unitPrice, "85.00");
+    assert.equal(shown.body.data?.totalAmount, "170.00");
+    assert.equal(shown.body.data?.items.length, 1);
+    assert.equal(updateAfterShippingOrder.status, 409);
+    assert.equal(
+      updateAfterShippingOrder.body.message,
+      "Orcamento enviado para pedido de envio deve seguir o fluxo do pedido.",
+    );
+  });
+
   it("cancels a draft quote before it becomes a shipping order", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
