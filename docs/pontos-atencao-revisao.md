@@ -47,14 +47,23 @@ Data de abertura: 2026-06-09.
 - Impacto atual: baixo.
 - Direcao sugerida: decidir se filtros/query invalidos devem continuar como `400` ou seguir o padrao de validacao `422`.
 
-### Estoque insuficiente retorna 422
+### Estoque insuficiente exige decisao explicita
 
 - Fluxos observados:
   - ajuste que deixaria estoque negativo;
-  - venda sem estoque suficiente.
-- Resultado atual: `422 Unprocessable Entity`.
-- Observacao: comportamento funcional aprovado no teste manual.
-- Acao futura: documentar claramente como erro operacional/validacao de regra de negocio, para nao esperar `409 Conflict` nesses casos.
+  - venda sem estoque suficiente;
+  - reserva para retirada sem estoque suficiente;
+  - aprovacao ou conclusao de pedido para envio sem estoque suficiente.
+- Resultado atual: por padrao o backend retorna `422 Unprocessable Entity`; quando o frontend envia a confirmacao explicita, a operacao segue e o historico fica associado ao usuario autenticado.
+- Observacao: comportamento funcional aprovado para permitir excecoes operacionais reais da loja sem esconder o risco.
+- Acao futura: revisar se a tela deve destacar visualmente operacoes feitas com falta de estoque nos historicos gerenciais.
+
+### Descontos fiscais precisam de validacao continua
+
+- Estado atual: orcamentos e vendas trabalham com desconto direto em valor, incluindo desconto geral e desconto por item no fluxo de orcamento.
+- Ajuste feito: o provider Focus envia `valor_produtos` bruto e `valor_desconto` total e por item.
+- Risco: novas rejeicoes da SEFAZ/Focus podem exigir ajustes de CFOP/CST ou tratamento diferente conforme regime fiscal.
+- Acao futura: validar manualmente NF-e em homologacao com desconto geral, desconto por item e venda originada de pedido para envio.
 
 ## Dados de validacao local
 

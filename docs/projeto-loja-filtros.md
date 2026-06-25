@@ -276,7 +276,7 @@ Relatorios posteriores:
   - bloqueios para evitar duplicidade entre venda operacional, envio e retirada.
 - Configuracao fiscal central da loja com trava explicita para producao.
 - Relatorios gerenciais iniciais.
-- Ultima validacao backend registrada nesta revisao: `npm test` com 61 testes passando.
+- Ultima validacao backend registrada nesta revisao: `npm test` com 66 testes passando.
 
 ### Frontend
 
@@ -312,7 +312,10 @@ Estado: parcialmente entregue.
 - Caixa ja possui abertura, fechamento, divergencia, sangria, suprimento e conferencia por forma de pagamento.
 - Base backend de devolucao operacional de item entregue, com retorno ao estoque e historico.
 - Falta estorno financeiro detalhado e exposicao da devolucao por item no frontend.
-- Desconto em venda de balcao entregue no backend e no frontend.
+- Desconto direto em venda de balcao entregue no backend e no frontend.
+- Orcamentos podem ser editados enquanto estiverem em rascunho.
+- Orcamentos possuem desconto direto geral e desconto direto por item.
+- Venda, pedido para envio e reserva para retirada exigem confirmacao extra para seguir sem estoque suficiente.
 
 ### Fase 4 - Fiscal
 
@@ -345,6 +348,7 @@ Estado: inicial entregue.
 - Atualizar documentacao conforme os testes manuais e tecnicos avancarem.
 - Melhorar a tela de detalhes da NF-e e a leitura de rejeicoes.
 - Validar manualmente, no navegador, os fluxos de NF-e para balcao, envio e retirada.
+- Validar NF-e com descontos em venda de balcao e em venda originada de orcamento.
 - Manter producao bloqueada ate checklist fiscal final ser cumprido.
 
 ### 2. Completar PDV/Caixa
