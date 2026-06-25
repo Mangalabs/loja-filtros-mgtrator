@@ -60,6 +60,7 @@ export type SaleItem = {
   productUnit: string;
   quantity: string;
   unitPrice: string;
+  discountAmount: string;
   totalAmount: string;
   position: number;
 };
@@ -124,6 +125,7 @@ const saleItemColumns = [
   "products.unit as productUnit",
   "sale_items.quantity",
   "sale_items.unit_price as unitPrice",
+  "sale_items.discount_amount as discountAmount",
   "sale_items.total_amount as totalAmount",
   "sale_items.position",
 ];
@@ -412,6 +414,7 @@ export async function insertSale(
       product_id: item.productId,
       quantity: item.quantity,
       unit_price: item.unitPrice,
+      discount_amount: saleItemDiscountAmount(item),
       total_amount: item.totalAmount,
       position: item.position,
     })),
@@ -502,6 +505,15 @@ async function withSaleItems(
       items: saleItems,
     };
   });
+}
+
+function saleItemDiscountAmount(item: {
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+}) {
+  const fullAmount = Number((item.quantity * item.unitPrice).toFixed(2));
+  return Number(Math.max(fullAmount - item.totalAmount, 0).toFixed(2));
 }
 
 function aggregateSaleItems(

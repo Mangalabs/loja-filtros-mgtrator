@@ -188,6 +188,7 @@ export type Sale = {
     productName: string;
     quantity: string;
     unitPrice: string;
+    discountAmount: string;
     totalAmount: string;
     position: number;
   }>;

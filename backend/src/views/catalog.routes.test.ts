@@ -106,6 +106,7 @@ type Sale = {
     productName: string;
     quantity: string;
     unitPrice: string;
+    discountAmount: string;
     totalAmount: string;
     position: number;
   }>;
@@ -3298,6 +3299,7 @@ describe("catalog routes", () => {
       "Filtro envio multi A",
     );
     assert.equal(sales.body.data?.[0]?.items[0]?.quantity, "2.000");
+    assert.equal(sales.body.data?.[0]?.items[0]?.discountAmount, "5.00");
     assert.equal(sales.body.data?.[0]?.items[0]?.totalAmount, "75.00");
     assert.equal(
       sales.body.data?.[0]?.items[1]?.productName,
