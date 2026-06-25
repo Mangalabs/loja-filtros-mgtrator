@@ -35,6 +35,7 @@ export type FiscalIssueRequest = {
     clientAddressZipCode: string | null;
     paymentMethodName: string;
     totalAmount: string;
+    discountAmount: string;
     items: Array<{
       productId: string;
       productInternalCode: string | null;
@@ -48,6 +49,7 @@ export type FiscalIssueRequest = {
       productUnit: string;
       quantity: string;
       unitPrice: string;
+      discountAmount: string;
       totalAmount: string;
       position: number;
     }>;

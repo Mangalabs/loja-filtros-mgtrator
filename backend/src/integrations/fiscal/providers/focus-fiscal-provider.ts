@@ -38,6 +38,7 @@ type FocusNfePayload = {
   email_destinatario?: string;
   valor_total: number;
   valor_produtos: number;
+  valor_desconto: number;
   modalidade_frete: 9;
   items: FocusNfeItemPayload[];
 };
@@ -56,6 +57,7 @@ type FocusNfeItemPayload = {
   quantidade_comercial: number;
   valor_unitario_comercial: number;
   valor_bruto: number;
+  valor_desconto: number;
   unidade_tributavel: string;
   quantidade_tributavel: number;
   valor_unitario_tributavel: number;
@@ -204,6 +206,8 @@ function ensureFocusConfiguration(
 
 function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
   const totalAmount = moneyNumber(request.sale.totalAmount);
+  const productAmount = focusSaleProductsAmount(request.sale.items);
+  const discountAmount = focusSaleDiscountAmount(request.sale);
 
   return {
     natureza_operacao: "Venda de mercadoria",
@@ -236,10 +240,29 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
     telefone_destinatario: digits(request.sale.clientPhone),
     email_destinatario: focusString(request.sale.clientEmail) ?? undefined,
     valor_total: totalAmount,
-    valor_produtos: totalAmount,
+    valor_produtos: productAmount,
+    valor_desconto: discountAmount,
     modalidade_frete: 9,
     items: request.sale.items.map(focusNfeItemPayload),
   };
+}
+
+function focusSaleProductsAmount(items: FiscalIssueRequest["sale"]["items"]) {
+  const productsAmount = items.reduce(
+    (sum, item) => sum + Number(item.unitPrice) * Number(item.quantity),
+    0,
+  );
+
+  return moneyNumber(String(productsAmount));
+}
+
+function focusSaleDiscountAmount(sale: FiscalIssueRequest["sale"]) {
+  const itemDiscountAmount = sale.items.reduce(
+    (sum, item) => sum + Number(item.discountAmount),
+    0,
+  );
+
+  return moneyNumber(String(Number(sale.discountAmount) + itemDiscountAmount));
 }
 
 function focusCustomerDocument(request: FiscalIssueRequest) {
@@ -271,6 +294,7 @@ function focusNfeItemPayload(
 ): FocusNfeItemPayload {
   const quantity = quantityNumber(item.quantity);
   const unitPrice = moneyNumber(item.unitPrice);
+  const grossAmount = moneyNumber(String(unitPrice * quantity));
 
   return {
     numero_item: item.position,
@@ -285,7 +309,8 @@ function focusNfeItemPayload(
     unidade_comercial: focusProductUnit(item.productUnit),
     quantidade_comercial: quantity,
     valor_unitario_comercial: unitPrice,
-    valor_bruto: moneyNumber(item.totalAmount),
+    valor_bruto: grossAmount,
+    valor_desconto: moneyNumber(item.discountAmount),
     unidade_tributavel: focusProductUnit(item.productUnit),
     quantidade_tributavel: quantity,
     valor_unitario_tributavel: unitPrice,

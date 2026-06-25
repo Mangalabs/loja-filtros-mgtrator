@@ -2461,6 +2461,78 @@ describe("catalog routes", () => {
     }
   });
 
+  it("sends Focus sale and item discounts with gross product totals", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const requestPayload = focusIssueRequest();
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    requestPayload.sale.totalAmount = "140.00";
+    requestPayload.sale.discountAmount = "10.00";
+    requestPayload.sale.items[0].quantity = "2.000";
+    requestPayload.sale.items[0].unitPrice = "40.00";
+    requestPayload.sale.items[0].discountAmount = "5.00";
+    requestPayload.sale.items[0].totalAmount = "75.00";
+    requestPayload.sale.items.push({
+      productId: "productfocusprovidertest2",
+      productInternalCode: "FISCAL-2",
+      productName: "Filtro Focus 2",
+      productCfop: "5102",
+      productIcmsCst: "102",
+      productNcm: "84212300",
+      productPisCst: "49",
+      productCofinsCst: "49",
+      productOrigin: "0",
+      productUnit: "UN",
+      quantity: "1.000",
+      unitPrice: "75.00",
+      discountAmount: "0.00",
+      totalAmount: "75.00",
+      position: 2,
+    });
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocusprovidertest",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(requestPayload);
+      assert.ok(submittedPayload);
+
+      const payload = submittedPayload as Record<string, unknown>;
+      const items = payload.items as Array<Record<string, unknown>>;
+
+      assert.equal(payload.valor_produtos, 155);
+      assert.equal(payload.valor_desconto, 15);
+      assert.equal(payload.valor_total, 140);
+      assert.equal(items[0]?.valor_bruto, 80);
+      assert.equal(items[0]?.valor_desconto, 5);
+      assert.equal(items[1]?.valor_bruto, 75);
+      assert.equal(items[1]?.valor_desconto, 0);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("reissues a rejected fiscal document without duplicating the source", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
@@ -4817,6 +4889,7 @@ function focusIssueRequest(): FiscalIssueRequest {
       clientAddressZipCode: "77800000",
       paymentMethodName: "PIX",
       totalAmount: "35.00",
+      discountAmount: "0.00",
       items: [
         {
           productId: "productfocusprovidertest",
@@ -4831,6 +4904,7 @@ function focusIssueRequest(): FiscalIssueRequest {
           productUnit: "UN",
           quantity: "1.000",
           unitPrice: "35.00",
+          discountAmount: "0.00",
           totalAmount: "35.00",
           position: 1,
         },
