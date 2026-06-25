@@ -51,6 +51,7 @@ type PickupReservationDraftItem = {
 export type SaleDraftInput = {
   clientId?: string | null
   discountAmount: number
+  allowInsufficientStock?: boolean
   paymentMethodId: string
   items: Array<{
     productId: string
@@ -60,6 +61,7 @@ export type SaleDraftInput = {
 
 export type PickupReservationDraftInput = {
   clientId: string
+  allowInsufficientStock?: boolean
   items: Array<{
     productId: string
     quantity: number
@@ -86,11 +88,9 @@ export function SalesPage({
   const [paymentMethodId, setPaymentMethodId] = useState('')
   const [items, setItems] = useState<SaleDraftItem[]>([emptySaleItem()])
   const { pagination, visibleItems } = usePaginatedRows<Sale>(sales)
-  const availableProducts = products.filter(
-    (product) => product.active && Number(product.availableStock) > 0,
-  )
+  const activeProducts = products.filter((product) => product.active)
   const saleSubtotal = items.reduce((sum, item) => {
-    const product = availableProducts.find(
+    const product = activeProducts.find(
       (currentProduct) => currentProduct.id === item.productId,
     )
     return sum + Number(item.quantity || 0) * Number(product?.salePrice ?? 0)
@@ -167,7 +167,7 @@ export function SalesPage({
                 disabled={!cashRegister}
                 label='Produto'
                 name={`saleItems.${index}.productId`}
-                products={availableProducts}
+                products={activeProducts}
                 required
                 stockLabel='available'
                 value={item.productId}
@@ -583,11 +583,9 @@ export function PickupReservationsPage({
   ])
   const { pagination, visibleItems } =
     usePaginatedRows<PickupReservation>(reservations)
-  const availableProducts = products.filter(
-    (product) => product.active && Number(product.availableStock) > 0,
-  )
+  const activeProducts = products.filter((product) => product.active)
   const reservationTotal = items.reduce((sum, item) => {
-    const product = availableProducts.find(
+    const product = activeProducts.find(
       (currentProduct) => currentProduct.id === item.productId,
     )
     return sum + Number(item.quantity || 0) * Number(product?.salePrice ?? 0)
@@ -677,7 +675,7 @@ export function PickupReservationsPage({
               <ProductSearchField
                 label='Produto'
                 name={`pickupItems.${index}.productId`}
-                products={availableProducts}
+                products={activeProducts}
                 required
                 stockLabel='available'
                 value={item.productId}

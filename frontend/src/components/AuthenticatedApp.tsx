@@ -84,6 +84,7 @@ export function AuthenticatedApp({
 
   const salesActions = useSalesActions({
     loadCatalog,
+    products,
     requestConfirmation,
     runAction,
   });

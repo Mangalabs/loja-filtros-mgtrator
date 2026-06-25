@@ -4,6 +4,7 @@ import {
   apiPost,
   type Sale,
   type PickupReservation,
+  type Product,
   type ShippingOrder,
 } from "../../api";
 import { formatQuantity } from "../../utils/format";
@@ -16,17 +17,32 @@ type SalesActionsOptions = {
     title?: string,
     confirmLabel?: string,
   ) => Promise<boolean>;
+  products: Product[];
   runAction: (action: () => Promise<void>) => Promise<boolean>;
 };
 
 export function useSalesActions({
   loadCatalog,
+  products,
   requestConfirmation,
   runAction,
 }: SalesActionsOptions) {
   async function createSale(input: SaleDraftInput) {
+    const allowInsufficientStock = await confirmInsufficientStockIfNeeded(
+      input.items,
+      "availableStock",
+      "A venda possui item(ns) sem saldo disponivel. Deseja concluir mesmo assim?",
+    );
+
+    if (allowInsufficientStock === null) {
+      return false;
+    }
+
     return runAction(async () => {
-      await apiPost("/sales", input);
+      await apiPost("/sales", {
+        ...input,
+        allowInsufficientStock,
+      });
       await loadCatalog();
     });
   }
@@ -105,8 +121,20 @@ export function useSalesActions({
       return;
     }
 
+    const allowInsufficientStock = await confirmInsufficientStockIfNeeded(
+      order.items,
+      "availableStock",
+      "Este pedido possui item(ns) sem saldo disponivel para reservar. Deseja aprovar mesmo assim?",
+    );
+
+    if (allowInsufficientStock === null) {
+      return;
+    }
+
     await runAction(async () => {
-      await apiPatch(`/shipping-orders/${order.id}/approve`, {});
+      await apiPatch(`/shipping-orders/${order.id}/approve`, {
+        allowInsufficientStock,
+      });
       await loadCatalog();
     });
   }
@@ -171,18 +199,41 @@ export function useSalesActions({
     }
 
     const form = new FormData(formElement);
+    const allowInsufficientStock = await confirmInsufficientStockIfNeeded(
+      order.items,
+      "currentStock",
+      "Este pedido possui item(ns) sem estoque fisico suficiente. Deseja concluir a venda mesmo assim?",
+    );
+
+    if (allowInsufficientStock === null) {
+      return;
+    }
 
     await runAction(async () => {
       await apiPatch(`/shipping-orders/${order.id}/complete`, {
         paymentMethodId: String(form.get("shippingPaymentMethodId") ?? ""),
+        allowInsufficientStock,
       });
       await loadCatalog();
     });
   }
 
   async function createPickupReservation(input: PickupReservationDraftInput) {
+    const allowInsufficientStock = await confirmInsufficientStockIfNeeded(
+      input.items,
+      "availableStock",
+      "A reserva possui item(ns) sem saldo disponivel. Deseja reservar mesmo assim?",
+    );
+
+    if (allowInsufficientStock === null) {
+      return false;
+    }
+
     return runAction(async () => {
-      await apiPost("/pickup-reservations", input);
+      await apiPost("/pickup-reservations", {
+        ...input,
+        allowInsufficientStock,
+      });
       await loadCatalog();
     });
   }
@@ -230,10 +281,20 @@ export function useSalesActions({
     }
 
     const form = new FormData(formElement);
+    const allowInsufficientStock = await confirmInsufficientStockIfNeeded(
+      reservation.items,
+      "currentStock",
+      "Esta retirada possui item(ns) sem estoque fisico suficiente. Deseja concluir mesmo assim?",
+    );
+
+    if (allowInsufficientStock === null) {
+      return;
+    }
 
     await runAction(async () => {
       await apiPatch(`/pickup-reservations/${reservation.id}/complete`, {
         paymentMethodId: String(form.get("pickupPaymentMethodId") ?? ""),
+        allowInsufficientStock,
       });
       await loadCatalog();
     });
@@ -252,4 +313,61 @@ export function useSalesActions({
     issueShippingOrderFiscalDocument,
     separateShippingOrder,
   };
+
+  async function confirmInsufficientStockIfNeeded(
+    items: Array<{ productId: string; quantity: number | string }>,
+    stockField: "availableStock" | "currentStock",
+    message: string,
+  ) {
+    if (!hasInsufficientStock(items, stockField, products)) {
+      return false;
+    }
+
+    const confirmed = await requestConfirmation(
+      message,
+      "Continuar sem estoque?",
+      "Continuar",
+    );
+
+    return confirmed ? true : null;
+  }
+}
+
+function hasInsufficientStock(
+  items: Array<{ productId: string; quantity: number | string }>,
+  stockField: "availableStock" | "currentStock",
+  products: Product[],
+) {
+  return aggregateItems(items).some((item) => {
+    const product = products.find(
+      (currentProduct) => currentProduct.id === item.productId,
+    );
+
+    return Number(product?.[stockField] ?? 0) < item.quantity;
+  });
+}
+
+function aggregateItems(
+  items: Array<{ productId: string; quantity: number | string }>,
+) {
+  return items.reduce<Array<{ productId: string; quantity: number }>>(
+    (aggregatedItems, item) => {
+      const existing = aggregatedItems.find(
+        (currentItem) => currentItem.productId === item.productId,
+      );
+
+      if (existing) {
+        existing.quantity += Number(item.quantity);
+        return aggregatedItems;
+      }
+
+      aggregatedItems.push({
+        productId: item.productId,
+        quantity: Number(item.quantity),
+      });
+
+      return aggregatedItems;
+    },
+    [],
+  );
 }
