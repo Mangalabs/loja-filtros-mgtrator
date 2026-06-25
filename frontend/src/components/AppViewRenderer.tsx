@@ -225,6 +225,7 @@ export function AppViewRenderer({
           products={products}
           quotes={quotes}
           onSubmit={quoteActions.createQuote}
+          onUpdate={quoteActions.updateQuote}
           onCancelQuote={(event, quote) =>
             void quoteActions.cancelQuote(event, quote)
           }

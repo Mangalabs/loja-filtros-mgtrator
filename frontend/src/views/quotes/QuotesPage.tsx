@@ -52,6 +52,7 @@ export function QuotesPage({
   products,
   quotes,
   onSubmit,
+  onUpdate,
   onCancelQuote,
   onCreateShippingOrder,
 }: {
@@ -59,9 +60,11 @@ export function QuotesPage({
   products: Product[]
   quotes: Quote[]
   onSubmit: (input: QuoteDraftInput) => Promise<boolean>
+  onUpdate: (id: string, input: QuoteDraftInput) => Promise<boolean>
   onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void
   onCreateShippingOrder: (quote: Quote) => void
 }) {
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
   const [clientId, setClientId] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
@@ -69,6 +72,7 @@ export function QuotesPage({
   const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
   const { pagination, visibleItems } = usePaginatedRows<Quote>(quotes)
   const activeProducts = products.filter((product) => product.active)
+  const isEditing = Boolean(editingQuoteId)
   const quoteTotal = items.reduce((sum, item) => {
     return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0)
   }, 0)
@@ -106,6 +110,7 @@ export function QuotesPage({
   }
 
   function resetQuoteForm() {
+    setEditingQuoteId(null)
     setClientId('')
     setValidUntil('')
     setNotes('')
@@ -116,7 +121,7 @@ export function QuotesPage({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const saved = await onSubmit({
+    const input = {
       clientId,
       validUntil: validUntil || null,
       notes: notes.trim() || null,
@@ -127,20 +132,43 @@ export function QuotesPage({
         quantity: Number(item.quantity),
         unitPrice: item.unitPrice === '' ? null : Number(item.unitPrice),
       })),
-    })
+    }
+    const saved = editingQuoteId
+      ? await onUpdate(editingQuoteId, input)
+      : await onSubmit(input)
 
     if (saved) {
       resetQuoteForm()
     }
   }
 
+  function editQuote(quote: Quote) {
+    setEditingQuoteId(quote.id)
+    setClientId(quote.clientId)
+    setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
+    setNotes(quote.notes ?? '')
+    setShowBrand(quote.showBrand)
+    setItems(
+      quote.items.map((item) => ({
+        productId: item.productId,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      })),
+    )
+  }
+
   return (
     <section className='grid items-start gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]'>
       <FormGrid className='gap-5 sm:gap-6' onSubmit={submit}>
         <PageHeader
-          description='Monte itens, valores e dados comerciais antes do PDF.'
+          description={
+            isEditing
+              ? 'Ajuste os dados antes de reenviar ou baixar o PDF atualizado.'
+              : 'Monte itens, valores e dados comerciais antes do PDF.'
+          }
           icon={<ListIcon size={18} />}
-          title='Novo orcamento'
+          title={isEditing ? 'Editar orcamento' : 'Novo orcamento'}
         />
         <TextField
           label='Cliente'
@@ -259,6 +287,11 @@ export function QuotesPage({
         </div>
 
         <ActionGroup className='pt-1'>
+          {isEditing ? (
+            <SecondaryButton type='button' onClick={resetQuoteForm}>
+              Cancelar edicao
+            </SecondaryButton>
+          ) : null}
           <SecondaryButton
             type='button'
             onClick={() =>
@@ -267,7 +300,7 @@ export function QuotesPage({
             Adicionar item
           </SecondaryButton>
           <PrimaryButton icon={<Plus size={17} />} type='submit'>
-            Salvar orcamento
+            {isEditing ? 'Atualizar orcamento' : 'Salvar orcamento'}
           </PrimaryButton>
         </ActionGroup>
       </FormGrid>
@@ -321,6 +354,7 @@ export function QuotesPage({
               render: (quote) => (
                 <QuoteActions
                   quote={quote}
+                  onEditQuote={editQuote}
                   onCancelQuote={onCancelQuote}
                   onCreateShippingOrder={onCreateShippingOrder}
                 />
@@ -364,10 +398,12 @@ function QuoteStatusSummary({ quote }: { quote: Quote }) {
 
 function QuoteActions({
   quote,
+  onEditQuote,
   onCancelQuote,
   onCreateShippingOrder,
 }: {
   quote: Quote
+  onEditQuote: (quote: Quote) => void
   onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void
   onCreateShippingOrder: (quote: Quote) => void
 }) {
@@ -402,6 +438,9 @@ function QuoteActions({
       <ActionGroup>
         <TableActionButton href={quotePdfHref(quote)}>
           Baixar PDF
+        </TableActionButton>
+        <TableActionButton type='button' onClick={() => onEditQuote(quote)}>
+          Editar
         </TableActionButton>
         <TableActionButton
           type='button'

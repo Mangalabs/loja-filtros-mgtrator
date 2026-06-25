@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import { apiPatch, apiPost, type Quote } from '../../api'
+import { apiPatch, apiPost, apiPut, type Quote } from '../../api'
 import type { QuoteDraftInput } from './QuotesPage'
 
 type QuoteActionsOptions = {
@@ -22,6 +22,13 @@ export function useQuoteActions({
   async function createQuote(input: QuoteDraftInput) {
     return runAction(async () => {
       await apiPost('/quotes', input)
+      await loadCatalog()
+    })
+  }
+
+  async function updateQuote(id: string, input: QuoteDraftInput) {
+    return runAction(async () => {
+      await apiPut(`/quotes/${id}`, input)
       await loadCatalog()
     })
   }
@@ -71,5 +78,6 @@ export function useQuoteActions({
     cancelQuote,
     createQuote,
     createShippingOrderFromQuote,
+    updateQuote,
   }
 }
