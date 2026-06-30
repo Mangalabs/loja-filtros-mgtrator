@@ -1,16 +1,31 @@
 import Alert from "@mui/material/Alert";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
-import { Building2, Plus, UserPlus, Users } from "lucide-react";
+import {
+  Building2,
+  Pencil,
+  Plus,
+  Power,
+  PowerOff,
+  UserPlus,
+  Users,
+  X,
+} from "lucide-react";
 import type { AuthUser, Branch } from "../../api";
 import {
+  ActionGroup,
   FormGrid,
   FormRow,
   PageHeader,
   PagePanel,
   ResponsiveTable,
 } from "../../components/layout";
-import { PrimaryButton, StatusChip } from "../../components/ui";
+import {
+  PrimaryButton,
+  SecondaryButton,
+  StatusChip,
+  TableActionButton,
+} from "../../components/ui";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import { useAdministrationData } from "./useAdministrationData";
 
@@ -80,8 +95,19 @@ export function BranchesPage() {
   );
 }
 
-export function EmployeesPage() {
+export type RequestConfirmation = (
+  message: string,
+  title?: string,
+  confirmLabel?: string,
+) => Promise<boolean>;
+
+export function EmployeesPage({
+  requestConfirmation,
+}: {
+  requestConfirmation: RequestConfirmation;
+}) {
   const administration = useAdministrationData();
+  const selectedEmployee = administration.selectedEmployee;
   const employees = administration.users.filter(
     (user) => user.role === "EMPLOYEE",
   );
@@ -89,25 +115,42 @@ export function EmployeesPage() {
 
   return (
     <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
-      <FormGrid onSubmit={administration.createEmployee}>
+      <FormGrid
+        key={selectedEmployee?.id ?? "new-employee"}
+        onSubmit={administration.saveEmployee}
+      >
         <PageHeader
-          description="Crie um acesso individual para identificar as operacoes do funcionario."
-          icon={<UserPlus size={18} />}
-          title="Novo funcionario"
+          description={
+            selectedEmployee
+              ? "Atualize os dados do acesso. Deixe a senha vazia para manter a atual."
+              : "Crie um acesso individual para identificar as operacoes do funcionario."
+          }
+          icon={selectedEmployee ? <Pencil size={18} /> : <UserPlus size={18} />}
+          title={selectedEmployee ? "Editar funcionario" : "Novo funcionario"}
         />
-        <TextField label="Nome completo" name="name" required />
+        <TextField
+          defaultValue={selectedEmployee?.name ?? ""}
+          label="Nome completo"
+          name="name"
+          required
+        />
         <FormRow>
           <TextField
             autoComplete="off"
+            defaultValue={selectedEmployee?.email ?? ""}
             label="Email de acesso"
             name="email"
             required
             type="email"
           />
-          <TextField label="Telefone" name="phone" />
+          <TextField
+            defaultValue={selectedEmployee?.phone ?? ""}
+            label="Telefone"
+            name="phone"
+          />
         </FormRow>
         <TextField
-          defaultValue=""
+          defaultValue={selectedEmployee?.branchId ?? ""}
           label="Filial"
           name="branchId"
           required
@@ -126,23 +169,44 @@ export function EmployeesPage() {
         </TextField>
         <TextField
           autoComplete="new-password"
-          helperText="Use pelo menos 12 caracteres. A senha sera entregue ao funcionario."
-          label="Senha inicial"
+          helperText={
+            selectedEmployee
+              ? "Preencha somente para trocar a senha atual."
+              : "Use pelo menos 12 caracteres. A senha sera entregue ao funcionario."
+          }
+          label={selectedEmployee ? "Nova senha" : "Senha inicial"}
           name="password"
-          required
+          required={!selectedEmployee}
           slotProps={{ htmlInput: { minLength: 12 } }}
           type="password"
         />
-        <PrimaryButton
-          disabled={
-            administration.state === "loading" ||
-            administration.branches.length === 0
-          }
-          icon={<UserPlus size={17} />}
-          type="submit"
-        >
-          Criar acesso
-        </PrimaryButton>
+        <ActionGroup align="start">
+          <PrimaryButton
+            disabled={
+              administration.state === "loading" ||
+              administration.branches.length === 0
+            }
+            icon={
+              selectedEmployee ? (
+                <Pencil size={17} />
+              ) : (
+                <UserPlus size={17} />
+              )
+            }
+            type="submit"
+          >
+            {selectedEmployee ? "Salvar alteracoes" : "Criar acesso"}
+          </PrimaryButton>
+          {selectedEmployee ? (
+            <SecondaryButton
+              icon={<X size={17} />}
+              type="button"
+              onClick={administration.clearSelectedEmployee}
+            >
+              Cancelar edicao
+            </SecondaryButton>
+          ) : null}
+        </ActionGroup>
         <AdministrationMessage administration={administration} />
       </FormGrid>
 
@@ -179,6 +243,40 @@ export function EmployeesPage() {
                 />
               ),
             },
+            {
+              align: "right",
+              header: "Acoes",
+              render: (employee: AuthUser) => (
+                <ActionGroup>
+                  <TableActionButton
+                    icon={<Pencil size={15} />}
+                    type="button"
+                    onClick={() => administration.selectEmployee(employee)}
+                  >
+                    Editar
+                  </TableActionButton>
+                  <TableActionButton
+                    icon={
+                      employee.active ? (
+                        <PowerOff size={15} />
+                      ) : (
+                        <Power size={15} />
+                      )
+                    }
+                    type="button"
+                    onClick={() =>
+                      void confirmEmployeeStatus(
+                        employee,
+                        requestConfirmation,
+                        administration.changeEmployeeStatus,
+                      )
+                    }
+                  >
+                    {employee.active ? "Inativar" : "Ativar"}
+                  </TableActionButton>
+                </ActionGroup>
+              ),
+            },
           ]}
           emptyMessage="Nenhum funcionario cadastrado."
           getRowId={(employee) => employee.id}
@@ -188,6 +286,25 @@ export function EmployeesPage() {
       </PagePanel>
     </div>
   );
+}
+
+async function confirmEmployeeStatus(
+  employee: AuthUser,
+  requestConfirmation: RequestConfirmation,
+  changeEmployeeStatus: (employee: AuthUser) => Promise<void>,
+) {
+  const action = employee.active ? "inativar" : "ativar";
+  const confirmed = await requestConfirmation(
+    `Deseja ${action} o acesso de ${employee.name}?`,
+    `${employee.active ? "Inativar" : "Ativar"} funcionario`,
+    employee.active ? "Inativar" : "Ativar",
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  await changeEmployeeStatus(employee);
 }
 
 function AdministrationMessage({

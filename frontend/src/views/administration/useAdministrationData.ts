@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   apiGet,
+  apiPatch,
   apiPost,
+  apiPut,
   type ApiResult,
   type AuthUser,
   type Branch,
@@ -12,6 +14,7 @@ type AdministrationState = "loading" | "ready" | "error";
 export function useAdministrationData() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<AuthUser>();
   const [state, setState] = useState<AdministrationState>("loading");
   const [message, setMessage] = useState("");
 
@@ -52,22 +55,49 @@ export function useAdministrationData() {
     });
   }
 
-  async function createEmployee(event: FormEvent<HTMLFormElement>) {
+  async function saveEmployee(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
+    const input = {
+      name: data.get("name"),
+      email: data.get("email"),
+      phone: data.get("phone"),
+      branchId: data.get("branchId"),
+      password: data.get("password"),
+    };
+    const saveRequest = selectedEmployee
+      ? () =>
+          apiPut<ApiResult<AuthUser>>(`/users/${selectedEmployee.id}`, input)
+      : () =>
+          apiPost<ApiResult<AuthUser>>("/users", {
+            ...input,
+            role: "EMPLOYEE",
+          });
 
     await runAction(async () => {
-      await apiPost<ApiResult<AuthUser>>("/users", {
-        name: data.get("name"),
-        email: data.get("email"),
-        phone: data.get("phone"),
-        branchId: data.get("branchId"),
-        password: data.get("password"),
-        role: "EMPLOYEE",
-      });
+      await saveRequest();
       form.reset();
-      setMessage("Acesso do funcionario criado com sucesso.");
+      setSelectedEmployee(undefined);
+      setMessage(
+        selectedEmployee
+          ? "Funcionario atualizado com sucesso."
+          : "Acesso do funcionario criado com sucesso.",
+      );
+    });
+  }
+
+  async function changeEmployeeStatus(employee: AuthUser) {
+    await runAction(async () => {
+      await apiPatch<ApiResult<AuthUser>>(`/users/${employee.id}/status`, {
+        active: !employee.active,
+      });
+      setSelectedEmployee(undefined);
+      setMessage(
+        employee.active
+          ? "Acesso do funcionario inativado."
+          : "Acesso do funcionario ativado.",
+      );
     });
   }
 
@@ -86,9 +116,13 @@ export function useAdministrationData() {
 
   return {
     branches,
+    changeEmployeeStatus,
+    clearSelectedEmployee: () => setSelectedEmployee(undefined),
     createBranch,
-    createEmployee,
     message,
+    saveEmployee,
+    selectedEmployee,
+    selectEmployee: setSelectedEmployee,
     setMessage,
     state,
     users,

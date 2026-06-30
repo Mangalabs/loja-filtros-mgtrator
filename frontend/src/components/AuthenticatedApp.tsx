@@ -173,6 +173,7 @@ export function AuthenticatedApp({
           onOpenQuotes={() => setView("quotes")}
           onSearchChange={setSearch}
           onSelectClient={setSelectedClient}
+          requestConfirmation={requestConfirmation}
         />
       </section>
     </main>

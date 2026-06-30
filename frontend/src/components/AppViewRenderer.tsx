@@ -23,6 +23,7 @@ import type { useCatalogActions } from "../views/catalog/useCatalogActions";
 import {
   BranchesPage,
   EmployeesPage,
+  type RequestConfirmation,
 } from "../views/administration/AdministrationPages";
 import {
   ClientsPage,
@@ -88,6 +89,7 @@ type AppViewRendererProps = {
   onOpenQuotes: () => void;
   onSearchChange: (value: string) => void;
   onSelectClient: (client: Client | undefined) => void;
+  requestConfirmation: RequestConfirmation;
 };
 
 export function AppViewRenderer({
@@ -125,6 +127,7 @@ export function AppViewRenderer({
   onOpenQuotes,
   onSearchChange,
   onSelectClient,
+  requestConfirmation,
 }: AppViewRendererProps) {
   const viewRenderers: Record<View, ReactNode> = {
     products: (
@@ -309,7 +312,7 @@ export function AppViewRenderer({
         />
       ),
     branches: <BranchesPage />,
-    employees: <EmployeesPage />,
+    employees: <EmployeesPage requestConfirmation={requestConfirmation} />,
   };
 
   return <>{viewRenderers[view]}</>;
