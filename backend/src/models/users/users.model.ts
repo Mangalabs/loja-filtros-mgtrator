@@ -46,6 +46,14 @@ export async function hasUsers(database: Database = db): Promise<boolean> {
   return Boolean(user);
 }
 
+export async function listUsers(
+  database: Database = db,
+): Promise<User[]> {
+  return userQuery(database)
+    .select(userColumns)
+    .orderBy("users.name", "asc");
+}
+
 export async function createUser(
   input: UserCreateInput,
   database: Database = db,

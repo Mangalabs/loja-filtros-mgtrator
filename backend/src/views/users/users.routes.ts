@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
-import { storeUser } from "../../controllers/users/users.controller.js";
+import {
+  indexUsers,
+  storeUser,
+} from "../../controllers/users/users.controller.js";
 import { requireAdmin } from "../../shared/auth/authorization-middleware.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
@@ -19,6 +22,10 @@ const createUserSchema = z
     password: z.string().min(12).max(128),
   })
   .strict();
+
+usersRoutes.get("/users", requireAdmin, async (_request, response) => {
+  response.status(200).json(await indexUsers());
+});
 
 usersRoutes.post("/users", requireAdmin, async (request, response) => {
   const body = validateBody(request, createUserSchema);

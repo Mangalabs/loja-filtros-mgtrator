@@ -503,6 +503,9 @@ describe("catalog routes", () => {
     const employeeBranches = await request("/branches", {
       cookie: employeeLogin.cookie,
     });
+    const employeeUsers = await request("/users", {
+      cookie: employeeLogin.cookie,
+    });
     await request("/auth/logout", { method: "POST" });
     await request("/auth/login", {
       method: "POST",
@@ -512,6 +515,7 @@ describe("catalog routes", () => {
         password: "senha-segura-123",
       },
     });
+    const users = await request<User[]>("/users");
     const unauthenticatedCreate = await request("/users", {
       method: "POST",
       authenticated: false,
@@ -562,6 +566,13 @@ describe("catalog routes", () => {
       "Acesso permitido apenas para administradores.",
     );
     assert.equal(employeeBranches.status, 403);
+    assert.equal(employeeUsers.status, 403);
+    assert.equal(users.status, 200);
+    assert.equal(users.body.data?.length, 3);
+    assert.deepEqual(
+      users.body.data?.map((user) => user.email),
+      ["admin@example.com", "funcionario@example.com", "segundo@example.com"],
+    );
     assert.equal(unauthenticatedCreate.status, 401);
     assert.equal(logout.status, 200);
     assert.equal(logout.cookie, "auth_token=");

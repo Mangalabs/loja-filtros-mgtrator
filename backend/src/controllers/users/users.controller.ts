@@ -1,5 +1,6 @@
 import {
   createUser,
+  listUsers,
   type UserCreateInput,
 } from "../../models/users/users.model.js";
 import { findActiveBranchById } from "../../models/branches/branches.model.js";
@@ -9,6 +10,14 @@ import { AppError } from "../../shared/errors/app-error.js";
 export type StoreUserInput = Omit<UserCreateInput, "passwordHash"> & {
   password: string;
 };
+
+export async function indexUsers() {
+  return {
+    code: 200,
+    status: "success",
+    data: await listUsers(),
+  };
+}
 
 export async function storeUser(input: StoreUserInput) {
   await ensureUserBranch(input);
