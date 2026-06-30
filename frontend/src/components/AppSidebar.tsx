@@ -13,20 +13,25 @@ import {
   SlidersHorizontal,
   Tags,
   Truck,
+  Building2,
+  Users,
   UserRound,
 } from "lucide-react";
+import type { AuthUser } from "../api";
 import { navSectionViews, type NavSectionKey, type View } from "../navigation";
 import { frontendPalette } from "../theme";
 import { NavButton, NavSection } from "./shell";
 
 export function AppSidebar({
   openSections,
+  user,
   view,
   onNewProduct,
   onSelectView,
   onToggleSection,
 }: {
   openSections: Record<NavSectionKey, boolean>;
+  user: AuthUser;
   view: View;
   onNewProduct: () => void;
   onSelectView: (view: View) => void;
@@ -253,6 +258,31 @@ export function AppSidebar({
             Retirada
           </NavButton>
         </NavSection>
+
+        {user.role === "ADMIN" ? (
+          <NavSection
+            active={isSectionActive("administration")}
+            icon={<Users size={17} />}
+            open={openSections.administration}
+            title="Administracao"
+            onToggle={() => onToggleSection("administration")}
+          >
+            <NavButton
+              active={view === "branches"}
+              icon={<Building2 size={18} />}
+              onClick={() => onSelectView("branches")}
+            >
+              Filiais
+            </NavButton>
+            <NavButton
+              active={view === "employees"}
+              icon={<Users size={18} />}
+              onClick={() => onSelectView("employees")}
+            >
+              Funcionarios
+            </NavButton>
+          </NavSection>
+        ) : null}
       </nav>
     </aside>
   );

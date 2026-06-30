@@ -21,6 +21,10 @@ import type { ReactNode } from "react";
 import type { LoadState, View } from "../navigation";
 import type { useCatalogActions } from "../views/catalog/useCatalogActions";
 import {
+  BranchesPage,
+  EmployeesPage,
+} from "../views/administration/AdministrationPages";
+import {
   ClientsPage,
   NamedEntityPage,
   ProductForm,
@@ -304,6 +308,8 @@ export function AppViewRenderer({
           onSubmit={catalogActions.createSupplier}
         />
       ),
+    branches: <BranchesPage />,
+    employees: <EmployeesPage />,
   };
 
   return <>{viewRenderers[view]}</>;

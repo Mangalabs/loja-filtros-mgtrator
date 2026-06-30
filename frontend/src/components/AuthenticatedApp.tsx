@@ -95,6 +95,7 @@ export function AuthenticatedApp({
     <main className="grid min-h-screen grid-cols-1 bg-[#f7f7f4] lg:grid-cols-[minmax(220px,256px)_minmax(0,1fr)]">
       <AppSidebar
         openSections={openNavSections}
+        user={user}
         view={view}
         onNewProduct={() => {
           setSelectedProduct(undefined);

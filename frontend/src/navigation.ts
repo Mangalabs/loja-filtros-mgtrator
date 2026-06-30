@@ -19,7 +19,9 @@ export type View =
   | "pickup-reservations"
   | "brands"
   | "clients"
-  | "suppliers";
+  | "suppliers"
+  | "branches"
+  | "employees";
 
 export type NavSectionKey =
   | "products"
@@ -29,7 +31,8 @@ export type NavSectionKey =
   | "finance"
   | "cash"
   | "reports"
-  | "sales";
+  | "sales"
+  | "administration";
 
 export const navSectionViews: Record<NavSectionKey, View[]> = {
   products: ["products", "new-product", "edit-product"],
@@ -40,6 +43,7 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
   cash: ["cash-register"],
   reports: ["reports"],
   sales: ["quotes", "sales", "shipping-orders", "pickup-reservations"],
+  administration: ["branches", "employees"],
 };
 
 const initialOpenNavSections: Record<NavSectionKey, boolean> = {
@@ -51,6 +55,7 @@ const initialOpenNavSections: Record<NavSectionKey, boolean> = {
   cash: false,
   reports: false,
   sales: false,
+  administration: false,
 };
 
 export const navSectionsStorageKey = "loja-filtros.nav-sections.v2";
@@ -181,5 +186,14 @@ export const viewTitles: Record<View, { title: string; description: string }> =
     suppliers: {
       title: "Fornecedores",
       description: "Mantenha fornecedores disponiveis para compras e produtos.",
+    },
+    branches: {
+      title: "Filiais",
+      description: "Cadastre as unidades usadas para organizar os funcionarios.",
+    },
+    employees: {
+      title: "Funcionarios",
+      description:
+        "Crie acessos individuais e vincule cada funcionario a uma filial.",
     },
   };
