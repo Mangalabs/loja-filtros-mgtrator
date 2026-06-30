@@ -27,6 +27,14 @@ export type UserCreateInput = {
   passwordHash: string;
 };
 
+export type UserUpdateInput = {
+  name: string;
+  email: string;
+  phone?: string | null;
+  branchId: string;
+  passwordHash?: string;
+};
+
 type Database = Knex | Knex.Transaction;
 
 const userColumns = [
@@ -95,6 +103,52 @@ export async function findActiveUserById(
     .select(userColumns)
     .where({ "users.id": id, "users.active": true })
     .first();
+}
+
+export async function findUserById(
+  id: string,
+  database: Database = db,
+): Promise<User | undefined> {
+  return userQuery(database)
+    .select(userColumns)
+    .where("users.id", id)
+    .first();
+}
+
+export async function updateUser(
+  id: string,
+  input: UserUpdateInput,
+  database: Database = db,
+): Promise<User | undefined> {
+  const updated = await database("users")
+    .where("id", id)
+    .update({
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      branch_id: input.branchId,
+      ...(input.passwordHash
+        ? { password_hash: input.passwordHash }
+        : {}),
+      updated_at: database.fn.now(),
+    });
+
+  return updated ? findUserById(id, database) : undefined;
+}
+
+export async function updateUserStatus(
+  id: string,
+  active: boolean,
+  database: Database = db,
+): Promise<User | undefined> {
+  const updated = await database("users")
+    .where("id", id)
+    .update({
+      active,
+      updated_at: database.fn.now(),
+    });
+
+  return updated ? findUserById(id, database) : undefined;
 }
 
 function userQuery(database: Database) {

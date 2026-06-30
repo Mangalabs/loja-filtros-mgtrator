@@ -515,6 +515,37 @@ describe("catalog routes", () => {
         password: "senha-segura-123",
       },
     });
+    const updatedEmployee = await request<User>(
+      `/users/${employee.body.data?.id}`,
+      {
+        method: "PUT",
+        body: {
+          name: "Funcionario atualizado",
+          email: "funcionario@example.com",
+          phone: "85933330000",
+          branchId: branch.body.data?.id,
+          password: "nova-senha-segura-456",
+        },
+      },
+    );
+    const deactivatedEmployee = await request<User>(
+      `/users/${employee.body.data?.id}/status`,
+      {
+        method: "PATCH",
+        body: {
+          active: false,
+        },
+      },
+    );
+    const blockedAdministratorUpdate = await request<User>(
+      `/users/${created.body.data?.id}/status`,
+      {
+        method: "PATCH",
+        body: {
+          active: false,
+        },
+      },
+    );
     const users = await request<User[]>("/users");
     const unauthenticatedCreate = await request("/users", {
       method: "POST",
@@ -526,6 +557,14 @@ describe("catalog routes", () => {
       },
     });
     const logout = await request("/auth/logout", { method: "POST" });
+    const deactivatedEmployeeLogin = await request<User>("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "funcionario@example.com",
+        password: "nova-senha-segura-456",
+      },
+    });
     const storedAdministrator = await db("users")
       .where("email", "admin@example.com")
       .first();
@@ -567,6 +606,16 @@ describe("catalog routes", () => {
     );
     assert.equal(employeeBranches.status, 403);
     assert.equal(employeeUsers.status, 403);
+    assert.equal(updatedEmployee.status, 200);
+    assert.equal(updatedEmployee.body.data?.name, "Funcionario atualizado");
+    assert.equal(updatedEmployee.body.data?.phone, "85933330000");
+    assert.equal(deactivatedEmployee.status, 200);
+    assert.equal(deactivatedEmployee.body.data?.active, false);
+    assert.equal(blockedAdministratorUpdate.status, 404);
+    assert.equal(
+      blockedAdministratorUpdate.body.message,
+      "Funcionario nao encontrado.",
+    );
     assert.equal(users.status, 200);
     assert.equal(users.body.data?.length, 3);
     assert.deepEqual(
@@ -576,6 +625,7 @@ describe("catalog routes", () => {
     assert.equal(unauthenticatedCreate.status, 401);
     assert.equal(logout.status, 200);
     assert.equal(logout.cookie, "auth_token=");
+    assert.equal(deactivatedEmployeeLogin.status, 401);
   });
 
   it("shows and updates fiscal settings with production guard", async () => {
