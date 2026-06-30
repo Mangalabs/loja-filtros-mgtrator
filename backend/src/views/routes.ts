@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { requireAuthentication } from "../shared/auth/authentication-middleware.js";
 import { authRoutes } from "./auth/auth.routes.js";
 import { brandsRoutes } from "./brands/brands.routes.js";
+import { branchesRoutes } from "./branches/branches.routes.js";
 import { cashRegisterRoutes } from "./cash-register/cash-register.routes.js";
 import { clientsRoutes } from "./clients/clients.routes.js";
 import { fiscalDocumentsRoutes } from "./fiscal-documents/fiscal-documents.routes.js";
@@ -28,6 +29,7 @@ export function registerRoutes(app: Express): void {
   app.use(authRoutes);
   app.use(requireAuthentication);
   app.use(brandsRoutes);
+  app.use(branchesRoutes);
   app.use(cashRegisterRoutes);
   app.use(clientsRoutes);
   app.use(fiscalDocumentsRoutes);

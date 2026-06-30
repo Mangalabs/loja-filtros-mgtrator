@@ -241,7 +241,16 @@ type User = {
   name: string;
   email: string;
   phone: string | null;
-  role: "ADMIN";
+  role: "ADMIN" | "EMPLOYEE";
+  branchId: string | null;
+  branchName: string | null;
+  active: boolean;
+};
+
+type Branch = {
+  id: string;
+  name: string;
+  code: string | null;
   active: boolean;
 };
 
@@ -349,6 +358,7 @@ before(async () => {
     extension: "cjs",
   });
   await db("users").del();
+  await db("branches").del();
 
   server = await new Promise<Server>((resolve) => {
     const appServer = createApp().listen(0, "127.0.0.1", () => {
@@ -448,7 +458,58 @@ describe("catalog routes", () => {
         name: "Segundo usuario",
         email: "segundo@example.com",
         phone: "85911110000",
+        role: "ADMIN",
         password: "senha-segura-789",
+      },
+    });
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Norte",
+        code: "NORTE",
+      },
+    });
+    const employee = await request<User>("/users", {
+      method: "POST",
+      body: {
+        name: "Funcionario filial",
+        email: "funcionario@example.com",
+        phone: "85922220000",
+        role: "EMPLOYEE",
+        branchId: branch.body.data?.id,
+        password: "senha-segura-456",
+      },
+    });
+    await request("/auth/logout", { method: "POST" });
+    const employeeLogin = await request<User>("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "funcionario@example.com",
+        password: "senha-segura-456",
+      },
+    });
+    const employeeCreate = await request("/users", {
+      method: "POST",
+      cookie: employeeLogin.cookie,
+      body: {
+        name: "Criado por funcionario",
+        email: "bloqueado@example.com",
+        role: "EMPLOYEE",
+        branchId: branch.body.data?.id,
+        password: "senha-segura-321",
+      },
+    });
+    const employeeBranches = await request("/branches", {
+      cookie: employeeLogin.cookie,
+    });
+    await request("/auth/logout", { method: "POST" });
+    await request("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "admin@example.com",
+        password: "senha-segura-123",
       },
     });
     const unauthenticatedCreate = await request("/users", {
@@ -487,6 +548,20 @@ describe("catalog routes", () => {
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.role, "ADMIN");
     assert.equal(created.body.data?.phone, "85911110000");
+    assert.equal(branch.status, 201);
+    assert.equal(employee.status, 201);
+    assert.equal(employee.body.data?.role, "EMPLOYEE");
+    assert.equal(employee.body.data?.branchId, branch.body.data?.id);
+    assert.equal(employee.body.data?.branchName, "Filial Norte");
+    assert.equal(employeeLogin.status, 200);
+    assert.equal(employeeLogin.body.data?.role, "EMPLOYEE");
+    assert.equal(employeeLogin.body.data?.branchName, "Filial Norte");
+    assert.equal(employeeCreate.status, 403);
+    assert.equal(
+      employeeCreate.body.message,
+      "Acesso permitido apenas para administradores.",
+    );
+    assert.equal(employeeBranches.status, 403);
     assert.equal(unauthenticatedCreate.status, 401);
     assert.equal(logout.status, 200);
     assert.equal(logout.cookie, "auth_token=");
@@ -4930,6 +5005,7 @@ async function request<T = unknown>(
     method?: string;
     body?: unknown;
     authenticated?: boolean;
+    cookie?: string;
   } = {},
 ) {
   const headers: Record<string, string> = {};
@@ -4938,7 +5014,11 @@ async function request<T = unknown>(
     headers["content-type"] = "application/json";
   }
 
-  if (options.authenticated !== false && authCookie) {
+  if (options.cookie) {
+    headers.cookie = options.cookie;
+  }
+
+  if (!options.cookie && options.authenticated !== false && authCookie) {
     headers.cookie = authCookie;
   }
 

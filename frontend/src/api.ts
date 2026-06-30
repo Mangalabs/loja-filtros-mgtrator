@@ -114,7 +114,9 @@ export type AuthUser = {
   name: string;
   email: string;
   phone: string | null;
-  role: "ADMIN";
+  role: "ADMIN" | "EMPLOYEE";
+  branchId: string | null;
+  branchName: string | null;
   active: boolean;
 };
 

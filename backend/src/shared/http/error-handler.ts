@@ -74,6 +74,8 @@ function getUniqueConstraintMessage(constraint?: string) {
     products_barcode_unique_not_empty:
       "Ja existe um produto com esse codigo de barras.",
     users_email_unique: "Ja existe um usuario com esse email.",
+    branches_name_unique: "Ja existe uma filial com esse nome.",
+    branches_code_unique: "Ja existe uma filial com esse codigo.",
     cash_register_sessions_one_open_unique: "Ja existe um caixa aberto.",
   };
 

@@ -6,9 +6,13 @@ export type User = {
   name: string;
   email: string;
   phone: string | null;
-  role: "ADMIN";
+  role: UserRole;
+  branchId: string | null;
+  branchName: string | null;
   active: boolean;
 };
+
+export type UserRole = "ADMIN" | "EMPLOYEE";
 
 export type UserWithPassword = User & {
   passwordHash: string;
@@ -18,12 +22,23 @@ export type UserCreateInput = {
   name: string;
   email: string;
   phone?: string | null;
+  role?: UserRole;
+  branchId?: string | null;
   passwordHash: string;
 };
 
 type Database = Knex | Knex.Transaction;
 
-const userColumns = ["id", "name", "email", "phone", "role", "active"];
+const userColumns = [
+  "users.id",
+  "users.name",
+  "users.email",
+  "users.phone",
+  "users.role",
+  "users.branch_id as branchId",
+  "branches.name as branchName",
+  "users.active",
+];
 
 export async function hasUsers(database: Database = db): Promise<boolean> {
   const user = await database("users").select("id").first();
@@ -40,24 +55,44 @@ export async function createUser(
       name: input.name,
       email: input.email,
       phone: input.phone,
+      role: input.role ?? "ADMIN",
+      branch_id: input.branchId,
       password_hash: input.passwordHash,
     })
-    .returning(userColumns);
+    .returning("id");
 
-  return user;
+  const created = await findActiveUserById(user.id, database);
+
+  if (!created) {
+    throw new Error("Created user not found");
+  }
+
+  return created;
 }
 
 export async function findUserByEmail(
   email: string,
 ): Promise<UserWithPassword | undefined> {
-  return db("users")
+  return userQuery(db)
     .select([...userColumns, "password_hash as passwordHash"])
-    .where("email", email)
+    .where("users.email", email)
     .first();
 }
 
 export async function findActiveUserById(
   id: string,
+  database: Database = db,
 ): Promise<User | undefined> {
-  return db("users").select(userColumns).where({ id, active: true }).first();
+  return userQuery(database)
+    .select(userColumns)
+    .where({ "users.id": id, "users.active": true })
+    .first();
+}
+
+function userQuery(database: Database) {
+  return database("users").leftJoin(
+    "branches",
+    "branches.id",
+    "users.branch_id",
+  );
 }

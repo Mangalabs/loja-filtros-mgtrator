@@ -11,7 +11,9 @@ export type AuthenticatedUser = {
   name: string;
   email: string;
   phone?: string | null;
-  role: "ADMIN";
+  role: "ADMIN" | "EMPLOYEE";
+  branchId?: string | null;
+  branchName?: string | null;
 };
 
 export async function issueAuthToken(user: AuthenticatedUser): Promise<string> {
@@ -20,6 +22,8 @@ export async function issueAuthToken(user: AuthenticatedUser): Promise<string> {
     email: user.email,
     phone: user.phone ?? null,
     role: user.role,
+    branchId: user.branchId ?? null,
+    branchName: user.branchName ?? null,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuer(issuer)
@@ -47,7 +51,7 @@ export async function verifyAuthToken(
       (typeof payload.phone !== "string" &&
         payload.phone !== null &&
         typeof payload.phone !== "undefined") ||
-      payload.role !== "ADMIN"
+      !["ADMIN", "EMPLOYEE"].includes(String(payload.role))
     ) {
       return undefined;
     }
@@ -57,7 +61,10 @@ export async function verifyAuthToken(
       name: payload.name,
       email: payload.email,
       phone: typeof payload.phone === "string" ? payload.phone : null,
-      role: payload.role,
+      role: payload.role as AuthenticatedUser["role"],
+      branchId: typeof payload.branchId === "string" ? payload.branchId : null,
+      branchName:
+        typeof payload.branchName === "string" ? payload.branchName : null,
     };
   } catch {
     return undefined;
