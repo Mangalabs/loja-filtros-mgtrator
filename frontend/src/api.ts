@@ -120,6 +120,13 @@ export type AuthUser = {
   active: boolean;
 };
 
+export type Branch = {
+  id: string;
+  name: string;
+  code: string | null;
+  active: boolean;
+};
+
 export type CashRegisterSession = {
   id: string;
   openedByUserId: string;
