@@ -6,6 +6,9 @@ Usaremos a Focus NFe como API terceira para emissao fiscal. A integracao real de
 
 O backend nao deve acoplar models, vendas, estoque ou orcamentos diretamente a Focus.
 
+Para o planejamento de TEF, vinculacao de pagamentos no Ceara, NFC-e, Rede e
+ECONF, consultar `docs/tef-vinculacao-pagamento-ceara.md`.
+
 ## Referencias da Focus
 
 - Documentacao oficial: https://focusnfe.com.br/doc/
