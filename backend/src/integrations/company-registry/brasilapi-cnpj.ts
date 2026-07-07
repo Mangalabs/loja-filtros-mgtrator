@@ -41,21 +41,52 @@ export async function lookupCompanyByCnpj(
     throw new AppError("CNPJ deve conter 14 digitos.", 422);
   }
 
-  const response = await fetch(
-    `https://brasilapi.com.br/api/cnpj/v1/${normalizedCnpj}`,
-  );
+  const failures: unknown[] = [];
 
+  for (const provider of companyRegistryProviders) {
+    try {
+      return await provider(normalizedCnpj);
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+
+  if (failures.some(notFoundError)) {
+    throw new AppError("CNPJ nao encontrado.", 404);
+  }
+
+  throw new AppError(
+    "Nao foi possivel consultar o CNPJ nos provedores disponiveis agora.",
+    502,
+  );
+}
+
+const companyRegistryProviders = [lookupBrasilApiCnpj, lookupMinhaReceitaCnpj];
+
+async function lookupBrasilApiCnpj(cnpj: string) {
+  const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+
+  return companyRegistryResponseToClient(response, cnpj);
+}
+
+async function lookupMinhaReceitaCnpj(cnpj: string) {
+  const response = await fetch(`https://minhareceita.org/${cnpj}`);
+
+  return companyRegistryResponseToClient(response, cnpj);
+}
+
+async function companyRegistryResponseToClient(response: Response, cnpj: string) {
   if (response.status === 404) {
     throw new AppError("CNPJ nao encontrado.", 404);
   }
 
   if (!response.ok) {
-    throw new AppError("Nao foi possivel consultar o CNPJ agora.", 502);
+    throw new AppError("Provedor de CNPJ indisponivel.", 502);
   }
 
   return brasilApiCompanyToClient(
     (await response.json()) as BrasilApiCnpjResponse,
-    normalizedCnpj,
+    cnpj,
   );
 }
 
@@ -87,4 +118,8 @@ function onlyDigits(value: string) {
 
 function optionalText(value: string | null | undefined) {
   return value?.trim() || null;
+}
+
+function notFoundError(error: unknown) {
+  return error instanceof AppError && error.statusCode === 404;
 }
