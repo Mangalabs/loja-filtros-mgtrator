@@ -15,6 +15,7 @@ export type View =
   | "reports"
   | "quotes"
   | "sales"
+  | "sales-history"
   | "shipping-orders"
   | "pickup-reservations"
   | "brands"
@@ -42,7 +43,13 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
   finance: ["payment-methods", "fiscal-settings", "fiscal-documents"],
   cash: ["cash-register"],
   reports: ["reports"],
-  sales: ["quotes", "sales", "shipping-orders", "pickup-reservations"],
+  sales: [
+    "quotes",
+    "sales",
+    "sales-history",
+    "shipping-orders",
+    "pickup-reservations",
+  ],
   administration: ["branches", "employees"],
 };
 
@@ -163,6 +170,11 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       title: "Venda de balcao",
       description:
         "Registre a venda imediata de um produto com baixa de estoque.",
+    },
+    "sales-history": {
+      title: "Historico de vendas",
+      description:
+        "Consulte vendas fechadas, comprovantes e documentos fiscais.",
     },
     "shipping-orders": {
       title: "Pedidos para envio",

@@ -10,6 +10,7 @@ import {
   PackagePlus,
   Send,
   ShoppingCart,
+  ReceiptText,
   SlidersHorizontal,
   Tags,
   Truck,
@@ -242,6 +243,13 @@ export function AppSidebar({
             onClick={() => onSelectView("sales")}
           >
             Balcao
+          </NavButton>
+          <NavButton
+            active={view === "sales-history"}
+            icon={<ReceiptText size={18} />}
+            onClick={() => onSelectView("sales-history")}
+          >
+            Historico
           </NavButton>
           <NavButton
             active={view === "shipping-orders"}

@@ -45,6 +45,7 @@ import {
   SalesPage,
   ShippingOrdersPage,
 } from "../views/sales/SalesPages";
+import { SalesHistoryPage } from "../views/sales/SalesHistoryPage";
 import type { useSalesActions } from "../views/sales/useSalesActions";
 import {
   LowStockPage,
@@ -253,6 +254,14 @@ export function AppViewRenderer({
           products={products}
           sales={sales}
           onSubmit={salesActions.createSale}
+        />
+      ),
+    "sales-history": (
+        <SalesHistoryPage
+          fiscalDocuments={fiscalDocuments}
+          pickupReservations={pickupReservations}
+          sales={sales}
+          shippingOrders={shippingOrders}
         />
       ),
     "shipping-orders": (
