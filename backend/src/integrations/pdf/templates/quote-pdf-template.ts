@@ -84,7 +84,6 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
                 <th class="text-right">IPI</th>
                 <th class="text-right">ST</th>
                 <th class="text-right">Total unit.</th>
-                <th class="text-center">Entrega</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -132,11 +131,6 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
 }
 
 function quoteItemRow(item: QuoteItem, index: number, showBrand: boolean) {
-  const delivery =
-    Number(item.productAvailableStock) >= Number(item.quantity)
-      ? "IMEDIATA"
-      : "NEGATIVO";
-
   return `
     <tr>
       <td class="text-center">${String(index + 1).padStart(2, "0")}</td>
@@ -150,7 +144,6 @@ function quoteItemRow(item: QuoteItem, index: number, showBrand: boolean) {
       <td class="text-right">-</td>
       <td class="text-right">-</td>
       <td class="text-right">${formatCurrency(item.totalAmount)}</td>
-      <td class="text-center delivery-${delivery.toLowerCase()}">${delivery}</td>
     </tr>
   `;
 }
@@ -288,26 +281,17 @@ function quotePdfCss() {
     }
     .items-table th:nth-child(1) { width: 5%; }
     .items-table th:nth-child(2) { width: 6%; }
-    .items-table th:nth-child(3) { width: 13%; }
-    .items-table th:nth-child(4) { width: 18%; }
+    .items-table th:nth-child(3) { width: 14%; }
+    .items-table th:nth-child(4) { width: 22%; }
     .items-table th:nth-child(5) { width: 9%; }
     .items-table th:nth-child(6) { width: 8%; }
-    .items-table th:nth-child(7) { width: 8%; }
-    .items-table th:nth-child(8) { width: 7%; }
+    .items-table th:nth-child(7) { width: 9%; }
+    .items-table th:nth-child(8) { width: 9%; }
     .items-table th:nth-child(9) { width: 5%; }
     .items-table th:nth-child(10) { width: 5%; }
-    .items-table th:nth-child(11) { width: 9%; }
-    .items-table th:nth-child(12) { width: 7%; }
+    .items-table th:nth-child(11) { width: 8%; }
     .items-table tr:nth-child(even) td {
       background-color: #f8fafc;
-    }
-    .delivery-imediata {
-      color: #166534;
-      font-weight: 700;
-    }
-    .delivery-negativo {
-      color: #991b1b;
-      font-weight: 700;
     }
     .summary-row {
       align-items: flex-start;
