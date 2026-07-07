@@ -495,6 +495,9 @@ export function ClientsPage({
   const [lookupState, setLookupState] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
+  const [lookupValues, setLookupValues] = useState<
+    Record<string, string | null>
+  >({});
 
   async function lookupCompany() {
     const formElement = formRef.current;
@@ -511,38 +514,25 @@ export function ClientsPage({
     setLookupState("loading");
 
     try {
-      fillClientForm(await onLookupCompany(document));
+      setLookupValues(clientLookupValues(await onLookupCompany(document)));
       setLookupState("success");
     } catch {
       setLookupState("error");
     }
   }
 
-  function fillClientForm(company: ClientCompanyLookup) {
-    const values: Record<string, string | null> = {
-      clientAddressCity: company.addressCity,
-      clientAddressComplement: company.addressComplement,
-      clientAddressDistrict: company.addressDistrict,
-      clientAddressNumber: company.addressNumber,
-      clientAddressState: company.addressState,
-      clientAddressStreet: company.addressStreet,
-      clientAddressZipCode: company.addressZipCode,
-      clientDocument: company.document,
-      clientEmail: company.email,
-      clientName: company.name,
-      clientPhone: company.phone,
-      clientStateRegistration: company.stateRegistration,
-    };
+  function clientFieldValue(
+    name: string,
+    defaultValue: string | null | undefined,
+  ) {
+    return lookupValues[name] ?? defaultValue ?? "";
+  }
 
-    Object.entries(values).forEach(([name, value]) => {
-      const field = formRef.current?.elements.namedItem(name) as
-        | HTMLInputElement
-        | null;
-
-      if (field) {
-        field.value = value ?? "";
-      }
-    });
+  function updateLookupValue(name: string, value: string) {
+    setLookupValues((currentValues) => ({
+      ...currentValues,
+      [name]: value,
+    }));
   }
 
   return (
@@ -570,13 +560,19 @@ export function ClientsPage({
         <TextField
           label="Nome"
           name="clientName"
-          defaultValue={selectedClient?.name}
+          value={clientFieldValue("clientName", selectedClient?.name)}
+          onChange={(event) =>
+            updateLookupValue("clientName", event.target.value)
+          }
           required
         />
         <TextField
           label="CPF/CNPJ"
           name="clientDocument"
-          defaultValue={selectedClient?.document ?? ""}
+          value={clientFieldValue("clientDocument", selectedClient?.document)}
+          onChange={(event) =>
+            updateLookupValue("clientDocument", event.target.value)
+          }
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm text-[#5f665f]">
@@ -594,13 +590,19 @@ export function ClientsPage({
           <TextField
             label="Telefone"
             name="clientPhone"
-            defaultValue={selectedClient?.phone ?? ""}
+            value={clientFieldValue("clientPhone", selectedClient?.phone)}
+            onChange={(event) =>
+              updateLookupValue("clientPhone", event.target.value)
+            }
           />
           <TextField
             label="Email"
             name="clientEmail"
             type="email"
-            defaultValue={selectedClient?.email ?? ""}
+            value={clientFieldValue("clientEmail", selectedClient?.email)}
+            onChange={(event) =>
+              updateLookupValue("clientEmail", event.target.value)
+            }
           />
         </div>
         <div className="grid gap-1 border-t border-[#e4e9e5] pt-4">
@@ -611,9 +613,16 @@ export function ClientsPage({
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            defaultValue={selectedClient?.stateRegistration ?? ""}
             label="Inscricao estadual"
             name="clientStateRegistration"
+            value={clientFieldValue(
+              "clientStateRegistration",
+              selectedClient?.stateRegistration,
+            )}
+            helperText="Consultas publicas de CNPJ normalmente nao retornam IE."
+            onChange={(event) =>
+              updateLookupValue("clientStateRegistration", event.target.value)
+            }
           />
           <TextField
             defaultValue={selectedClient?.stateRegistrationIndicator ?? "9"}
@@ -627,44 +636,86 @@ export function ClientsPage({
           </TextField>
         </div>
         <TextField
-          defaultValue={selectedClient?.addressStreet ?? ""}
           label="Logradouro"
           name="clientAddressStreet"
+          value={clientFieldValue(
+            "clientAddressStreet",
+            selectedClient?.addressStreet,
+          )}
+          onChange={(event) =>
+            updateLookupValue("clientAddressStreet", event.target.value)
+          }
         />
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            defaultValue={selectedClient?.addressNumber ?? ""}
             label="Numero"
             name="clientAddressNumber"
+            value={clientFieldValue(
+              "clientAddressNumber",
+              selectedClient?.addressNumber,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressNumber", event.target.value)
+            }
           />
           <TextField
-            defaultValue={selectedClient?.addressComplement ?? ""}
             label="Complemento"
             name="clientAddressComplement"
+            value={clientFieldValue(
+              "clientAddressComplement",
+              selectedClient?.addressComplement,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressComplement", event.target.value)
+            }
           />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            defaultValue={selectedClient?.addressDistrict ?? ""}
             label="Bairro"
             name="clientAddressDistrict"
+            value={clientFieldValue(
+              "clientAddressDistrict",
+              selectedClient?.addressDistrict,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressDistrict", event.target.value)
+            }
           />
           <TextField
-            defaultValue={selectedClient?.addressCity ?? ""}
             label="Cidade"
             name="clientAddressCity"
+            value={clientFieldValue(
+              "clientAddressCity",
+              selectedClient?.addressCity,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressCity", event.target.value)
+            }
           />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            defaultValue={selectedClient?.addressState ?? ""}
             label="UF"
             name="clientAddressState"
+            value={clientFieldValue(
+              "clientAddressState",
+              selectedClient?.addressState,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressState", event.target.value)
+            }
           />
           <TextField
-            defaultValue={selectedClient?.addressZipCode ?? ""}
             label="CEP"
             name="clientAddressZipCode"
+            value={clientFieldValue(
+              "clientAddressZipCode",
+              selectedClient?.addressZipCode,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressZipCode", event.target.value)
+            }
           />
         </div>
         <div className="mt-1 flex flex-wrap justify-end gap-2">
@@ -772,3 +823,20 @@ const clientLookupStatusLabel: Record<
   loading: "Consultando CNPJ...",
   success: "Dados encontrados. Revise antes de salvar.",
 };
+
+function clientLookupValues(company: ClientCompanyLookup) {
+  return {
+    clientAddressCity: company.addressCity,
+    clientAddressComplement: company.addressComplement,
+    clientAddressDistrict: company.addressDistrict,
+    clientAddressNumber: company.addressNumber,
+    clientAddressState: company.addressState,
+    clientAddressStreet: company.addressStreet,
+    clientAddressZipCode: company.addressZipCode,
+    clientDocument: company.document,
+    clientEmail: company.email,
+    clientName: company.name,
+    clientPhone: company.phone,
+    clientStateRegistration: company.stateRegistration,
+  };
+}
