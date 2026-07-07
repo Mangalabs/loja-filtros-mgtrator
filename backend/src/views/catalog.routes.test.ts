@@ -181,6 +181,7 @@ type Quote = {
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
   subtotalAmount: string;
+  discountPercentage: string;
   discountAmount: string;
   totalAmount: string;
   validUntil: string | null;
@@ -204,6 +205,7 @@ type Quote = {
     description: string;
     quantity: string;
     unitPrice: string;
+    discountPercentage: string;
     discountAmount: string;
     totalAmount: string;
     position: number;
@@ -3438,12 +3440,12 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
-        discountAmount: 10,
+        discountPercentage: 10,
         items: [
           {
             productId: firstProduct.body.data?.id,
             quantity: 2,
-            discountAmount: 5,
+            discountPercentage: 10,
           },
           { productId: secondProduct.body.data?.id, quantity: 1 },
         ],
@@ -3496,19 +3498,19 @@ describe("catalog routes", () => {
 
     assert.equal(completed.status, 200);
     assert.equal(completed.body.data?.status, "COMPLETED");
-    assert.equal(completed.body.data?.totalAmount, "140.00");
+    assert.equal(completed.body.data?.totalAmount, "132.30");
     assert.equal(sales.body.data?.length, 1);
     assert.equal(sales.body.data?.[0]?.items.length, 2);
-    assert.equal(sales.body.data?.[0]?.subtotalAmount, "150.00");
-    assert.equal(sales.body.data?.[0]?.discountAmount, "10.00");
-    assert.equal(sales.body.data?.[0]?.totalAmount, "140.00");
+    assert.equal(sales.body.data?.[0]?.subtotalAmount, "147.00");
+    assert.equal(sales.body.data?.[0]?.discountAmount, "14.70");
+    assert.equal(sales.body.data?.[0]?.totalAmount, "132.30");
     assert.equal(
       sales.body.data?.[0]?.items[0]?.productName,
       "Filtro envio multi A",
     );
     assert.equal(sales.body.data?.[0]?.items[0]?.quantity, "2.000");
-    assert.equal(sales.body.data?.[0]?.items[0]?.discountAmount, "5.00");
-    assert.equal(sales.body.data?.[0]?.items[0]?.totalAmount, "75.00");
+    assert.equal(sales.body.data?.[0]?.items[0]?.discountAmount, "8.00");
+    assert.equal(sales.body.data?.[0]?.items[0]?.totalAmount, "72.00");
     assert.equal(
       sales.body.data?.[0]?.items[1]?.productName,
       "Filtro envio multi B",
@@ -4113,13 +4115,13 @@ describe("catalog routes", () => {
         validUntil: "2026-07-15",
         notes: "Orcamento revisado pelo cliente",
         showBrand: false,
-        discountAmount: 10,
+        discountPercentage: 10,
         items: [
           {
             productId: secondProduct.body.data?.id,
             quantity: 2,
             unitPrice: 85,
-            discountAmount: 5,
+            discountPercentage: 5,
           },
         ],
       },
@@ -4143,8 +4145,9 @@ describe("catalog routes", () => {
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.id, created.body.data?.id);
     assert.equal(updated.body.data?.subtotalAmount, "170.00");
-    assert.equal(updated.body.data?.discountAmount, "10.00");
-    assert.equal(updated.body.data?.totalAmount, "155.00");
+    assert.equal(updated.body.data?.discountPercentage, "10.00");
+    assert.equal(updated.body.data?.discountAmount, "16.15");
+    assert.equal(updated.body.data?.totalAmount, "145.35");
     assert.equal(updated.body.data?.showBrand, false);
     assert.ok(updated.body.data?.validUntil?.startsWith("2026-07-15"));
     assert.equal(updated.body.data?.notes, "Orcamento revisado pelo cliente");
@@ -4159,9 +4162,10 @@ describe("catalog routes", () => {
     );
     assert.equal(updated.body.data?.items[0]?.quantity, "2.000");
     assert.equal(updated.body.data?.items[0]?.unitPrice, "85.00");
-    assert.equal(updated.body.data?.items[0]?.discountAmount, "5.00");
-    assert.equal(updated.body.data?.items[0]?.totalAmount, "165.00");
-    assert.equal(shown.body.data?.totalAmount, "155.00");
+    assert.equal(updated.body.data?.items[0]?.discountPercentage, "5.00");
+    assert.equal(updated.body.data?.items[0]?.discountAmount, "8.50");
+    assert.equal(updated.body.data?.items[0]?.totalAmount, "161.50");
+    assert.equal(shown.body.data?.totalAmount, "145.35");
     assert.equal(shown.body.data?.items.length, 1);
     assert.equal(updateAfterShippingOrder.status, 409);
     assert.equal(

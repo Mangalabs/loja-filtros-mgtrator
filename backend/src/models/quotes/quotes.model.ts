@@ -6,7 +6,7 @@ export type QuoteItemInput = {
   description?: string | null
   quantity: number
   unitPrice?: number | null
-  discountAmount?: number
+  discountPercentage?: number
 }
 
 export type QuoteInput = {
@@ -14,7 +14,7 @@ export type QuoteInput = {
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
-  discountAmount?: number
+  discountPercentage?: number
   items: QuoteItemInput[]
 }
 
@@ -29,6 +29,7 @@ export type QuoteItem = {
   description: string
   quantity: string
   unitPrice: string
+  discountPercentage: string
   discountAmount: string
   totalAmount: string
   position: number
@@ -44,6 +45,7 @@ export type Quote = {
   status: 'DRAFT' | 'CANCELLED'
   showBrand: boolean
   subtotalAmount: string
+  discountPercentage: string
   discountAmount: string
   totalAmount: string
   validUntil: string | null
@@ -94,6 +96,7 @@ const quoteColumns = [
   'quotes.status',
   'quotes.show_brand as showBrand',
   'quotes.subtotal_amount as subtotalAmount',
+  'quotes.discount_percentage as discountPercentage',
   'quotes.discount_amount as discountAmount',
   'quotes.total_amount as totalAmount',
   'quotes.valid_until as validUntil',
@@ -124,6 +127,7 @@ const quoteItemColumns = [
   'quote_items.description',
   'quote_items.quantity',
   'quote_items.unit_price as unitPrice',
+  'quote_items.discount_percentage as discountPercentage',
   'quote_items.discount_amount as discountAmount',
   'quote_items.total_amount as totalAmount',
   'quote_items.position',
@@ -179,11 +183,13 @@ export async function insertQuote(
     description: string
     quantity: number
     unitPrice: number
+    discountPercentage: number
     discountAmount: number
     totalAmount: number
     position: number
   }>,
   subtotalAmount: number,
+  discountPercentage: number,
   discountAmount: number,
   totalAmount: number,
 ): Promise<Quote> {
@@ -194,6 +200,7 @@ export async function insertQuote(
       status: 'DRAFT',
       show_brand: input.showBrand ?? true,
       subtotal_amount: subtotalAmount,
+      discount_percentage: discountPercentage,
       discount_amount: discountAmount,
       total_amount: totalAmount,
       valid_until: input.validUntil,
@@ -208,6 +215,7 @@ export async function insertQuote(
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unitPrice,
+      discount_percentage: item.discountPercentage,
       discount_amount: item.discountAmount,
       total_amount: item.totalAmount,
       position: item.position,
@@ -235,11 +243,13 @@ export async function updateQuote(
     description: string
     quantity: number
     unitPrice: number
+    discountPercentage: number
     discountAmount: number
     totalAmount: number
     position: number
   }>,
   subtotalAmount: number,
+  discountPercentage: number,
   discountAmount: number,
   totalAmount: number,
 ): Promise<Quote> {
@@ -247,6 +257,7 @@ export async function updateQuote(
     client_id: input.clientId,
     show_brand: input.showBrand ?? true,
     subtotal_amount: subtotalAmount,
+    discount_percentage: discountPercentage,
     discount_amount: discountAmount,
     total_amount: totalAmount,
     valid_until: input.validUntil,
@@ -262,6 +273,7 @@ export async function updateQuote(
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unitPrice,
+      discount_percentage: item.discountPercentage,
       discount_amount: item.discountAmount,
       total_amount: item.totalAmount,
       position: item.position,

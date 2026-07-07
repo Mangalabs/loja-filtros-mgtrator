@@ -321,6 +321,7 @@ export type Quote = {
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
   subtotalAmount: string;
+  discountPercentage: string;
   discountAmount: string;
   totalAmount: string;
   validUntil: string | null;
@@ -352,6 +353,7 @@ export type Quote = {
     description: string;
     quantity: string;
     unitPrice: string;
+    discountPercentage: string;
     discountAmount: string;
     totalAmount: string;
     position: number;

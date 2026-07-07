@@ -106,7 +106,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
                   <td class="text-right">${formatCurrency(itemDiscountAmount)}</td>
                 </tr>
                 <tr>
-                  <td>Desc. geral:</td>
+                  <td>Desc. geral (${formatPercentage(quote.discountPercentage)}):</td>
                   <td class="text-right">${formatCurrency(quote.discountAmount)}</td>
                 </tr>
                 <tr>
@@ -145,7 +145,7 @@ function quoteItemRow(item: QuoteItem, index: number, showBrand: boolean) {
       ${showBrand ? `<td>${escapeHtml(item.productBrandName ?? "-")}</td>` : ""}
       <td class="text-center">${escapeHtml(item.productNcm ?? "-")}</td>
       <td class="text-right">${formatCurrency(item.unitPrice)}</td>
-      <td class="text-right">${formatCurrency(item.discountAmount)}</td>
+      <td class="text-right">${formatPercentage(item.discountPercentage)} (${formatCurrency(item.discountAmount)})</td>
       <td class="text-right">-</td>
       <td class="text-right">-</td>
       <td class="text-right">${formatCurrency(item.totalAmount)}</td>
@@ -362,6 +362,13 @@ function formatCurrency(value: string | number) {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function formatPercentage(value: string | number) {
+  return `${Number(value).toLocaleString("pt-BR", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  })}%`;
 }
 
 function formatQuantity(value: string) {

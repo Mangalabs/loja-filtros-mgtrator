@@ -32,7 +32,7 @@ type QuoteDraftItem = {
   description: string
   quantity: string
   unitPrice: string
-  discountAmount: string
+  discountPercentage: string
 }
 
 export type QuoteDraftInput = {
@@ -40,13 +40,13 @@ export type QuoteDraftInput = {
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
-  discountAmount?: number
+  discountPercentage?: number
   items: Array<{
     productId: string
     description?: string | null
     quantity: number
     unitPrice?: number | null
-    discountAmount?: number
+    discountPercentage?: number
   }>
 }
 
@@ -72,7 +72,7 @@ export function QuotesPage({
   const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
   const [showBrand, setShowBrand] = useState(true)
-  const [discountAmount, setDiscountAmount] = useState('')
+  const [discountPercentage, setDiscountPercentage] = useState('')
   const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
   const { pagination, visibleItems } = usePaginatedRows<Quote>(quotes)
   const activeProducts = products.filter((product) => product.active)
@@ -80,12 +80,17 @@ export function QuotesPage({
   const quoteSubtotal = items.reduce((sum, item) => {
     return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0)
   }, 0)
-  const itemDiscountTotal = items.reduce((sum, item) => {
-    return sum + Number(item.discountAmount || 0)
-  }, 0)
-  const generalDiscount = Number(discountAmount || 0)
+  const itemDiscountTotal = items.reduce(
+    (sum, item) => sum + quoteItemDiscountAmount(item),
+    0,
+  )
+  const totalBeforeGeneralDiscount = quoteSubtotal - itemDiscountTotal
+  const generalDiscount = percentageAmount(
+    totalBeforeGeneralDiscount,
+    Number(discountPercentage || 0),
+  )
   const quoteTotal = Math.max(
-    quoteSubtotal - itemDiscountTotal - generalDiscount,
+    totalBeforeGeneralDiscount - generalDiscount,
     0,
   )
 
@@ -127,7 +132,7 @@ export function QuotesPage({
     setValidUntil('')
     setNotes('')
     setShowBrand(true)
-    setDiscountAmount('')
+    setDiscountPercentage('')
     setItems([emptyQuoteItem()])
   }
 
@@ -139,13 +144,13 @@ export function QuotesPage({
       validUntil: validUntil || null,
       notes: notes.trim() || null,
       showBrand,
-      discountAmount: generalDiscount,
+      discountPercentage: Number(discountPercentage || 0),
       items: items.map((item) => ({
         productId: item.productId,
         description: item.description.trim() || null,
         quantity: Number(item.quantity),
         unitPrice: item.unitPrice === '' ? null : Number(item.unitPrice),
-        discountAmount: Number(item.discountAmount || 0),
+        discountPercentage: Number(item.discountPercentage || 0),
       })),
     }
     const saved = editingQuoteId
@@ -163,14 +168,14 @@ export function QuotesPage({
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
     setNotes(quote.notes ?? '')
     setShowBrand(quote.showBrand)
-    setDiscountAmount(quote.discountAmount)
+    setDiscountPercentage(quote.discountPercentage)
     setItems(
       quote.items.map((item) => ({
         productId: item.productId,
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        discountAmount: item.discountAmount,
+        discountPercentage: item.discountPercentage,
       })),
     )
   }
@@ -224,12 +229,12 @@ export function QuotesPage({
         </FormRow>
         <FormRow>
           <TextField
-            label='Desconto geral'
-            value={discountAmount}
+            label='Desconto geral (%)'
+            value={discountPercentage}
             type='number'
             size='medium'
-            onChange={(event) => setDiscountAmount(event.target.value)}
-            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+            onChange={(event) => setDiscountPercentage(event.target.value)}
+            slotProps={{ htmlInput: { min: '0', max: '100', step: '0.01' } }}
           />
           <TextField
             disabled
@@ -239,7 +244,8 @@ export function QuotesPage({
           />
         </FormRow>
         <InlineNote>
-          Desconto nos itens: {formatCurrency(itemDiscountTotal)}
+          Desconto nos itens: {formatCurrency(itemDiscountTotal)} | Desconto
+          geral: {formatCurrency(generalDiscount)}
         </InlineNote>
         <TextField
           label='Observacoes do orcamento'
@@ -319,14 +325,15 @@ export function QuotesPage({
                 />
               </FormRow>
               <TextField
-                label='Desconto do item'
-                value={item.discountAmount}
+                label='Desconto do item (%)'
+                value={item.discountPercentage}
                 type='number'
                 size='medium'
                 onChange={(event) =>
-                  updateItem(index, { discountAmount: event.target.value })
+                  updateItem(index, { discountPercentage: event.target.value })
                 }
-                slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+                helperText={`Valor: ${formatCurrency(quoteItemDiscountAmount(item))}`}
+                slotProps={{ htmlInput: { min: '0', max: '100', step: '0.01' } }}
               />
             </FormCard>
           ))}
@@ -399,6 +406,9 @@ export function QuotesPage({
                     <InlineNote>
                       Subtotal {formatCurrency(quote.subtotalAmount)} | Desc.{' '}
                       {formatCurrency(totalQuoteDiscount(quote))}
+                      {Number(quote.discountPercentage) > 0
+                        ? ` (${quote.discountPercentage}% geral)`
+                        : ''}
                     </InlineNote>
                   ) : null}
                 </>
@@ -614,8 +624,19 @@ function emptyQuoteItem(): QuoteDraftItem {
     description: '',
     quantity: '1',
     unitPrice: '',
-    discountAmount: '',
+    discountPercentage: '',
   }
+}
+
+function quoteItemDiscountAmount(item: QuoteDraftItem) {
+  return percentageAmount(
+    Number(item.quantity || 0) * Number(item.unitPrice || 0),
+    Number(item.discountPercentage || 0),
+  )
+}
+
+function percentageAmount(baseAmount: number, percentage: number) {
+  return Number(((baseAmount * percentage) / 100).toFixed(2))
 }
 
 function totalQuoteDiscount(quote: Quote) {
