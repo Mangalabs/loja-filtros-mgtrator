@@ -1,10 +1,12 @@
 import { db } from "../../database/knex.js";
+import { generateSaleReceiptPdf } from "../../integrations/pdf/sale-receipt-pdf.js";
 import {
   activeClientExists,
   activePaymentMethodExists,
   cancelSale,
   findOpenCashRegister,
   insertSale,
+  getSaleById,
   listSales,
   lockSaleItemForReturn,
   lockSaleProduct,
@@ -22,6 +24,26 @@ export async function indexSales() {
     code: 200,
     status: "success",
     data: await listSales(),
+  };
+}
+
+export async function showSaleReceiptPdf(id: string) {
+  const sale = await getSaleById(id);
+
+  if (!sale) {
+    throw new AppError("Venda nao encontrada.", 404);
+  }
+
+  if (sale.status !== "COMPLETED") {
+    throw new AppError(
+      "Comprovante disponivel apenas para vendas concluidas.",
+      409,
+    );
+  }
+
+  return {
+    filename: `comprovante-venda-${sale.id}.pdf`,
+    pdf: await generateSaleReceiptPdf(sale),
   };
 }
 

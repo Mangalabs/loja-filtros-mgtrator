@@ -4,6 +4,7 @@ import {
   cancelCounterSale,
   indexSales,
   returnCounterSaleItem,
+  showSaleReceiptPdf,
   storeSale,
 } from "../../controllers/sales/sales.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
@@ -79,6 +80,17 @@ const returnSaleItemSchema = z
 
 salesRoutes.get("/sales", async (_request, response) => {
   response.status(200).json(await indexSales());
+});
+
+salesRoutes.get("/sales/:id/receipt", async (request, response) => {
+  const { id } = saleParamsSchema.parse(request.params);
+  const result = await showSaleReceiptPdf(id);
+
+  response
+    .status(200)
+    .type("application/pdf")
+    .attachment(result.filename)
+    .send(result.pdf);
 });
 
 salesRoutes.post("/sales", async (request, response) => {

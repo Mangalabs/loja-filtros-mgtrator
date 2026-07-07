@@ -1061,12 +1061,18 @@ describe("catalog routes", () => {
     );
     const cashBeforeCancellation =
       await request<CashRegisterSession | null>("/cash-register/current");
+    const receipt = await requestRaw(
+      `/sales/${created.body.data?.id}/receipt`,
+    );
     const cancelled = await request<Sale>(
       `/sales/${created.body.data?.id}/cancel`,
       {
         method: "PATCH",
         body: { reason: "Cliente desistiu da compra de balcao" },
       },
+    );
+    const cancelledReceipt = await requestRaw(
+      `/sales/${created.body.data?.id}/receipt`,
     );
     const fiscalDocumentForCancelledSale = await request(
       `/sales/${created.body.data?.id}/fiscal-documents`,
@@ -1120,8 +1126,12 @@ describe("catalog routes", () => {
     assert.equal(updatedProduct.body.data?.currentStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
     assert.equal(cashBeforeCancellation.body.data?.salesTotal, "59.80");
+    assert.equal(receipt.status, 200);
+    assert.equal(receipt.contentType, "application/pdf");
+    assert.equal(receipt.body.subarray(0, 4).toString(), "%PDF");
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(cancelledReceipt.status, 409);
     assert.equal(
       cancelled.body.data?.cancelledByUserName,
       "Administrador de teste",

@@ -17,6 +17,7 @@ export function showApiInfo() {
         "/cash-register/open",
         "/cash-register/close",
         "/sales",
+        "/sales/:id/receipt",
         "/shipping-orders",
         "/pickup-reservations",
         "/quotes",

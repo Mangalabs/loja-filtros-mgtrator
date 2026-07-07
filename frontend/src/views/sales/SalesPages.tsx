@@ -12,6 +12,7 @@ import type {
   Sale,
   ShippingOrder,
 } from '../../api'
+import { apiUrl } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
 import {
   ActionGroup,
@@ -311,6 +312,10 @@ export function SalesPage({
               header: 'Operador',
               render: (sale) => sale.createdByUserName,
             },
+            {
+              header: 'Acoes',
+              render: (sale) => <SaleReceiptAction sale={sale} />,
+            },
           ]}
           emptyMessage='Nenhuma venda registrada.'
           getRowId={(sale) => sale.id}
@@ -319,6 +324,22 @@ export function SalesPage({
         />
       </PagePanel>
     </section>
+  )
+}
+
+function saleReceiptHref(sale: Sale) {
+  return apiUrl(`/sales/${sale.id}/receipt`)
+}
+
+function SaleReceiptAction({ sale }: { sale: Sale }) {
+  return sale.status === 'COMPLETED' ? (
+    <ActionGroup>
+      <TableActionButton href={saleReceiptHref(sale)}>
+        Comprovante
+      </TableActionButton>
+    </ActionGroup>
+  ) : (
+    <InlineNote>Venda cancelada</InlineNote>
   )
 }
 
