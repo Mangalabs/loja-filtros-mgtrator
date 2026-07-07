@@ -229,6 +229,7 @@ export function AppViewRenderer({
     quotes: (
         <QuotesPage
           clients={clients}
+          paymentMethods={paymentMethods}
           products={products}
           quotes={quotes}
           onSubmit={quoteActions.createQuote}

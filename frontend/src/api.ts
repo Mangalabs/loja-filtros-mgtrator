@@ -318,6 +318,8 @@ export type Quote = {
   clientPhone: string | null;
   clientDocument: string | null;
   clientEmail: string | null;
+  paymentMethodId: string | null;
+  paymentMethodName: string | null;
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
   subtotalAmount: string;

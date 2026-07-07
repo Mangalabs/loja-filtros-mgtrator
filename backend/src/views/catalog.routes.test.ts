@@ -178,6 +178,8 @@ type Quote = {
   id: string;
   clientName: string;
   clientPhone: string | null;
+  paymentMethodId: string | null;
+  paymentMethodName: string | null;
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
   subtotalAmount: string;
@@ -3436,10 +3438,12 @@ describe("catalog routes", () => {
       },
     });
 
+    const quotePaymentMethod = await activePaymentMethod();
     const quote = await request<Quote>("/quotes", {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
         discountPercentage: 10,
         items: [
           {
@@ -3967,10 +3971,12 @@ describe("catalog routes", () => {
       },
     });
 
+    const quotePaymentMethod = await activePaymentMethod();
     const created = await request<Quote>("/quotes", {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
         validUntil: "2026-06-30",
         notes: "Retirar condicoes no PDF depois",
         showBrand: false,
@@ -4015,6 +4021,7 @@ describe("catalog routes", () => {
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.status, "DRAFT");
     assert.equal(created.body.data?.clientName, "Cliente orcamento");
+    assert.equal(created.body.data?.paymentMethodName, "PIX");
     assert.equal(created.body.data?.showBrand, false);
     assert.equal(created.body.data?.totalAmount, "170.00");
     assert.ok(created.body.data?.validUntil?.startsWith("2026-06-30"));
@@ -4036,10 +4043,12 @@ describe("catalog routes", () => {
     );
     assert.equal(created.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(shown.body.data?.items.length, 2);
+    assert.equal(shown.body.data?.paymentMethodName, "PIX");
     assert.equal(shown.body.data?.showBrand, false);
     assert.equal(shown.body.data?.shippingOrderId, null);
     assert.equal(shown.body.data?.shippingOrderStatus, null);
     assert.equal(listed.body.data?.length, 1);
+    assert.equal(listed.body.data?.[0]?.paymentMethodName, "PIX");
     assert.equal(listed.body.data?.[0]?.showBrand, false);
     assert.equal(listed.body.data?.[0]?.shippingOrderId, null);
     assert.equal(pdf.status, 200);
@@ -4100,10 +4109,13 @@ describe("catalog routes", () => {
       method: "POST",
       body: { personType: "PF", name: "Cliente edita orcamento" },
     });
+    const pix = await activePaymentMethod();
+    const boleto = await activePaymentMethod("BOLETO");
     const created = await request<Quote>("/quotes", {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: pix.id,
         items: [{ productId: firstProduct.body.data?.id, quantity: 1 }],
       },
     });
@@ -4112,6 +4124,7 @@ describe("catalog routes", () => {
       method: "PUT",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: boleto.id,
         validUntil: "2026-07-15",
         notes: "Orcamento revisado pelo cliente",
         showBrand: false,
@@ -4137,6 +4150,7 @@ describe("catalog routes", () => {
         method: "PUT",
         body: {
           clientId: client.body.data?.id,
+          paymentMethodId: pix.id,
           items: [{ productId: firstProduct.body.data?.id, quantity: 1 }],
         },
       },
@@ -4144,6 +4158,7 @@ describe("catalog routes", () => {
 
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.id, created.body.data?.id);
+    assert.equal(updated.body.data?.paymentMethodName, "Boleto");
     assert.equal(updated.body.data?.subtotalAmount, "170.00");
     assert.equal(updated.body.data?.discountPercentage, "10.00");
     assert.equal(updated.body.data?.discountAmount, "16.15");
@@ -4183,10 +4198,12 @@ describe("catalog routes", () => {
       method: "POST",
       body: { personType: "PF", name: "Cliente cancela orcamento" },
     });
+    const quotePaymentMethod = await activePaymentMethod();
     const draft = await request<Quote>("/quotes", {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
         items: [{ productId: product.body.data?.id, quantity: 1 }],
       },
     });
@@ -4194,6 +4211,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
         items: [{ productId: product.body.data?.id, quantity: 1 }],
       },
     });
@@ -4277,10 +4295,12 @@ describe("catalog routes", () => {
       body: { active: false },
     });
 
+    const quotePaymentMethod = await activePaymentMethod();
     const withoutItems = await request("/quotes", {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
         items: [],
       },
     });
@@ -4288,6 +4308,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
         items: [{ productId: product.body.data?.id, quantity: 1 }],
       },
     });
@@ -5062,6 +5083,19 @@ function focusUnauthorizedFetch() {
 
 function focusBasicAuth(token: string) {
   return `Basic ${Buffer.from(`${token}:`).toString("base64")}`;
+}
+
+async function activePaymentMethod(code = "PIX") {
+  const paymentMethods = await request<PaymentMethod[]>(
+    "/payment-methods?active=true",
+  );
+  const paymentMethod = paymentMethods.body.data?.find(
+    (currentPaymentMethod) => currentPaymentMethod.code === code,
+  );
+
+  assert.ok(paymentMethod);
+
+  return paymentMethod;
 }
 
 async function request<T = unknown>(

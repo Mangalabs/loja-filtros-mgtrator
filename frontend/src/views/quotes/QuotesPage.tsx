@@ -4,7 +4,7 @@ import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import { List as ListIcon, Plus } from 'lucide-react'
 import { FormEvent, useState } from 'react'
-import type { Client, Product, Quote } from '../../api'
+import type { Client, PaymentMethod, Product, Quote } from '../../api'
 import { apiUrl } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
 import {
@@ -37,6 +37,7 @@ type QuoteDraftItem = {
 
 export type QuoteDraftInput = {
   clientId: string
+  paymentMethodId: string
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
@@ -52,6 +53,7 @@ export type QuoteDraftInput = {
 
 export function QuotesPage({
   clients,
+  paymentMethods,
   products,
   quotes,
   onSubmit,
@@ -60,6 +62,7 @@ export function QuotesPage({
   onCreateShippingOrder,
 }: {
   clients: Client[]
+  paymentMethods: PaymentMethod[]
   products: Product[]
   quotes: Quote[]
   onSubmit: (input: QuoteDraftInput) => Promise<boolean>
@@ -69,6 +72,7 @@ export function QuotesPage({
 }) {
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
   const [clientId, setClientId] = useState('')
+  const [paymentMethodId, setPaymentMethodId] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
   const [showBrand, setShowBrand] = useState(true)
@@ -76,6 +80,9 @@ export function QuotesPage({
   const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
   const { pagination, visibleItems } = usePaginatedRows<Quote>(quotes)
   const activeProducts = products.filter((product) => product.active)
+  const activePaymentMethods = paymentMethods.filter(
+    (paymentMethod) => paymentMethod.active,
+  )
   const isEditing = Boolean(editingQuoteId)
   const quoteSubtotal = items.reduce((sum, item) => {
     return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0)
@@ -129,6 +136,7 @@ export function QuotesPage({
   function resetQuoteForm() {
     setEditingQuoteId(null)
     setClientId('')
+    setPaymentMethodId('')
     setValidUntil('')
     setNotes('')
     setShowBrand(true)
@@ -141,6 +149,7 @@ export function QuotesPage({
 
     const input = {
       clientId,
+      paymentMethodId,
       validUntil: validUntil || null,
       notes: notes.trim() || null,
       showBrand,
@@ -165,6 +174,7 @@ export function QuotesPage({
   function editQuote(quote: Quote) {
     setEditingQuoteId(quote.id)
     setClientId(quote.clientId)
+    setPaymentMethodId(quote.paymentMethodId ?? '')
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
     setNotes(quote.notes ?? '')
     setShowBrand(quote.showBrand)
@@ -210,6 +220,22 @@ export function QuotesPage({
                 {client.phone ? ` - ${client.phone}` : ''}
               </MenuItem>
             ))}
+        </TextField>
+        <TextField
+          label='Forma de pagamento'
+          select
+          size='medium'
+          value={paymentMethodId || ''}
+          onChange={(event) => setPaymentMethodId(event.target.value)}
+          required>
+          <MenuItem value='' disabled>
+            Forma de pagamento
+          </MenuItem>
+          {activePaymentMethods.map((paymentMethod) => (
+            <MenuItem key={paymentMethod.id} value={paymentMethod.id}>
+              {paymentMethod.name}
+            </MenuItem>
+          ))}
         </TextField>
         <FormRow>
           <TextField
@@ -377,6 +403,10 @@ export function QuotesPage({
             {
               header: 'Vendedor',
               render: (quote) => quote.createdByUserName,
+            },
+            {
+              header: 'Pagamento',
+              render: (quote) => quote.paymentMethodName ?? '-',
             },
             {
               header: 'Itens',

@@ -64,6 +64,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
               <p><strong>Documento:</strong> ${escapeHtml(quote.clientDocument ?? "Nao informado")}</p>
               <p><strong>Telefone:</strong> ${escapeHtml(quote.clientPhone ?? "Nao informado")}</p>
               <p><strong>Email:</strong> ${escapeHtml(quote.clientEmail ?? "Nao informado")}</p>
+              <p><strong>Forma de pagamento:</strong> ${escapeHtml(quote.paymentMethodName ?? "Nao informada")}</p>
               <p><strong>Emissao:</strong> ${formatDate(quote.createdAt)}</p>
               <p><strong>Validade:</strong> ${quote.validUntil ? formatDate(quote.validUntil) : "Nao informada"}</p>
             </div>

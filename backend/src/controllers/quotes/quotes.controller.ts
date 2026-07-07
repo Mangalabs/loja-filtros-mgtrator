@@ -2,6 +2,7 @@ import { db } from "../../database/knex.js";
 import { generateQuotePdf } from "../../integrations/pdf/quote-pdf.js";
 import {
   activeQuoteClientExists,
+  activeQuotePaymentMethodExists,
   cancelQuote,
   getQuoteById,
   insertQuote,
@@ -216,6 +217,12 @@ async function prepareQuoteInput(
 ) {
   if (!(await activeQuoteClientExists(transaction, input.clientId))) {
     throw new AppError("Cliente informado nao disponivel.", 422);
+  }
+
+  if (
+    !(await activeQuotePaymentMethodExists(transaction, input.paymentMethodId))
+  ) {
+    throw new AppError("Forma de pagamento informada nao disponivel.", 422);
   }
 
   const productIds = [...new Set(input.items.map((item) => item.productId))];

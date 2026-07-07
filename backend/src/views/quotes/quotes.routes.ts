@@ -16,6 +16,7 @@ export const quotesRoutes = Router();
 const createQuoteSchema = z
   .object({
     clientId: z.uuid(),
+    paymentMethodId: z.uuid(),
     validUntil: z
       .union([z.iso.date(), z.literal(""), z.null()])
       .transform((value) => value || null)

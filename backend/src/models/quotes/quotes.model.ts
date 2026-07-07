@@ -11,6 +11,7 @@ export type QuoteItemInput = {
 
 export type QuoteInput = {
   clientId: string
+  paymentMethodId: string
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
@@ -42,6 +43,8 @@ export type Quote = {
   clientPhone: string | null
   clientDocument: string | null
   clientEmail: string | null
+  paymentMethodId: string | null
+  paymentMethodName: string | null
   status: 'DRAFT' | 'CANCELLED'
   showBrand: boolean
   subtotalAmount: string
@@ -93,6 +96,8 @@ const quoteColumns = [
   'clients.phone as clientPhone',
   'clients.document as clientDocument',
   'clients.email as clientEmail',
+  'payment_methods.id as paymentMethodId',
+  'payment_methods.name as paymentMethodName',
   'quotes.status',
   'quotes.show_brand as showBrand',
   'quotes.subtotal_amount as subtotalAmount',
@@ -164,6 +169,18 @@ export async function activeQuoteClientExists(
   return Boolean(client)
 }
 
+export async function activeQuotePaymentMethodExists(
+  transaction: Knex.Transaction,
+  paymentMethodId: string,
+): Promise<boolean> {
+  const paymentMethod = await transaction('payment_methods')
+    .select('id')
+    .where({ id: paymentMethodId, active: true })
+    .first()
+
+  return Boolean(paymentMethod)
+}
+
 export async function listActiveQuoteProducts(
   transaction: Knex.Transaction,
   productIds: string[],
@@ -196,6 +213,7 @@ export async function insertQuote(
   const [created] = await transaction('quotes')
     .insert({
       client_id: input.clientId,
+      payment_method_id: input.paymentMethodId,
       created_by_user_id: createdByUserId,
       status: 'DRAFT',
       show_brand: input.showBrand ?? true,
@@ -255,6 +273,7 @@ export async function updateQuote(
 ): Promise<Quote> {
   await transaction('quotes').where('id', id).update({
     client_id: input.clientId,
+    payment_method_id: input.paymentMethodId,
     show_brand: input.showBrand ?? true,
     subtotal_amount: subtotalAmount,
     discount_percentage: discountPercentage,
@@ -330,6 +349,11 @@ function quoteQuery(database: Knex | Knex.Transaction) {
       { created_users: 'users' },
       'created_users.id',
       'quotes.created_by_user_id',
+    )
+    .leftJoin(
+      'payment_methods',
+      'payment_methods.id',
+      'quotes.payment_method_id',
     )
     .leftJoin(
       { cancelled_users: 'users' },
