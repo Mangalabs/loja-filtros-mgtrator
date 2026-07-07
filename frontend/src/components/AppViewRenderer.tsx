@@ -299,6 +299,7 @@ export function AppViewRenderer({
           clients={clients}
           selectedClient={selectedClient}
           onSubmit={catalogActions.saveClient}
+          onLookupCompany={catalogActions.lookupClientCompany}
           onEdit={onSelectClient}
           onCancel={onCancelClient}
           onChangeStatus={(client) =>

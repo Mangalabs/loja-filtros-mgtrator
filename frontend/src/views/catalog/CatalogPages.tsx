@@ -11,8 +11,14 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import type { FormEvent } from "react";
-import type { Client, NamedEntity, Product, Supplier } from "../../api";
+import { useRef, useState, type FormEvent } from "react";
+import type {
+  Client,
+  ClientCompanyLookup,
+  NamedEntity,
+  Product,
+  Supplier,
+} from "../../api";
 import {
   ActionGroup,
   FormGrid,
@@ -471,6 +477,7 @@ export function ClientsPage({
   clients,
   selectedClient,
   onSubmit,
+  onLookupCompany,
   onEdit,
   onCancel,
   onChangeStatus,
@@ -478,15 +485,73 @@ export function ClientsPage({
   clients: Client[];
   selectedClient?: Client;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onLookupCompany: (cnpj: string) => Promise<ClientCompanyLookup>;
   onEdit: (client: Client) => void;
   onCancel: () => void;
   onChangeStatus: (client: Client) => void;
 }) {
   const { pagination, visibleItems } = usePaginatedRows<Client>(clients);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [lookupState, setLookupState] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+
+  async function lookupCompany() {
+    const formElement = formRef.current;
+    const documentInput = formElement?.elements.namedItem(
+      "clientDocument",
+    ) as HTMLInputElement | null;
+    const document = documentInput?.value.trim() ?? "";
+
+    if (!document) {
+      setLookupState("error");
+      return;
+    }
+
+    setLookupState("loading");
+
+    try {
+      fillClientForm(await onLookupCompany(document));
+      setLookupState("success");
+    } catch {
+      setLookupState("error");
+    }
+  }
+
+  function fillClientForm(company: ClientCompanyLookup) {
+    const values: Record<string, string | null> = {
+      clientAddressCity: company.addressCity,
+      clientAddressComplement: company.addressComplement,
+      clientAddressDistrict: company.addressDistrict,
+      clientAddressNumber: company.addressNumber,
+      clientAddressState: company.addressState,
+      clientAddressStreet: company.addressStreet,
+      clientAddressZipCode: company.addressZipCode,
+      clientDocument: company.document,
+      clientEmail: company.email,
+      clientName: company.name,
+      clientPhone: company.phone,
+      clientStateRegistration: company.stateRegistration,
+    };
+
+    Object.entries(values).forEach(([name, value]) => {
+      const field = formRef.current?.elements.namedItem(name) as
+        | HTMLInputElement
+        | null;
+
+      if (field) {
+        field.value = value ?? "";
+      }
+    });
+  }
 
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(320px,0.75fr)_minmax(0,1.25fr)]">
-      <FormGrid key={selectedClient?.id ?? "new"} onSubmit={onSubmit}>
+      <FormGrid
+        key={selectedClient?.id ?? "new"}
+        ref={formRef}
+        onSubmit={onSubmit}
+      >
         <PageHeader
           icon={<UserRound size={18} />}
           title={selectedClient ? "Editar cliente" : "Novo cliente"}
@@ -513,6 +578,18 @@ export function ClientsPage({
           name="clientDocument"
           defaultValue={selectedClient?.document ?? ""}
         />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm text-[#5f665f]">
+            {clientLookupStatusLabel[lookupState]}
+          </span>
+          <SecondaryButton
+            type="button"
+            disabled={lookupState === "loading"}
+            onClick={() => void lookupCompany()}
+          >
+            Buscar CNPJ
+          </SecondaryButton>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
             label="Telefone"
@@ -685,3 +762,13 @@ export function ClientsPage({
     </section>
   );
 }
+
+const clientLookupStatusLabel: Record<
+  "idle" | "loading" | "success" | "error",
+  string
+> = {
+  error: "Informe um CNPJ valido ou tente novamente.",
+  idle: "Preencha o CNPJ e busque os dados fiscais.",
+  loading: "Consultando CNPJ...",
+  success: "Dados encontrados. Revise antes de salvar.",
+};

@@ -1,9 +1,12 @@
 import type { FormEvent } from "react";
 import {
+  apiGet,
   apiPatch,
   apiPost,
   apiPut,
+  type ApiResult,
   type Client,
+  type ClientCompanyLookup,
   type Product,
 } from "../../api";
 import { nullableFormValue, optionalFormValue } from "../../utils/forms";
@@ -111,6 +114,14 @@ export function useCatalogActions({
     });
   }
 
+  async function lookupClientCompany(cnpj: string) {
+    const result = await apiGet<ApiResult<ClientCompanyLookup>>(
+      `/clients/cnpj/${encodeURIComponent(cnpj)}`,
+    );
+
+    return result.data;
+  }
+
   async function createProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -191,6 +202,7 @@ export function useCatalogActions({
     createProduct,
     createSupplier,
     editProduct,
+    lookupClientCompany,
     saveClient,
     updateProduct,
   };

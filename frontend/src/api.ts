@@ -65,6 +65,23 @@ export type Client = NamedEntity & {
   addressZipCode: string | null;
 };
 
+export type ClientCompanyLookup = {
+  personType: "PJ";
+  name: string;
+  document: string;
+  email: string | null;
+  phone: string | null;
+  stateRegistration: string | null;
+  stateRegistrationIndicator: "9";
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  addressDistrict: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressZipCode: string | null;
+};
+
 export type StockEntry = {
   id: string;
   productId: string;

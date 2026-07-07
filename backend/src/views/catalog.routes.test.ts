@@ -4662,6 +4662,58 @@ describe("catalog routes", () => {
     );
   });
 
+  it("looks up company fiscal data by CNPJ", async () => {
+    const originalFetch = globalThis.fetch;
+
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+
+      if (url.startsWith("https://brasilapi.com.br/api/cnpj/v1/")) {
+        return new Response(
+          JSON.stringify({
+            bairro: "CENTRO",
+            cep: "77800000",
+            cnpj: "12345678000190",
+            complemento: "SALA 10",
+            ddd_telefone_1: "63999990000",
+            email: "fiscal@cliente.com.br",
+            logradouro: "AVENIDA COMERCIAL",
+            municipio: "ARAGUAINA",
+            numero: "100",
+            razao_social: "CLIENTE TESTE LTDA",
+            uf: "TO",
+          }),
+          { status: 200 },
+        );
+      }
+
+      return originalFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const lookup = await request<Client>(
+        `/clients/cnpj/${encodeURIComponent("12.345.678/0001-90")}`,
+      );
+
+      assert.equal(lookup.status, 200);
+      assert.equal(lookup.body.data?.personType, "PJ");
+      assert.equal(lookup.body.data?.name, "CLIENTE TESTE LTDA");
+      assert.equal(lookup.body.data?.document, "12345678000190");
+      assert.equal(lookup.body.data?.email, "fiscal@cliente.com.br");
+      assert.equal(lookup.body.data?.phone, "63999990000");
+      assert.equal(lookup.body.data?.stateRegistrationIndicator, "9");
+      assert.equal(lookup.body.data?.addressStreet, "AVENIDA COMERCIAL");
+      assert.equal(lookup.body.data?.addressNumber, "100");
+      assert.equal(lookup.body.data?.addressComplement, "SALA 10");
+      assert.equal(lookup.body.data?.addressDistrict, "CENTRO");
+      assert.equal(lookup.body.data?.addressCity, "ARAGUAINA");
+      assert.equal(lookup.body.data?.addressState, "TO");
+      assert.equal(lookup.body.data?.addressZipCode, "77800000");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("creates, lists, shows, updates, and deactivates products", async () => {
     const brand = await request<NamedEntity>("/brands", {
       method: "POST",

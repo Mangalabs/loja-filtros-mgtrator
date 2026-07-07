@@ -1,3 +1,4 @@
+import { lookupCompanyByCnpj } from "../../integrations/company-registry/brasilapi-cnpj.js";
 import {
   createClient,
   listClients,
@@ -25,6 +26,14 @@ export async function storeClient(input: ClientInput) {
     code: 201,
     status: "success",
     data: client,
+  };
+}
+
+export async function lookupClientCompany(cnpj: string) {
+  return {
+    code: 200,
+    status: "success",
+    data: await lookupCompanyByCnpj(cnpj),
   };
 }
 

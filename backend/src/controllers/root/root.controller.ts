@@ -28,6 +28,7 @@ export function showApiInfo() {
         "/products/low-stock",
         "/payment-methods",
         "/clients",
+        "/clients/cnpj/:cnpj",
         "/stock-adjustments",
         "/stock-entries",
         "/stock-movements",
