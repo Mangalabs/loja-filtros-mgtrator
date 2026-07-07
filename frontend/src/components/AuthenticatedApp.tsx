@@ -171,6 +171,7 @@ export function AuthenticatedApp({
           onCancelClient={() => setSelectedClient(undefined)}
           onCancelProductEdit={() => setView("products")}
           onOpenQuotes={() => setView("quotes")}
+          onSelectView={setView}
           onSearchChange={setSearch}
           onSelectClient={setSelectedClient}
           requestConfirmation={requestConfirmation}

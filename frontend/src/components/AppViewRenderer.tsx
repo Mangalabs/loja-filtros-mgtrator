@@ -87,6 +87,7 @@ type AppViewRendererProps = {
   onCancelClient: () => void;
   onCancelProductEdit: () => void;
   onOpenQuotes: () => void;
+  onSelectView: (view: View) => void;
   onSearchChange: (value: string) => void;
   onSelectClient: (client: Client | undefined) => void;
   requestConfirmation: RequestConfirmation;
@@ -125,6 +126,7 @@ export function AppViewRenderer({
   onCancelClient,
   onCancelProductEdit,
   onOpenQuotes,
+  onSelectView,
   onSearchChange,
   onSelectClient,
   requestConfirmation,
@@ -208,6 +210,7 @@ export function AppViewRenderer({
           onIssuePickupReservationFiscalDocument={(reservation) =>
             void salesActions.issuePickupReservationFiscalDocument(reservation)
           }
+          onResolveFiscalPendency={onSelectView}
           onSyncFiscalDocument={(fiscalDocument) =>
             void financeActions.syncFiscalDocument(fiscalDocument)
           }

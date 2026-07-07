@@ -55,6 +55,7 @@ export function FiscalDocumentsPage({
   onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
   onIssueShippingOrderFiscalDocument,
+  onResolveFiscalPendency,
   onCancelFiscalDocument,
   onSyncFiscalDocument,
 }: {
@@ -70,6 +71,7 @@ export function FiscalDocumentsPage({
   ) => void
   onIssueSaleFiscalDocument: (sale: Sale) => void
   onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
+  onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
   onCancelFiscalDocument: (
     event: FormEvent<HTMLFormElement>,
     fiscalDocument: FiscalDocument,
@@ -159,6 +161,7 @@ export function FiscalDocumentsPage({
                     onIssueShippingOrderFiscalDocument={
                       onIssueShippingOrderFiscalDocument
                     }
+                    onResolveFiscalPendency={onResolveFiscalPendency}
                   />
                 </div>
               ),
@@ -288,6 +291,7 @@ function FiscalRequestAction({
   onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
   onIssueShippingOrderFiscalDocument,
+  onResolveFiscalPendency,
 }: {
   request: FiscalRequest
   onIssuePickupReservationFiscalDocument: (
@@ -295,6 +299,7 @@ function FiscalRequestAction({
   ) => void
   onIssueSaleFiscalDocument: (sale: Sale) => void
   onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
+  onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
 }) {
   const action = fiscalRequestAction(request, {
     onIssuePickupReservationFiscalDocument,
@@ -302,15 +307,54 @@ function FiscalRequestAction({
     onIssueShippingOrderFiscalDocument,
   })
 
-  return action && request.readinessIssues.length === 0 ? (
-    <TableActionButton type='button' onClick={action}>
-      {fiscalRequestActionText(request)}
-    </TableActionButton>
-  ) : (
+  if (action && request.readinessIssues.length === 0) {
+    return (
+      <TableActionButton type='button' onClick={action}>
+        {fiscalRequestActionText(request)}
+      </TableActionButton>
+    )
+  }
+
+  if (canIssueFiscalRequest(request) && request.readinessIssues.length > 0) {
+    return (
+      <TableActionButton
+        type='button'
+        onClick={() =>
+          onResolveFiscalPendency(fiscalPendencyTarget(request.readinessIssues))
+        }>
+        {fiscalRequestActionLabel(request, Boolean(action))}
+      </TableActionButton>
+    )
+  }
+
+  return (
     <InlineNote>
       {fiscalRequestActionLabel(request, Boolean(action))}
     </InlineNote>
   )
+}
+
+type FiscalPendencyTarget = 'clients' | 'fiscal-settings' | 'products'
+type FiscalPendencyCategory = 'client' | 'configuration' | 'product'
+
+function fiscalPendencyTarget(issues: string[]): FiscalPendencyTarget {
+  const targetByCategory: Record<FiscalPendencyCategory, FiscalPendencyTarget> = {
+    client: 'clients',
+    configuration: 'fiscal-settings',
+    product: 'products',
+  }
+  const categoryPriority: FiscalPendencyCategory[] = [
+    'configuration',
+    'client',
+    'product',
+  ]
+  const issueCategories = issues.map(fiscalReadinessIssueCategory)
+  const category =
+    categoryPriority.find((currentCategory) =>
+      issueCategories.includes(currentCategory),
+    ) ?? 'product'
+
+  return targetByCategory[category]
 }
 
 function FiscalReadinessStatus({ request }: { request: FiscalRequest }) {
