@@ -30,6 +30,7 @@ export function AuthenticatedApp({
     brands,
     cashRegister,
     clients,
+    commercialSettings,
     filteredProducts,
     fiscalDocuments,
     fiscalSettings,
@@ -143,6 +144,7 @@ export function AuthenticatedApp({
           cashRegister={cashRegister}
           catalogActions={catalogActions}
           clients={clients}
+          commercialSettings={commercialSettings}
           financeActions={financeActions}
           filteredProducts={filteredProducts}
           fiscalDocuments={fiscalDocuments}

@@ -8,6 +8,7 @@ import {
   Filter,
   List as ListIcon,
   PackagePlus,
+  Percent,
   Send,
   ShoppingCart,
   ReceiptText,
@@ -82,6 +83,13 @@ export function AppSidebar({
             onClick={onNewProduct}
           >
             Novo produto
+          </NavButton>
+          <NavButton
+            active={view === "commercial-settings"}
+            icon={<Percent size={18} />}
+            onClick={() => onSelectView("commercial-settings")}
+          >
+            Configuracao comercial
           </NavButton>
         </NavSection>
 

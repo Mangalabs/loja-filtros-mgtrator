@@ -122,6 +122,20 @@ export function useCatalogActions({
     return result.data;
   }
 
+  async function saveCommercialSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    await runAction(async () => {
+      await apiPut("/commercial-settings", {
+        defaultProfitMarginPercentage: Number(
+          form.get("defaultProfitMarginPercentage") ?? 0,
+        ),
+      });
+      await loadCatalog();
+    });
+  }
+
   async function createProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -204,6 +218,7 @@ export function useCatalogActions({
     editProduct,
     lookupClientCompany,
     saveClient,
+    saveCommercialSettings,
     updateProduct,
   };
 }

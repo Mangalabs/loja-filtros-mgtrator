@@ -264,6 +264,13 @@ export type FiscalSettings = {
   updatedAt: string;
 };
 
+export type CommercialSettings = {
+  id: string;
+  defaultProfitMarginPercentage: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ShippingOrder = {
   id: string;
   quoteId: string | null;

@@ -4,6 +4,7 @@ import {
   type ApiResult,
   type CashRegisterSession,
   type Client,
+  type CommercialSettings,
   type FiscalDocument,
   type FiscalSettings,
   type NamedEntity,
@@ -44,6 +45,8 @@ export function useCatalogData() {
   const [fiscalSettings, setFiscalSettings] = useState<FiscalSettings | null>(
     null,
   );
+  const [commercialSettings, setCommercialSettings] =
+    useState<CommercialSettings | null>(null);
   const [shippingOrders, setShippingOrders] = useState<ShippingOrder[]>([]);
   const [pickupReservations, setPickupReservations] = useState<
     PickupReservation[]
@@ -73,6 +76,7 @@ export function useCatalogData() {
         salesResult,
         fiscalDocumentsResult,
         fiscalSettingsResult,
+        commercialSettingsResult,
         shippingOrdersResult,
         pickupReservationsResult,
       ] = await Promise.all([
@@ -91,6 +95,7 @@ export function useCatalogData() {
         apiGet<ApiResult<Sale[]>>("/sales"),
         apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents"),
         apiGet<ApiResult<FiscalSettings>>("/fiscal-settings"),
+        apiGet<ApiResult<CommercialSettings>>("/commercial-settings"),
         apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
         apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
       ]);
@@ -110,6 +115,7 @@ export function useCatalogData() {
       setSales(salesResult.data);
       setFiscalDocuments(fiscalDocumentsResult.data);
       setFiscalSettings(fiscalSettingsResult.data);
+      setCommercialSettings(commercialSettingsResult.data);
       setShippingOrders(shippingOrdersResult.data);
       setPickupReservations(pickupReservationsResult.data);
       setState("ready");
@@ -162,6 +168,7 @@ export function useCatalogData() {
     brands,
     cashRegister,
     clients,
+    commercialSettings,
     filteredProducts,
     fiscalDocuments,
     fiscalSettings,

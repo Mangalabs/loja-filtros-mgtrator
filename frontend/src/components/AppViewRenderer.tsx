@@ -1,6 +1,7 @@
 import type {
   CashRegisterSession,
   Client,
+  CommercialSettings,
   AuthUser,
   NamedEntity,
   FiscalDocument,
@@ -32,6 +33,7 @@ import {
   ProductsPage,
   SuppliersPage,
 } from "../views/catalog/CatalogPages";
+import { CommercialSettingsPage } from "../views/catalog/CommercialSettingsPage";
 import { CashRegisterPage } from "../views/finance/CashRegisterPage";
 import { FiscalDocumentsPage } from "../views/finance/FiscalDocumentsPage";
 import { FiscalSettingsPage } from "../views/finance/FiscalSettingsPage";
@@ -60,6 +62,7 @@ type AppViewRendererProps = {
   cashRegister: CashRegisterSession | null;
   catalogActions: ReturnType<typeof useCatalogActions>;
   clients: Client[];
+  commercialSettings: CommercialSettings | null;
   financeActions: ReturnType<typeof useFinanceActions>;
   filteredProducts: Product[];
   fiscalDocuments: FiscalDocument[];
@@ -99,6 +102,7 @@ export function AppViewRenderer({
   cashRegister,
   catalogActions,
   clients,
+  commercialSettings,
   financeActions,
   filteredProducts,
   fiscalDocuments,
@@ -148,6 +152,7 @@ export function AppViewRenderer({
     "new-product": (
         <ProductForm
           brands={brands}
+          commercialSettings={commercialSettings}
           onSubmit={catalogActions.createProduct}
           submitLabel="Cadastrar produto"
         />
@@ -156,12 +161,19 @@ export function AppViewRenderer({
         <ProductForm
           key={selectedProduct.id}
           brands={brands}
+          commercialSettings={commercialSettings}
           product={selectedProduct}
           onSubmit={catalogActions.updateProduct}
           onCancel={onCancelProductEdit}
           submitLabel="Salvar alteracoes"
         />
       ) : null,
+    "commercial-settings": (
+        <CommercialSettingsPage
+          settings={commercialSettings}
+          onSubmit={catalogActions.saveCommercialSettings}
+        />
+      ),
     "stock-entries": (
         <StockEntriesPage
           entries={stockEntries}

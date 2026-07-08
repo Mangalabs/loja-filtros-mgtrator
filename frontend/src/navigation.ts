@@ -4,6 +4,7 @@ export type View =
   | "products"
   | "new-product"
   | "edit-product"
+  | "commercial-settings"
   | "stock-entries"
   | "stock-adjustments"
   | "stock-movements"
@@ -36,7 +37,7 @@ export type NavSectionKey =
   | "administration";
 
 export const navSectionViews: Record<NavSectionKey, View[]> = {
-  products: ["products", "new-product", "edit-product"],
+  products: ["products", "new-product", "edit-product", "commercial-settings"],
   catalog: ["brands", "clients"],
   stock: ["stock-entries", "stock-adjustments", "stock-movements", "low-stock"],
   suppliers: ["suppliers"],
@@ -118,6 +119,11 @@ export const viewTitles: Record<View, { title: string; description: string }> =
     "edit-product": {
       title: "Editar produto",
       description: "Atualize os dados cadastrais do produto selecionado.",
+    },
+    "commercial-settings": {
+      title: "Configuracao comercial",
+      description:
+        "Defina a margem base para sugestao de preco de venda nos produtos.",
     },
     "stock-entries": {
       title: "Entrada de mercadoria",

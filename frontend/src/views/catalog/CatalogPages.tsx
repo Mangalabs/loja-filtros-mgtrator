@@ -11,10 +11,11 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type {
   Client,
   ClientCompanyLookup,
+  CommercialSettings,
   NamedEntity,
   Product,
   Supplier,
@@ -180,17 +181,44 @@ function ProductTable({
 
 export function ProductForm({
   brands,
+  commercialSettings,
   product,
   onSubmit,
   onCancel,
   submitLabel,
 }: {
   brands: NamedEntity[];
+  commercialSettings: CommercialSettings | null;
   product?: Product;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCancel?: () => void;
   submitLabel: string;
 }) {
+  const defaultProfitMarginPercentage = Number(
+    commercialSettings?.defaultProfitMarginPercentage ?? 0,
+  );
+  const [costPrice, setCostPrice] = useState(product?.costPrice ?? "");
+  const [salePrice, setSalePrice] = useState(product?.salePrice ?? "");
+  const [salePriceTouched, setSalePriceTouched] = useState(
+    Boolean(product?.salePrice),
+  );
+
+  useEffect(() => {
+    setCostPrice(product?.costPrice ?? "");
+    setSalePrice(product?.salePrice ?? "");
+    setSalePriceTouched(Boolean(product?.salePrice));
+  }, [product?.id, product?.costPrice, product?.salePrice]);
+
+  useEffect(() => {
+    if (salePriceTouched) {
+      return;
+    }
+
+    setSalePrice(
+      suggestedSalePrice(costPrice, defaultProfitMarginPercentage),
+    );
+  }, [costPrice, defaultProfitMarginPercentage, salePriceTouched]);
+
   return (
     <FormGrid className="max-w-5xl gap-5" onSubmit={onSubmit}>
       <PageHeader
@@ -250,14 +278,20 @@ export function ProductForm({
           label="Custo"
           name="costPrice"
           type="number"
-          defaultValue={product?.costPrice}
+          value={costPrice}
+          onChange={(event) => setCostPrice(event.target.value)}
           slotProps={{ htmlInput: { step: "0.01" } }}
         />
         <TextField
+          helperText={salePriceHelperText(defaultProfitMarginPercentage)}
           label="Venda"
           name="salePrice"
           type="number"
-          defaultValue={product?.salePrice}
+          value={salePrice}
+          onChange={(event) => {
+            setSalePrice(event.target.value);
+            setSalePriceTouched(true);
+          }}
           slotProps={{ htmlInput: { step: "0.01" } }}
         />
       </FormRow>
@@ -345,6 +379,24 @@ export function ProductForm({
       </ActionGroup>
     </FormGrid>
   );
+}
+
+function suggestedSalePrice(costPrice: string, profitMarginPercentage: number) {
+  const cost = Number(costPrice);
+
+  if (!Number.isFinite(cost) || cost <= 0) {
+    return "";
+  }
+
+  return (cost * (1 + profitMarginPercentage / 100)).toFixed(2);
+}
+
+function salePriceHelperText(profitMarginPercentage: number) {
+  if (profitMarginPercentage <= 0) {
+    return "Configure uma margem comercial para sugerir o preco automaticamente.";
+  }
+
+  return `Sugestao automatica pela margem base de ${profitMarginPercentage.toLocaleString("pt-BR")}%`;
 }
 
 export function NamedEntityPage({

@@ -317,6 +317,7 @@ Estado: parcialmente entregue.
 - Orcamentos possuem desconto direto geral e desconto direto por item.
 - Venda, pedido para envio e reserva para retirada exigem confirmacao extra para seguir sem estoque suficiente.
 - Orcamentos, vendas, cupons e documentos fiscais possuem datas de fatura e vencimento.
+- Produtos possuem configuracao comercial de margem base para sugerir preco de venda a partir do custo, mantendo o preco editavel.
 
 ### Fase 4 - Fiscal
 
@@ -342,7 +343,6 @@ Estado: inicial entregue.
 - Ainda nao ha testes frontend automatizados.
 - Fiscal esta bom para homologacao, mas antes de producao precisa validacao manual final com checklist rigido e dados reais da empresa.
 - Campos fiscais adicionais podem surgir conforme rejeicoes reais da SEFAZ/Focus.
-- Produtos precisam ganhar calculo sugerido de venda por porcentagem de lucro base configuravel, mantendo o valor editavel pelo usuario.
 
 ## Rumo Recomendado
 
@@ -354,18 +354,12 @@ Estado: inicial entregue.
 - Validar NF-e com descontos em venda de balcao e em venda originada de orcamento.
 - Manter producao bloqueada ate checklist fiscal final ser cumprido.
 
-### 2. Melhorar precificacao de produtos
-
-- Criar configuracao de porcentagem de lucro base para sugestao automatica do preco de venda.
-- Ao preencher o custo no cadastro/edicao de produto, sugerir o preco de venda pela porcentagem configurada.
-- Manter o preco de venda editavel para excecoes comerciais.
-
-### 3. Completar PDV/Caixa
+### 2. Completar PDV/Caixa
 
 - Estorno financeiro detalhado de itens devolvidos.
 - Expor devolucao por item na tela de vendas.
 
-### 4. Compras
+### 3. Compras
 
 - Entrada por XML de NF-e de compra.
 - Vincular itens do XML a produtos.
