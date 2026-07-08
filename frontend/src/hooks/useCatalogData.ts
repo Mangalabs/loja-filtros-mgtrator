@@ -95,7 +95,7 @@ export function useCatalogData() {
         apiGet<ApiResult<Sale[]>>("/sales"),
         apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents"),
         apiGet<ApiResult<FiscalSettings>>("/fiscal-settings"),
-        apiGet<ApiResult<CommercialSettings>>("/commercial-settings"),
+        fetchCommercialSettings(),
         apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
         apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
       ]);
@@ -115,7 +115,7 @@ export function useCatalogData() {
       setSales(salesResult.data);
       setFiscalDocuments(fiscalDocumentsResult.data);
       setFiscalSettings(fiscalSettingsResult.data);
-      setCommercialSettings(commercialSettingsResult.data);
+      setCommercialSettings(commercialSettingsResult);
       setShippingOrders(shippingOrdersResult.data);
       setPickupReservations(pickupReservationsResult.data);
       setState("ready");
@@ -211,4 +211,20 @@ async function fetchProductCatalog() {
   }
 
   return products;
+}
+
+async function fetchCommercialSettings() {
+  try {
+    const result = await apiGet<ApiResult<CommercialSettings>>(
+      "/commercial-settings",
+    );
+
+    return result.data;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Route not found")) {
+      return null;
+    }
+
+    throw error;
+  }
 }
