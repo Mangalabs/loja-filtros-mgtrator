@@ -2644,6 +2644,8 @@ describe("catalog routes", () => {
 
     requestPayload.sale.totalAmount = "140.00";
     requestPayload.sale.discountAmount = "10.00";
+    requestPayload.sale.billingIssueDate = "2026-07-10";
+    requestPayload.sale.billingDueDate = "2026-07-25";
     requestPayload.sale.items[0].quantity = "2.000";
     requestPayload.sale.items[0].unitPrice = "40.00";
     requestPayload.sale.items[0].discountAmount = "5.00";
@@ -2694,6 +2696,17 @@ describe("catalog routes", () => {
       assert.equal(payload.valor_produtos, 155);
       assert.equal(payload.valor_desconto, 15);
       assert.equal(payload.valor_total, 140);
+      assert.equal(payload.numero_fatura, "salefocusprovidertest");
+      assert.equal(payload.valor_original_fatura, 155);
+      assert.equal(payload.valor_desconto_fatura, 15);
+      assert.equal(payload.valor_liquido_fatura, 140);
+      assert.deepEqual(payload.duplicatas, [
+        {
+          numero: "001",
+          data_vencimento: "2026-07-25",
+          valor: 140,
+        },
+      ]);
       assert.equal(items[0]?.valor_bruto, 80);
       assert.equal(items[0]?.valor_desconto, 5);
       assert.equal(items[1]?.valor_bruto, 75);
@@ -5169,6 +5182,8 @@ function focusIssueRequest(): FiscalIssueRequest {
       paymentMethodName: "PIX",
       totalAmount: "35.00",
       discountAmount: "0.00",
+      billingIssueDate: null,
+      billingDueDate: null,
       items: [
         {
           productId: "productfocusprovidertest",

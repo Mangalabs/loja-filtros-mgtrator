@@ -36,6 +36,8 @@ export type FiscalIssueRequest = {
     paymentMethodName: string;
     totalAmount: string;
     discountAmount: string;
+    billingIssueDate: string | null;
+    billingDueDate: string | null;
     items: Array<{
       productId: string;
       productInternalCode: string | null;

@@ -35,6 +35,8 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
             <p><strong>Cliente:</strong> ${escapeHtml(sale.clientName ?? "Nao identificado")}</p>
             <p><strong>Documento:</strong> ${escapeHtml(sale.clientDocument ?? "Nao informado")}</p>
             <p><strong>Pagamento:</strong> ${escapeHtml(sale.paymentMethodName)}</p>
+            <p><strong>Data da fatura:</strong> ${formatOptionalDate(sale.billingIssueDate)}</p>
+            <p><strong>Vencimento:</strong> ${formatOptionalDate(sale.billingDueDate)}</p>
           </section>
 
           <table class="items-table">
@@ -221,4 +223,8 @@ function formatQuantity(value: string) {
 
 function formatDateTime(value: Date | string) {
   return new Date(value).toLocaleString("pt-BR");
+}
+
+function formatOptionalDate(value: Date | string | null) {
+  return value ? new Date(value).toLocaleDateString("pt-BR") : "Nao informada";
 }

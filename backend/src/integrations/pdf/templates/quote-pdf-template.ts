@@ -66,6 +66,8 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
               <p><strong>Email:</strong> ${escapeHtml(quote.clientEmail ?? "Nao informado")}</p>
               <p><strong>Forma de pagamento:</strong> ${escapeHtml(quote.paymentMethodName ?? "Nao informada")}</p>
               <p><strong>Emissao:</strong> ${formatDate(quote.createdAt)}</p>
+              <p><strong>Data da fatura:</strong> ${formatOptionalDate(quote.billingIssueDate)}</p>
+              <p><strong>Vencimento:</strong> ${formatOptionalDate(quote.billingDueDate)}</p>
               <p><strong>Validade:</strong> ${quote.validUntil ? formatDate(quote.validUntil) : "Nao informada"}</p>
             </div>
           </section>
@@ -365,4 +367,8 @@ function formatQuantity(value: string) {
 
 function formatDate(value: Date | string) {
   return new Date(value).toLocaleDateString("pt-BR");
+}
+
+function formatOptionalDate(value: Date | string | null) {
+  return value ? formatDate(value) : "Nao informada";
 }
