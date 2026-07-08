@@ -100,6 +100,8 @@ type Sale = {
   subtotalAmount: string;
   discountAmount: string;
   totalAmount: string;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   items: Array<{
     id: string;
     productId: string;
@@ -186,6 +188,8 @@ type Quote = {
   discountPercentage: string;
   discountAmount: string;
   totalAmount: string;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   validUntil: string | null;
   notes: string | null;
   cancelledByUserName: string | null;
@@ -968,6 +972,16 @@ describe("catalog routes", () => {
         discountAmount: 90,
       },
     });
+    const invalidBillingDates = await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+        billingIssueDate: "2026-07-10",
+        billingDueDate: "2026-07-09",
+      },
+    });
     const created = await request<Sale>("/sales", {
       method: "POST",
       body: {
@@ -975,6 +989,8 @@ describe("catalog routes", () => {
         paymentMethodId: pix?.id,
         quantity: 2,
         discountAmount: 15,
+        billingIssueDate: "2026-07-10",
+        billingDueDate: "2026-07-20",
       },
     });
     const cash = await request<CashRegisterSession | null>(
@@ -986,10 +1002,17 @@ describe("catalog routes", () => {
       excessiveDiscount.body.message,
       "Desconto nao pode ser maior que o subtotal da venda.",
     );
+    assert.equal(invalidBillingDates.status, 422);
+    assert.equal(
+      invalidBillingDates.body.errors?.[0]?.message,
+      "Vencimento nao pode ser anterior a data da fatura.",
+    );
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.subtotalAmount, "80.00");
     assert.equal(created.body.data?.discountAmount, "15.00");
     assert.equal(created.body.data?.totalAmount, "65.00");
+    assert.ok(created.body.data?.billingIssueDate?.startsWith("2026-07-10"));
+    assert.ok(created.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.equal(cash.body.data?.salesTotal, "65.00");
     assert.equal(cash.body.data?.paymentSummary[0]?.amount, "65.00");
   });
@@ -3987,6 +4010,8 @@ describe("catalog routes", () => {
       body: {
         clientId: client.body.data?.id,
         paymentMethodId: quotePaymentMethod.id,
+        billingIssueDate: "2026-06-10",
+        billingDueDate: "2026-06-25",
         validUntil: "2026-06-30",
         notes: "Retirar condicoes no PDF depois",
         showBrand: false,
@@ -4034,6 +4059,8 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.paymentMethodName, "PIX");
     assert.equal(created.body.data?.showBrand, false);
     assert.equal(created.body.data?.totalAmount, "170.00");
+    assert.ok(created.body.data?.billingIssueDate?.startsWith("2026-06-10"));
+    assert.ok(created.body.data?.billingDueDate?.startsWith("2026-06-25"));
     assert.ok(created.body.data?.validUntil?.startsWith("2026-06-30"));
     assert.equal(created.body.data?.notes, "Retirar condicoes no PDF depois");
     assert.equal(created.body.data?.items.length, 2);
@@ -4055,11 +4082,19 @@ describe("catalog routes", () => {
     assert.equal(shown.body.data?.items.length, 2);
     assert.equal(shown.body.data?.paymentMethodName, "PIX");
     assert.equal(shown.body.data?.showBrand, false);
+    assert.ok(shown.body.data?.billingIssueDate?.startsWith("2026-06-10"));
+    assert.ok(shown.body.data?.billingDueDate?.startsWith("2026-06-25"));
     assert.equal(shown.body.data?.shippingOrderId, null);
     assert.equal(shown.body.data?.shippingOrderStatus, null);
     assert.equal(listed.body.data?.length, 1);
     assert.equal(listed.body.data?.[0]?.paymentMethodName, "PIX");
     assert.equal(listed.body.data?.[0]?.showBrand, false);
+    assert.ok(
+      listed.body.data?.[0]?.billingIssueDate?.startsWith("2026-06-10"),
+    );
+    assert.ok(
+      listed.body.data?.[0]?.billingDueDate?.startsWith("2026-06-25"),
+    );
     assert.equal(listed.body.data?.[0]?.shippingOrderId, null);
     assert.equal(pdf.status, 200);
     assert.equal(pdf.contentType, "application/pdf");
@@ -4135,6 +4170,8 @@ describe("catalog routes", () => {
       body: {
         clientId: client.body.data?.id,
         paymentMethodId: boleto.id,
+        billingIssueDate: "2026-07-01",
+        billingDueDate: "2026-07-20",
         validUntil: "2026-07-15",
         notes: "Orcamento revisado pelo cliente",
         showBrand: false,
@@ -4174,6 +4211,8 @@ describe("catalog routes", () => {
     assert.equal(updated.body.data?.discountAmount, "16.15");
     assert.equal(updated.body.data?.totalAmount, "145.35");
     assert.equal(updated.body.data?.showBrand, false);
+    assert.ok(updated.body.data?.billingIssueDate?.startsWith("2026-07-01"));
+    assert.ok(updated.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.ok(updated.body.data?.validUntil?.startsWith("2026-07-15"));
     assert.equal(updated.body.data?.notes, "Orcamento revisado pelo cliente");
     assert.equal(updated.body.data?.items.length, 1);
@@ -4191,6 +4230,8 @@ describe("catalog routes", () => {
     assert.equal(updated.body.data?.items[0]?.discountAmount, "8.50");
     assert.equal(updated.body.data?.items[0]?.totalAmount, "161.50");
     assert.equal(shown.body.data?.totalAmount, "145.35");
+    assert.ok(shown.body.data?.billingIssueDate?.startsWith("2026-07-01"));
+    assert.ok(shown.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.equal(shown.body.data?.items.length, 1);
     assert.equal(updateAfterShippingOrder.status, 409);
     assert.equal(
@@ -4322,9 +4363,24 @@ describe("catalog routes", () => {
         items: [{ productId: product.body.data?.id, quantity: 1 }],
       },
     });
+    const invalidBillingDates = await request("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
+        billingIssueDate: "2026-07-10",
+        billingDueDate: "2026-07-09",
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
 
     assert.equal(withoutItems.status, 422);
     assert.equal(withoutItems.body.errors?.[0]?.field, "items");
+    assert.equal(invalidBillingDates.status, 422);
+    assert.equal(
+      invalidBillingDates.body.errors?.[0]?.message,
+      "Vencimento nao pode ser anterior a data da fatura.",
+    );
     assert.equal(inactiveProduct.status, 422);
     assert.equal(
       inactiveProduct.body.message,

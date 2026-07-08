@@ -236,6 +236,10 @@ export async function completeSeparatedShippingOrder(
   paymentMethodId: string,
   completedByUserId: string,
   allowInsufficientStock = false,
+  billingDates: {
+    billingIssueDate?: string | null;
+    billingDueDate?: string | null;
+  } = {},
 ) {
   const order = await db.transaction(async (transaction) => {
     const currentOrder = await lockShippingOrder(transaction, id);
@@ -309,6 +313,9 @@ export async function completeSeparatedShippingOrder(
       transaction,
       {
         clientId: currentOrder.clientId,
+        billingIssueDate:
+          billingDates.billingIssueDate ?? currentOrder.billingIssueDate,
+        billingDueDate: billingDates.billingDueDate ?? currentOrder.billingDueDate,
         discountAmount: saleDiscountAmount,
         paymentMethodId,
         items: currentOrder.items.map((item) => ({

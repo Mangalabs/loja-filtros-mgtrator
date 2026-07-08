@@ -62,7 +62,30 @@ const cancelPickupReservationSchema = z.object({
 
 const completePickupReservationSchema = z.object({
   paymentMethodId: z.uuid(),
+  billingIssueDate: z
+    .union([z.iso.date(), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional(),
+  billingDueDate: z
+    .union([z.iso.date(), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional(),
   allowInsufficientStock: z.boolean().optional(),
+}).superRefine((value, context) => {
+  const hasValidBillingDates =
+    !value.billingIssueDate ||
+    !value.billingDueDate ||
+    value.billingDueDate >= value.billingIssueDate;
+
+  if (hasValidBillingDates) {
+    return;
+  }
+
+  context.addIssue({
+    code: "custom",
+    message: "Vencimento nao pode ser anterior a data da fatura.",
+    path: ["billingDueDate"],
+  });
 });
 
 pickupReservationsRoutes.get(
@@ -110,6 +133,10 @@ pickupReservationsRoutes.patch(
           body.paymentMethodId,
           userId,
           body.allowInsufficientStock ?? false,
+          {
+            billingIssueDate: body.billingIssueDate,
+            billingDueDate: body.billingDueDate,
+          },
         ),
       );
   },

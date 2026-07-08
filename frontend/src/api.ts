@@ -208,6 +208,8 @@ export type Sale = {
   subtotalAmount: string;
   discountAmount: string;
   totalAmount: string;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   items: Array<{
     id: string;
     productId: string;
@@ -343,6 +345,8 @@ export type Quote = {
   discountPercentage: string;
   discountAmount: string;
   totalAmount: string;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   validUntil: string | null;
   notes: string | null;
   cancelledByUserName: string | null;

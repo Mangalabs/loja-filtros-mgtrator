@@ -12,6 +12,8 @@ export type QuoteItemInput = {
 export type QuoteInput = {
   clientId: string
   paymentMethodId: string
+  billingIssueDate?: string | null
+  billingDueDate?: string | null
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
@@ -51,6 +53,8 @@ export type Quote = {
   discountPercentage: string
   discountAmount: string
   totalAmount: string
+  billingIssueDate: string | null
+  billingDueDate: string | null
   validUntil: string | null
   notes: string | null
   cancelledByUserName: string | null
@@ -104,6 +108,8 @@ const quoteColumns = [
   'quotes.discount_percentage as discountPercentage',
   'quotes.discount_amount as discountAmount',
   'quotes.total_amount as totalAmount',
+  'quotes.billing_issue_date as billingIssueDate',
+  'quotes.billing_due_date as billingDueDate',
   'quotes.valid_until as validUntil',
   'quotes.notes',
   'cancelled_users.name as cancelledByUserName',
@@ -221,6 +227,8 @@ export async function insertQuote(
       discount_percentage: discountPercentage,
       discount_amount: discountAmount,
       total_amount: totalAmount,
+      billing_issue_date: input.billingIssueDate,
+      billing_due_date: input.billingDueDate,
       valid_until: input.validUntil,
       notes: input.notes,
     })
@@ -279,6 +287,8 @@ export async function updateQuote(
     discount_percentage: discountPercentage,
     discount_amount: discountAmount,
     total_amount: totalAmount,
+    billing_issue_date: input.billingIssueDate,
+    billing_due_date: input.billingDueDate,
     valid_until: input.validUntil,
     notes: input.notes,
     updated_at: transaction.fn.now(),

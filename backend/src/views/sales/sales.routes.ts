@@ -20,6 +20,14 @@ const createSaleSchema = z
     productId: z.uuid().optional(),
     quantity: z.coerce.number().positive().optional(),
     paymentMethodId: z.uuid(),
+    billingIssueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    billingDueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
     discountAmount: z.coerce.number().min(0).optional(),
     allowInsufficientStock: z.boolean().optional(),
     clientId: z
@@ -50,10 +58,27 @@ const createSaleSchema = z
         path: ["items"],
       });
     }
+
+    const hasValidBillingDates =
+      !value.billingIssueDate ||
+      !value.billingDueDate ||
+      value.billingDueDate >= value.billingIssueDate;
+
+    if (hasValidBillingDates) {
+      return;
+    }
+
+    context.addIssue({
+      code: "custom",
+      message: "Vencimento nao pode ser anterior a data da fatura.",
+      path: ["billingDueDate"],
+    });
   })
   .transform((value) => ({
     paymentMethodId: value.paymentMethodId,
     clientId: value.clientId,
+    billingIssueDate: value.billingIssueDate,
+    billingDueDate: value.billingDueDate,
     discountAmount: value.discountAmount ?? 0,
     allowInsufficientStock: value.allowInsufficientStock ?? false,
     items: value.items ?? [

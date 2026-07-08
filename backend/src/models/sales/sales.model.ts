@@ -4,6 +4,8 @@ import { db } from "../../database/knex.js";
 export type SaleInput = {
   paymentMethodId: string;
   clientId?: string | null;
+  billingIssueDate?: string | null;
+  billingDueDate?: string | null;
   discountAmount: number;
   allowInsufficientStock?: boolean;
   items: Array<{
@@ -21,6 +23,8 @@ export type Sale = {
   subtotalAmount: string;
   discountAmount: string;
   totalAmount: string;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   items: SaleItem[];
   clientId: string | null;
   clientPersonType: "PF" | "PJ" | "ES" | null;
@@ -86,6 +90,8 @@ const saleColumns = [
   "sales.subtotal_amount as subtotalAmount",
   "sales.discount_amount as discountAmount",
   "sales.total_amount as totalAmount",
+  "sales.billing_issue_date as billingIssueDate",
+  "sales.billing_due_date as billingDueDate",
   "sales.client_id as clientId",
   "clients.person_type as clientPersonType",
   "clients.name as clientName",
@@ -405,6 +411,8 @@ export async function insertSale(
       subtotal_amount: subtotalAmount,
       discount_amount: input.discountAmount,
       total_amount: totalAmount,
+      billing_issue_date: input.billingIssueDate,
+      billing_due_date: input.billingDueDate,
     })
     .returning("id");
 
