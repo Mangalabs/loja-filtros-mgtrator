@@ -316,6 +316,7 @@ Estado: parcialmente entregue.
 - Orcamentos podem ser editados enquanto estiverem em rascunho.
 - Orcamentos possuem desconto direto geral e desconto direto por item.
 - Venda, pedido para envio e reserva para retirada exigem confirmacao extra para seguir sem estoque suficiente.
+- Falta adicionar datas de fatura e vencimento em orcamentos, cupons de venda e documentos fiscais.
 
 ### Fase 4 - Fiscal
 
@@ -324,6 +325,7 @@ Estado: avancada em homologacao para NF-e.
 - NF-e Focus funcionando em homologacao para venda de balcao, pedido para envio e reserva para retirada.
 - Configuracao fiscal da loja ja existe em tela/tabela.
 - Producao exige confirmacao textual e checklist visual antes de liberar emissao.
+- Falta refletir datas de fatura e vencimento no payload fiscal quando a venda/orcamento tiver condicao de pagamento.
 - NFC-e segue fora do escopo por enquanto.
 
 ### Fase 5 - Relatorios
@@ -340,29 +342,38 @@ Estado: inicial entregue.
 - Ainda nao ha testes frontend automatizados.
 - Fiscal esta bom para homologacao, mas antes de producao precisa validacao manual final com checklist rigido e dados reais da empresa.
 - Campos fiscais adicionais podem surgir conforme rejeicoes reais da SEFAZ/Focus.
+- Orcamentos, cupons de venda e NF-e precisam ganhar datas de fatura e vencimento para apoiar vendas com boleto/pagamento a prazo.
+- Produtos precisam ganhar calculo sugerido de venda por porcentagem de lucro base configuravel, mantendo o valor editavel pelo usuario.
 
 ## Rumo Recomendado
 
-### 1. Fechar o ciclo fiscal MVP
+### 1. Fechar o ciclo comercial/fiscal MVP
 
 - Atualizar documentacao conforme os testes manuais e tecnicos avancarem.
 - Melhorar a tela de detalhes da NF-e e a leitura de rejeicoes.
 - Validar manualmente, no navegador, os fluxos de NF-e para balcao, envio e retirada.
 - Validar NF-e com descontos em venda de balcao e em venda originada de orcamento.
+- Adicionar datas de fatura e vencimento em orcamentos, cupons de venda e emissao fiscal.
 - Manter producao bloqueada ate checklist fiscal final ser cumprido.
 
-### 2. Completar PDV/Caixa
+### 2. Melhorar precificacao de produtos
+
+- Criar configuracao de porcentagem de lucro base para sugestao automatica do preco de venda.
+- Ao preencher o custo no cadastro/edicao de produto, sugerir o preco de venda pela porcentagem configurada.
+- Manter o preco de venda editavel para excecoes comerciais.
+
+### 3. Completar PDV/Caixa
 
 - Estorno financeiro detalhado de itens devolvidos.
 - Expor devolucao por item na tela de vendas.
 
-### 3. Compras
+### 4. Compras
 
 - Entrada por XML de NF-e de compra.
 - Vincular itens do XML a produtos.
 - Atualizar custo e estoque a partir da compra.
 
-### 4. Relatorios
+### 5. Relatorios
 
 - Vendas por periodo e produto.
 - Estoque atual e estoque baixo.
