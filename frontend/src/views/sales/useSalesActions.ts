@@ -212,6 +212,8 @@ export function useSalesActions({
     await runAction(async () => {
       await apiPatch(`/shipping-orders/${order.id}/complete`, {
         paymentMethodId: String(form.get("shippingPaymentMethodId") ?? ""),
+        billingIssueDate: formDateValue(form, "shippingBillingIssueDate"),
+        billingDueDate: formDateValue(form, "shippingBillingDueDate"),
         allowInsufficientStock,
       });
       await loadCatalog();
@@ -294,6 +296,8 @@ export function useSalesActions({
     await runAction(async () => {
       await apiPatch(`/pickup-reservations/${reservation.id}/complete`, {
         paymentMethodId: String(form.get("pickupPaymentMethodId") ?? ""),
+        billingIssueDate: formDateValue(form, "pickupBillingIssueDate"),
+        billingDueDate: formDateValue(form, "pickupBillingDueDate"),
         allowInsufficientStock,
       });
       await loadCatalog();
@@ -331,6 +335,10 @@ export function useSalesActions({
 
     return confirmed ? true : null;
   }
+}
+
+function formDateValue(form: FormData, field: string) {
+  return String(form.get(field) ?? "") || null;
 }
 
 function hasInsufficientStock(

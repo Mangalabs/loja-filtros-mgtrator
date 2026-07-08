@@ -38,6 +38,8 @@ type QuoteDraftItem = {
 export type QuoteDraftInput = {
   clientId: string
   paymentMethodId: string
+  billingIssueDate?: string | null
+  billingDueDate?: string | null
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
@@ -73,6 +75,8 @@ export function QuotesPage({
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
   const [clientId, setClientId] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('')
+  const [billingIssueDate, setBillingIssueDate] = useState('')
+  const [billingDueDate, setBillingDueDate] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
   const [showBrand, setShowBrand] = useState(true)
@@ -137,6 +141,8 @@ export function QuotesPage({
     setEditingQuoteId(null)
     setClientId('')
     setPaymentMethodId('')
+    setBillingIssueDate('')
+    setBillingDueDate('')
     setValidUntil('')
     setNotes('')
     setShowBrand(true)
@@ -150,6 +156,8 @@ export function QuotesPage({
     const input = {
       clientId,
       paymentMethodId,
+      billingIssueDate: billingIssueDate || null,
+      billingDueDate: billingDueDate || null,
       validUntil: validUntil || null,
       notes: notes.trim() || null,
       showBrand,
@@ -175,6 +183,8 @@ export function QuotesPage({
     setEditingQuoteId(quote.id)
     setClientId(quote.clientId)
     setPaymentMethodId(quote.paymentMethodId ?? '')
+    setBillingIssueDate(quote.billingIssueDate?.slice(0, 10) ?? '')
+    setBillingDueDate(quote.billingDueDate?.slice(0, 10) ?? '')
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
     setNotes(quote.notes ?? '')
     setShowBrand(quote.showBrand)
@@ -237,6 +247,24 @@ export function QuotesPage({
             </MenuItem>
           ))}
         </TextField>
+        <FormRow>
+          <TextField
+            label='Data da fatura'
+            size='medium'
+            type='date'
+            value={billingIssueDate}
+            onChange={(event) => setBillingIssueDate(event.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            label='Vencimento'
+            size='medium'
+            type='date'
+            value={billingDueDate}
+            onChange={(event) => setBillingDueDate(event.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+        </FormRow>
         <FormRow>
           <TextField
             label='Validade'
@@ -415,6 +443,22 @@ export function QuotesPage({
                   {quote.items.length} item(ns)
                   <InlineNote>
                     {quote.items.map((item) => item.description).join(', ')}
+                  </InlineNote>
+                </>
+              ),
+            },
+            {
+              header: 'Fatura',
+              render: (quote) => (
+                <>
+                  {quote.billingIssueDate
+                    ? formatDate(quote.billingIssueDate)
+                    : '-'}
+                  <InlineNote>
+                    Venc.{' '}
+                    {quote.billingDueDate
+                      ? formatDate(quote.billingDueDate)
+                      : '-'}
                   </InlineNote>
                 </>
               ),

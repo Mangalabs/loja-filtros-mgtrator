@@ -51,6 +51,8 @@ type PickupReservationDraftItem = {
 
 export type SaleDraftInput = {
   clientId?: string | null
+  billingIssueDate?: string | null
+  billingDueDate?: string | null
   discountAmount: number
   allowInsufficientStock?: boolean
   paymentMethodId: string
@@ -85,6 +87,8 @@ export function SalesPage({
   onSubmit: (input: SaleDraftInput) => Promise<boolean>
 }) {
   const [clientId, setClientId] = useState('')
+  const [billingIssueDate, setBillingIssueDate] = useState('')
+  const [billingDueDate, setBillingDueDate] = useState('')
   const [discountAmount, setDiscountAmount] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('')
   const [items, setItems] = useState<SaleDraftItem[]>([emptySaleItem()])
@@ -116,6 +120,8 @@ export function SalesPage({
 
   function resetForm() {
     setClientId('')
+    setBillingIssueDate('')
+    setBillingDueDate('')
     setDiscountAmount('')
     setPaymentMethodId('')
     setItems([emptySaleItem()])
@@ -126,6 +132,8 @@ export function SalesPage({
 
     const saved = await onSubmit({
       clientId: clientId || null,
+      billingIssueDate: billingIssueDate || null,
+      billingDueDate: billingDueDate || null,
       discountAmount: saleDiscount,
       paymentMethodId,
       items: items.map((item) => ({
@@ -226,6 +234,26 @@ export function SalesPage({
             label='Subtotal'
             size='medium'
             value={formatCurrency(saleSubtotal)}
+          />
+        </FormRow>
+        <FormRow>
+          <TextField
+            disabled={!cashRegister}
+            label='Data da fatura'
+            size='medium'
+            type='date'
+            value={billingIssueDate}
+            onChange={(event) => setBillingIssueDate(event.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            disabled={!cashRegister}
+            label='Vencimento'
+            size='medium'
+            type='date'
+            value={billingDueDate}
+            onChange={(event) => setBillingDueDate(event.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
           />
         </FormRow>
         <FormRow>
@@ -537,6 +565,24 @@ const shippingOrderActionRenderers: Record<
               </MenuItem>
             ))}
         </TextField>
+        <FormRow>
+          <TextField
+            disabled={!cashRegister}
+            label='Data da fatura'
+            name='shippingBillingIssueDate'
+            size='small'
+            type='date'
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            disabled={!cashRegister}
+            label='Vencimento'
+            name='shippingBillingDueDate'
+            size='small'
+            type='date'
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+        </FormRow>
         <ActionGroup>
           <TableActionButton type='submit' disabled={!cashRegister}>
             Concluir venda e saida
@@ -957,6 +1003,24 @@ function PickupReservationActions({
               </MenuItem>
             ))}
         </TextField>
+        <FormRow>
+          <TextField
+            disabled={!cashRegister}
+            label='Data da fatura'
+            name='pickupBillingIssueDate'
+            size='small'
+            type='date'
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            disabled={!cashRegister}
+            label='Vencimento'
+            name='pickupBillingDueDate'
+            size='small'
+            type='date'
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+        </FormRow>
         <ActionGroup>
           <TableActionButton type='submit' disabled={!cashRegister}>
             Concluir venda
