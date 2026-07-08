@@ -345,6 +345,13 @@ type FiscalSettings = {
   updatedAt: string;
 };
 
+type CommercialSettings = {
+  id: string;
+  defaultProfitMarginPercentage: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 let server: Server;
 let baseUrl: string;
 let authCookie: string;
@@ -738,6 +745,31 @@ describe("catalog routes", () => {
     assert.equal(production.status, 200);
     assert.equal(production.body.data?.environment, "PRODUCTION");
     assert.equal(production.body.data?.allowProduction, true);
+  });
+
+  it("shows and updates commercial settings", async () => {
+    const current = await request<CommercialSettings>("/commercial-settings");
+    const invalid = await request("/commercial-settings", {
+      method: "PUT",
+      body: { defaultProfitMarginPercentage: 1001 },
+    });
+    const updated = await request<CommercialSettings>("/commercial-settings", {
+      method: "PUT",
+      body: { defaultProfitMarginPercentage: 50 },
+    });
+    const listedAfterUpdate =
+      await request<CommercialSettings>("/commercial-settings");
+
+    assert.equal(current.status, 200);
+    assert.equal(current.body.data?.defaultProfitMarginPercentage, "0.00");
+    assert.equal(invalid.status, 422);
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data?.defaultProfitMarginPercentage, "50.00");
+    assert.equal(listedAfterUpdate.body.data?.id, updated.body.data?.id);
+    assert.equal(
+      listedAfterUpdate.body.data?.defaultProfitMarginPercentage,
+      "50.00",
+    );
   });
 
   it("opens one cash register session for the authenticated user", async () => {

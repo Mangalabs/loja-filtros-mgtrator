@@ -5,6 +5,7 @@ import { brandsRoutes } from "./brands/brands.routes.js";
 import { branchesRoutes } from "./branches/branches.routes.js";
 import { cashRegisterRoutes } from "./cash-register/cash-register.routes.js";
 import { clientsRoutes } from "./clients/clients.routes.js";
+import { commercialSettingsRoutes } from "./commercial-settings/commercial-settings.routes.js";
 import { fiscalDocumentsRoutes } from "./fiscal-documents/fiscal-documents.routes.js";
 import { fiscalSettingsRoutes } from "./fiscal-settings/fiscal-settings.routes.js";
 import { healthRoutes } from "./health/health.routes.js";
@@ -32,6 +33,7 @@ export function registerRoutes(app: Express): void {
   app.use(branchesRoutes);
   app.use(cashRegisterRoutes);
   app.use(clientsRoutes);
+  app.use(commercialSettingsRoutes);
   app.use(fiscalDocumentsRoutes);
   app.use(fiscalSettingsRoutes);
   app.use(paymentMethodsRoutes);
