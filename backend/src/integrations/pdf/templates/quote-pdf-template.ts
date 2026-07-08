@@ -64,11 +64,14 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
               <p><strong>Documento:</strong> ${escapeHtml(quote.clientDocument ?? "Nao informado")}</p>
               <p><strong>Telefone:</strong> ${escapeHtml(quote.clientPhone ?? "Nao informado")}</p>
               <p><strong>Email:</strong> ${escapeHtml(quote.clientEmail ?? "Nao informado")}</p>
-              <p><strong>Forma de pagamento:</strong> ${escapeHtml(quote.paymentMethodName ?? "Nao informada")}</p>
               <p><strong>Emissao:</strong> ${formatDate(quote.createdAt)}</p>
               <p><strong>Data da fatura:</strong> ${formatOptionalDate(quote.billingIssueDate)}</p>
               <p><strong>Vencimento:</strong> ${formatOptionalDate(quote.billingDueDate)}</p>
               <p><strong>Validade:</strong> ${quote.validUntil ? formatDate(quote.validUntil) : "Nao informada"}</p>
+            </div>
+            <div class="payment-highlight">
+              <span>Forma de pagamento</span>
+              <strong>${escapeHtml(quote.paymentMethodName ?? "Nao informada")}</strong>
             </div>
           </section>
 
@@ -255,6 +258,26 @@ function quotePdfCss() {
     .buyer-grid p,
     .notes-box p {
       margin: 0;
+    }
+    .payment-highlight {
+      align-items: center;
+      background-color: #fff8e6;
+      border: 1px solid #d8b769;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      padding: 7px 10px;
+    }
+    .payment-highlight span {
+      color: #7c6a36;
+      font-size: 7.4pt;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .payment-highlight strong {
+      color: #1a365d;
+      font-size: 10pt;
     }
     table {
       border-collapse: collapse;

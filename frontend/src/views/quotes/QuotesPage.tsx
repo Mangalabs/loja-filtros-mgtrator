@@ -2,7 +2,7 @@ import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
-import { List as ListIcon, Plus } from 'lucide-react'
+import { CreditCard, List as ListIcon, Plus } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import type { Client, PaymentMethod, Product, Quote } from '../../api'
 import { apiUrl } from '../../api'
@@ -86,6 +86,9 @@ export function QuotesPage({
   const activeProducts = products.filter((product) => product.active)
   const activePaymentMethods = paymentMethods.filter(
     (paymentMethod) => paymentMethod.active,
+  )
+  const selectedPaymentMethod = paymentMethods.find(
+    (paymentMethod) => paymentMethod.id === paymentMethodId,
   )
   const isEditing = Boolean(editingQuoteId)
   const quoteSubtotal = items.reduce((sum, item) => {
@@ -247,6 +250,9 @@ export function QuotesPage({
             </MenuItem>
           ))}
         </TextField>
+        <QuotePaymentHighlight
+          paymentMethodName={selectedPaymentMethod?.name ?? null}
+        />
         <FormRow>
           <TextField
             label='Data da fatura'
@@ -434,7 +440,12 @@ export function QuotesPage({
             },
             {
               header: 'Pagamento',
-              render: (quote) => quote.paymentMethodName ?? '-',
+              render: (quote) => (
+                <QuotePaymentHighlight
+                  compact
+                  paymentMethodName={quote.paymentMethodName}
+                />
+              ),
             },
             {
               header: 'Itens',
@@ -511,6 +522,35 @@ export function QuotesPage({
         />
       </PagePanel>
     </section>
+  )
+}
+
+function QuotePaymentHighlight({
+  compact,
+  paymentMethodName,
+}: {
+  compact?: boolean
+  paymentMethodName: string | null
+}) {
+  const label = paymentMethodName ?? 'Nao informada'
+
+  return (
+    <div
+      className={
+        compact
+          ? 'inline-flex min-w-36 items-center gap-2 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] px-3 py-2 text-[#203466]'
+          : 'flex items-center gap-3 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] p-3 text-[#203466]'
+      }>
+      <span className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#203466] text-white'>
+        <CreditCard size={16} />
+      </span>
+      <span className='min-w-0'>
+        <span className='block text-xs font-bold uppercase text-[#7c6a36]'>
+          Pagamento
+        </span>
+        <strong className='block truncate text-sm'>{label}</strong>
+      </span>
+    </div>
   )
 }
 

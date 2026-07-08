@@ -315,6 +315,7 @@ Estado: parcialmente entregue.
 - Desconto direto em venda de balcao entregue no backend e no frontend.
 - Orcamentos podem ser editados enquanto estiverem em rascunho.
 - Orcamentos possuem desconto direto geral e desconto direto por item.
+- Orcamentos destacam a forma de pagamento na tela e no PDF comercial.
 - Venda, pedido para envio e reserva para retirada exigem confirmacao extra para seguir sem estoque suficiente.
 - Orcamentos, vendas, cupons e documentos fiscais possuem datas de fatura e vencimento.
 - Produtos possuem configuracao comercial de margem base para sugerir preco de venda a partir do custo, mantendo o preco editavel.
