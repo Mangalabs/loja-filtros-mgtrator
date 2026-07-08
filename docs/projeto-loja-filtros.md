@@ -316,7 +316,7 @@ Estado: parcialmente entregue.
 - Orcamentos podem ser editados enquanto estiverem em rascunho.
 - Orcamentos possuem desconto direto geral e desconto direto por item.
 - Venda, pedido para envio e reserva para retirada exigem confirmacao extra para seguir sem estoque suficiente.
-- Falta adicionar datas de fatura e vencimento em orcamentos, cupons de venda e documentos fiscais.
+- Orcamentos, vendas, cupons e documentos fiscais possuem datas de fatura e vencimento.
 
 ### Fase 4 - Fiscal
 
@@ -325,7 +325,7 @@ Estado: avancada em homologacao para NF-e.
 - NF-e Focus funcionando em homologacao para venda de balcao, pedido para envio e reserva para retirada.
 - Configuracao fiscal da loja ja existe em tela/tabela.
 - Producao exige confirmacao textual e checklist visual antes de liberar emissao.
-- Falta refletir datas de fatura e vencimento no payload fiscal quando a venda/orcamento tiver condicao de pagamento.
+- Payload Focus reflete fatura e duplicata quando a venda possuir vencimento.
 - NFC-e segue fora do escopo por enquanto.
 
 ### Fase 5 - Relatorios
@@ -342,7 +342,6 @@ Estado: inicial entregue.
 - Ainda nao ha testes frontend automatizados.
 - Fiscal esta bom para homologacao, mas antes de producao precisa validacao manual final com checklist rigido e dados reais da empresa.
 - Campos fiscais adicionais podem surgir conforme rejeicoes reais da SEFAZ/Focus.
-- Orcamentos, cupons de venda e NF-e precisam ganhar datas de fatura e vencimento para apoiar vendas com boleto/pagamento a prazo.
 - Produtos precisam ganhar calculo sugerido de venda por porcentagem de lucro base configuravel, mantendo o valor editavel pelo usuario.
 
 ## Rumo Recomendado
@@ -353,7 +352,6 @@ Estado: inicial entregue.
 - Melhorar a tela de detalhes da NF-e e a leitura de rejeicoes.
 - Validar manualmente, no navegador, os fluxos de NF-e para balcao, envio e retirada.
 - Validar NF-e com descontos em venda de balcao e em venda originada de orcamento.
-- Adicionar datas de fatura e vencimento em orcamentos, cupons de venda e emissao fiscal.
 - Manter producao bloqueada ate checklist fiscal final ser cumprido.
 
 ### 2. Melhorar precificacao de produtos
