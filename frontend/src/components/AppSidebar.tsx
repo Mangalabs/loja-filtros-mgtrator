@@ -45,7 +45,7 @@ export function AppSidebar({
 
   return (
     <aside
-      className="sticky top-0 flex h-screen min-h-0 min-w-0 flex-col overflow-y-auto overflow-x-hidden px-4 py-5 text-white lg:rounded-r-3xl"
+      className="app-sidebar-scrollbar sticky top-0 flex h-screen min-h-0 min-w-0 flex-col overflow-y-auto overflow-x-hidden px-4 py-5 text-white lg:rounded-r-3xl"
       style={{
         background: `linear-gradient(180deg, ${frontendPalette.primaryNavy} 0%, #17264d 100%)`,
       }}

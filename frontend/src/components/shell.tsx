@@ -28,7 +28,7 @@ export function NavSection({
   onToggle: () => void;
 }) {
   return (
-    <div className="grid min-w-0 max-w-full gap-1 overflow-hidden">
+    <div className="grid min-w-0 max-w-full gap-1">
       <ButtonBase
         aria-expanded={open}
         sx={{
@@ -81,7 +81,7 @@ export function NavSection({
         </span>
       </ButtonBase>
       <Collapse in={open} timeout="auto" unmountOnExit>
-        <div className="ml-3 grid min-w-0 max-w-full gap-1.5 overflow-hidden border-l border-white/10 py-1 pl-2">
+        <div className="ml-3 grid min-w-0 max-w-full gap-1.5 border-l border-white/10 py-1 pl-2">
           {children}
         </div>
       </Collapse>
