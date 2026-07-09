@@ -24,7 +24,10 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
           </header>
 
           <section class="title-box">
-            <h1>Comprovante de venda</h1>
+            <div>
+              <h1>Comprovante de venda</h1>
+              <span>Resumo comercial da venda concluida</span>
+            </div>
             <strong>Sem valor fiscal</strong>
           </section>
 
@@ -140,6 +143,12 @@ function saleReceiptCss() {
       font-size: 14pt;
       margin: 0;
       text-transform: uppercase;
+    }
+    .title-box span {
+      color: #64748b;
+      display: block;
+      font-size: 8pt;
+      margin-top: 2px;
     }
     .title-box strong {
       color: #991b1b;

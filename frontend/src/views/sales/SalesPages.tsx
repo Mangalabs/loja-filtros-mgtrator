@@ -365,6 +365,7 @@ function SaleReceiptAction({ sale }: { sale: Sale }) {
       <TableActionButton href={saleReceiptHref(sale)}>
         Comprovante
       </TableActionButton>
+      <InlineNote>Sem valor fiscal</InlineNote>
     </ActionGroup>
   ) : (
     <InlineNote>Venda cancelada</InlineNote>
