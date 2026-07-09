@@ -3615,6 +3615,67 @@ describe("catalog routes", () => {
     );
   });
 
+  it("completes a quoted shipping order directly as a sale", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro envio direto", salePrice: 90 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente envio direto" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para envio direto",
+      },
+    });
+
+    const quotePaymentMethod = await activePaymentMethod();
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+    const shippingOrder = await request<ShippingOrder>(
+      `/quotes/${quote.body.data?.id}/shipping-order`,
+      {
+        method: "POST",
+        body: {},
+      },
+    );
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const completed = await request<ShippingOrder>(
+      `/shipping-orders/${shippingOrder.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: quotePaymentMethod.id },
+      },
+    );
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+    const sales = await request<Sale[]>("/sales");
+
+    assert.equal(completed.status, 200);
+    assert.equal(completed.body.data?.status, "COMPLETED");
+    assert.ok(completed.body.data?.saleId);
+    assert.equal(updatedProduct.body.data?.currentStock, "1.000");
+    assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
+    assert.equal(sales.body.data?.[0]?.totalAmount, "90.00");
+  });
+
   it("creates and cancels a pickup reservation releasing reserved stock", async () => {
     const product = await request<Product>("/products", {
       method: "POST",

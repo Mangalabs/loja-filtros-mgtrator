@@ -422,8 +422,8 @@ export function ShippingOrdersPage({
           title='Registrar orcamento'
         />
         <InlineNote>
-          Pedidos para envio nascem de orcamentos salvos. Depois disso, aprove,
-          reserve, separe e conclua a venda quando o pedido sair.
+          Pedidos para envio nascem de orcamentos salvos. Quando o cliente
+          confirmar, informe o pagamento e conclua a venda em um unico passo.
         </InlineNote>
         <PrimaryButton
           icon={<Plus size={17} />}
@@ -440,7 +440,7 @@ export function ShippingOrdersPage({
               {orders.length} registros
             </span>
           }
-          description='Reserve, separe e conclua a venda quando o pedido sair para envio.'
+          description='Conclua a venda em um passo quando o pedido for confirmado para envio.'
           title='Pedidos para envio'
         />
         <ResponsiveTable
@@ -511,35 +511,21 @@ const shippingOrderActionRenderers: Record<
   ShippingOrder['status'],
   (props: ShippingOrderActionRendererProps) => ReactNode
 > = {
-  APPROVED: ({ order, onCancel, onSeparate }) => (
-    <ActionStack>
-      <ActionGroup>
-        <TableActionButton type='button' onClick={() => onSeparate(order)}>
-          Confirmar separacao
-        </TableActionButton>
-      </ActionGroup>
-      <ShippingOrderCancelForm order={order} onCancel={onCancel} />
-    </ActionStack>
-  ),
+  APPROVED: (props) => <ShippingOrderCompleteActions {...props} />,
   CANCELLED: () => '-',
   COMPLETED: () => 'Venda concluida',
-  QUOTED: ({ order, onApprove, onCancel }) => (
-    <ActionStack>
-      <ActionGroup>
-        <TableActionButton type='button' onClick={() => onApprove(order)}>
-          Aprovar e reservar
-        </TableActionButton>
-      </ActionGroup>
-      <ShippingOrderCancelForm order={order} onCancel={onCancel} />
-    </ActionStack>
-  ),
-  SEPARATED: ({
+  QUOTED: (props) => <ShippingOrderCompleteActions {...props} />,
+  SEPARATED: (props) => <ShippingOrderCompleteActions {...props} />,
+}
+
+function ShippingOrderCompleteActions({
     cashRegister,
     order,
     paymentMethods,
     onCancel,
     onComplete,
-  }) => (
+  }: ShippingOrderActionRendererProps) {
+  return (
     <ActionStack>
       <form
         className='grid gap-2'
@@ -586,13 +572,13 @@ const shippingOrderActionRenderers: Record<
         </FormRow>
         <ActionGroup>
           <TableActionButton type='submit' disabled={!cashRegister}>
-            Concluir venda e saida
+            Concluir venda
           </TableActionButton>
         </ActionGroup>
       </form>
       <ShippingOrderCancelForm order={order} onCancel={onCancel} />
     </ActionStack>
-  ),
+  )
 }
 
 function ShippingOrderCancelForm({

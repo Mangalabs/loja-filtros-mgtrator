@@ -364,8 +364,18 @@ export async function completeShippingOrder(
   completedByUserId: string,
 ): Promise<ShippingOrder> {
   await transaction("shipping_orders").where("id", id).update({
+    approved_by_user_id: transaction.raw(
+      "coalesce(approved_by_user_id, ?)",
+      [completedByUserId],
+    ),
+    approved_at: transaction.raw("coalesce(approved_at, CURRENT_TIMESTAMP)"),
     status: "COMPLETED",
     sale_id: saleId,
+    separated_by_user_id: transaction.raw(
+      "coalesce(separated_by_user_id, ?)",
+      [completedByUserId],
+    ),
+    separated_at: transaction.raw("coalesce(separated_at, CURRENT_TIMESTAMP)"),
     completed_by_user_id: completedByUserId,
     completed_at: transaction.fn.now(),
   });
