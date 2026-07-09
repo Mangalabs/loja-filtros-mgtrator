@@ -13,6 +13,7 @@ import { AppSidebar } from "./AppSidebar";
 import { AppViewRenderer } from "./AppViewRenderer";
 import { AppWorkspaceHeader } from "./AppWorkspaceHeader";
 import { AppMessage, ConfirmationDialog } from "./shell";
+import type { FiscalPendencyTarget } from "../views/finance/FiscalDocumentsPage";
 
 export function AuthenticatedApp({
   user,
@@ -91,6 +92,30 @@ export function AuthenticatedApp({
   });
 
   const activeTitle = viewTitles[view];
+
+  function resolveFiscalPendency(target: FiscalPendencyTarget) {
+    if (target.view === "clients" && target.clientId) {
+      setSelectedClient(
+        clients.find((client) => client.id === target.clientId),
+      );
+      setView("clients");
+      return;
+    }
+
+    if (target.view === "edit-product" && target.productId) {
+      const product = products.find(
+        (currentProduct) => currentProduct.id === target.productId,
+      );
+
+      if (product) {
+        setSelectedProduct(product);
+        setView("edit-product");
+        return;
+      }
+    }
+
+    setView(target.view === "edit-product" ? "products" : target.view);
+  }
 
   return (
     <main className="grid min-h-screen grid-cols-1 bg-[#f7f7f4] lg:grid-cols-[minmax(220px,256px)_minmax(0,1fr)]">
@@ -173,6 +198,7 @@ export function AuthenticatedApp({
           onCancelClient={() => setSelectedClient(undefined)}
           onCancelProductEdit={() => setView("products")}
           onOpenQuotes={() => setView("quotes")}
+          onResolveFiscalPendency={resolveFiscalPendency}
           onSelectView={setView}
           onSearchChange={setSearch}
           onSelectClient={setSelectedClient}

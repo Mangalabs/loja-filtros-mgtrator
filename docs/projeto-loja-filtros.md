@@ -328,6 +328,7 @@ Estado: avancada em homologacao para NF-e.
 
 - NF-e Focus funcionando em homologacao para venda de balcao, pedido para envio e reserva para retirada.
 - Configuracao fiscal da loja ja existe em tela/tabela.
+- Fila fiscal direciona pendencias para configuracao fiscal, cliente ou produto correspondente.
 - Producao exige confirmacao textual e checklist visual antes de liberar emissao.
 - Payload Focus reflete fatura e duplicata quando a venda possuir vencimento.
 - NFC-e segue fora do escopo por enquanto.

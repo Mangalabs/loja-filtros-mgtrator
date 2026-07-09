@@ -320,7 +320,7 @@ function FiscalRequestAction({
       <TableActionButton
         type='button'
         onClick={() =>
-          onResolveFiscalPendency(fiscalPendencyTarget(request.readinessIssues))
+          onResolveFiscalPendency(fiscalPendencyTarget(request))
         }>
         {fiscalRequestActionLabel(request, Boolean(action))}
       </TableActionButton>
@@ -334,27 +334,42 @@ function FiscalRequestAction({
   )
 }
 
-type FiscalPendencyTarget = 'clients' | 'fiscal-settings' | 'products'
+export type FiscalPendencyTarget = {
+  clientId?: string | null
+  productId?: string
+  view: 'clients' | 'edit-product' | 'fiscal-settings' | 'products'
+}
 type FiscalPendencyCategory = 'client' | 'configuration' | 'product'
 
-function fiscalPendencyTarget(issues: string[]): FiscalPendencyTarget {
-  const targetByCategory: Record<FiscalPendencyCategory, FiscalPendencyTarget> = {
-    client: 'clients',
-    configuration: 'fiscal-settings',
-    product: 'products',
+function fiscalPendencyTarget(request: FiscalRequest): FiscalPendencyTarget {
+  const targetByCategory: Record<
+    FiscalPendencyCategory,
+    () => FiscalPendencyTarget
+  > = {
+    client: () => ({
+      clientId: request.clientId,
+      view: 'clients',
+    }),
+    configuration: () => ({ view: 'fiscal-settings' }),
+    product: () => ({
+      productId: request.productIds[0],
+      view: request.productIds[0] ? 'edit-product' : 'products',
+    }),
   }
   const categoryPriority: FiscalPendencyCategory[] = [
     'configuration',
     'client',
     'product',
   ]
-  const issueCategories = issues.map(fiscalReadinessIssueCategory)
+  const issueCategories = request.readinessIssues.map(
+    fiscalReadinessIssueCategory,
+  )
   const category =
     categoryPriority.find((currentCategory) =>
       issueCategories.includes(currentCategory),
     ) ?? 'product'
 
-  return targetByCategory[category]
+  return targetByCategory[category]()
 }
 
 function FiscalReadinessStatus({ request }: { request: FiscalRequest }) {

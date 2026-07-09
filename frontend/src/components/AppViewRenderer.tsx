@@ -35,7 +35,10 @@ import {
 } from "../views/catalog/CatalogPages";
 import { CommercialSettingsPage } from "../views/catalog/CommercialSettingsPage";
 import { CashRegisterPage } from "../views/finance/CashRegisterPage";
-import { FiscalDocumentsPage } from "../views/finance/FiscalDocumentsPage";
+import {
+  FiscalDocumentsPage,
+  type FiscalPendencyTarget,
+} from "../views/finance/FiscalDocumentsPage";
 import { FiscalSettingsPage } from "../views/finance/FiscalSettingsPage";
 import { PaymentMethodsPage } from "../views/finance/PaymentMethodsPage";
 import type { useFinanceActions } from "../views/finance/useFinanceActions";
@@ -91,6 +94,7 @@ type AppViewRendererProps = {
   onCancelClient: () => void;
   onCancelProductEdit: () => void;
   onOpenQuotes: () => void;
+  onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
   onSelectView: (view: View) => void;
   onSearchChange: (value: string) => void;
   onSelectClient: (client: Client | undefined) => void;
@@ -131,6 +135,7 @@ export function AppViewRenderer({
   onCancelClient,
   onCancelProductEdit,
   onOpenQuotes,
+  onResolveFiscalPendency,
   onSelectView,
   onSearchChange,
   onSelectClient,
@@ -223,7 +228,7 @@ export function AppViewRenderer({
           onIssuePickupReservationFiscalDocument={(reservation) =>
             void salesActions.issuePickupReservationFiscalDocument(reservation)
           }
-          onResolveFiscalPendency={onSelectView}
+          onResolveFiscalPendency={onResolveFiscalPendency}
           onSyncFiscalDocument={(fiscalDocument) =>
             void financeActions.syncFiscalDocument(fiscalDocument)
           }
