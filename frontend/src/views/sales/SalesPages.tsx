@@ -6,6 +6,7 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import type {
   CashRegisterSession,
   Client,
+  FiscalDocument,
   PaymentMethod,
   PickupReservation,
   Product,
@@ -75,17 +76,23 @@ export type PickupReservationDraftInput = {
 export function SalesPage({
   cashRegister,
   clients,
+  fiscalDocuments,
   paymentMethods,
+  pickupReservations,
   products,
   sales,
+  shippingOrders,
   onReturnItem,
   onSubmit,
 }: {
   cashRegister: CashRegisterSession | null
   clients: Client[]
+  fiscalDocuments: FiscalDocument[]
   paymentMethods: PaymentMethod[]
+  pickupReservations: PickupReservation[]
   products: Product[]
   sales: Sale[]
+  shippingOrders: ShippingOrder[]
   onReturnItem: SaleReturnHandler
   onSubmit: (input: SaleDraftInput) => Promise<boolean>
 }) {
@@ -346,7 +353,16 @@ export function SalesPage({
             {
               header: 'Acoes',
               render: (sale) => (
-                <SaleActions sale={sale} onReturnItem={onReturnItem} />
+                <SaleActions
+                  sale={sale}
+                  fiscalDocumentBlocksReturn={saleReturnBlockedByFiscalDocument(
+                    sale,
+                    fiscalDocuments,
+                    pickupReservations,
+                    shippingOrders,
+                  )}
+                  onReturnItem={onReturnItem}
+                />
               ),
             },
           ]}
@@ -366,9 +382,11 @@ function saleReceiptHref(sale: Sale) {
 
 function SaleActions({
   sale,
+  fiscalDocumentBlocksReturn,
   onReturnItem,
 }: {
   sale: Sale
+  fiscalDocumentBlocksReturn: boolean
   onReturnItem: SaleReturnHandler
 }) {
   return sale.status === 'COMPLETED' ? (
@@ -379,12 +397,55 @@ function SaleActions({
         </TableActionButton>
         <InlineNote>Sem valor fiscal</InlineNote>
       </ActionGroup>
-      <SaleReturnForm sale={sale} onReturnItem={onReturnItem} />
+      {fiscalDocumentBlocksReturn ? (
+        <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>
+      ) : (
+        <SaleReturnForm sale={sale} onReturnItem={onReturnItem} />
+      )}
     </ActionStack>
   ) : (
     <InlineNote>Venda cancelada</InlineNote>
   )
 }
+
+function saleReturnBlockedByFiscalDocument(
+  sale: Sale,
+  fiscalDocuments: FiscalDocument[],
+  pickupReservations: PickupReservation[],
+  shippingOrders: ShippingOrder[],
+) {
+  const sourceRefs = [
+    { sourceType: 'SALE', sourceId: sale.id },
+    ...shippingOrders
+      .filter((order) => order.saleId === sale.id)
+      .map((order) => ({ sourceType: 'SHIPPING_ORDER', sourceId: order.id })),
+    ...pickupReservations
+      .filter((reservation) => reservation.saleId === sale.id)
+      .map((reservation) => ({
+        sourceType: 'PICKUP_RESERVATION',
+        sourceId: reservation.id,
+      })),
+  ]
+
+  return fiscalDocuments.some((fiscalDocument) => {
+    const matchingSource = sourceRefs.some(
+      (sourceRef) =>
+        sourceRef.sourceType === fiscalDocument.sourceType &&
+        sourceRef.sourceId === fiscalDocument.sourceId,
+    )
+
+    return (
+      matchingSource &&
+      returnBlockingFiscalStatuses.includes(fiscalDocument.status)
+    )
+  })
+}
+
+const returnBlockingFiscalStatuses: FiscalDocument['status'][] = [
+  'AUTHORIZED',
+  'PENDING',
+  'PROCESSING',
+]
 
 function emptySaleItem(): SaleDraftItem {
   return {
