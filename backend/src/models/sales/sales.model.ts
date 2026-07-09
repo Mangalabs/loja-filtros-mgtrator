@@ -66,6 +66,8 @@ export type SaleItem = {
   unitPrice: string;
   discountAmount: string;
   totalAmount: string;
+  returnedQuantity: string;
+  returnableQuantity: string;
   position: number;
 };
 
@@ -140,7 +142,7 @@ type SaleRow = Omit<
   Sale,
   "items" | "productId" | "productName" | "quantity" | "unitPrice"
 >;
-type SaleItemRow = SaleItem & {
+type SaleItemRow = Omit<SaleItem, "returnableQuantity"> & {
   saleId: string;
 };
 
@@ -494,14 +496,29 @@ async function withSaleItems(
   const saleIds = sales.map((sale) => sale.id);
   const items = await database("sale_items")
     .join("products", "products.id", "sale_items.product_id")
-    .select<SaleItemRow[]>(saleItemColumns)
+    .select<SaleItemRow[]>([
+      ...saleItemColumns,
+      database.raw(
+        `coalesce(
+          (
+            select sum(sale_item_returns.quantity)
+            from sale_item_returns
+            where sale_item_returns.sale_item_id = sale_items.id
+          ),
+          0
+        )::numeric(12, 3) as "returnedQuantity"`,
+      ),
+    ])
     .whereIn("sale_items.sale_id", saleIds)
     .orderBy("sale_items.position", "asc");
 
   return sales.map((sale) => {
     const saleItems = items
       .filter((item) => item.saleId === sale.id)
-      .map(({ saleId: _saleId, ...item }) => item);
+      .map(({ saleId: _saleId, ...item }) => ({
+        ...item,
+        returnableQuantity: saleItemReturnableQuantity(item),
+      }));
     const firstItem = saleItems[0];
 
     return {
@@ -513,6 +530,16 @@ async function withSaleItems(
       items: saleItems,
     };
   });
+}
+
+function saleItemReturnableQuantity(item: {
+  quantity: string;
+  returnedQuantity: string;
+}) {
+  return Math.max(
+    Number(item.quantity) - Number(item.returnedQuantity),
+    0,
+  ).toFixed(3);
 }
 
 function saleItemDiscountAmount(item: {

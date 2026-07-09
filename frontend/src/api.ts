@@ -218,6 +218,8 @@ export type Sale = {
     unitPrice: string;
     discountAmount: string;
     totalAmount: string;
+    returnedQuantity: string;
+    returnableQuantity: string;
     position: number;
   }>;
   clientId: string | null;

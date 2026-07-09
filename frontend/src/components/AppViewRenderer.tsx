@@ -270,6 +270,9 @@ export function AppViewRenderer({
           paymentMethods={paymentMethods}
           products={products}
           sales={sales}
+          onReturnItem={(event, sale) =>
+            void salesActions.returnSaleItem(event, sale)
+          }
           onSubmit={salesActions.createSale}
         />
       ),

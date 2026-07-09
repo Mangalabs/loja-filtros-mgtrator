@@ -77,6 +77,7 @@ export function SalesPage({
   paymentMethods,
   products,
   sales,
+  onReturnItem,
   onSubmit,
 }: {
   cashRegister: CashRegisterSession | null
@@ -84,6 +85,10 @@ export function SalesPage({
   paymentMethods: PaymentMethod[]
   products: Product[]
   sales: Sale[]
+  onReturnItem: (
+    event: FormEvent<HTMLFormElement>,
+    sale: Sale,
+  ) => Promise<boolean> | void
   onSubmit: (input: SaleDraftInput) => Promise<boolean>
 }) {
   const [clientId, setClientId] = useState('')
@@ -342,7 +347,9 @@ export function SalesPage({
             },
             {
               header: 'Acoes',
-              render: (sale) => <SaleReceiptAction sale={sale} />,
+              render: (sale) => (
+                <SaleActions sale={sale} onReturnItem={onReturnItem} />
+              ),
             },
           ]}
           emptyMessage='Nenhuma venda registrada.'
@@ -359,17 +366,73 @@ function saleReceiptHref(sale: Sale) {
   return apiUrl(`/sales/${sale.id}/receipt`)
 }
 
-function SaleReceiptAction({ sale }: { sale: Sale }) {
+function SaleActions({
+  sale,
+  onReturnItem,
+}: {
+  sale: Sale
+  onReturnItem: (
+    event: FormEvent<HTMLFormElement>,
+    sale: Sale,
+  ) => Promise<boolean> | void
+}) {
+  const returnableItems = sale.items.filter(
+    (item) => Number(item.returnableQuantity) > 0,
+  )
+
   return sale.status === 'COMPLETED' ? (
-    <ActionGroup>
-      <TableActionButton href={saleReceiptHref(sale)}>
-        Comprovante
-      </TableActionButton>
-      <InlineNote>Sem valor fiscal</InlineNote>
-    </ActionGroup>
+    <ActionStack>
+      <ActionGroup>
+        <TableActionButton href={saleReceiptHref(sale)}>
+          Comprovante
+        </TableActionButton>
+        <InlineNote>Sem valor fiscal</InlineNote>
+      </ActionGroup>
+      {returnableItems.length > 0 ? (
+        <form
+          className='grid w-full max-w-64 gap-2'
+          onSubmit={(event) => onReturnItem(event, sale)}>
+          <TextField
+            label='Item para devolver'
+            name='saleReturnItemId'
+            defaultValue={returnableItems[0]?.id ?? ''}
+            select
+            size='small'
+            required>
+            {returnableItems.map((item) => (
+              <MenuItem key={item.id} value={item.id}>
+                {saleReturnItemLabel(item)}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            label='Qtd.'
+            name='saleReturnQuantity'
+            defaultValue='1'
+            type='number'
+            size='small'
+            required
+            slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
+          />
+          <TextField
+            label='Motivo'
+            name='saleReturnReason'
+            size='small'
+            required
+          />
+          <TableActionButton type='submit'>Devolver item</TableActionButton>
+        </form>
+      ) : (
+        <InlineNote>Itens ja devolvidos</InlineNote>
+      )}
+    </ActionStack>
   ) : (
     <InlineNote>Venda cancelada</InlineNote>
   )
+}
+
+function saleReturnItemLabel(item: Sale['items'][number]) {
+  return `${item.productName} - disponivel ${formatQuantity(item.returnableQuantity)}`
 }
 
 function emptySaleItem(): SaleDraftItem {

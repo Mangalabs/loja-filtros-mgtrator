@@ -66,6 +66,38 @@ export function useSalesActions({
     });
   }
 
+  async function returnSaleItem(
+    event: FormEvent<HTMLFormElement>,
+    sale: Sale,
+  ) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const saleItemId = String(form.get("saleReturnItemId") ?? "");
+    const quantity = Number(form.get("saleReturnQuantity") ?? 0);
+    const reason = String(form.get("saleReturnReason") ?? "").trim();
+    const saleItem = sale.items.find((item) => item.id === saleItemId);
+    const confirmed = await requestConfirmation(
+      `Registrar devolucao de ${formatQuantity(String(quantity))} item(ns) de ${saleItem?.productName ?? "produto"}?`,
+      "Registrar devolucao?",
+      "Registrar",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiPost(`/sales/${sale.id}/returns`, {
+        saleItemId,
+        quantity,
+        reason,
+      });
+      formElement.reset();
+      await loadCatalog();
+    });
+  }
+
   async function issueShippingOrderFiscalDocument(order: ShippingOrder) {
     const confirmed = await requestConfirmation(
       `Emitir NF-e para o pedido de envio de ${order.clientName} no valor de ${order.totalAmount}?`,
@@ -315,6 +347,7 @@ export function useSalesActions({
     issuePickupReservationFiscalDocument,
     issueSaleFiscalDocument,
     issueShippingOrderFiscalDocument,
+    returnSaleItem,
     separateShippingOrder,
   };
 

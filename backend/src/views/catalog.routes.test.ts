@@ -110,6 +110,8 @@ type Sale = {
     unitPrice: string;
     discountAmount: string;
     totalAmount: string;
+    returnedQuantity: string;
+    returnableQuantity: string;
     position: number;
   }>;
   clientName: string | null;
@@ -1277,6 +1279,8 @@ describe("catalog routes", () => {
 
     assert.equal(returned.status, 200);
     assert.equal(returned.body.data?.status, "COMPLETED");
+    assert.equal(returned.body.data?.items[0]?.returnedQuantity, "1.000");
+    assert.equal(returned.body.data?.items[0]?.returnableQuantity, "2.000");
     assert.equal(excessiveReturn.status, 422);
     assert.equal(
       excessiveReturn.body.message,
