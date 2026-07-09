@@ -20,7 +20,11 @@ import {
 } from '../../components/layout'
 import { StatusChip, TableActionButton } from '../../components/ui'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
-import { formatCurrency, formatDateTime } from '../../utils/format'
+import {
+  formatCurrency,
+  formatDateTime,
+  formatQuantity,
+} from '../../utils/format'
 import {
   fiscalDocumentStatusLabel,
   fiscalDocumentStatusTone,
@@ -261,8 +265,40 @@ function SalesHistoryActions({
       {row.sale && fiscalDocumentBlocksReturn ? (
         <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>
       ) : null}
+      {row.sale ? <SaleReturnSummary sale={row.sale} /> : null}
     </ActionStack>
   )
+}
+
+function SaleReturnSummary({ sale }: { sale: Sale }) {
+  const returns = sale.items.flatMap((item) =>
+    item.returns.map((itemReturn) => ({
+      ...itemReturn,
+      productName: item.productName,
+    })),
+  )
+
+  return returns.length > 0 ? (
+    <div className='grid gap-1 rounded-lg border border-[#e4e9e5] bg-[#fbfcfb] p-2 text-left'>
+      <strong className='text-xs uppercase tracking-wide text-[#203466]'>
+        Estornos registrados
+      </strong>
+      {returns.map((itemReturn) => (
+        <div className='text-xs text-[#2c281e]' key={itemReturn.id}>
+          <strong>{itemReturn.productName}</strong> | Qtd.{' '}
+          {formatQuantity(itemReturn.quantity)} |{' '}
+          {formatCurrency(itemReturn.refundAmount)} via{' '}
+          {itemReturn.refundPaymentMethodName}
+          <InlineNote>
+            {formatDateTime(itemReturn.refundedAt)}
+            {itemReturn.refundReference
+              ? ` | Ref. ${itemReturn.refundReference}`
+              : ''}
+          </InlineNote>
+        </div>
+      ))}
+    </div>
+  ) : null
 }
 
 const returnBlockingFiscalStatuses: FiscalDocument['status'][] = [

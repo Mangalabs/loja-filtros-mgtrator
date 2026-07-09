@@ -220,6 +220,18 @@ export type Sale = {
     totalAmount: string;
     returnedQuantity: string;
     returnableQuantity: string;
+    returns: Array<{
+      id: string;
+      quantity: string;
+      reason: string;
+      refundAmount: string;
+      refundPaymentMethodId: string;
+      refundPaymentMethodName: string;
+      refundedAt: string;
+      refundReference: string | null;
+      createdByUserName: string;
+      createdAt: string;
+    }>;
     position: number;
   }>;
   clientId: string | null;

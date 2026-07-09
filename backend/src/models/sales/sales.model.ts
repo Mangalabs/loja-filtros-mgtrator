@@ -68,7 +68,21 @@ export type SaleItem = {
   totalAmount: string;
   returnedQuantity: string;
   returnableQuantity: string;
+  returns: SaleItemReturn[];
   position: number;
+};
+
+export type SaleItemReturn = {
+  id: string;
+  quantity: string;
+  reason: string;
+  refundAmount: string;
+  refundPaymentMethodId: string;
+  refundPaymentMethodName: string;
+  refundedAt: Date;
+  refundReference: string | null;
+  createdByUserName: string;
+  createdAt: Date;
 };
 
 export type SaleItemForReturn = {
@@ -150,8 +164,11 @@ type SaleRow = Omit<
   Sale,
   "items" | "productId" | "productName" | "quantity" | "unitPrice"
 >;
-type SaleItemRow = Omit<SaleItem, "returnableQuantity"> & {
+type SaleItemRow = Omit<SaleItem, "returnableQuantity" | "returns"> & {
   saleId: string;
+};
+type SaleItemReturnRow = SaleItemReturn & {
+  saleItemId: string;
 };
 
 export async function listSales(): Promise<Sale[]> {
@@ -566,6 +583,31 @@ async function withSaleItems(
     ])
     .whereIn("sale_items.sale_id", saleIds)
     .orderBy("sale_items.position", "asc");
+  const itemIds = items.map((item) => item.id);
+  const returns = itemIds.length
+    ? await database("sale_item_returns")
+        .join(
+          "payment_methods",
+          "payment_methods.id",
+          "sale_item_returns.refund_payment_method_id",
+        )
+        .join("users", "users.id", "sale_item_returns.created_by_user_id")
+        .select<SaleItemReturnRow[]>([
+          "sale_item_returns.id",
+          "sale_item_returns.sale_item_id as saleItemId",
+          "sale_item_returns.quantity",
+          "sale_item_returns.reason",
+          "sale_item_returns.refund_amount as refundAmount",
+          "sale_item_returns.refund_payment_method_id as refundPaymentMethodId",
+          "payment_methods.name as refundPaymentMethodName",
+          "sale_item_returns.refunded_at as refundedAt",
+          "sale_item_returns.refund_reference as refundReference",
+          "users.name as createdByUserName",
+          "sale_item_returns.created_at as createdAt",
+        ])
+        .whereIn("sale_item_returns.sale_item_id", itemIds)
+        .orderBy("sale_item_returns.created_at", "asc")
+    : [];
 
   return sales.map((sale) => {
     const saleItems = items
@@ -573,6 +615,7 @@ async function withSaleItems(
       .map(({ saleId: _saleId, ...item }) => ({
         ...item,
         returnableQuantity: saleItemReturnableQuantity(item),
+        returns: saleItemReturns(returns, item.id),
       }));
     const firstItem = saleItems[0];
 
@@ -585,6 +628,12 @@ async function withSaleItems(
       items: saleItems,
     };
   });
+}
+
+function saleItemReturns(returns: SaleItemReturnRow[], saleItemId: string) {
+  return returns
+    .filter((itemReturn) => itemReturn.saleItemId === saleItemId)
+    .map(({ saleItemId: _saleItemId, ...itemReturn }) => itemReturn);
 }
 
 function saleItemReturnableQuantity(item: {

@@ -112,6 +112,18 @@ type Sale = {
     totalAmount: string;
     returnedQuantity: string;
     returnableQuantity: string;
+    returns: Array<{
+      id: string;
+      quantity: string;
+      reason: string;
+      refundAmount: string;
+      refundPaymentMethodId: string;
+      refundPaymentMethodName: string;
+      refundedAt: string;
+      refundReference: string | null;
+      createdByUserName: string;
+      createdAt: string;
+    }>;
     position: number;
   }>;
   clientName: string | null;
@@ -1282,6 +1294,11 @@ describe("catalog routes", () => {
     const returnRecord = await db("sale_item_returns")
       .where("sale_id", created.body.data?.id)
       .first();
+    const listedAfterReturn = await request<Sale[]>("/sales");
+    const listedReturnedSale = listedAfterReturn.body.data?.find(
+      (sale) => sale.id === created.body.data?.id,
+    );
+    const listedReturn = listedReturnedSale?.items[0]?.returns[0];
 
     assert.equal(returned.status, 200);
     assert.equal(returned.body.data?.status, "COMPLETED");
@@ -1299,6 +1316,9 @@ describe("catalog routes", () => {
     assert.equal(returnRecord?.refund_amount, "50.00");
     assert.equal(returnRecord?.refund_payment_method_id, pix?.id);
     assert.ok(returnRecord?.refunded_at);
+    assert.equal(listedReturn?.refundAmount, "50.00");
+    assert.equal(listedReturn?.refundPaymentMethodName, "PIX");
+    assert.equal(listedReturn?.reason, "Cliente devolveu uma unidade");
     assert.equal(returnMovement?.quantity, "1.000");
     assert.equal(returnMovement?.notes, "Cliente devolveu uma unidade");
     assert.equal(returnMovement?.createdByUserName, "Administrador de teste");

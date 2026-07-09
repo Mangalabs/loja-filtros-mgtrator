@@ -315,7 +315,7 @@ Estado: parcialmente entregue.
 - Caixa considera devolucoes no total liquido e no resumo por forma de pagamento.
 - Devolucoes registram base financeira do estorno: valor, forma de pagamento, data e referencia opcional.
 - Tela de devolucao permite informar valor, forma, data e referencia do estorno.
-- Falta uma tela/listagem dedicada para consultar estornos ja registrados.
+- Historico de vendas mostra os estornos ja registrados por item devolvido.
 - Desconto direto em venda de balcao entregue no backend e no frontend.
 - Orcamentos podem ser editados enquanto estiverem em rascunho.
 - Orcamentos possuem desconto percentual geral e desconto percentual por item.
