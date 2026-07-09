@@ -316,6 +316,7 @@ Estado: parcialmente entregue.
 - Devolucoes registram base financeira do estorno: valor, forma de pagamento, data e referencia opcional.
 - Tela de devolucao permite informar valor, forma, data e referencia do estorno.
 - Historico de vendas mostra os estornos ja registrados por item devolvido.
+- Historico de vendas mostra valor liquido quando houver estornos, mantendo original e estornado visiveis.
 - Desconto direto em venda de balcao entregue no backend e no frontend.
 - Orcamentos podem ser editados enquanto estiverem em rascunho.
 - Orcamentos possuem desconto percentual geral e desconto percentual por item.

@@ -48,6 +48,8 @@ type SalesHistoryRow = {
   originLabel: string
   clientName: string
   totalAmount: string
+  refundAmount: number
+  netAmount: number
   operatorName: string
   completedAt: string
   saleId: string | null
@@ -163,7 +165,7 @@ export function SalesHistoryPage({
           {
             align: 'right',
             header: 'Total',
-            render: (row) => formatCurrency(row.totalAmount),
+            render: (row) => <SalesHistoryTotal row={row} />,
           },
           {
             header: 'NF-e',
@@ -209,6 +211,20 @@ function SalesHistoryFiscalStatus({ row }: { row: SalesHistoryRow }) {
     </>
   ) : (
     <StatusChip label='Sem NF-e' tone='neutral' />
+  )
+}
+
+function SalesHistoryTotal({ row }: { row: SalesHistoryRow }) {
+  return row.refundAmount > 0 ? (
+    <>
+      <strong>{formatCurrency(row.netAmount)}</strong>
+      <InlineNote>
+        Original {formatCurrency(row.totalAmount)} | Estornos{' '}
+        {formatCurrency(row.refundAmount)}
+      </InlineNote>
+    </>
+  ) : (
+    formatCurrency(row.totalAmount)
   )
 }
 
@@ -331,8 +347,10 @@ function buildSalesHistoryRows({
       completedAt: sale.createdAt,
       fiscalDocument: findFiscalDocument(fiscalDocuments, 'SALE', sale.id),
       id: `SALE-${sale.id}`,
+      netAmount: saleNetAmount(sale, sale.totalAmount),
       operatorName: sale.createdByUserName,
       originLabel: 'Balcao',
+      refundAmount: saleRefundAmount(sale),
       sale,
       saleId: sale.id,
       sourceId: sale.id,
@@ -341,43 +359,55 @@ function buildSalesHistoryRows({
     }))
   const shippingRows = shippingOrders
     .filter((order) => order.status === 'COMPLETED')
-    .map((order): SalesHistoryRow => ({
-      clientName: order.clientName,
-      completedAt: order.completedAt ?? order.createdAt,
-      fiscalDocument: findFiscalDocument(
-        fiscalDocuments,
-        'SHIPPING_ORDER',
-        order.id,
-      ),
-      id: `SHIPPING_ORDER-${order.id}`,
-      operatorName: order.completedByUserName ?? order.createdByUserName,
-      originLabel: 'Para envio',
-      sale: findSale(sales, order.saleId),
-      saleId: order.saleId,
-      sourceId: order.id,
-      sourceType: 'SHIPPING_ORDER',
-      totalAmount: order.totalAmount,
-    }))
+    .map((order): SalesHistoryRow => {
+      const sale = findSale(sales, order.saleId)
+
+      return {
+        clientName: order.clientName,
+        completedAt: order.completedAt ?? order.createdAt,
+        fiscalDocument: findFiscalDocument(
+          fiscalDocuments,
+          'SHIPPING_ORDER',
+          order.id,
+        ),
+        id: `SHIPPING_ORDER-${order.id}`,
+        netAmount: saleNetAmount(sale, order.totalAmount),
+        operatorName: order.completedByUserName ?? order.createdByUserName,
+        originLabel: 'Para envio',
+        refundAmount: saleRefundAmount(sale),
+        sale,
+        saleId: order.saleId,
+        sourceId: order.id,
+        sourceType: 'SHIPPING_ORDER',
+        totalAmount: order.totalAmount,
+      }
+    })
   const pickupRows = pickupReservations
     .filter((reservation) => reservation.status === 'COMPLETED')
-    .map((reservation): SalesHistoryRow => ({
-      clientName: reservation.clientName,
-      completedAt: reservation.completedAt ?? reservation.createdAt,
-      fiscalDocument: findFiscalDocument(
-        fiscalDocuments,
-        'PICKUP_RESERVATION',
-        reservation.id,
-      ),
-      id: `PICKUP_RESERVATION-${reservation.id}`,
-      operatorName:
-        reservation.completedByUserName ?? reservation.createdByUserName,
-      originLabel: 'Retirada',
-      sale: findSale(sales, reservation.saleId),
-      saleId: reservation.saleId,
-      sourceId: reservation.id,
-      sourceType: 'PICKUP_RESERVATION',
-      totalAmount: reservation.totalAmount,
-    }))
+    .map((reservation): SalesHistoryRow => {
+      const sale = findSale(sales, reservation.saleId)
+
+      return {
+        clientName: reservation.clientName,
+        completedAt: reservation.completedAt ?? reservation.createdAt,
+        fiscalDocument: findFiscalDocument(
+          fiscalDocuments,
+          'PICKUP_RESERVATION',
+          reservation.id,
+        ),
+        id: `PICKUP_RESERVATION-${reservation.id}`,
+        netAmount: saleNetAmount(sale, reservation.totalAmount),
+        operatorName:
+          reservation.completedByUserName ?? reservation.createdByUserName,
+        originLabel: 'Retirada',
+        refundAmount: saleRefundAmount(sale),
+        sale,
+        saleId: reservation.saleId,
+        sourceId: reservation.id,
+        sourceType: 'PICKUP_RESERVATION',
+        totalAmount: reservation.totalAmount,
+      }
+    })
 
   return [...directSaleRows, ...shippingRows, ...pickupRows].sort(
     (current, next) =>
@@ -388,6 +418,25 @@ function buildSalesHistoryRows({
 
 function findSale(sales: Sale[], saleId: string | null) {
   return saleId ? sales.find((sale) => sale.id === saleId) ?? null : null
+}
+
+function saleRefundAmount(sale: Sale | null) {
+  return (
+    sale?.items.reduce(
+      (total, item) =>
+        total +
+        item.returns.reduce(
+          (itemTotal, itemReturn) =>
+            itemTotal + Number(itemReturn.refundAmount),
+          0,
+        ),
+      0,
+    ) ?? 0
+  )
+}
+
+function saleNetAmount(sale: Sale | null, fallbackTotalAmount: string) {
+  return Math.max(Number(fallbackTotalAmount) - saleRefundAmount(sale), 0)
 }
 
 function filterSalesHistoryRows(
