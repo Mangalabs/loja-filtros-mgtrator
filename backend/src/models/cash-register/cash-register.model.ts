@@ -247,6 +247,17 @@ async function listPaymentSummary(
   database: Knex | Knex.Transaction,
   cashRegisterSessionId: string,
 ): Promise<CashRegisterPaymentSummary[]> {
+  const returnAmounts = database("sale_item_returns")
+    .join("sale_items", "sale_items.id", "sale_item_returns.sale_item_id")
+    .select("sale_item_returns.sale_id as saleId")
+    .sum({
+      returnAmount: database.raw(
+        "(sale_item_returns.quantity / sale_items.quantity) * sale_items.total_amount",
+      ),
+    })
+    .groupBy("sale_item_returns.sale_id")
+    .as("return_amounts");
+
   return database("sale_payments")
     .join("sales", "sales.id", "sale_payments.sale_id")
     .join(
@@ -254,6 +265,7 @@ async function listPaymentSummary(
       "payment_methods.id",
       "sale_payments.payment_method_id",
     )
+    .leftJoin(returnAmounts, "return_amounts.saleId", "sales.id")
     .where("sales.cash_register_session_id", cashRegisterSessionId)
     .where("sales.status", "COMPLETED")
     .groupBy([
@@ -265,7 +277,9 @@ async function listPaymentSummary(
       "payment_methods.id as paymentMethodId",
       "payment_methods.name as paymentMethodName",
       "payment_methods.code as paymentMethodCode",
-      database.raw("sum(sale_payments.amount)::numeric(12, 2) as amount"),
+      database.raw(
+        "sum(sale_payments.amount - coalesce(return_amounts.\"returnAmount\", 0))::numeric(12, 2) as amount",
+      ),
     ])
     .orderByRaw(
       "case payment_methods.code when 'PIX' then 1 when 'DEBIT' then 2 when 'BOLETO' then 3 else 4 end",

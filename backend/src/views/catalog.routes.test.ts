@@ -1272,6 +1272,9 @@ describe("catalog routes", () => {
     const updatedProduct = await request<Product>(
       `/products/${product.body.data?.id}`,
     );
+    const cashAfterReturn = await request<CashRegisterSession | null>(
+      "/cash-register/current",
+    );
     const movements = await request<StockMovement[]>("/stock-movements");
     const returnMovement = movements.body.data?.find(
       (movement) => movement.type === "SALE_RETURN",
@@ -1287,6 +1290,9 @@ describe("catalog routes", () => {
       "Quantidade de devolucao maior que quantidade disponivel do item.",
     );
     assert.equal(updatedProduct.body.data?.currentStock, "3.000");
+    assert.equal(cashAfterReturn.body.data?.salesTotal, "100.00");
+    assert.equal(cashAfterReturn.body.data?.expectedClosingBalance, "100.00");
+    assert.equal(cashAfterReturn.body.data?.paymentSummary[0]?.amount, "100.00");
     assert.equal(returnMovement?.quantity, "1.000");
     assert.equal(returnMovement?.notes, "Cliente devolveu uma unidade");
     assert.equal(returnMovement?.createdByUserName, "Administrador de teste");

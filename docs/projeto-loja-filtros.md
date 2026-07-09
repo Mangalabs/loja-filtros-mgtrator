@@ -312,7 +312,8 @@ Estado: parcialmente entregue.
 - Caixa ja possui abertura, fechamento, divergencia, sangria, suprimento e conferencia por forma de pagamento.
 - Devolucao operacional de item entregue para venda de balcao e vendas concluidas via envio/retirada, com retorno ao estoque e historico.
 - Historico de vendas permite registrar devolucao por item quando nao houver NF-e ativa bloqueando a operacao.
-- Falta estorno financeiro detalhado das devolucoes.
+- Caixa considera devolucoes no total liquido e no resumo por forma de pagamento.
+- Falta registrar estorno financeiro detalhado com forma, data e comprovante do valor devolvido.
 - Desconto direto em venda de balcao entregue no backend e no frontend.
 - Orcamentos podem ser editados enquanto estiverem em rascunho.
 - Orcamentos possuem desconto percentual geral e desconto percentual por item.
