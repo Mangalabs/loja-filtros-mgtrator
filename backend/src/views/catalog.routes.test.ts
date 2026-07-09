@@ -12,6 +12,8 @@ import {
 import { db } from "../database/knex.js";
 import type { FiscalIssueRequest } from "../integrations/fiscal/fiscal-provider.js";
 import { FocusFiscalProvider } from "../integrations/fiscal/providers/focus-fiscal-provider.js";
+import { saleReceiptPdfHtml } from "../integrations/pdf/templates/sale-receipt-pdf-template.js";
+import type { Sale as ModelSale } from "../models/sales/sales.model.js";
 
 type ApiResponse<T = unknown> = {
   code: number;
@@ -1322,6 +1324,95 @@ describe("catalog routes", () => {
     assert.equal(returnMovement?.quantity, "1.000");
     assert.equal(returnMovement?.notes, "Cliente devolveu uma unidade");
     assert.equal(returnMovement?.createdByUserName, "Administrador de teste");
+  });
+
+  it("includes return refunds in sale receipt html", () => {
+    const sale = {
+      id: "sale-receipt-return",
+      productId: "product-1",
+      productName: "Filtro teste",
+      quantity: "2.000",
+      unitPrice: "50.00",
+      subtotalAmount: "100.00",
+      discountAmount: "0.00",
+      totalAmount: "100.00",
+      billingIssueDate: "2026-07-09",
+      billingDueDate: "2026-07-20",
+      clientId: null,
+      clientPersonType: null,
+      clientName: "Cliente teste",
+      clientDocument: null,
+      clientEmail: null,
+      clientPhone: null,
+      clientStateRegistration: null,
+      clientStateRegistrationIndicator: null,
+      clientAddressStreet: null,
+      clientAddressNumber: null,
+      clientAddressComplement: null,
+      clientAddressDistrict: null,
+      clientAddressCity: null,
+      clientAddressState: null,
+      clientAddressZipCode: null,
+      paymentMethodName: "PIX",
+      createdByUserName: "Operador teste",
+      createdAt: new Date("2026-07-09T12:00:00.000Z"),
+      cancelledByUserName: null,
+      cancelledAt: null,
+      cancellationReason: null,
+      status: "COMPLETED",
+      items: [
+        {
+          id: "sale-item-1",
+          productId: "product-1",
+          productInternalCode: "FILTRO-1",
+          productName: "Filtro teste",
+          productCfop: null,
+          productIcmsCst: null,
+          productNcm: null,
+          productPisCst: null,
+          productCofinsCst: null,
+          productOrigin: null,
+          productUnit: "UN",
+          quantity: "2.000",
+          unitPrice: "50.00",
+          discountAmount: "0.00",
+          totalAmount: "100.00",
+          returnedQuantity: "1.000",
+          returnableQuantity: "1.000",
+          position: 1,
+          returns: [
+            {
+              id: "return-1",
+              quantity: "1.000",
+              reason: "Cliente devolveu uma unidade",
+              refundAmount: "50.00",
+              refundPaymentMethodId: "payment-1",
+              refundPaymentMethodName: "PIX",
+              refundedAt: new Date("2026-07-09T14:30:00.000Z"),
+              refundReference: "NSU123",
+              createdByUserName: "Operador teste",
+              createdAt: new Date("2026-07-09T14:31:00.000Z"),
+            },
+          ],
+        },
+      ],
+    } satisfies ModelSale;
+
+    const html = saleReceiptPdfHtml(sale, {
+      address: "Rua teste",
+      city: "Cidade teste",
+      document: "Documento sem valor fiscal",
+      email: "teste@example.com",
+      name: "Loja teste",
+      phone: "63999999999",
+    });
+
+    assert.match(html, /Devolucoes e estornos/);
+    assert.match(html, /Cliente devolveu uma unidade/);
+    assert.match(html, /NSU123/);
+    assert.match(html, /Estornos/);
+    assert.match(html, /Total liquido/);
+    assert.match(html, /R\$\s*50,00/);
   });
 
   it("returns an item from a completed shipping sale to stock", async () => {
