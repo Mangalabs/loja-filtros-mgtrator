@@ -1292,6 +1292,78 @@ describe("catalog routes", () => {
     assert.equal(returnMovement?.createdByUserName, "Administrador de teste");
   });
 
+  it("returns an item from a completed shipping sale to stock", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro envio devolucao", salePrice: 70 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente devolucao envio",
+      },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 4,
+        reason: "Saldo para devolucao por envio",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+    const order = await request<ShippingOrder>("/shipping-orders", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 2,
+      },
+    });
+    const completed = await request<ShippingOrder>(
+      `/shipping-orders/${order.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: pix?.id },
+      },
+    );
+    const sales = await request<Sale[]>("/sales");
+    const linkedSale = sales.body.data?.find(
+      (sale) => sale.id === completed.body.data?.saleId,
+    );
+    const returned = await request<Sale>(
+      `/sales/${linkedSale?.id}/returns`,
+      {
+        method: "POST",
+        body: {
+          saleItemId: linkedSale?.items[0]?.id,
+          quantity: 1,
+          reason: "Cliente devolveu item enviado",
+        },
+      },
+    );
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(returned.status, 200);
+    assert.equal(returned.body.data?.items[0]?.returnedQuantity, "1.000");
+    assert.equal(returned.body.data?.items[0]?.returnableQuantity, "1.000");
+    assert.equal(updatedProduct.body.data?.currentStock, "3.000");
+  });
+
   it("issues a mock fiscal document for a completed sale", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
@@ -3388,6 +3460,17 @@ describe("catalog routes", () => {
         body: { documentType: "NFE" },
       },
     );
+    const linkedSaleReturnAfterFiscal = await request(
+      `/sales/${sales.body.data?.[0]?.id}/returns`,
+      {
+        method: "POST",
+        body: {
+          saleItemId: sales.body.data?.[0]?.items[0]?.id,
+          quantity: 1,
+          reason: "Tentativa com fiscal ativo",
+        },
+      },
+    );
 
     assert.equal(updatedProduct.body.data?.currentStock, "2.000");
     assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
@@ -3396,6 +3479,11 @@ describe("catalog routes", () => {
     assert.equal(fiscalDocument.status, 201);
     assert.equal(fiscalDocument.body.data?.sourceType, "SHIPPING_ORDER");
     assert.equal(fiscalDocument.body.data?.sourceId, completed.body.data?.id);
+    assert.equal(linkedSaleReturnAfterFiscal.status, 409);
+    assert.equal(
+      linkedSaleReturnAfterFiscal.body.message,
+      "Cancele a NF-e antes de devolver itens desta venda.",
+    );
   });
 
   it("blocks shipping fiscal issue when the linked sale already has an active fiscal document", async () => {

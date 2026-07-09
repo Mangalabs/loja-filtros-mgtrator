@@ -211,16 +211,45 @@ export async function saleHasBlockingFiscalDocument(
   transaction: Knex.Transaction,
   saleId: string,
 ): Promise<boolean> {
+  const sourceRefs = await saleFiscalDocumentSourceRefs(transaction, saleId);
   const fiscalDocument = await transaction("fiscal_documents")
     .select("id")
-    .where({
-      source_type: "SALE",
-      source_id: saleId,
+    .where((builder) => {
+      for (const sourceRef of sourceRefs) {
+        builder.orWhere({
+          source_type: sourceRef.sourceType,
+          source_id: sourceRef.sourceId,
+        });
+      }
     })
     .whereIn("status", ["PENDING", "PROCESSING", "AUTHORIZED"])
     .first();
 
   return Boolean(fiscalDocument);
+}
+
+async function saleFiscalDocumentSourceRefs(
+  transaction: Knex.Transaction,
+  saleId: string,
+) {
+  const linkedShippingOrders = await transaction("shipping_orders")
+    .select<{ id: string }[]>(["id"])
+    .where("sale_id", saleId);
+  const linkedPickupReservations = await transaction("pickup_reservations")
+    .select<{ id: string }[]>(["id"])
+    .where("sale_id", saleId);
+
+  return [
+    { sourceType: "SALE", sourceId: saleId },
+    ...linkedShippingOrders.map((order) => ({
+      sourceType: "SHIPPING_ORDER",
+      sourceId: order.id,
+    })),
+    ...linkedPickupReservations.map((reservation) => ({
+      sourceType: "PICKUP_RESERVATION",
+      sourceId: reservation.id,
+    })),
+  ];
 }
 
 export async function lockSaleItemForReturn(

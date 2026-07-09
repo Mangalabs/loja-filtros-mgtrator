@@ -310,11 +310,12 @@ Estado: parcialmente entregue.
 
 - Venda de balcao, reserva, envio, baixa de estoque e cancelamentos principais existem.
 - Caixa ja possui abertura, fechamento, divergencia, sangria, suprimento e conferencia por forma de pagamento.
-- Base backend de devolucao operacional de item entregue, com retorno ao estoque e historico.
-- Falta estorno financeiro detalhado e exposicao da devolucao por item no frontend.
+- Devolucao operacional de item entregue para venda de balcao e vendas concluidas via envio/retirada, com retorno ao estoque e historico.
+- Historico de vendas permite registrar devolucao por item quando nao houver NF-e ativa bloqueando a operacao.
+- Falta estorno financeiro detalhado das devolucoes.
 - Desconto direto em venda de balcao entregue no backend e no frontend.
 - Orcamentos podem ser editados enquanto estiverem em rascunho.
-- Orcamentos possuem desconto direto geral e desconto direto por item.
+- Orcamentos possuem desconto percentual geral e desconto percentual por item.
 - Orcamentos destacam a forma de pagamento na tela e no PDF comercial.
 - Historico de vendas permite baixar comprovante comercial sem valor fiscal para vendas concluidas.
 - Pedidos para envio podem ser concluidos como venda em um passo, sem exigir separacao manual na tela.
@@ -361,7 +362,6 @@ Estado: inicial entregue.
 ### 2. Completar PDV/Caixa
 
 - Estorno financeiro detalhado de itens devolvidos.
-- Expor devolucao por item na tela de vendas.
 
 ### 3. Compras
 

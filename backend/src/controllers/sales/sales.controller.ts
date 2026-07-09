@@ -196,13 +196,6 @@ export async function returnCounterSaleItem(
       throw new AppError("Venda cancelada nao pode receber devolucao.", 409);
     }
 
-    if (await saleHasLinkedOperation(transaction, id)) {
-      throw new AppError(
-        "Venda gerada por envio ou retirada nao pode receber devolucao por este fluxo.",
-        409,
-      );
-    }
-
     if (await saleHasBlockingFiscalDocument(transaction, id)) {
       throw new AppError(
         "Cancele a NF-e antes de devolver itens desta venda.",

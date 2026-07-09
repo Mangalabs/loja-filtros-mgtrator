@@ -208,6 +208,10 @@ function SalesHistoryActions({
   row: SalesHistoryRow
   onReturnItem: SaleReturnHandler
 }) {
+  const fiscalDocumentBlocksReturn = Boolean(
+    row.fiscalDocument &&
+      returnBlockingFiscalStatuses.includes(row.fiscalDocument.status),
+  )
   const fiscalLinks = [
     { label: 'DANFE', url: row.fiscalDocument?.pdfUrl },
     { label: 'XML', url: row.fiscalDocument?.xmlUrl },
@@ -238,12 +242,21 @@ function SalesHistoryActions({
           <InlineNote>Sem arquivos</InlineNote>
         ) : null}
       </ActionGroup>
-      {row.sale ? (
+      {row.sale && !fiscalDocumentBlocksReturn ? (
         <SaleReturnForm sale={row.sale} onReturnItem={onReturnItem} />
+      ) : null}
+      {row.sale && fiscalDocumentBlocksReturn ? (
+        <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>
       ) : null}
     </ActionStack>
   )
 }
+
+const returnBlockingFiscalStatuses: FiscalDocument['status'][] = [
+  'AUTHORIZED',
+  'PENDING',
+  'PROCESSING',
+]
 
 function buildSalesHistoryRows({
   fiscalDocuments,
