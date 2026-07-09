@@ -288,7 +288,7 @@ function SalesHistoryActions({
 
 function SaleReturnSummary({ sale }: { sale: Sale }) {
   const returns = sale.items.flatMap((item) =>
-    item.returns.map((itemReturn) => ({
+    saleItemReturns(item).map((itemReturn) => ({
       ...itemReturn,
       productName: item.productName,
     })),
@@ -425,7 +425,7 @@ function saleRefundAmount(sale: Sale | null) {
     sale?.items.reduce(
       (total, item) =>
         total +
-        item.returns.reduce(
+        saleItemReturns(item).reduce(
           (itemTotal, itemReturn) =>
             itemTotal + Number(itemReturn.refundAmount),
           0,
@@ -433,6 +433,10 @@ function saleRefundAmount(sale: Sale | null) {
       0,
     ) ?? 0
   )
+}
+
+function saleItemReturns(item: Sale['items'][number]) {
+  return Array.isArray(item.returns) ? item.returns : []
 }
 
 function saleNetAmount(sale: Sale | null, fallbackTotalAmount: string) {
