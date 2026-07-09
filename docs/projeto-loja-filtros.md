@@ -313,7 +313,8 @@ Estado: parcialmente entregue.
 - Devolucao operacional de item entregue para venda de balcao e vendas concluidas via envio/retirada, com retorno ao estoque e historico.
 - Historico de vendas permite registrar devolucao por item quando nao houver NF-e ativa bloqueando a operacao.
 - Caixa considera devolucoes no total liquido e no resumo por forma de pagamento.
-- Falta registrar estorno financeiro detalhado com forma, data e comprovante do valor devolvido.
+- Devolucoes registram base financeira do estorno: valor, forma de pagamento, data e referencia opcional.
+- Falta melhorar a tela para visualizar/editar os metadados detalhados do estorno.
 - Desconto direto em venda de balcao entregue no backend e no frontend.
 - Orcamentos podem ser editados enquanto estiverem em rascunho.
 - Orcamentos possuem desconto percentual geral e desconto percentual por item.

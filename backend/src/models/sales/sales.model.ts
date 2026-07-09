@@ -76,6 +76,14 @@ export type SaleItemForReturn = {
   saleId: string;
   productId: string;
   quantity: string;
+  totalAmount: string;
+};
+
+export type SaleReturnRefundInput = {
+  refundAmount: number;
+  refundPaymentMethodId: string;
+  refundedAt: string;
+  refundReference?: string | null;
 };
 
 export type SaleProduct = {
@@ -263,10 +271,23 @@ export async function lockSaleItemForReturn(
       "sale_id as saleId",
       "product_id as productId",
       "quantity",
+      "total_amount as totalAmount",
     ])
     .where({ id: saleItemId, sale_id: saleId })
     .forUpdate()
     .first();
+}
+
+export async function salePaymentMethodId(
+  transaction: Knex.Transaction,
+  saleId: string,
+): Promise<string | undefined> {
+  const payment = await transaction("sale_payments")
+    .select("payment_method_id as paymentMethodId")
+    .where("sale_id", saleId)
+    .first<{ paymentMethodId: string }>();
+
+  return payment?.paymentMethodId;
 }
 
 export async function returnedSaleItemQuantity(
@@ -384,6 +405,7 @@ export async function returnSaleItem(
   quantity: number,
   createdByUserId: string,
   reason: string,
+  refund: SaleReturnRefundInput,
 ): Promise<Sale> {
   await transaction("sale_item_returns").insert({
     sale_id: saleId,
@@ -392,6 +414,10 @@ export async function returnSaleItem(
     created_by_user_id: createdByUserId,
     quantity,
     reason,
+    refund_amount: refund.refundAmount,
+    refund_payment_method_id: refund.refundPaymentMethodId,
+    refunded_at: refund.refundedAt,
+    refund_reference: refund.refundReference,
   });
 
   await transaction("stock_movements").insert({

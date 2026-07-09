@@ -248,13 +248,8 @@ async function listPaymentSummary(
   cashRegisterSessionId: string,
 ): Promise<CashRegisterPaymentSummary[]> {
   const returnAmounts = database("sale_item_returns")
-    .join("sale_items", "sale_items.id", "sale_item_returns.sale_item_id")
     .select("sale_item_returns.sale_id as saleId")
-    .sum({
-      returnAmount: database.raw(
-        "(sale_item_returns.quantity / sale_items.quantity) * sale_items.total_amount",
-      ),
-    })
+    .sum({ returnAmount: "sale_item_returns.refund_amount" })
     .groupBy("sale_item_returns.sale_id")
     .as("return_amounts");
 

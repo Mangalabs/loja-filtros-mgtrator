@@ -1279,6 +1279,9 @@ describe("catalog routes", () => {
     const returnMovement = movements.body.data?.find(
       (movement) => movement.type === "SALE_RETURN",
     );
+    const returnRecord = await db("sale_item_returns")
+      .where("sale_id", created.body.data?.id)
+      .first();
 
     assert.equal(returned.status, 200);
     assert.equal(returned.body.data?.status, "COMPLETED");
@@ -1293,6 +1296,9 @@ describe("catalog routes", () => {
     assert.equal(cashAfterReturn.body.data?.salesTotal, "100.00");
     assert.equal(cashAfterReturn.body.data?.expectedClosingBalance, "100.00");
     assert.equal(cashAfterReturn.body.data?.paymentSummary[0]?.amount, "100.00");
+    assert.equal(returnRecord?.refund_amount, "50.00");
+    assert.equal(returnRecord?.refund_payment_method_id, pix?.id);
+    assert.ok(returnRecord?.refunded_at);
     assert.equal(returnMovement?.quantity, "1.000");
     assert.equal(returnMovement?.notes, "Cliente devolveu uma unidade");
     assert.equal(returnMovement?.createdByUserName, "Administrador de teste");
@@ -1357,17 +1363,27 @@ describe("catalog routes", () => {
           saleItemId: linkedSale?.items[0]?.id,
           quantity: 1,
           reason: "Cliente devolveu item enviado",
+          refundAmount: 70,
+          refundPaymentMethodId: pix?.id,
+          refundedAt: "2026-07-09T10:00:00.000Z",
+          refundReference: "NSU-SMOKE-DEVOLUCAO",
         },
       },
     );
     const updatedProduct = await request<Product>(
       `/products/${product.body.data?.id}`,
     );
+    const returnRecord = await db("sale_item_returns")
+      .where("sale_id", linkedSale?.id)
+      .first();
 
     assert.equal(returned.status, 200);
     assert.equal(returned.body.data?.items[0]?.returnedQuantity, "1.000");
     assert.equal(returned.body.data?.items[0]?.returnableQuantity, "1.000");
     assert.equal(updatedProduct.body.data?.currentStock, "3.000");
+    assert.equal(returnRecord?.refund_amount, "70.00");
+    assert.equal(returnRecord?.refund_payment_method_id, pix?.id);
+    assert.equal(returnRecord?.refund_reference, "NSU-SMOKE-DEVOLUCAO");
   });
 
   it("issues a mock fiscal document for a completed sale", async () => {

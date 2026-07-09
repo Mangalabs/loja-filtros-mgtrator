@@ -100,6 +100,16 @@ const returnSaleItemSchema = z
     saleItemId: z.uuid(),
     quantity: z.coerce.number().positive(),
     reason: z.string().trim().min(1).max(500),
+    refundAmount: z.coerce.number().min(0).optional(),
+    refundPaymentMethodId: z.uuid().optional(),
+    refundedAt: z
+      .union([z.iso.datetime(), z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    refundReference: z
+      .union([z.string().trim().min(1).max(120), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
   })
   .strict();
 
@@ -147,6 +157,12 @@ salesRoutes.post("/sales/:id/returns", async (request, response) => {
         body.quantity,
         body.reason,
         userId,
+        {
+          refundAmount: body.refundAmount,
+          refundPaymentMethodId: body.refundPaymentMethodId,
+          refundedAt: body.refundedAt,
+          refundReference: body.refundReference,
+        },
       ),
     );
 });
