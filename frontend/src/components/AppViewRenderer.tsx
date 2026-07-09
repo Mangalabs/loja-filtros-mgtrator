@@ -282,6 +282,9 @@ export function AppViewRenderer({
           pickupReservations={pickupReservations}
           sales={sales}
           shippingOrders={shippingOrders}
+          onReturnItem={(event, sale) =>
+            void salesActions.returnSaleItem(event, sale)
+          }
         />
       ),
     "shipping-orders": (

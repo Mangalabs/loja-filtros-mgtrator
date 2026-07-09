@@ -11,6 +11,7 @@ import type {
 import { apiUrl } from '../../api'
 import {
   ActionGroup,
+  ActionStack,
   InlineNote,
   PageHeader,
   PagePanel,
@@ -23,6 +24,7 @@ import {
   fiscalDocumentStatusLabel,
   fiscalDocumentStatusTone,
 } from '../finance/fiscalPresentation'
+import { SaleReturnForm, type SaleReturnHandler } from './SaleReturnForm'
 
 type SalesHistoryOrigin = 'ALL' | 'PICKUP_RESERVATION' | 'SALE' | 'SHIPPING_ORDER'
 type SalesHistoryFiscalFilter =
@@ -44,6 +46,7 @@ type SalesHistoryRow = {
   operatorName: string
   completedAt: string
   saleId: string | null
+  sale: Sale | null
   fiscalDocument?: FiscalDocument
 }
 
@@ -52,11 +55,13 @@ export function SalesHistoryPage({
   pickupReservations,
   sales,
   shippingOrders,
+  onReturnItem,
 }: {
   fiscalDocuments: FiscalDocument[]
   pickupReservations: PickupReservation[]
   sales: Sale[]
   shippingOrders: ShippingOrder[]
+  onReturnItem: SaleReturnHandler
 }) {
   const [search, setSearch] = useState('')
   const [origin, setOrigin] = useState<SalesHistoryOrigin>('ALL')
@@ -163,8 +168,10 @@ export function SalesHistoryPage({
           },
           {
             align: 'right',
-            header: 'Arquivos',
-            render: (row) => <SalesHistoryFiles row={row} />,
+            header: 'Acoes',
+            render: (row) => (
+              <SalesHistoryActions row={row} onReturnItem={onReturnItem} />
+            ),
           },
         ]}
         emptyMessage='Nenhuma venda fechada encontrada.'
@@ -194,7 +201,13 @@ function SalesHistoryFiscalStatus({ row }: { row: SalesHistoryRow }) {
   )
 }
 
-function SalesHistoryFiles({ row }: { row: SalesHistoryRow }) {
+function SalesHistoryActions({
+  row,
+  onReturnItem,
+}: {
+  row: SalesHistoryRow
+  onReturnItem: SaleReturnHandler
+}) {
   const fiscalLinks = [
     { label: 'DANFE', url: row.fiscalDocument?.pdfUrl },
     { label: 'XML', url: row.fiscalDocument?.xmlUrl },
@@ -204,26 +217,31 @@ function SalesHistoryFiles({ row }: { row: SalesHistoryRow }) {
   )
 
   return (
-    <ActionGroup>
-      {row.saleId ? (
-        <TableActionButton
-          href={apiUrl(`/sales/${row.saleId}/receipt`)}
-          icon={<ReceiptText size={14} />}>
-          Comprovante
-        </TableActionButton>
+    <ActionStack>
+      <ActionGroup align='end'>
+        {row.saleId ? (
+          <TableActionButton
+            href={apiUrl(`/sales/${row.saleId}/receipt`)}
+            icon={<ReceiptText size={14} />}>
+            Comprovante
+          </TableActionButton>
+        ) : null}
+        {fiscalLinks.map((link) => (
+          <TableActionButton
+            href={fiscalDocumentFileHref(link.url)}
+            icon={<FileText size={14} />}
+            key={link.label}>
+            {link.label}
+          </TableActionButton>
+        ))}
+        {!row.saleId && fiscalLinks.length === 0 ? (
+          <InlineNote>Sem arquivos</InlineNote>
+        ) : null}
+      </ActionGroup>
+      {row.sale ? (
+        <SaleReturnForm sale={row.sale} onReturnItem={onReturnItem} />
       ) : null}
-      {fiscalLinks.map((link) => (
-        <TableActionButton
-          href={fiscalDocumentFileHref(link.url)}
-          icon={<FileText size={14} />}
-          key={link.label}>
-          {link.label}
-        </TableActionButton>
-      ))}
-      {!row.saleId && fiscalLinks.length === 0 ? (
-        <InlineNote>Sem arquivos</InlineNote>
-      ) : null}
-    </ActionGroup>
+    </ActionStack>
   )
 }
 
@@ -253,6 +271,7 @@ function buildSalesHistoryRows({
       id: `SALE-${sale.id}`,
       operatorName: sale.createdByUserName,
       originLabel: 'Balcao',
+      sale,
       saleId: sale.id,
       sourceId: sale.id,
       sourceType: 'SALE',
@@ -271,6 +290,7 @@ function buildSalesHistoryRows({
       id: `SHIPPING_ORDER-${order.id}`,
       operatorName: order.completedByUserName ?? order.createdByUserName,
       originLabel: 'Para envio',
+      sale: findSale(sales, order.saleId),
       saleId: order.saleId,
       sourceId: order.id,
       sourceType: 'SHIPPING_ORDER',
@@ -290,6 +310,7 @@ function buildSalesHistoryRows({
       operatorName:
         reservation.completedByUserName ?? reservation.createdByUserName,
       originLabel: 'Retirada',
+      sale: findSale(sales, reservation.saleId),
       saleId: reservation.saleId,
       sourceId: reservation.id,
       sourceType: 'PICKUP_RESERVATION',
@@ -301,6 +322,10 @@ function buildSalesHistoryRows({
       new Date(next.completedAt).getTime() -
       new Date(current.completedAt).getTime(),
   )
+}
+
+function findSale(sales: Sale[], saleId: string | null) {
+  return saleId ? sales.find((sale) => sale.id === saleId) ?? null : null
 }
 
 function filterSalesHistoryRows(
