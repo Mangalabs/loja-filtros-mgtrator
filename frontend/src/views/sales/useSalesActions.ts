@@ -76,6 +76,13 @@ export function useSalesActions({
     const saleItemId = String(form.get("saleReturnItemId") ?? "");
     const quantity = Number(form.get("saleReturnQuantity") ?? 0);
     const reason = String(form.get("saleReturnReason") ?? "").trim();
+    const refundAmount = formNumberValue(form, "saleReturnRefundAmount");
+    const refundPaymentMethodId = formStringValue(
+      form,
+      "saleReturnRefundPaymentMethodId",
+    );
+    const refundedAt = formDateValue(form, "saleReturnRefundedAt");
+    const refundReference = formStringValue(form, "saleReturnRefundReference");
     const saleItem = sale.items.find((item) => item.id === saleItemId);
     const confirmed = await requestConfirmation(
       `Registrar devolucao de ${formatQuantity(String(quantity))} item(ns) de ${saleItem?.productName ?? "produto"}?`,
@@ -92,6 +99,13 @@ export function useSalesActions({
         saleItemId,
         quantity,
         reason,
+        ...optionalPayloadField("refundAmount", refundAmount),
+        ...optionalPayloadField(
+          "refundPaymentMethodId",
+          refundPaymentMethodId,
+        ),
+        ...optionalPayloadField("refundedAt", refundedAt),
+        ...optionalPayloadField("refundReference", refundReference),
       });
       formElement.reset();
       await loadCatalog();
@@ -372,6 +386,19 @@ export function useSalesActions({
 
 function formDateValue(form: FormData, field: string) {
   return String(form.get(field) ?? "") || null;
+}
+
+function formStringValue(form: FormData, field: string) {
+  return String(form.get(field) ?? "").trim() || null;
+}
+
+function formNumberValue(form: FormData, field: string) {
+  const value = String(form.get(field) ?? "");
+  return value ? Number(value) : null;
+}
+
+function optionalPayloadField<T>(field: string, value: T | null) {
+  return value === null ? {} : { [field]: value };
 }
 
 function hasInsufficientStock(

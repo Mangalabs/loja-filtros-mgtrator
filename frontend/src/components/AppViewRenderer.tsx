@@ -282,6 +282,7 @@ export function AppViewRenderer({
     "sales-history": (
         <SalesHistoryPage
           fiscalDocuments={fiscalDocuments}
+          paymentMethods={paymentMethods}
           pickupReservations={pickupReservations}
           sales={sales}
           shippingOrders={shippingOrders}

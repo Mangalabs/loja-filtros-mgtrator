@@ -314,7 +314,8 @@ Estado: parcialmente entregue.
 - Historico de vendas permite registrar devolucao por item quando nao houver NF-e ativa bloqueando a operacao.
 - Caixa considera devolucoes no total liquido e no resumo por forma de pagamento.
 - Devolucoes registram base financeira do estorno: valor, forma de pagamento, data e referencia opcional.
-- Falta melhorar a tela para visualizar/editar os metadados detalhados do estorno.
+- Tela de devolucao permite informar valor, forma, data e referencia do estorno.
+- Falta uma tela/listagem dedicada para consultar estornos ja registrados.
 - Desconto direto em venda de balcao entregue no backend e no frontend.
 - Orcamentos podem ser editados enquanto estiverem em rascunho.
 - Orcamentos possuem desconto percentual geral e desconto percentual por item.

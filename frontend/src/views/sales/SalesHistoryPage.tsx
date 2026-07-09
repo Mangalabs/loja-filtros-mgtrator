@@ -4,6 +4,7 @@ import { FileText, ReceiptText } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type {
   FiscalDocument,
+  PaymentMethod,
   PickupReservation,
   Sale,
   ShippingOrder,
@@ -52,12 +53,14 @@ type SalesHistoryRow = {
 
 export function SalesHistoryPage({
   fiscalDocuments,
+  paymentMethods,
   pickupReservations,
   sales,
   shippingOrders,
   onReturnItem,
 }: {
   fiscalDocuments: FiscalDocument[]
+  paymentMethods: PaymentMethod[]
   pickupReservations: PickupReservation[]
   sales: Sale[]
   shippingOrders: ShippingOrder[]
@@ -170,7 +173,11 @@ export function SalesHistoryPage({
             align: 'right',
             header: 'Acoes',
             render: (row) => (
-              <SalesHistoryActions row={row} onReturnItem={onReturnItem} />
+              <SalesHistoryActions
+                paymentMethods={paymentMethods}
+                row={row}
+                onReturnItem={onReturnItem}
+              />
             ),
           },
         ]}
@@ -202,9 +209,11 @@ function SalesHistoryFiscalStatus({ row }: { row: SalesHistoryRow }) {
 }
 
 function SalesHistoryActions({
+  paymentMethods,
   row,
   onReturnItem,
 }: {
+  paymentMethods: PaymentMethod[]
   row: SalesHistoryRow
   onReturnItem: SaleReturnHandler
 }) {
@@ -243,7 +252,11 @@ function SalesHistoryActions({
         ) : null}
       </ActionGroup>
       {row.sale && !fiscalDocumentBlocksReturn ? (
-        <SaleReturnForm sale={row.sale} onReturnItem={onReturnItem} />
+        <SaleReturnForm
+          paymentMethods={paymentMethods}
+          sale={row.sale}
+          onReturnItem={onReturnItem}
+        />
       ) : null}
       {row.sale && fiscalDocumentBlocksReturn ? (
         <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>

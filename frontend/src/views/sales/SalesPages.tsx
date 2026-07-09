@@ -361,6 +361,7 @@ export function SalesPage({
                     pickupReservations,
                     shippingOrders,
                   )}
+                  paymentMethods={paymentMethods}
                   onReturnItem={onReturnItem}
                 />
               ),
@@ -383,10 +384,12 @@ function saleReceiptHref(sale: Sale) {
 function SaleActions({
   sale,
   fiscalDocumentBlocksReturn,
+  paymentMethods,
   onReturnItem,
 }: {
   sale: Sale
   fiscalDocumentBlocksReturn: boolean
+  paymentMethods: PaymentMethod[]
   onReturnItem: SaleReturnHandler
 }) {
   return sale.status === 'COMPLETED' ? (
@@ -400,7 +403,11 @@ function SaleActions({
       {fiscalDocumentBlocksReturn ? (
         <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>
       ) : (
-        <SaleReturnForm sale={sale} onReturnItem={onReturnItem} />
+        <SaleReturnForm
+          paymentMethods={paymentMethods}
+          sale={sale}
+          onReturnItem={onReturnItem}
+        />
       )}
     </ActionStack>
   ) : (
