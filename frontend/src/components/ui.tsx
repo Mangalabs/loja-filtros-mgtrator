@@ -150,6 +150,9 @@ export function TableActionsMenu({
           border: '1px solid #cfd8d5',
           borderRadius: 2,
           color: frontendPalette.primaryNavy,
+          height: 30,
+          p: 0,
+          width: 30,
           '&:hover': {
             bgcolor: '#f3f5f4',
             borderColor: frontendPalette.mutedGreenGray,

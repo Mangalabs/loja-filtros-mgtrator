@@ -276,9 +276,12 @@ function SalesHistoryActions({
 
   return (
     <ActionStack>
-      <TableActionsMenu actions={actions} />
+      <div className='flex justify-end'>
+        <TableActionsMenu actions={actions} />
+      </div>
       {showReturnForm && row.sale && !fiscalDocumentBlocksReturn ? (
         <SaleReturnForm
+          onCancel={() => setShowReturnForm(false)}
           paymentMethods={paymentMethods}
           sale={row.sale}
           onReturnItem={onReturnItem}

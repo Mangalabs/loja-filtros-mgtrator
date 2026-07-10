@@ -409,13 +409,16 @@ function SaleActions({
 
   return sale.status === 'COMPLETED' ? (
     <ActionStack>
-      <TableActionsMenu actions={actions} />
+      <div className='flex justify-end'>
+        <TableActionsMenu actions={actions} />
+      </div>
       <InlineNote>Comprovante sem valor fiscal</InlineNote>
       {fiscalDocumentBlocksReturn ? (
         <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>
       ) : null}
       {showReturnForm && !fiscalDocumentBlocksReturn ? (
         <SaleReturnForm
+          onCancel={() => setShowReturnForm(false)}
           paymentMethods={paymentMethods}
           sale={sale}
           onReturnItem={onReturnItem}

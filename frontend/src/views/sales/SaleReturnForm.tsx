@@ -12,10 +12,12 @@ export type SaleReturnHandler = (
 ) => Promise<boolean> | void
 
 export function SaleReturnForm({
+  onCancel,
   paymentMethods,
   sale,
   onReturnItem,
 }: {
+  onCancel?: () => void
   paymentMethods: PaymentMethod[]
   sale: Sale
   onReturnItem: SaleReturnHandler
@@ -24,10 +26,14 @@ export function SaleReturnForm({
     (item) => Number(item.returnableQuantity) > 0,
   )
 
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    const saved = await onReturnItem(event, sale)
+
+    saved && onCancel?.()
+  }
+
   return returnableItems.length > 0 ? (
-    <form
-      className='grid w-full max-w-64 gap-2'
-      onSubmit={(event) => onReturnItem(event, sale)}>
+    <form className='grid w-full max-w-72 gap-2' onSubmit={submit}>
       <TextField
         label='Item para devolver'
         name='saleReturnItemId'
@@ -89,7 +95,14 @@ export function SaleReturnForm({
         size='small'
         helperText='NSU, comprovante ou observacao curta.'
       />
-      <TableActionButton type='submit'>Devolver item</TableActionButton>
+      <div className='flex flex-wrap gap-2'>
+        <TableActionButton type='submit'>Devolver item</TableActionButton>
+        {onCancel ? (
+          <TableActionButton type='button' onClick={onCancel}>
+            Cancelar
+          </TableActionButton>
+        ) : null}
+      </div>
     </form>
   ) : (
     <InlineNote>Itens ja devolvidos</InlineNote>
