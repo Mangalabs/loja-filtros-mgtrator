@@ -616,40 +616,58 @@ const shippingOrderActionRenderers: Record<
 }
 
 function ShippingOrderCompleteActions({
-    cashRegister,
-    order,
-    paymentMethods,
-    onCancel,
-    onComplete,
-  }: ShippingOrderActionRendererProps) {
+  cashRegister,
+  order,
+  paymentMethods,
+  onCancel,
+  onComplete,
+}: ShippingOrderActionRendererProps) {
+  const [openAction, setOpenAction] = useState<'cancel' | 'complete' | null>(
+    null,
+  )
+  const actions: TableActionsMenuAction[] = [
+    {
+      disabled: !cashRegister,
+      label: 'Concluir venda',
+      onSelect: () => setOpenAction('complete'),
+    },
+    {
+      label: 'Cancelar pedido',
+      onSelect: () => setOpenAction('cancel'),
+    },
+  ]
+
   return (
     <ActionStack>
-      <form
-        className='grid gap-2'
-        onSubmit={(event) => onComplete(event, order)}>
-        {!cashRegister ? (
-          <InlineNote>Abra o caixa para concluir.</InlineNote>
-        ) : null}
-        <TextField
-          label='Pagamento'
-          name='shippingPaymentMethodId'
-          defaultValue=''
-          select
-          size='small'
-          required
-          disabled={!cashRegister}>
-          <MenuItem value='' disabled>
-            Pagamento
-          </MenuItem>
-          {paymentMethods
-            .filter((method) => method.active)
-            .map((method) => (
-              <MenuItem key={method.id} value={method.id}>
-                {method.name}
-              </MenuItem>
-            ))}
-        </TextField>
-        <FormRow>
+      <div className='flex justify-end'>
+        <TableActionsMenu actions={actions} />
+      </div>
+      {!cashRegister ? (
+        <InlineNote>Abra o caixa para concluir.</InlineNote>
+      ) : null}
+      {openAction === 'complete' ? (
+        <form
+          className='grid w-full max-w-72 gap-2'
+          onSubmit={(event) => onComplete(event, order)}>
+          <TextField
+            label='Pagamento'
+            name='shippingPaymentMethodId'
+            defaultValue=''
+            select
+            size='small'
+            required
+            disabled={!cashRegister}>
+            <MenuItem value='' disabled>
+              Pagamento
+            </MenuItem>
+            {paymentMethods
+              .filter((method) => method.active)
+              .map((method) => (
+                <MenuItem key={method.id} value={method.id}>
+                  {method.name}
+                </MenuItem>
+              ))}
+          </TextField>
           <TextField
             disabled={!cashRegister}
             label='Data da fatura'
@@ -666,22 +684,35 @@ function ShippingOrderCompleteActions({
             type='date'
             slotProps={{ inputLabel: { shrink: true } }}
           />
-        </FormRow>
-        <ActionGroup>
-          <TableActionButton type='submit' disabled={!cashRegister}>
-            Concluir venda
-          </TableActionButton>
-        </ActionGroup>
-      </form>
-      <ShippingOrderCancelForm order={order} onCancel={onCancel} />
+          <div className='flex flex-wrap gap-2'>
+            <TableActionButton type='submit' disabled={!cashRegister}>
+              Concluir venda
+            </TableActionButton>
+            <TableActionButton
+              type='button'
+              onClick={() => setOpenAction(null)}>
+              Fechar
+            </TableActionButton>
+          </div>
+        </form>
+      ) : null}
+      {openAction === 'cancel' ? (
+        <ShippingOrderCancelForm
+          order={order}
+          onCancel={onCancel}
+          onClose={() => setOpenAction(null)}
+        />
+      ) : null}
     </ActionStack>
   )
 }
 
 function ShippingOrderCancelForm({
+  onClose,
   order,
   onCancel,
 }: {
+  onClose: () => void
   order: ShippingOrder
   onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
 }) {
@@ -696,9 +727,12 @@ function ShippingOrderCancelForm({
         slotProps={{ htmlInput: { maxLength: 500 } }}
         required
       />
-      <ActionGroup>
+      <div className='flex flex-wrap gap-2'>
         <TableActionButton type='submit'>Cancelar</TableActionButton>
-      </ActionGroup>
+        <TableActionButton type='button' onClick={onClose}>
+          Fechar
+        </TableActionButton>
+      </div>
     </form>
   )
 }
@@ -1052,6 +1086,10 @@ function PickupReservationActions({
     reservation: PickupReservation,
   ) => void
 }) {
+  const [openAction, setOpenAction] = useState<'cancel' | 'complete' | null>(
+    null,
+  )
+
   if (reservation.status === 'COMPLETED') {
     return 'Venda concluida'
   }
@@ -1060,34 +1098,49 @@ function PickupReservationActions({
     return '-'
   }
 
+  const actions: TableActionsMenuAction[] = [
+    {
+      disabled: !cashRegister,
+      label: 'Concluir venda',
+      onSelect: () => setOpenAction('complete'),
+    },
+    {
+      label: 'Cancelar reserva',
+      onSelect: () => setOpenAction('cancel'),
+    },
+  ]
+
   return (
     <ActionStack>
-      <form
-        className='grid gap-2'
-        onSubmit={(event) => onComplete(event, reservation)}>
-        {!cashRegister ? (
-          <InlineNote>Abra o caixa para concluir.</InlineNote>
-        ) : null}
-        <TextField
-          label='Pagamento'
-          name='pickupPaymentMethodId'
-          defaultValue=''
-          select
-          size='small'
-          required
-          disabled={!cashRegister}>
-          <MenuItem value='' disabled>
-            Pagamento
-          </MenuItem>
-          {paymentMethods
-            .filter((method) => method.active)
-            .map((method) => (
-              <MenuItem key={method.id} value={method.id}>
-                {method.name}
-              </MenuItem>
-            ))}
-        </TextField>
-        <FormRow>
+      <div className='flex justify-end'>
+        <TableActionsMenu actions={actions} />
+      </div>
+      {!cashRegister ? (
+        <InlineNote>Abra o caixa para concluir.</InlineNote>
+      ) : null}
+      {openAction === 'complete' ? (
+        <form
+          className='grid w-full max-w-72 gap-2'
+          onSubmit={(event) => onComplete(event, reservation)}>
+          <TextField
+            label='Pagamento'
+            name='pickupPaymentMethodId'
+            defaultValue=''
+            select
+            size='small'
+            required
+            disabled={!cashRegister}>
+            <MenuItem value='' disabled>
+              Pagamento
+            </MenuItem>
+            {paymentMethods
+              .filter((method) => method.active)
+              .map((method) => (
+                <MenuItem key={method.id} value={method.id}>
+                  {method.name}
+                </MenuItem>
+              ))}
+          </TextField>
           <TextField
             disabled={!cashRegister}
             label='Data da fatura'
@@ -1104,27 +1157,39 @@ function PickupReservationActions({
             type='date'
             slotProps={{ inputLabel: { shrink: true } }}
           />
-        </FormRow>
-        <ActionGroup>
-          <TableActionButton type='submit' disabled={!cashRegister}>
-            Concluir venda
-          </TableActionButton>
-        </ActionGroup>
-      </form>
-      <form
-        className='grid gap-2'
-        onSubmit={(event) => onCancel(event, reservation)}>
-        <TextField
-          label='Motivo do cancelamento'
-          name='pickupCancellationReason'
-          size='small'
-          slotProps={{ htmlInput: { maxLength: 500 } }}
-          required
-        />
-        <ActionGroup>
-          <TableActionButton type='submit'>Cancelar</TableActionButton>
-        </ActionGroup>
-      </form>
+          <div className='flex flex-wrap gap-2'>
+            <TableActionButton type='submit' disabled={!cashRegister}>
+              Concluir venda
+            </TableActionButton>
+            <TableActionButton
+              type='button'
+              onClick={() => setOpenAction(null)}>
+              Fechar
+            </TableActionButton>
+          </div>
+        </form>
+      ) : null}
+      {openAction === 'cancel' ? (
+        <form
+          className='grid w-full max-w-72 gap-2'
+          onSubmit={(event) => onCancel(event, reservation)}>
+          <TextField
+            label='Motivo do cancelamento'
+            name='pickupCancellationReason'
+            size='small'
+            slotProps={{ htmlInput: { maxLength: 500 } }}
+            required
+          />
+          <div className='flex flex-wrap gap-2'>
+            <TableActionButton type='submit'>Cancelar</TableActionButton>
+            <TableActionButton
+              type='button'
+              onClick={() => setOpenAction(null)}>
+              Fechar
+            </TableActionButton>
+          </div>
+        </form>
+      ) : null}
     </ActionStack>
   )
 }
