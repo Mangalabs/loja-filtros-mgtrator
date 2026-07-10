@@ -25,6 +25,7 @@ import {
   SecondaryButton,
   StatusChip,
   TableActionButton,
+  TableActionsMenu,
 } from "../../components/ui";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import { useAdministrationData } from "./useAdministrationData";
@@ -247,34 +248,31 @@ export function EmployeesPage({
               align: "right",
               header: "Acoes",
               render: (employee: AuthUser) => (
-                <ActionGroup>
-                  <TableActionButton
-                    icon={<Pencil size={15} />}
-                    type="button"
-                    onClick={() => administration.selectEmployee(employee)}
-                  >
-                    Editar
-                  </TableActionButton>
-                  <TableActionButton
-                    icon={
-                      employee.active ? (
-                        <PowerOff size={15} />
-                      ) : (
-                        <Power size={15} />
-                      )
-                    }
-                    type="button"
-                    onClick={() =>
-                      void confirmEmployeeStatus(
-                        employee,
-                        requestConfirmation,
-                        administration.changeEmployeeStatus,
-                      )
-                    }
-                  >
-                    {employee.active ? "Inativar" : "Ativar"}
-                  </TableActionButton>
-                </ActionGroup>
+                <div className="flex justify-end">
+                  <TableActionsMenu
+                    actions={[
+                      {
+                        icon: <Pencil size={15} />,
+                        label: "Editar",
+                        onSelect: () => administration.selectEmployee(employee),
+                      },
+                      {
+                        icon: employee.active ? (
+                          <PowerOff size={15} />
+                        ) : (
+                          <Power size={15} />
+                        ),
+                        label: employee.active ? "Inativar" : "Ativar",
+                        onSelect: () =>
+                          void confirmEmployeeStatus(
+                            employee,
+                            requestConfirmation,
+                            administration.changeEmployeeStatus,
+                          ),
+                      },
+                    ]}
+                  />
+                </div>
               ),
             },
           ]}
