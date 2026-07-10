@@ -58,11 +58,11 @@ type SalesHistoryRow = {
 }
 
 export function SalesHistoryPage({
-  fiscalDocuments,
-  paymentMethods,
-  pickupReservations,
-  sales,
-  shippingOrders,
+  fiscalDocuments = [],
+  paymentMethods = [],
+  pickupReservations = [],
+  sales = [],
+  shippingOrders = [],
   onReturnItem,
 }: {
   fiscalDocuments: FiscalDocument[]
@@ -287,7 +287,7 @@ function SalesHistoryActions({
 }
 
 function SaleReturnSummary({ sale }: { sale: Sale }) {
-  const returns = sale.items.flatMap((item) =>
+  const returns = saleItems(sale).flatMap((item) =>
     saleItemReturns(item).map((itemReturn) => ({
       ...itemReturn,
       productName: item.productName,
@@ -422,7 +422,7 @@ function findSale(sales: Sale[], saleId: string | null) {
 
 function saleRefundAmount(sale: Sale | null) {
   return (
-    sale?.items.reduce(
+    saleItems(sale).reduce(
       (total, item) =>
         total +
         saleItemReturns(item).reduce(
@@ -431,8 +431,12 @@ function saleRefundAmount(sale: Sale | null) {
           0,
         ),
       0,
-    ) ?? 0
+    )
   )
+}
+
+function saleItems(sale: Sale | null) {
+  return Array.isArray(sale?.items) ? sale.items : []
 }
 
 function saleItemReturns(item: Sale['items'][number]) {
