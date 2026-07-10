@@ -31,7 +31,9 @@ import {
   SecondaryButton,
   StatusChip,
   TableActionButton,
+  TableActionsMenu,
   type StatusTone,
+  type TableActionsMenuAction,
 } from '../../components/ui'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import {
@@ -392,23 +394,33 @@ function SaleActions({
   paymentMethods: PaymentMethod[]
   onReturnItem: SaleReturnHandler
 }) {
+  const [showReturnForm, setShowReturnForm] = useState(false)
+  const actions: TableActionsMenuAction[] = [
+    {
+      href: saleReceiptHref(sale),
+      label: 'Baixar comprovante',
+    },
+    {
+      disabled: fiscalDocumentBlocksReturn,
+      label: 'Registrar devolucao',
+      onSelect: () => setShowReturnForm(true),
+    },
+  ]
+
   return sale.status === 'COMPLETED' ? (
     <ActionStack>
-      <ActionGroup>
-        <TableActionButton href={saleReceiptHref(sale)}>
-          Comprovante
-        </TableActionButton>
-        <InlineNote>Sem valor fiscal</InlineNote>
-      </ActionGroup>
+      <TableActionsMenu actions={actions} />
+      <InlineNote>Comprovante sem valor fiscal</InlineNote>
       {fiscalDocumentBlocksReturn ? (
         <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>
-      ) : (
+      ) : null}
+      {showReturnForm && !fiscalDocumentBlocksReturn ? (
         <SaleReturnForm
           paymentMethods={paymentMethods}
           sale={sale}
           onReturnItem={onReturnItem}
         />
-      )}
+      ) : null}
     </ActionStack>
   ) : (
     <InlineNote>Venda cancelada</InlineNote>

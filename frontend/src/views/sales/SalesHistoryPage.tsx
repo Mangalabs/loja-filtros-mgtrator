@@ -11,14 +11,17 @@ import type {
 } from '../../api'
 import { apiUrl } from '../../api'
 import {
-  ActionGroup,
   ActionStack,
   InlineNote,
   PageHeader,
   PagePanel,
   ResponsiveTable,
 } from '../../components/layout'
-import { StatusChip, TableActionButton } from '../../components/ui'
+import {
+  StatusChip,
+  TableActionsMenu,
+  type TableActionsMenuAction,
+} from '../../components/ui'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import {
   formatCurrency,
@@ -237,6 +240,7 @@ function SalesHistoryActions({
   row: SalesHistoryRow
   onReturnItem: SaleReturnHandler
 }) {
+  const [showReturnForm, setShowReturnForm] = useState(false)
   const fiscalDocumentBlocksReturn = Boolean(
     row.fiscalDocument &&
       returnBlockingFiscalStatuses.includes(row.fiscalDocument.status),
@@ -248,30 +252,32 @@ function SalesHistoryActions({
     (link): link is { label: 'DANFE' | 'XML'; url: string } =>
       Boolean(link.url),
   )
+  const actions: TableActionsMenuAction[] = [
+    ...fiscalLinks.map((link) => ({
+      href: fiscalDocumentFileHref(link.url),
+      icon: <FileText size={14} />,
+      label: `Baixar ${link.label}`,
+    })),
+  ]
+
+  row.saleId &&
+    actions.unshift({
+      href: apiUrl(`/sales/${row.saleId}/receipt`),
+      icon: <ReceiptText size={14} />,
+      label: 'Baixar comprovante',
+    })
+
+  row.sale &&
+    actions.push({
+      disabled: fiscalDocumentBlocksReturn,
+      label: 'Registrar devolucao',
+      onSelect: () => setShowReturnForm(true),
+    })
 
   return (
     <ActionStack>
-      <ActionGroup align='end'>
-        {row.saleId ? (
-          <TableActionButton
-            href={apiUrl(`/sales/${row.saleId}/receipt`)}
-            icon={<ReceiptText size={14} />}>
-            Comprovante
-          </TableActionButton>
-        ) : null}
-        {fiscalLinks.map((link) => (
-          <TableActionButton
-            href={fiscalDocumentFileHref(link.url)}
-            icon={<FileText size={14} />}
-            key={link.label}>
-            {link.label}
-          </TableActionButton>
-        ))}
-        {!row.saleId && fiscalLinks.length === 0 ? (
-          <InlineNote>Sem arquivos</InlineNote>
-        ) : null}
-      </ActionGroup>
-      {row.sale && !fiscalDocumentBlocksReturn ? (
+      <TableActionsMenu actions={actions} />
+      {showReturnForm && row.sale && !fiscalDocumentBlocksReturn ? (
         <SaleReturnForm
           paymentMethods={paymentMethods}
           sale={row.sale}
@@ -280,6 +286,9 @@ function SalesHistoryActions({
       ) : null}
       {row.sale && fiscalDocumentBlocksReturn ? (
         <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>
+      ) : null}
+      {!row.saleId && fiscalLinks.length === 0 ? (
+        <InlineNote>Sem arquivos</InlineNote>
       ) : null}
       {row.sale ? <SaleReturnSummary sale={row.sale} /> : null}
     </ActionStack>

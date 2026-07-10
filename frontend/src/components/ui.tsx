@@ -1,5 +1,12 @@
 import Button, { type ButtonProps } from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import IconButton from '@mui/material/IconButton'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import ListItemText from '@mui/material/ListItemText'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
+import { MoreVertical } from 'lucide-react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { frontendPalette } from '../theme'
 
@@ -36,6 +43,14 @@ type AppButtonProps = Omit<
   'color' | 'size' | 'startIcon' | 'variant'
 > & {
   icon?: ReactNode
+}
+
+export type TableActionsMenuAction = {
+  disabled?: boolean
+  href?: string
+  icon?: ReactNode
+  label: string
+  onSelect?: () => void
 }
 
 export function PrimaryButton({ children, icon, ...props }: AppButtonProps) {
@@ -96,5 +111,85 @@ export function TableActionButton({
       {...props}>
       {children}
     </Button>
+  )
+}
+
+export function TableActionsMenu({
+  actions,
+  label = 'Acoes',
+}: {
+  actions: TableActionsMenuAction[]
+  label?: string
+}) {
+  const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null)
+  const availableActions = actions.filter(
+    (action) => action.href || action.onSelect || action.disabled,
+  )
+  const open = Boolean(anchorElement)
+
+  function closeMenu() {
+    setAnchorElement(null)
+  }
+
+  function selectAction(action: TableActionsMenuAction) {
+    closeMenu()
+    action.onSelect?.()
+  }
+
+  return (
+    <>
+      <IconButton
+        aria-controls={open ? 'table-actions-menu' : undefined}
+        aria-expanded={open ? 'true' : undefined}
+        aria-haspopup='menu'
+        aria-label={label}
+        disabled={availableActions.length === 0}
+        size='small'
+        onClick={(event) => setAnchorElement(event.currentTarget)}
+        sx={{
+          border: '1px solid #cfd8d5',
+          borderRadius: 2,
+          color: frontendPalette.primaryNavy,
+          '&:hover': {
+            bgcolor: '#f3f5f4',
+            borderColor: frontendPalette.mutedGreenGray,
+          },
+        }}>
+        <MoreVertical size={16} />
+      </IconButton>
+      <Menu
+        anchorEl={anchorElement}
+        id='table-actions-menu'
+        open={open}
+        onClose={closeMenu}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        slotProps={{
+          paper: {
+            sx: {
+              border: '1px solid #dfe5e1',
+              borderRadius: 2,
+              minWidth: 210,
+            },
+          },
+        }}>
+        {availableActions.map((action) => (
+          <MenuItem
+            component={action.href ? 'a' : 'button'}
+            disabled={action.disabled}
+            href={action.href}
+            key={action.label}
+            onClick={() => selectAction(action)}
+            sx={{ gap: 1 }}>
+            {action.icon ? (
+              <ListItemIcon sx={{ color: frontendPalette.primaryNavy }}>
+                {action.icon}
+              </ListItemIcon>
+            ) : null}
+            <ListItemText>{action.label}</ListItemText>
+          </MenuItem>
+        ))}
+      </Menu>
+    </>
   )
 }
