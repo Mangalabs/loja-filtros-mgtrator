@@ -363,11 +363,18 @@ Estado: inicial entregue.
 - Validar NF-e com descontos em venda de balcao e em venda originada de orcamento.
 - Manter producao bloqueada ate checklist fiscal final ser cumprido.
 
-### 2. Completar PDV/Caixa
+### 2. Finalizar experiencia das listas operacionais
+
+- Compactar acoes de tabelas em menu MUI nas listas com muitas opcoes.
+- Manter formularios de acao destrutiva ou detalhada ocultos ate o usuario escolher a acao.
+- Garantir botao de fechar/cancelar em formularios abertos dentro de linhas.
+- Prioridade visual: historico de vendas, vendas registradas, notas fiscais, orcamentos, produtos, clientes, envio e retirada.
+
+### 3. Completar PDV/Caixa
 
 - Estorno financeiro detalhado de itens devolvidos.
 
-### 3. Compras
+### 4. Compras
 
 - Entrada por XML de NF-e de compra.
 - Vincular itens do XML a produtos.
