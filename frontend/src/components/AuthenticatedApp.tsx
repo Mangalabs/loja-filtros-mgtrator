@@ -46,6 +46,7 @@ export function AuthenticatedApp({
     reportsOverview,
     runAction,
     sales,
+    salesReport,
     search,
     setMessage,
     setSearch,
@@ -188,6 +189,7 @@ export function AuthenticatedApp({
           quotes={quotes}
           reportsOverview={reportsOverview}
           sales={sales}
+          salesReport={salesReport}
           salesActions={salesActions}
           search={search}
           selectedClient={selectedClient}

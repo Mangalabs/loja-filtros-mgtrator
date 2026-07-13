@@ -15,6 +15,7 @@ import {
   type Quote,
   type ReportsOverview,
   type Sale,
+  type SalesReport,
   type ShippingOrder,
   type StockAdjustment,
   type StockEntry,
@@ -43,6 +44,7 @@ export function useCatalogData() {
   );
   const [reportsOverview, setReportsOverview] =
     useState<ReportsOverview | null>(null);
+  const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [fiscalDocuments, setFiscalDocuments] = useState<FiscalDocument[]>([]);
@@ -77,6 +79,7 @@ export function useCatalogData() {
         paymentMethodsResult,
         cashRegisterResult,
         reportsOverviewResult,
+        salesReportResult,
         quotesResult,
         salesResult,
         fiscalDocumentsResult,
@@ -97,6 +100,7 @@ export function useCatalogData() {
         apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
         apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
         apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+        apiGet<ApiResult<SalesReport>>("/reports/sales"),
         apiGet<ApiResult<Quote[]>>("/quotes"),
         apiGet<ApiResult<Sale[]>>("/sales"),
         apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents"),
@@ -118,6 +122,7 @@ export function useCatalogData() {
       setPaymentMethods(paymentMethodsResult.data);
       setCashRegister(cashRegisterResult.data);
       setReportsOverview(reportsOverviewResult.data);
+      setSalesReport(salesReportResult.data);
       setQuotes(quotesResult.data);
       setSales(salesResult.data);
       setFiscalDocuments(fiscalDocumentsResult.data);
@@ -190,6 +195,7 @@ export function useCatalogData() {
     reportsOverview,
     runAction,
     sales,
+    salesReport,
     search,
     setMessage,
     setSearch,

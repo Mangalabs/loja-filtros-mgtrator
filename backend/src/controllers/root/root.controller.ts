@@ -29,6 +29,7 @@ export function showApiInfo() {
         "/purchase-invoices/import-xml",
         "/purchase-invoices/parse-xml",
         "/reports/overview",
+        "/reports/sales",
         "/products",
         "/products/low-stock",
         "/payment-methods",

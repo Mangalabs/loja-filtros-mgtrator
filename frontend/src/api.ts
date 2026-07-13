@@ -359,6 +359,33 @@ export type CommercialSettings = {
   updatedAt: string;
 };
 
+export type SalesReport = {
+  summary: {
+    salesCount: number;
+    itemsQuantity: string;
+    grossAmount: string;
+    discountAmount: string;
+    netAmount: string;
+  };
+  byProduct: Array<{
+    productId: string;
+    productName: string;
+    quantity: string;
+    totalAmount: string;
+  }>;
+  byClient: Array<{
+    clientId: string | null;
+    clientName: string;
+    salesCount: number;
+    totalAmount: string;
+  }>;
+  byPaymentMethod: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    totalAmount: string;
+  }>;
+};
+
 export type ShippingOrder = {
   id: string;
   quoteId: string | null;

@@ -13,6 +13,7 @@ import type {
   Quote,
   ReportsOverview,
   Sale,
+  SalesReport,
   ShippingOrder,
   StockAdjustment,
   StockEntry,
@@ -81,6 +82,7 @@ type AppViewRendererProps = {
   quotes: Quote[];
   reportsOverview: ReportsOverview | null;
   sales: Sale[];
+  salesReport: SalesReport | null;
   salesActions: ReturnType<typeof useSalesActions>;
   search: string;
   selectedClient?: Client;
@@ -123,6 +125,7 @@ export function AppViewRenderer({
   quotes,
   reportsOverview,
   sales,
+  salesReport,
   salesActions,
   search,
   selectedClient,
@@ -263,7 +266,9 @@ export function AppViewRenderer({
           onCreateMovement={financeActions.createCashRegisterMovement}
         />
       ),
-    reports: <ReportsPage overview={reportsOverview} />,
+    reports: (
+      <ReportsPage overview={reportsOverview} salesReport={salesReport} />
+    ),
     quotes: (
         <QuotesPage
           clients={clients}

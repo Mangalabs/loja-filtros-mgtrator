@@ -397,6 +397,33 @@ type ReportsOverview = {
   } | null;
 };
 
+type SalesReport = {
+  summary: {
+    salesCount: number;
+    itemsQuantity: string;
+    grossAmount: string;
+    discountAmount: string;
+    netAmount: string;
+  };
+  byProduct: Array<{
+    productId: string;
+    productName: string;
+    quantity: string;
+    totalAmount: string;
+  }>;
+  byClient: Array<{
+    clientId: string | null;
+    clientName: string;
+    salesCount: number;
+    totalAmount: string;
+  }>;
+  byPaymentMethod: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    totalAmount: string;
+  }>;
+};
+
 type FiscalDocument = {
   id: string;
   sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
@@ -3321,6 +3348,76 @@ describe("catalog routes", () => {
       overview.body.data?.openCashRegister?.openedByUserName,
       "Administrador de teste",
     );
+  });
+
+  it("returns sales commercial reports grouped by product, client, and payment method", async () => {
+    const firstProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro relatorio comercial A", salePrice: 40 },
+    });
+    const secondProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro relatorio comercial B", salePrice: 75 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente relatorio comercial" },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const boleto = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "BOLETO",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: firstProduct.body.data?.id,
+        quantity: 5,
+        reason: "Saldo para relatorio comercial",
+      },
+    });
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: secondProduct.body.data?.id,
+        quantity: 5,
+        reason: "Saldo para relatorio comercial",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+    await request("/sales", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        discountAmount: 10,
+        items: [
+          { productId: firstProduct.body.data?.id, quantity: 2 },
+          { productId: secondProduct.body.data?.id, quantity: 1 },
+        ],
+        paymentMethodId: boleto?.id,
+      },
+    });
+
+    const report = await request<SalesReport>("/reports/sales");
+
+    assert.equal(report.status, 200);
+    assert.equal(report.body.data?.summary.salesCount, 1);
+    assert.equal(report.body.data?.summary.itemsQuantity, "3.000");
+    assert.equal(report.body.data?.summary.grossAmount, "155.00");
+    assert.equal(report.body.data?.summary.discountAmount, "10.00");
+    assert.equal(report.body.data?.summary.netAmount, "145.00");
+    assert.equal(report.body.data?.byProduct[0]?.productName, firstProduct.body.data?.name);
+    assert.equal(report.body.data?.byProduct[0]?.totalAmount, "80.00");
+    assert.equal(report.body.data?.byClient[0]?.clientName, client.body.data?.name);
+    assert.equal(report.body.data?.byClient[0]?.salesCount, 1);
+    assert.equal(report.body.data?.byClient[0]?.totalAmount, "145.00");
+    assert.equal(report.body.data?.byPaymentMethod[0]?.paymentMethodName, "Boleto");
+    assert.equal(report.body.data?.byPaymentMethod[0]?.totalAmount, "145.00");
   });
 
   it("creates a shipping quote and reserves its item after approval", async () => {
