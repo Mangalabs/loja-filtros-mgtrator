@@ -1,5 +1,6 @@
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
@@ -31,6 +32,7 @@ import {
 } from "../../components/ui";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import { formatCurrency, formatDate } from "../../utils/format";
+import { productDisplayName } from "../../utils/productDisplay";
 
 type PurchaseInvoicesPageProps = {
   invoices: PurchaseInvoice[];
@@ -529,6 +531,8 @@ function PurchaseInvoiceItemReview({
   item: PurchaseInvoiceDraft["items"][number];
   products: Product[];
 }) {
+  const candidateProducts = purchaseItemProductCandidates(item, products);
+
   return (
     <FormCard>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -552,6 +556,27 @@ function PurchaseInvoiceItemReview({
         size="small"
         stockLabel="current"
       />
+      {candidateProducts.length > 0 ? (
+        <div className="grid gap-2 rounded-lg border border-[#e6ebe8] bg-white p-3">
+          <span className="text-xs font-bold uppercase tracking-wide text-[#5f665f]">
+            Possiveis produtos internos
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {candidateProducts.map((product) => (
+              <Chip
+                key={product.id}
+                label={purchaseCandidateLabel(product)}
+                size="small"
+                sx={{
+                  bgcolor: "#f4f6f8",
+                  color: "#203466",
+                  fontWeight: 700,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
       <TextField
         defaultValue={item.description}
         label="Detalhes / descricao do XML"
@@ -728,6 +753,46 @@ function nullableFormValue(form: FormData, key: string) {
 
 function numberFormValue(form: FormData, key: string) {
   return Number(form.get(key));
+}
+
+function purchaseItemProductCandidates(
+  item: PurchaseInvoiceDraft["items"][number],
+  products: Product[],
+) {
+  const code = item.supplierProductCode?.trim().toLowerCase();
+  const description = item.description.trim().toLowerCase();
+
+  return products
+    .filter((product) =>
+      purchaseProductMatchesImport(product, code, description),
+    )
+    .slice(0, 4);
+}
+
+function purchaseProductMatchesImport(
+  product: Product,
+  code: string | undefined,
+  description: string,
+) {
+  const productName = product.name.trim().toLowerCase();
+  const productCode = product.internalCode?.trim().toLowerCase();
+  const barcode = product.barcode?.trim().toLowerCase();
+
+  return Boolean(
+    (code && [productCode, barcode].includes(code)) ||
+      description.includes(productName) ||
+      productName.includes(description),
+  );
+}
+
+function purchaseCandidateLabel(product: Product) {
+  return [
+    productDisplayName(product),
+    product.internalCode ? `Cod. ${product.internalCode}` : null,
+    product.brandName,
+  ]
+    .filter(Boolean)
+    .join(" - ");
 }
 
 const purchaseInvoiceStatusLabels: Record<PurchaseInvoice["status"], string> = {
