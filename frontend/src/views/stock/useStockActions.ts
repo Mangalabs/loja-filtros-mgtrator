@@ -105,6 +105,7 @@ async function purchaseInvoiceReviewPayload(
       : input.supplierId;
   const payload = {
     issueDate: input.issueDate,
+    installments: input.installments,
     items: input.items,
     number: input.number,
     series: input.series,
@@ -112,6 +113,8 @@ async function purchaseInvoiceReviewPayload(
     supplierId,
     supplierName: input.supplierName,
     totalAmount: input.totalAmount,
+    transporterDocument: input.transporterDocument,
+    transporterName: input.transporterName,
     xmlContent: input.xmlContent,
   };
 

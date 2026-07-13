@@ -39,8 +39,21 @@ const purchaseInvoiceItemSchema = z.object({
   unitCost: z.coerce.number().min(0),
 });
 
+const purchaseInvoiceInstallmentSchema = z.object({
+  dueDate: z
+    .union([z.iso.date(), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional(),
+  number: z
+    .union([z.string().trim().min(1).max(20), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional(),
+  value: z.coerce.number().min(0),
+});
+
 const createPurchaseInvoiceSchema = z.object({
   accessKey: z.string().trim().length(44),
+  installments: z.array(purchaseInvoiceInstallmentSchema).optional(),
   issueDate: z
     .union([z.iso.date(), z.literal(""), z.null()])
     .transform((value) => value || null)
@@ -64,6 +77,14 @@ const createPurchaseInvoiceSchema = z.object({
     .optional(),
   supplierName: z.string().trim().min(1).max(160),
   totalAmount: z.coerce.number().min(0),
+  transporterDocument: z
+    .union([z.string().trim().min(1).max(20), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional(),
+  transporterName: z
+    .union([z.string().trim().min(1).max(160), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional(),
   xmlContent: z
     .union([z.string().trim().min(1), z.literal(""), z.null()])
     .transform((value) => value || null)

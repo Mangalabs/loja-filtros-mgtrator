@@ -557,6 +557,11 @@ function FormSection({
 function draftFromInvoice(invoice: PurchaseInvoice): PurchaseInvoiceDraft {
   return {
     accessKey: invoice.accessKey,
+    installments: invoice.installments.map((installment) => ({
+      dueDate: installment.dueDate,
+      number: installment.number,
+      value: Number(installment.value),
+    })),
     issueDate: invoice.issueDate,
     items: invoice.items.map((item) => ({
       cfop: item.cfop,
@@ -576,6 +581,8 @@ function draftFromInvoice(invoice: PurchaseInvoice): PurchaseInvoiceDraft {
     supplierId: invoice.supplierId,
     supplierName: invoice.supplierName,
     totalAmount: Number(invoice.totalAmount),
+    transporterDocument: invoice.transporterDocument,
+    transporterName: invoice.transporterName,
   };
 }
 

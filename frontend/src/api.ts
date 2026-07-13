@@ -158,6 +158,8 @@ export type PurchaseInvoice = {
   supplierId: string | null;
   supplierName: string;
   supplierDocument: string | null;
+  transporterName: string | null;
+  transporterDocument: string | null;
   createdByUserName: string;
   accessKey: string;
   number: string | null;
@@ -165,6 +167,13 @@ export type PurchaseInvoice = {
   issueDate: string | null;
   totalAmount: string;
   status: "IMPORTED" | "POSTED" | "CANCELLED";
+  installments: Array<{
+    id: string;
+    position: number;
+    number: string | null;
+    dueDate: string | null;
+    value: string;
+  }>;
   items: Array<{
     id: string;
     productId: string | null;

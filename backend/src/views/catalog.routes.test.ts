@@ -98,6 +98,8 @@ type PurchaseInvoice = {
   supplierId: string | null;
   supplierName: string;
   supplierDocument: string | null;
+  transporterName: string | null;
+  transporterDocument: string | null;
   createdByUserName: string;
   accessKey: string;
   number: string | null;
@@ -105,6 +107,13 @@ type PurchaseInvoice = {
   issueDate: string | null;
   totalAmount: string;
   status: "IMPORTED" | "POSTED" | "CANCELLED";
+  installments: Array<{
+    id: string;
+    position: number;
+    number: string | null;
+    dueDate: string | null;
+    value: string;
+  }>;
   items: Array<{
     id: string;
     productId: string | null;
@@ -123,6 +132,11 @@ type PurchaseInvoice = {
 
 type ParsedPurchaseInvoice = {
   accessKey: string;
+  installments: Array<{
+    dueDate: string | null;
+    number: string | null;
+    value: number;
+  }>;
   issueDate: string | null;
   items: Array<{
     cfop: string | null;
@@ -140,6 +154,8 @@ type ParsedPurchaseInvoice = {
   supplierDocument: string | null;
   supplierName: string;
   totalAmount: number;
+  transporterDocument: string | null;
+  transporterName: string | null;
   xmlContent: string;
 };
 
@@ -5411,6 +5427,12 @@ describe("catalog routes", () => {
     assert.equal(parsed.body.data?.series, "1");
     assert.equal(parsed.body.data?.issueDate, "2026-07-13");
     assert.equal(parsed.body.data?.totalAmount, 84.5);
+    assert.equal(parsed.body.data?.transporterName, "TRANSPORTADORA XML LTDA");
+    assert.equal(parsed.body.data?.transporterDocument, "99887766000155");
+    assert.equal(parsed.body.data?.installments.length, 2);
+    assert.equal(parsed.body.data?.installments[0]?.number, "001");
+    assert.equal(parsed.body.data?.installments[0]?.dueDate, "2026-08-13");
+    assert.equal(parsed.body.data?.installments[0]?.value, 42.25);
     assert.equal(parsed.body.data?.items.length, 2);
     assert.equal(parsed.body.data?.items[0]?.position, 1);
     assert.equal(parsed.body.data?.items[0]?.supplierProductCode, "FX-1");
@@ -5449,6 +5471,9 @@ describe("catalog routes", () => {
       "Administrador de teste",
     );
     assert.equal(created.body.data?.totalAmount, "84.50");
+    assert.equal(created.body.data?.transporterName, "TRANSPORTADORA XML LTDA");
+    assert.equal(created.body.data?.installments.length, 2);
+    assert.equal(created.body.data?.installments[1]?.value, "42.25");
     assert.equal(created.body.data?.items.length, 2);
     assert.equal(created.body.data?.items[0]?.productId, null);
     assert.equal(created.body.data?.items[0]?.description, "Filtro & oleo");
@@ -5482,6 +5507,20 @@ describe("catalog routes", () => {
           supplierDocument: "12345678000199",
           supplierName: "FORNECEDOR XML LTDA",
           totalAmount: 84.5,
+          transporterDocument: "11222333000144",
+          transporterName: "TRANSPORTADORA REVISADA LTDA",
+          installments: [
+            {
+              dueDate: "2026-08-13",
+              number: "001",
+              value: 50,
+            },
+            {
+              dueDate: "2026-09-13",
+              number: "002",
+              value: 34.5,
+            },
+          ],
           items: [
             {
               cfop: "5102",
@@ -5518,6 +5557,12 @@ describe("catalog routes", () => {
     assert.equal(reviewed.status, 200);
     assert.equal(reviewed.body.data?.status, "IMPORTED");
     assert.equal(reviewed.body.data?.accessKey, accessKey);
+    assert.equal(
+      reviewed.body.data?.transporterName,
+      "TRANSPORTADORA REVISADA LTDA",
+    );
+    assert.equal(reviewed.body.data?.installments.length, 2);
+    assert.equal(reviewed.body.data?.installments[0]?.value, "50.00");
     assert.equal(reviewed.body.data?.items.length, 2);
     assert.equal(
       reviewed.body.data?.items[0]?.productName,
@@ -5528,6 +5573,10 @@ describe("catalog routes", () => {
     assert.equal(
       listed.body.data?.[0]?.items[0]?.productId,
       product.body.data?.id,
+    );
+    assert.equal(
+      listed.body.data?.[0]?.installments[1]?.dueDate,
+      "2026-09-13",
     );
     assert.equal(unchangedProduct.body.data?.currentStock, "0.000");
     assert.equal(unchangedProduct.body.data?.costPrice, "30.00");
@@ -5793,6 +5842,24 @@ function purchaseInvoiceXml(accessKey: string) {
               <vNF>84.50</vNF>
             </ICMSTot>
           </total>
+          <transp>
+            <transporta>
+              <CNPJ>99887766000155</CNPJ>
+              <xNome>TRANSPORTADORA XML LTDA</xNome>
+            </transporta>
+          </transp>
+          <cobr>
+            <dup>
+              <nDup>001</nDup>
+              <dVenc>2026-08-13</dVenc>
+              <vDup>42.25</vDup>
+            </dup>
+            <dup>
+              <nDup>002</nDup>
+              <dVenc>2026-09-13</dVenc>
+              <vDup>42.25</vDup>
+            </dup>
+          </cobr>
         </infNFe>
       </NFe>
     </nfeProc>

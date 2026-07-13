@@ -18,8 +18,8 @@ export type PurchaseInvoiceInput = {
 };
 
 export type PurchaseInvoiceInstallmentPreview = {
-  dueDate: string | null;
-  number: string | null;
+  dueDate?: string | null;
+  number?: string | null;
   value: number;
 };
 
@@ -46,6 +46,8 @@ export type PurchaseInvoice = {
   supplierId: string | null;
   supplierName: string;
   supplierDocument: string | null;
+  transporterName: string | null;
+  transporterDocument: string | null;
   createdByUserName: string;
   accessKey: string;
   number: string | null;
@@ -53,9 +55,18 @@ export type PurchaseInvoice = {
   issueDate: string | null;
   totalAmount: string;
   status: "IMPORTED" | "POSTED" | "CANCELLED";
+  installments: PurchaseInvoiceInstallment[];
   items: PurchaseInvoiceItem[];
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type PurchaseInvoiceInstallment = {
+  id: string;
+  position: number;
+  number: string | null;
+  dueDate: string | null;
+  value: string;
 };
 
 export type PurchaseInvoiceItem = {
@@ -73,9 +84,13 @@ export type PurchaseInvoiceItem = {
   totalAmount: string;
 };
 
-type PurchaseInvoiceRow = Omit<PurchaseInvoice, "items">;
+type PurchaseInvoiceRow = Omit<PurchaseInvoice, "installments" | "items">;
 
 type PurchaseInvoiceItemRow = PurchaseInvoiceItem & {
+  purchaseInvoiceId: string;
+};
+
+type PurchaseInvoiceInstallmentRow = PurchaseInvoiceInstallment & {
   purchaseInvoiceId: string;
 };
 
@@ -84,6 +99,8 @@ const purchaseInvoiceColumns = [
   "purchase_invoices.supplier_id as supplierId",
   "purchase_invoices.supplier_name as supplierName",
   "purchase_invoices.supplier_document as supplierDocument",
+  "purchase_invoices.transporter_name as transporterName",
+  "purchase_invoices.transporter_document as transporterDocument",
   "users.name as createdByUserName",
   "purchase_invoices.access_key as accessKey",
   "purchase_invoices.number",
@@ -102,7 +119,7 @@ export async function listPurchaseInvoices(): Promise<PurchaseInvoice[]> {
     .orderBy("purchase_invoices.created_at", "desc")
     .orderBy("purchase_invoices.id", "desc");
 
-  return withPurchaseInvoiceItems(db, invoices);
+  return withPurchaseInvoiceDetails(db, invoices);
 }
 
 export async function supplierExists(
@@ -148,6 +165,8 @@ export async function insertPurchaseInvoice(
       supplier_id: input.supplierId,
       supplier_name: input.supplierName,
       total_amount: input.totalAmount,
+      transporter_document: input.transporterDocument,
+      transporter_name: input.transporterName,
       xml_content: input.xmlContent,
     })
     .returning("id");
@@ -167,6 +186,7 @@ export async function insertPurchaseInvoice(
       unit_cost: item.unitCost,
     })),
   );
+  await replacePurchaseInvoiceInstallments(transaction, created.id, input);
 
   const invoice = await findPurchaseInvoiceById(transaction, created.id);
 
@@ -203,6 +223,8 @@ export async function updatePurchaseInvoiceReview(
     supplier_id: input.supplierId,
     supplier_name: input.supplierName,
     total_amount: input.totalAmount,
+    transporter_document: input.transporterDocument,
+    transporter_name: input.transporterName,
     updated_at: transaction.fn.now(),
   });
 
@@ -224,6 +246,7 @@ export async function updatePurchaseInvoiceReview(
       unit_cost: item.unitCost,
     })),
   );
+  await replacePurchaseInvoiceInstallments(transaction, id, input);
 
   const invoice = await findPurchaseInvoiceById(transaction, id);
 
@@ -248,15 +271,31 @@ async function findPurchaseInvoiceById(
     return undefined;
   }
 
-  const [withItems] = await withPurchaseInvoiceItems(transaction, [invoice]);
-  return withItems;
+  const [withDetails] = await withPurchaseInvoiceDetails(transaction, [invoice]);
+  return withDetails;
 }
 
-async function withPurchaseInvoiceItems(
+async function withPurchaseInvoiceDetails(
   database: Knex | Knex.Transaction,
   invoices: PurchaseInvoiceRow[],
 ): Promise<PurchaseInvoice[]> {
   const invoiceIds = invoices.map((invoice) => invoice.id);
+  const installments =
+    invoiceIds.length > 0
+      ? await database("purchase_invoice_installments")
+          .select<PurchaseInvoiceInstallmentRow[]>([
+            "id",
+            "purchase_invoice_id as purchaseInvoiceId",
+            "position",
+            "number",
+            database.raw("purchase_invoice_installments.due_date::text as ??", [
+              "dueDate",
+            ]),
+            "value",
+          ])
+          .whereIn("purchase_invoice_id", invoiceIds)
+          .orderBy("position", "asc")
+      : [];
   const items =
     invoiceIds.length > 0
       ? await database("purchase_invoice_items")
@@ -282,8 +321,40 @@ async function withPurchaseInvoiceItems(
 
   return invoices.map((invoice) => ({
     ...invoice,
+    installments: installments
+      .filter((installment) => installment.purchaseInvoiceId === invoice.id)
+      .map(
+        ({
+          purchaseInvoiceId: _purchaseInvoiceId,
+          ...installment
+        }) => installment,
+      ),
     items: items
       .filter((item) => item.purchaseInvoiceId === invoice.id)
       .map(({ purchaseInvoiceId: _purchaseInvoiceId, ...item }) => item),
   }));
+}
+
+async function replacePurchaseInvoiceInstallments(
+  transaction: Knex.Transaction,
+  purchaseInvoiceId: string,
+  input: PurchaseInvoiceInput | PurchaseInvoiceUpdateInput,
+) {
+  await transaction("purchase_invoice_installments")
+    .where("purchase_invoice_id", purchaseInvoiceId)
+    .del();
+
+  if (!input.installments || input.installments.length === 0) {
+    return;
+  }
+
+  await transaction("purchase_invoice_installments").insert(
+    input.installments.map((installment, index) => ({
+      due_date: installment.dueDate ?? null,
+      number: installment.number ?? null,
+      position: index + 1,
+      purchase_invoice_id: purchaseInvoiceId,
+      value: installment.value,
+    })),
+  );
 }
