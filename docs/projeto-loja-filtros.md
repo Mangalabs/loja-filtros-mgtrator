@@ -355,7 +355,21 @@ Estado: inicial entregue.
 
 ## Rumo Recomendado
 
-### 1. Fechar o ciclo comercial/fiscal MVP
+### 1. Compras e estoque
+
+- Entrada por XML de NF-e de compra.
+- Vincular itens do XML a produtos.
+- Atualizar custo e estoque a partir da compra.
+- Historico formal de compras registradas por fornecedor e custo por produto.
+
+### 2. Relatorios
+
+- Vendas por periodo, produto, cliente e forma de pagamento.
+- Estoque baixo, giro e produtos sem movimentacao.
+- Caixa por periodo.
+- Margem, lucro e curva ABC.
+
+### 3. Fechar o ciclo comercial/fiscal MVP
 
 - Atualizar documentacao conforme os testes manuais e tecnicos avancarem.
 - Melhorar a tela de detalhes da NF-e e a leitura de rejeicoes.
@@ -363,29 +377,16 @@ Estado: inicial entregue.
 - Validar NF-e com descontos em venda de balcao e em venda originada de orcamento.
 - Manter producao bloqueada ate checklist fiscal final ser cumprido.
 
-### 2. Finalizar experiencia das listas operacionais
+### 4. Ajustes de experiencia
 
 - Compactar acoes de tabelas em menu MUI nas listas com muitas opcoes.
 - Manter formularios de acao destrutiva ou detalhada ocultos ate o usuario escolher a acao.
 - Garantir botao de fechar/cancelar em formularios abertos dentro de linhas.
-- Prioridade visual: historico de vendas, vendas registradas, notas fiscais, orcamentos, produtos, clientes, envio e retirada.
+- Tratar os demais pontos de UX como acabamento apos as funcoes prioritarias.
 
-### 3. Completar PDV/Caixa
+### 5. Completar PDV/Caixa
 
 - Estorno financeiro detalhado de itens devolvidos.
-
-### 4. Compras
-
-- Entrada por XML de NF-e de compra.
-- Vincular itens do XML a produtos.
-- Atualizar custo e estoque a partir da compra.
-
-### 5. Relatorios
-
-- Vendas por periodo e produto.
-- Estoque atual e estoque baixo.
-- Caixa por periodo.
-- Margem, lucro e curva ABC em fase posterior.
 
 ## Observacoes Sobre Modelagem
 
