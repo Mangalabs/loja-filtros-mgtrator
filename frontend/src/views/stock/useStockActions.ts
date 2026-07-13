@@ -5,6 +5,7 @@ import {
   type ApiResult,
   type PurchaseInvoice,
   type PurchaseInvoiceDraft,
+  type Supplier,
 } from "../../api";
 import { nullableFormValue } from "../../utils/forms";
 import { parsePurchaseXmlPreview } from "./purchaseXmlPreview";
@@ -74,18 +75,12 @@ export function useStockActions({
       const result = invoiceId
         ? await apiPut<ApiResult<PurchaseInvoice>>(
             `/purchase-invoices/${invoiceId}`,
-            {
-              issueDate: input.issueDate,
-              items: input.items,
-              number: input.number,
-              series: input.series,
-              supplierDocument: input.supplierDocument,
-              supplierId: input.supplierId,
-              supplierName: input.supplierName,
-              totalAmount: input.totalAmount,
-            },
+            await purchaseInvoiceReviewPayload(input),
           )
-        : await apiPost<ApiResult<PurchaseInvoice>>("/purchase-invoices", input);
+        : await apiPost<ApiResult<PurchaseInvoice>>(
+            "/purchase-invoices",
+            await purchaseInvoiceReviewPayload(input, true),
+          );
 
       void result;
       await loadCatalog();
@@ -98,6 +93,38 @@ export function useStockActions({
     parsePurchaseInvoiceXml,
     savePurchaseInvoiceReview,
   };
+}
+
+async function purchaseInvoiceReviewPayload(
+  input: PurchaseInvoiceDraft,
+  includeAccessKey = false,
+) {
+  const supplierId =
+    input.createSupplierFromXml && !input.supplierId
+      ? await createSupplierFromPurchaseInvoice(input)
+      : input.supplierId;
+  const payload = {
+    issueDate: input.issueDate,
+    items: input.items,
+    number: input.number,
+    series: input.series,
+    supplierDocument: input.supplierDocument,
+    supplierId,
+    supplierName: input.supplierName,
+    totalAmount: input.totalAmount,
+    xmlContent: input.xmlContent,
+  };
+
+  return includeAccessKey ? { ...payload, accessKey: input.accessKey } : payload;
+}
+
+async function createSupplierFromPurchaseInvoice(input: PurchaseInvoiceDraft) {
+  const result = await apiPost<ApiResult<Supplier>>("/suppliers", {
+    document: input.supplierDocument ?? "",
+    name: input.supplierName,
+  });
+
+  return result.data.id;
 }
 
 async function parsePurchaseInvoiceXmlWithFallback(xmlContent: string) {

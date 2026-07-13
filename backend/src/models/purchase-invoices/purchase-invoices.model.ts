@@ -3,6 +3,7 @@ import { db } from "../../database/knex.js";
 
 export type PurchaseInvoiceInput = {
   accessKey: string;
+  installments?: PurchaseInvoiceInstallmentPreview[];
   issueDate?: string | null;
   items: PurchaseInvoiceItemInput[];
   number?: string | null;
@@ -11,7 +12,15 @@ export type PurchaseInvoiceInput = {
   supplierId?: string | null;
   supplierName: string;
   totalAmount: number;
+  transporterDocument?: string | null;
+  transporterName?: string | null;
   xmlContent?: string | null;
+};
+
+export type PurchaseInvoiceInstallmentPreview = {
+  dueDate: string | null;
+  number: string | null;
+  value: number;
 };
 
 export type PurchaseInvoiceUpdateInput = Omit<

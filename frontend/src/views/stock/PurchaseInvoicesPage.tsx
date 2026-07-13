@@ -1,5 +1,7 @@
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import { FileText, RotateCcw, Save, Upload } from "lucide-react";
@@ -241,6 +243,16 @@ export function PurchaseInvoicesPage({
                     ))}
                 </TextField>
               </FormRow>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    disabled={!draft.supplierName.trim()}
+                    name="purchaseCreateSupplier"
+                    value="yes"
+                  />
+                }
+                label="Cadastrar este fornecedor automaticamente ao salvar a revisao"
+              />
             </FormSection>
 
             <FormSection
@@ -260,7 +272,32 @@ export function PurchaseInvoicesPage({
             </FormSection>
 
             <FormSection
-              description="Valores de pagamento, parcelas, frete, anexos e observacoes entram em recortes futuros com campos persistidos."
+              description="Dado extraido do XML para conferencia. A vinculacao completa da transportadora sera persistida em recorte proprio."
+              title="Transporte"
+            >
+              <FormRow>
+                <TextField
+                  defaultValue={draft.transporterName ?? ""}
+                  label="Transportadora"
+                  name="purchaseTransporterName"
+                />
+                <TextField
+                  defaultValue={draft.transporterDocument ?? ""}
+                  label="Documento da transportadora"
+                  name="purchaseTransporterDocument"
+                />
+              </FormRow>
+            </FormSection>
+
+            <FormSection
+              description="Parcelas extraidas da NF-e para conferencia. A baixa financeira entra em recorte futuro."
+              title="Pagamento"
+            >
+              <PurchaseInvoiceInstallments installments={draft.installments} />
+            </FormSection>
+
+            <FormSection
+              description="Frete, anexos e observacoes entram em recortes futuros com campos persistidos."
               title="Total"
             >
               <FormRow>
@@ -358,6 +395,49 @@ export function PurchaseInvoicesPage({
         />
       </PagePanel>
     </section>
+  );
+}
+
+function PurchaseInvoiceInstallments({
+  installments = [],
+}: {
+  installments?: PurchaseInvoiceDraft["installments"];
+}) {
+  if (installments.length === 0) {
+    return (
+      <Alert severity="info">
+        Nenhum parcelamento foi identificado no XML selecionado.
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      {installments.map((installment, index) => (
+        <FormCard key={`${installment.number ?? "parcela"}-${index}`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <strong className="text-[#2c281e]">Parcela {index + 1}</strong>
+            <span className="text-sm text-[#5f665f]">
+              Numero {installment.number ?? "-"}
+            </span>
+          </div>
+          <FormRow>
+            <TextField
+              defaultValue={installment.dueDate ?? ""}
+              label="Vencimento"
+              type="date"
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              defaultValue={installment.value}
+              label="Valor"
+              type="number"
+              slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
+            />
+          </FormRow>
+        </FormCard>
+      ))}
+    </div>
   );
 }
 
@@ -530,6 +610,10 @@ function reviewInputFromForm(
     supplierId: nullableFormValue(form, "purchaseSupplierId"),
     supplierName: formValue(form, "purchaseSupplierName"),
     totalAmount: numberFormValue(form, "purchaseTotalAmount"),
+    transporterDocument: nullableFormValue(form, "purchaseTransporterDocument"),
+    transporterName: nullableFormValue(form, "purchaseTransporterName"),
+    createSupplierFromXml: form.get("purchaseCreateSupplier") === "yes",
+    installments: draft.installments,
     xmlContent: draft.xmlContent ?? null,
   };
 }

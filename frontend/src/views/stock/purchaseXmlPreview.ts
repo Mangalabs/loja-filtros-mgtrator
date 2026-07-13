@@ -32,6 +32,7 @@ export function parsePurchaseXmlPreview(xmlContent: string): PurchaseInvoiceDraf
 
   return {
     accessKey,
+    installments: elements(document, "dup").map(installmentFromElement),
     issueDate: issueDate(text(document, "dhEmi") ?? text(document, "dEmi")),
     items,
     number: text(document, "nNF"),
@@ -41,7 +42,19 @@ export function parsePurchaseXmlPreview(xmlContent: string): PurchaseInvoiceDraf
       scopedText(document, "emit", "CPF"),
     supplierName,
     totalAmount: numberValue(scopedText(document, "ICMSTot", "vNF")),
+    transporterDocument:
+      scopedText(document, "transporta", "CNPJ") ??
+      scopedText(document, "transporta", "CPF"),
+    transporterName: scopedText(document, "transporta", "xNome"),
     xmlContent: xml,
+  };
+}
+
+function installmentFromElement(element: Element) {
+  return {
+    dueDate: issueDate(text(element, "dVenc")),
+    number: text(element, "nDup"),
+    value: numberValue(text(element, "vDup")),
   };
 }
 

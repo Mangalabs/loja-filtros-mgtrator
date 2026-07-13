@@ -30,6 +30,7 @@ export function parseNfePurchaseXml(xmlContent: string): PurchaseInvoiceInput {
 
   return {
     accessKey,
+    installments: xmlBlocks(normalizedXml, "dup").map(installmentFromDup),
     issueDate: issueDate(xmlText(normalizedXml, "dhEmi") ?? xmlText(normalizedXml, "dEmi")),
     items,
     number: xmlText(normalizedXml, "nNF"),
@@ -39,7 +40,19 @@ export function parseNfePurchaseXml(xmlContent: string): PurchaseInvoiceInput {
       xmlText(normalizedXml, "CPF", "emit"),
     supplierName,
     totalAmount: xmlNumber(xmlText(normalizedXml, "vNF", "ICMSTot")),
+    transporterDocument:
+      xmlText(normalizedXml, "CNPJ", "transporta") ??
+      xmlText(normalizedXml, "CPF", "transporta"),
+    transporterName: xmlText(normalizedXml, "xNome", "transporta"),
     xmlContent: normalizedXml,
+  };
+}
+
+function installmentFromDup(dupXml: string) {
+  return {
+    dueDate: issueDate(xmlText(dupXml, "dVenc")),
+    number: xmlText(dupXml, "nDup"),
+    value: xmlNumber(xmlText(dupXml, "vDup")),
   };
 }
 

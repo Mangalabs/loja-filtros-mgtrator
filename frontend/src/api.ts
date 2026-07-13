@@ -134,6 +134,12 @@ export type PurchaseInvoiceItemDraft = {
 
 export type PurchaseInvoiceDraft = {
   accessKey: string;
+  createSupplierFromXml?: boolean;
+  installments?: Array<{
+    dueDate: string | null;
+    number: string | null;
+    value: number;
+  }>;
   issueDate?: string | null;
   items: PurchaseInvoiceItemDraft[];
   number?: string | null;
@@ -142,6 +148,8 @@ export type PurchaseInvoiceDraft = {
   supplierId?: string | null;
   supplierName: string;
   totalAmount: number;
+  transporterDocument?: string | null;
+  transporterName?: string | null;
   xmlContent?: string | null;
 };
 
