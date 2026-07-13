@@ -183,134 +183,104 @@ export function PurchaseInvoicesPage({
               importada para depois confirmar a entrada.
             </Alert>
 
-            <FormRow>
+            <FormSection
+              description="Dados extraidos do XML. Ajuste antes de salvar a revisao."
+              title="Dados gerais"
+            >
+              <FormRow>
+                <TextField
+                  defaultValue={draft.number ?? ""}
+                  label="Numero"
+                  name="purchaseNumber"
+                />
+                <TextField
+                  defaultValue={draft.series ?? ""}
+                  label="Serie"
+                  name="purchaseSeries"
+                />
+              </FormRow>
+              <FormRow>
+                <TextField
+                  defaultValue={draft.issueDate ?? ""}
+                  label="Data de emissao"
+                  name="purchaseIssueDate"
+                  type="date"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+                <TextField
+                  defaultValue="Importada para revisao"
+                  label="Situacao"
+                  disabled
+                />
+              </FormRow>
               <TextField
-                defaultValue={draft.number ?? ""}
-                label="Numero"
-                name="purchaseNumber"
-              />
-              <TextField
-                defaultValue={draft.series ?? ""}
-                label="Serie"
-                name="purchaseSeries"
-              />
-            </FormRow>
-            <FormRow>
-              <TextField
-                defaultValue={draft.issueDate ?? ""}
-                label="Emissao"
-                name="purchaseIssueDate"
-                type="date"
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-              <TextField
-                defaultValue={draft.totalAmount}
-                label="Total"
-                name="purchaseTotalAmount"
-                type="number"
-                slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
+                defaultValue={draft.supplierName}
+                label="Fornecedor do XML"
+                name="purchaseSupplierName"
                 required
               />
-            </FormRow>
-            <TextField
-              defaultValue={draft.supplierName}
-              label="Nome do fornecedor"
-              name="purchaseSupplierName"
-              required
-            />
-            <FormRow>
-              <TextField
-                defaultValue={draft.supplierDocument ?? ""}
-                label="Documento do fornecedor"
-                name="purchaseSupplierDocument"
-              />
-              <TextField
-                defaultValue={draft.supplierId ?? ""}
-                label="Fornecedor cadastrado"
-                name="purchaseSupplierId"
-                select
-              >
-                <MenuItem value="">Sem vinculo</MenuItem>
-                {suppliers
-                  .filter((supplier) => supplier.active)
-                  .map((supplier) => (
-                    <MenuItem key={supplier.id} value={supplier.id}>
-                      {supplier.name}
-                    </MenuItem>
-                  ))}
-              </TextField>
-            </FormRow>
+              <FormRow>
+                <TextField
+                  defaultValue={draft.supplierDocument ?? ""}
+                  label="Documento do fornecedor"
+                  name="purchaseSupplierDocument"
+                />
+                <TextField
+                  defaultValue={draft.supplierId ?? ""}
+                  label="Fornecedor cadastrado"
+                  name="purchaseSupplierId"
+                  select
+                >
+                  <MenuItem value="">Sem vinculo</MenuItem>
+                  {suppliers
+                    .filter((supplier) => supplier.active)
+                    .map((supplier) => (
+                      <MenuItem key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </MenuItem>
+                    ))}
+                </TextField>
+              </FormRow>
+            </FormSection>
 
-            <div className="grid gap-3">
-              {draft.items.map((item, index) => (
-                <FormCard key={`${reviewKey}-${item.position}-${index}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <strong className="text-[#2c281e]">Item {index + 1}</strong>
-                    <span className="text-sm text-[#5f665f]">
-                      XML: {item.supplierProductCode ?? "sem codigo"}
-                    </span>
-                  </div>
-                  <ProductSearchField
-                    defaultValue={item.productId ?? ""}
-                    helperText="Confirme o produto interno correto. Use nome, codigo, fabricante ou locacao."
-                    label="Produto interno"
-                    name={`purchaseItemProductId_${index}`}
+            <FormSection
+              description="Confirme cada produto interno. Codigos podem repetir entre fabricantes diferentes."
+              title="Produtos"
+            >
+              <div className="grid gap-3">
+                {draft.items.map((item, index) => (
+                  <PurchaseInvoiceItemReview
+                    index={index}
+                    item={item}
+                    key={`${reviewKey}-${item.position}-${index}`}
                     products={products}
-                    size="small"
-                    stockLabel="current"
                   />
-                  <TextField
-                    defaultValue={item.description}
-                    label="Descricao do XML"
-                    name={`purchaseItemDescription_${index}`}
-                    required
-                  />
-                  <FormRow columns={3}>
-                    <TextField
-                      defaultValue={item.quantity}
-                      label="Quantidade"
-                      name={`purchaseItemQuantity_${index}`}
-                      type="number"
-                      slotProps={{ htmlInput: { min: "0.001", step: "0.001" } }}
-                      required
-                    />
-                    <TextField
-                      defaultValue={item.unitCost}
-                      label="Custo unitario"
-                      name={`purchaseItemUnitCost_${index}`}
-                      type="number"
-                      slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
-                      required
-                    />
-                    <TextField
-                      defaultValue={item.totalAmount}
-                      label="Total do item"
-                      name={`purchaseItemTotalAmount_${index}`}
-                      type="number"
-                      slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
-                      required
-                    />
-                  </FormRow>
-                  <FormRow columns={3}>
-                    <TextField
-                      defaultValue={item.unit ?? ""}
-                      label="Unidade"
-                      name={`purchaseItemUnit_${index}`}
-                    />
-                    <TextField
-                      defaultValue={item.ncm ?? ""}
-                      label="NCM"
-                      name={`purchaseItemNcm_${index}`}
-                    />
-                    <TextField
-                      defaultValue={item.cfop ?? ""}
-                      label="CFOP"
-                      name={`purchaseItemCfop_${index}`}
-                    />
-                  </FormRow>
-                </FormCard>
-              ))}
-            </div>
+                ))}
+              </div>
+            </FormSection>
+
+            <FormSection
+              description="Valores de pagamento, parcelas, frete, anexos e observacoes entram em recortes futuros com campos persistidos."
+              title="Total"
+            >
+              <FormRow>
+                <TextField
+                  defaultValue={purchaseItemsTotal(draft)}
+                  label="Produtos"
+                  type="number"
+                  disabled
+                  slotProps={{ htmlInput: { step: "0.01" } }}
+                />
+                <TextField
+                  defaultValue={draft.totalAmount}
+                  label="Valor total da NF-e"
+                  name="purchaseTotalAmount"
+                  type="number"
+                  slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
+                  required
+                />
+              </FormRow>
+            </FormSection>
 
             <PrimaryButton icon={<Save size={17} />} type="submit">
               Salvar revisao da compra
@@ -391,6 +361,119 @@ export function PurchaseInvoicesPage({
   );
 }
 
+function PurchaseInvoiceItemReview({
+  index,
+  item,
+  products,
+}: {
+  index: number;
+  item: PurchaseInvoiceDraft["items"][number];
+  products: Product[];
+}) {
+  return (
+    <FormCard>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <strong className="text-[#2c281e]">Item {index + 1}</strong>
+          <span className="text-sm text-[#5f665f]">
+            {item.description}
+          </span>
+        </div>
+        <span className="rounded-full bg-[#f3f5f4] px-3 py-1 text-xs font-bold text-[#203466]">
+          XML: {item.supplierProductCode ?? "sem codigo"}
+        </span>
+      </div>
+
+      <ProductSearchField
+        defaultValue={item.productId ?? ""}
+        helperText="Confirme o produto interno correto. Use nome, codigo, fabricante ou locacao."
+        label="Produto interno"
+        name={`purchaseItemProductId_${index}`}
+        products={products}
+        size="small"
+        stockLabel="current"
+      />
+      <TextField
+        defaultValue={item.description}
+        label="Detalhes / descricao do XML"
+        name={`purchaseItemDescription_${index}`}
+        required
+      />
+      <FormRow columns={3}>
+        <TextField
+          defaultValue={item.quantity}
+          label="Quantidade"
+          name={`purchaseItemQuantity_${index}`}
+          type="number"
+          slotProps={{ htmlInput: { min: "0.001", step: "0.001" } }}
+          required
+        />
+        <TextField
+          defaultValue={item.unit ?? ""}
+          label="Unidade"
+          name={`purchaseItemUnit_${index}`}
+        />
+        <TextField
+          defaultValue={item.unitCost}
+          label="Valor unitario"
+          name={`purchaseItemUnitCost_${index}`}
+          type="number"
+          slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
+          required
+        />
+      </FormRow>
+      <FormRow columns={3}>
+        <TextField
+          defaultValue="0"
+          label="Desconto"
+          type="number"
+          disabled
+        />
+        <TextField
+          defaultValue={item.totalAmount}
+          label="Subtotal"
+          name={`purchaseItemTotalAmount_${index}`}
+          type="number"
+          slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
+          required
+        />
+        <TextField
+          defaultValue={item.ncm ?? ""}
+          label="NCM"
+          name={`purchaseItemNcm_${index}`}
+        />
+      </FormRow>
+      <TextField
+        defaultValue={item.cfop ?? ""}
+        label="CFOP"
+        name={`purchaseItemCfop_${index}`}
+      />
+    </FormCard>
+  );
+}
+
+function FormSection({
+  children,
+  description,
+  title,
+}: {
+  children: React.ReactNode;
+  description?: string;
+  title: string;
+}) {
+  return (
+    <section className="grid gap-4 rounded-xl border border-[#dfe5e1] bg-[#fbfcfb] p-4">
+      <div>
+        <h3 className="m-0 text-base font-bold text-[#2c281e]">{title}</h3>
+        {description ? (
+          <p className="m-0 mt-1 text-sm text-[#5f665f]">{description}</p>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 function draftFromInvoice(invoice: PurchaseInvoice): PurchaseInvoiceDraft {
   return {
     accessKey: invoice.accessKey,
@@ -414,6 +497,12 @@ function draftFromInvoice(invoice: PurchaseInvoice): PurchaseInvoiceDraft {
     supplierName: invoice.supplierName,
     totalAmount: Number(invoice.totalAmount),
   };
+}
+
+function purchaseItemsTotal(draft: PurchaseInvoiceDraft) {
+  return draft.items
+    .reduce((total, item) => total + Number(item.totalAmount), 0)
+    .toFixed(2);
 }
 
 function reviewInputFromForm(
