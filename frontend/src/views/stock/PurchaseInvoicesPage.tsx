@@ -147,16 +147,15 @@ export function PurchaseInvoicesPage({
             </span>
           ) : null}
           {xmlFileError ? <Alert severity="error">{xmlFileError}</Alert> : null}
-          <TextField
-            helperText="O conteudo do arquivo fica disponivel aqui para conferencia antes da leitura."
-            label="Conteudo do XML"
-            minRows={6}
-            multiline
-            required
-            value={xmlContent}
-            onChange={(event) => setXmlContent(event.target.value)}
-          />
-          <PrimaryButton icon={<FileText size={17} />} type="submit">
+          <Alert severity="info">
+            Depois de selecionar o arquivo, o sistema le o XML e abre os campos
+            editaveis de conferencia da compra.
+          </Alert>
+          <PrimaryButton
+            disabled={!xmlContent.trim()}
+            icon={<FileText size={17} />}
+            type="submit"
+          >
             Ler XML para revisar
           </PrimaryButton>
         </FormGrid>

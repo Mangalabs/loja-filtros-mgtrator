@@ -92,7 +92,7 @@ export function useCatalogData() {
         apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
         apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments"),
         apiGet<ApiResult<StockMovement[]>>("/stock-movements"),
-        apiGet<ApiResult<PurchaseInvoice[]>>("/purchase-invoices"),
+        fetchPurchaseInvoices(),
         apiGet<ApiResult<Product[]>>("/products/low-stock"),
         apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
         apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
@@ -231,6 +231,24 @@ async function fetchCommercialSettings() {
   } catch (error) {
     if (error instanceof Error && error.message.includes("Route not found")) {
       return null;
+    }
+
+    throw error;
+  }
+}
+
+async function fetchPurchaseInvoices() {
+  try {
+    const result = await apiGet<ApiResult<PurchaseInvoice[]>>(
+      "/purchase-invoices",
+    );
+
+    return result;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Route not found")) {
+      return { code: 200, status: "success", data: [] } as ApiResult<
+        PurchaseInvoice[]
+      >;
     }
 
     throw error;
