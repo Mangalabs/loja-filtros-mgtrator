@@ -18,6 +18,7 @@ import type {
   StockAdjustment,
   StockEntry,
   StockMovement,
+  StockReport,
   Supplier,
 } from "../api";
 import type { ReactNode } from "react";
@@ -93,6 +94,7 @@ type AppViewRendererProps = {
   stockAdjustments: StockAdjustment[];
   stockEntries: StockEntry[];
   stockMovements: StockMovement[];
+  stockReport: StockReport | null;
   suppliers: Supplier[];
   user: AuthUser;
   view: View;
@@ -101,6 +103,10 @@ type AppViewRendererProps = {
   onOpenQuotes: () => void;
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
   onLoadSalesReport: (filters?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }) => Promise<boolean>;
+  onLoadStockReport: (filters?: {
     dateFrom?: string;
     dateTo?: string;
   }) => Promise<boolean>;
@@ -140,12 +146,14 @@ export function AppViewRenderer({
   stockAdjustments,
   stockEntries,
   stockMovements,
+  stockReport,
   suppliers,
   user,
   view,
   onCancelClient,
   onCancelProductEdit,
   onLoadSalesReport,
+  onLoadStockReport,
   onOpenQuotes,
   onResolveFiscalPendency,
   onSelectView,
@@ -276,6 +284,8 @@ export function AppViewRenderer({
         overview={reportsOverview}
         salesReport={salesReport}
         onLoadSalesReport={onLoadSalesReport}
+        stockReport={stockReport}
+        onLoadStockReport={onLoadStockReport}
       />
     ),
     quotes: (

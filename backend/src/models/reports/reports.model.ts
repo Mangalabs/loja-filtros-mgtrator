@@ -45,6 +45,40 @@ export type SalesReport = {
   }>;
 };
 
+export type StockReportFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+export type StockReport = {
+  summary: {
+    activeProductsCount: number;
+    lowStockProductsCount: number;
+    productsWithoutMovementCount: number;
+    soldQuantity: string;
+  };
+  lowStockProducts: Array<{
+    productId: string;
+    productName: string;
+    currentStock: string;
+    reservedStock: string;
+    availableStock: string;
+    minimumStock: string;
+  }>;
+  productsWithoutMovement: Array<{
+    productId: string;
+    productName: string;
+    currentStock: string;
+    minimumStock: string;
+  }>;
+  turnoverProducts: Array<{
+    productId: string;
+    productName: string;
+    soldQuantity: string;
+    lastSaleAt: Date | null;
+  }>;
+};
+
 type CountRow = {
   count: string;
 };
@@ -86,6 +120,33 @@ type CashRegisterRow = {
   id: string;
   openedByUserName: string;
   openedAt: Date;
+};
+
+type LowStockProductRow = {
+  productId: string;
+  productName: string;
+  currentStock: string;
+  reservedStock: string;
+  availableStock: string;
+  minimumStock: string;
+};
+
+type ProductWithoutMovementRow = {
+  productId: string;
+  productName: string;
+  currentStock: string;
+  minimumStock: string;
+};
+
+type StockTurnoverProductRow = {
+  productId: string;
+  productName: string;
+  soldQuantity: string;
+  lastSaleAt: Date | null;
+};
+
+type StockSummaryRow = {
+  soldQuantity: string;
 };
 
 export async function getReportsOverview(): Promise<ReportsOverview> {
@@ -231,6 +292,103 @@ export async function getSalesReport(
   };
 }
 
+export async function getStockReport(
+  filters: StockReportFilters,
+): Promise<StockReport> {
+  const [
+    activeProducts,
+    lowStockProductsCount,
+    lowStockProducts,
+    productsWithoutMovementCount,
+    productsWithoutMovement,
+    turnoverProducts,
+    stockSummary,
+  ] = await Promise.all([
+    db("products")
+      .where("active", true)
+      .count<CountRow[]>("id as count")
+      .first(),
+    lowStockProductsQuery().count<CountRow[]>("products.id as count").first(),
+    lowStockProductsQuery()
+      .select<LowStockProductRow[]>([
+        "products.id as productId",
+        "products.name as productName",
+        "products.current_stock as currentStock",
+        "products.reserved_stock as reservedStock",
+        db.raw("products.current_stock - products.reserved_stock as ??", [
+          "availableStock",
+        ]),
+        "products.minimum_stock as minimumStock",
+      ])
+      .orderByRaw("products.current_stock - products.reserved_stock asc")
+      .orderBy("products.name", "asc")
+      .limit(20),
+    productsWithoutMovementQuery()
+      .count<CountRow[]>("products.id as count")
+      .first(),
+    productsWithoutMovementQuery()
+      .select<ProductWithoutMovementRow[]>([
+        "products.id as productId",
+        "products.name as productName",
+        "products.current_stock as currentStock",
+        "products.minimum_stock as minimumStock",
+      ])
+      .orderBy("products.name", "asc")
+      .limit(20),
+    stockTurnoverQuery(filters)
+      .select<StockTurnoverProductRow[]>([
+        "products.id as productId",
+        "products.name as productName",
+        db.raw(
+          "abs(sum(stock_movements.quantity))::numeric(12, 3)::text as ??",
+          ["soldQuantity"],
+        ),
+        db.raw("max(stock_movements.created_at) as ??", ["lastSaleAt"]),
+      ])
+      .groupBy("products.id", "products.name")
+      .orderByRaw("abs(sum(stock_movements.quantity)) desc")
+      .limit(20),
+    stockTurnoverQuery(filters)
+      .select<StockSummaryRow[]>([
+        db.raw(
+          "coalesce(abs(sum(stock_movements.quantity)), 0)::numeric(12, 3)::text as ??",
+          ["soldQuantity"],
+        ),
+      ])
+      .first(),
+  ]);
+
+  return {
+    summary: {
+      activeProductsCount: Number(activeProducts?.count ?? 0),
+      lowStockProductsCount: Number(lowStockProductsCount?.count ?? 0),
+      productsWithoutMovementCount: Number(
+        productsWithoutMovementCount?.count ?? 0,
+      ),
+      soldQuantity: stockSummary?.soldQuantity ?? "0.000",
+    },
+    lowStockProducts,
+    productsWithoutMovement,
+    turnoverProducts,
+  };
+}
+
+function lowStockProductsQuery() {
+  return db("products")
+    .where("products.active", true)
+    .where("products.minimum_stock", ">", 0)
+    .whereRaw(
+      "products.current_stock - products.reserved_stock <= products.minimum_stock",
+    );
+}
+
+function productsWithoutMovementQuery() {
+  return db("products")
+    .leftJoin("stock_movements", "stock_movements.product_id", "products.id")
+    .where("products.active", true)
+    .whereNull("stock_movements.id");
+}
+
 function salesReportBaseQuery(filters: SalesReportFilters) {
   return db("sales")
     .join("sale_items", "sale_items.sale_id", "sales.id")
@@ -273,4 +431,24 @@ function salesItemQuantitySubquery() {
     .select("sale_id")
     .sum("quantity as quantity")
     .groupBy("sale_id");
+}
+
+function stockTurnoverQuery(filters: StockReportFilters) {
+  return db("stock_movements")
+    .join("products", "products.id", "stock_movements.product_id")
+    .where("products.active", true)
+    .where("stock_movements.type", "SALE")
+    .modify((query) => {
+      if (filters.dateFrom) {
+        query.where("stock_movements.created_at", ">=", filters.dateFrom);
+      }
+
+      if (filters.dateTo) {
+        query.where(
+          "stock_movements.created_at",
+          "<",
+          db.raw("?::date + interval '1 day'", [filters.dateTo]),
+        );
+      }
+    });
 }

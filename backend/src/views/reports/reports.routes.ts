@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   showReportsOverview,
   showSalesReport,
+  showStockReport,
 } from "../../controllers/reports/reports.controller.js";
 
 export const reportsRoutes = Router();
@@ -20,4 +21,10 @@ reportsRoutes.get("/reports/sales", async (request, response) => {
   const query = salesReportQuerySchema.parse(request.query);
 
   response.status(200).json(await showSalesReport(query));
+});
+
+reportsRoutes.get("/reports/stock", async (request, response) => {
+  const query = salesReportQuerySchema.parse(request.query);
+
+  response.status(200).json(await showStockReport(query));
 });

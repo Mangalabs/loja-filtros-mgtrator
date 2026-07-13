@@ -37,6 +37,7 @@ export function AuthenticatedApp({
     fiscalSettings,
     loadCatalog,
     loadSalesReport,
+    loadStockReport,
     lowStockProducts,
     message,
     paymentMethods,
@@ -56,6 +57,7 @@ export function AuthenticatedApp({
     stockAdjustments,
     stockEntries,
     stockMovements,
+    stockReport,
     suppliers,
   } = useCatalogData();
   const { openNavSections, toggleNavSection } = useNavigationState();
@@ -192,6 +194,7 @@ export function AuthenticatedApp({
           sales={sales}
           salesReport={salesReport}
           onLoadSalesReport={loadSalesReport}
+          onLoadStockReport={loadStockReport}
           salesActions={salesActions}
           search={search}
           selectedClient={selectedClient}
@@ -202,6 +205,7 @@ export function AuthenticatedApp({
           stockAdjustments={stockAdjustments}
           stockEntries={stockEntries}
           stockMovements={stockMovements}
+          stockReport={stockReport}
           suppliers={suppliers}
           user={user}
           view={view}

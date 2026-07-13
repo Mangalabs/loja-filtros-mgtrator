@@ -386,6 +386,35 @@ export type SalesReport = {
   }>;
 };
 
+export type StockReport = {
+  summary: {
+    activeProductsCount: number;
+    lowStockProductsCount: number;
+    productsWithoutMovementCount: number;
+    soldQuantity: string;
+  };
+  lowStockProducts: Array<{
+    productId: string;
+    productName: string;
+    currentStock: string;
+    reservedStock: string;
+    availableStock: string;
+    minimumStock: string;
+  }>;
+  productsWithoutMovement: Array<{
+    productId: string;
+    productName: string;
+    currentStock: string;
+    minimumStock: string;
+  }>;
+  turnoverProducts: Array<{
+    productId: string;
+    productName: string;
+    soldQuantity: string;
+    lastSaleAt: string | null;
+  }>;
+};
+
 export type ShippingOrder = {
   id: string;
   quoteId: string | null;

@@ -424,6 +424,35 @@ type SalesReport = {
   }>;
 };
 
+type StockReport = {
+  summary: {
+    activeProductsCount: number;
+    lowStockProductsCount: number;
+    productsWithoutMovementCount: number;
+    soldQuantity: string;
+  };
+  lowStockProducts: Array<{
+    productId: string;
+    productName: string;
+    currentStock: string;
+    reservedStock: string;
+    availableStock: string;
+    minimumStock: string;
+  }>;
+  productsWithoutMovement: Array<{
+    productId: string;
+    productName: string;
+    currentStock: string;
+    minimumStock: string;
+  }>;
+  turnoverProducts: Array<{
+    productId: string;
+    productName: string;
+    soldQuantity: string;
+    lastSaleAt: string | null;
+  }>;
+};
+
 type FiscalDocument = {
   id: string;
   sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
@@ -3418,6 +3447,88 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.byClient[0]?.totalAmount, "145.00");
     assert.equal(report.body.data?.byPaymentMethod[0]?.paymentMethodName, "Boleto");
     assert.equal(report.body.data?.byPaymentMethod[0]?.totalAmount, "145.00");
+  });
+
+  it("returns stock reports with low stock, products without movement, and turnover", async () => {
+    const lowStockProduct = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro relatorio estoque baixo",
+        minimumStock: 5,
+        salePrice: 30,
+      },
+    });
+    const soldProduct = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro relatorio giro",
+        minimumStock: 1,
+        salePrice: 50,
+      },
+    });
+    const withoutMovementProduct = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro sem movimentacao",
+        minimumStock: 0,
+        salePrice: 15,
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: lowStockProduct.body.data?.id,
+        quantity: 2,
+        reason: "Saldo baixo para relatorio",
+      },
+    });
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: soldProduct.body.data?.id,
+        quantity: 5,
+        reason: "Saldo para giro",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+    await request("/sales", {
+      method: "POST",
+      body: {
+        items: [{ productId: soldProduct.body.data?.id, quantity: 3 }],
+        paymentMethodId: pix?.id,
+      },
+    });
+
+    const report = await request<StockReport>("/reports/stock");
+
+    assert.equal(report.status, 200);
+    assert.equal(report.body.data?.summary.activeProductsCount, 3);
+    assert.equal(report.body.data?.summary.lowStockProductsCount, 1);
+    assert.equal(report.body.data?.summary.productsWithoutMovementCount, 1);
+    assert.equal(report.body.data?.summary.soldQuantity, "3.000");
+    assert.equal(
+      report.body.data?.lowStockProducts[0]?.productName,
+      lowStockProduct.body.data?.name,
+    );
+    assert.equal(
+      report.body.data?.productsWithoutMovement[0]?.productId,
+      withoutMovementProduct.body.data?.id,
+    );
+    assert.equal(
+      report.body.data?.turnoverProducts[0]?.productId,
+      soldProduct.body.data?.id,
+    );
+    assert.equal(report.body.data?.turnoverProducts[0]?.soldQuantity, "3.000");
   });
 
   it("creates a shipping quote and reserves its item after approval", async () => {

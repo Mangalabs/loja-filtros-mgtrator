@@ -17,6 +17,7 @@ import {
   type Sale,
   type SalesReport,
   type ShippingOrder,
+  type StockReport,
   type StockAdjustment,
   type StockEntry,
   type StockMovement,
@@ -45,6 +46,7 @@ export function useCatalogData() {
   const [reportsOverview, setReportsOverview] =
     useState<ReportsOverview | null>(null);
   const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
+  const [stockReport, setStockReport] = useState<StockReport | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [fiscalDocuments, setFiscalDocuments] = useState<FiscalDocument[]>([]);
@@ -80,6 +82,7 @@ export function useCatalogData() {
         cashRegisterResult,
         reportsOverviewResult,
         salesReportResult,
+        stockReportResult,
         quotesResult,
         salesResult,
         fiscalDocumentsResult,
@@ -101,6 +104,7 @@ export function useCatalogData() {
         apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
         apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
         apiGet<ApiResult<SalesReport>>("/reports/sales"),
+        apiGet<ApiResult<StockReport>>("/reports/stock"),
         apiGet<ApiResult<Quote[]>>("/quotes"),
         apiGet<ApiResult<Sale[]>>("/sales"),
         apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents"),
@@ -123,6 +127,7 @@ export function useCatalogData() {
       setCashRegister(cashRegisterResult.data);
       setReportsOverview(reportsOverviewResult.data);
       setSalesReport(salesReportResult.data);
+      setStockReport(stockReportResult.data);
       setQuotes(quotesResult.data);
       setSales(salesResult.data);
       setFiscalDocuments(fiscalDocumentsResult.data);
@@ -146,6 +151,24 @@ export function useCatalogData() {
       );
 
       setSalesReport(result.data);
+      setState("ready");
+      return true;
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+      return false;
+    }
+  }
+
+  async function loadStockReport(filters: ReportPeriodFilters = {}) {
+    setMessage("");
+
+    try {
+      const result = await apiGet<ApiResult<StockReport>>(
+        reportPath("/reports/stock", filters),
+      );
+
+      setStockReport(result.data);
       setState("ready");
       return true;
     } catch (error) {
@@ -204,6 +227,7 @@ export function useCatalogData() {
     fiscalSettings,
     loadCatalog,
     lowStockProducts,
+    loadStockReport,
     message,
     paymentMethods,
     pickupReservations,
@@ -223,16 +247,23 @@ export function useCatalogData() {
     stockAdjustments,
     stockEntries,
     stockMovements,
+    stockReport,
     suppliers,
   };
 }
 
-type SalesReportFilters = {
+type SalesReportFilters = ReportPeriodFilters;
+
+type ReportPeriodFilters = {
   dateFrom?: string;
   dateTo?: string;
 };
 
 function salesReportPath(filters: SalesReportFilters) {
+  return reportPath("/reports/sales", filters);
+}
+
+function reportPath(path: string, filters: ReportPeriodFilters) {
   const params = new URLSearchParams();
 
   if (filters.dateFrom) {
@@ -245,7 +276,7 @@ function salesReportPath(filters: SalesReportFilters) {
 
   const query = params.toString();
 
-  return query ? `/reports/sales?${query}` : "/reports/sales";
+  return query ? `${path}?${query}` : path;
 }
 
 async function fetchProductCatalog() {

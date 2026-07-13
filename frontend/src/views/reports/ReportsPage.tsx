@@ -7,12 +7,13 @@ import {
   Banknote,
   CircleDollarSign,
   CreditCard,
+  PackageSearch,
   PackagePlus,
   Send,
   ShoppingCart,
 } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
-import type { ReportsOverview, SalesReport } from "../../api";
+import type { ReportsOverview, SalesReport, StockReport } from "../../api";
 import { PageHeader, PagePanel, ResponsiveTable } from "../../components/layout";
 import { StatusChip } from "../../components/ui";
 import { frontendPalette } from "../../theme";
@@ -24,25 +25,31 @@ import {
 
 export function ReportsPage({
   onLoadSalesReport,
+  onLoadStockReport,
   overview,
   salesReport,
+  stockReport,
 }: {
   onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
+  onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>;
   overview: ReportsOverview | null;
   salesReport: SalesReport | null;
+  stockReport: StockReport | null;
 }) {
   const contentByState = {
     loading: <ReportsLoading />,
     ready:
-      overview && salesReport ? (
+      overview && salesReport && stockReport ? (
         <ReportsOverviewContent
           overview={overview}
           onLoadSalesReport={onLoadSalesReport}
+          onLoadStockReport={onLoadStockReport}
           salesReport={salesReport}
+          stockReport={stockReport}
         />
       ) : null,
   };
-  const state = overview && salesReport ? "ready" : "loading";
+  const state = overview && salesReport && stockReport ? "ready" : "loading";
 
   return contentByState[state];
 }
@@ -65,12 +72,16 @@ function ReportsLoading() {
 
 function ReportsOverviewContent({
   onLoadSalesReport,
+  onLoadStockReport,
   overview,
   salesReport,
+  stockReport,
 }: {
   onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
+  onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>;
   overview: ReportsOverview;
   salesReport: SalesReport;
+  stockReport: StockReport;
 }) {
   return (
     <section className="grid gap-4">
@@ -139,6 +150,10 @@ function ReportsOverviewContent({
       <SalesReportSection
         salesReport={salesReport}
         onLoadSalesReport={onLoadSalesReport}
+      />
+      <StockReportSection
+        stockReport={stockReport}
+        onLoadStockReport={onLoadStockReport}
       />
     </section>
   );
@@ -301,6 +316,169 @@ function SalesReportSection({
           emptyMessage="Nenhuma venda por pagamento."
           getRowId={(item) => item.paymentMethodId}
           items={salesReport.byPaymentMethod}
+        />
+      </div>
+    </PagePanel>
+  );
+}
+
+function StockReportSection({
+  onLoadStockReport,
+  stockReport,
+}: {
+  onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>;
+  stockReport: StockReport;
+}) {
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function filterStockReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+
+    await onLoadStockReport({ dateFrom, dateTo });
+    setLoading(false);
+  }
+
+  async function clearStockReportFilters() {
+    setDateFrom("");
+    setDateTo("");
+    setLoading(true);
+
+    await onLoadStockReport();
+    setLoading(false);
+  }
+
+  return (
+    <PagePanel wide>
+      <PageHeader
+        actions={
+          <form
+            className="grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto"
+            onSubmit={filterStockReport}
+          >
+            <TextField
+              label="De"
+              size="small"
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              label="Ate"
+              size="small"
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <Button disabled={loading} type="submit" variant="contained">
+              Filtrar giro
+            </Button>
+            <Button
+              disabled={loading || (!dateFrom && !dateTo)}
+              type="button"
+              variant="outlined"
+              onClick={() => void clearStockReportFilters()}
+            >
+              Limpar
+            </Button>
+          </form>
+        }
+        description="Estoque baixo, produtos sem movimentacao e giro por vendas."
+        icon={<PackageSearch size={18} />}
+        title="Relatorio de estoque"
+      />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <ReportMetric
+          icon={<PackageSearch size={18} />}
+          label="Produtos ativos"
+          value={String(stockReport.summary.activeProductsCount)}
+        />
+        <ReportMetric
+          icon={<AlertTriangle size={18} />}
+          label="Estoque baixo"
+          value={String(stockReport.summary.lowStockProductsCount)}
+        />
+        <ReportMetric
+          icon={<PackagePlus size={18} />}
+          label="Sem movimentacao"
+          value={String(stockReport.summary.productsWithoutMovementCount)}
+        />
+        <ReportMetric
+          icon={<ShoppingCart size={18} />}
+          label="Qtde vendida"
+          value={formatQuantity(stockReport.summary.soldQuantity)}
+        />
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Estoque baixo",
+              render: (item) => item.productName,
+            },
+            {
+              align: "right",
+              header: "Disp.",
+              render: (item) => formatQuantity(item.availableStock),
+            },
+            {
+              align: "right",
+              header: "Min.",
+              render: (item) => formatQuantity(item.minimumStock),
+            },
+          ]}
+          emptyMessage="Nenhum produto em estoque baixo."
+          getRowId={(item) => item.productId}
+          items={stockReport.lowStockProducts}
+        />
+
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Sem movimentacao",
+              render: (item) => item.productName,
+            },
+            {
+              align: "right",
+              header: "Estoque",
+              render: (item) => formatQuantity(item.currentStock),
+            },
+            {
+              align: "right",
+              header: "Min.",
+              render: (item) => formatQuantity(item.minimumStock),
+            },
+          ]}
+          emptyMessage="Nenhum produto sem movimentacao."
+          getRowId={(item) => item.productId}
+          items={stockReport.productsWithoutMovement}
+        />
+
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Giro por venda",
+              render: (item) => item.productName,
+            },
+            {
+              align: "right",
+              header: "Qtde",
+              render: (item) => formatQuantity(item.soldQuantity),
+            },
+            {
+              header: "Ultima venda",
+              render: (item) =>
+                item.lastSaleAt ? formatDateTime(item.lastSaleAt) : "-",
+            },
+          ]}
+          emptyMessage="Nenhum giro de vendas no periodo."
+          getRowId={(item) => item.productId}
+          items={stockReport.turnoverProducts}
         />
       </div>
     </PagePanel>

@@ -1,7 +1,9 @@
 import {
   getReportsOverview,
   getSalesReport,
+  getStockReport,
   type SalesReportFilters,
+  type StockReportFilters,
 } from "../../models/reports/reports.model.js";
 
 export async function showReportsOverview() {
@@ -17,5 +19,13 @@ export async function showSalesReport(filters: SalesReportFilters) {
     code: 200,
     status: "success",
     data: await getSalesReport(filters),
+  };
+}
+
+export async function showStockReport(filters: StockReportFilters) {
+  return {
+    code: 200,
+    status: "success",
+    data: await getStockReport(filters),
   };
 }
