@@ -3,6 +3,8 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import TextField from "@mui/material/TextField";
 import { FileText, PackageCheck, RotateCcw, Save, Upload } from "lucide-react";
 import { useState, type ChangeEvent, type FormEvent } from "react";
@@ -55,8 +57,12 @@ export function PurchaseInvoicesPage({
   const [xmlContent, setXmlContent] = useState("");
   const [xmlFileName, setXmlFileName] = useState("");
   const [xmlFileError, setXmlFileError] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState<PurchaseInvoiceStatusFilter>("ALL");
+  const filteredInvoices = filterPurchaseInvoices(invoices, statusFilter);
+  const statusSummary = purchaseInvoiceStatusSummary(invoices);
   const { pagination, visibleItems } =
-    usePaginatedRows<PurchaseInvoice>(invoices);
+    usePaginatedRows<PurchaseInvoice>(filteredInvoices);
   const reviewKey = reviewInvoiceId ?? draft?.accessKey ?? "new-purchase";
 
   async function parseXml(event: FormEvent<HTMLFormElement>) {
@@ -332,11 +338,47 @@ export function PurchaseInvoicesPage({
         <PageHeader
           actions={
             <span className="text-sm text-[#5f665f]">
-              {invoices.length} compras
+              {filteredInvoices.length} de {invoices.length} compras
             </span>
           }
           title="Compras importadas"
         />
+        <div className="mb-4 grid gap-3 md:grid-cols-3">
+          {purchaseInvoiceStatusCards.map((card) => (
+            <PurchaseInvoiceStatusCard
+              key={card.status}
+              label={card.label}
+              value={statusSummary[card.status]}
+              tone={card.tone}
+            />
+          ))}
+        </div>
+        <ToggleButtonGroup
+          aria-label="Filtrar compras por status"
+          color="primary"
+          exclusive
+          size="small"
+          value={statusFilter}
+          onChange={(_event, value: PurchaseInvoiceStatusFilter | null) =>
+            setStatusFilter(value ?? "ALL")
+          }
+          sx={{
+            flexWrap: "wrap",
+            gap: 1,
+            mb: 1,
+            "& .MuiToggleButtonGroup-grouped": {
+              border: "1px solid #cfd8d5 !important",
+              borderRadius: "10px !important",
+              color: "#203466",
+              px: 1.5,
+            },
+          }}
+        >
+          <ToggleButton value="ALL">Todas</ToggleButton>
+          <ToggleButton value="IMPORTED">Prontas para revisar/lancar</ToggleButton>
+          <ToggleButton value="POSTED">Lancadas</ToggleButton>
+          <ToggleButton value="CANCELLED">Canceladas</ToggleButton>
+        </ToggleButtonGroup>
         <ResponsiveTable
           columns={[
             {
@@ -403,6 +445,28 @@ export function PurchaseInvoicesPage({
         />
       </PagePanel>
     </section>
+  );
+}
+
+function PurchaseInvoiceStatusCard({
+  label,
+  tone,
+  value,
+}: {
+  label: string;
+  tone: "success" | "warning" | "error";
+  value: number;
+}) {
+  return (
+    <div className="rounded-xl border border-[#dfe5e1] bg-[#fbfcfb] p-4">
+      <span className="block text-xs font-bold uppercase tracking-wide text-[#5f665f]">
+        {label}
+      </span>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <strong className="text-2xl text-[#2c281e]">{value}</strong>
+        <StatusChip label={purchaseInvoiceStatusToneLabels[tone]} tone={tone} />
+      </div>
+    </div>
   );
 }
 
@@ -659,4 +723,41 @@ const purchaseInvoiceStatusTones: Record<
   CANCELLED: "error",
   IMPORTED: "warning",
   POSTED: "success",
+};
+
+type PurchaseInvoiceStatusFilter = PurchaseInvoice["status"] | "ALL";
+
+function filterPurchaseInvoices(
+  invoices: PurchaseInvoice[],
+  status: PurchaseInvoiceStatusFilter,
+) {
+  return status === "ALL"
+    ? invoices
+    : invoices.filter((invoice) => invoice.status === status);
+}
+
+function purchaseInvoiceStatusSummary(invoices: PurchaseInvoice[]) {
+  return invoices.reduce<Record<PurchaseInvoice["status"], number>>(
+    (summary, invoice) => ({
+      ...summary,
+      [invoice.status]: summary[invoice.status] + 1,
+    }),
+    { CANCELLED: 0, IMPORTED: 0, POSTED: 0 },
+  );
+}
+
+const purchaseInvoiceStatusCards: Array<{
+  label: string;
+  status: PurchaseInvoice["status"];
+  tone: "success" | "warning" | "error";
+}> = [
+  { label: "Prontas para lancar", status: "IMPORTED", tone: "warning" },
+  { label: "Lancadas no estoque", status: "POSTED", tone: "success" },
+  { label: "Canceladas", status: "CANCELLED", tone: "error" },
+];
+
+const purchaseInvoiceStatusToneLabels = {
+  error: "Atencao",
+  success: "Ok",
+  warning: "Pendente",
 };
