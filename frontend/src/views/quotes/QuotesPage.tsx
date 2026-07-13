@@ -23,6 +23,8 @@ import {
   SecondaryButton,
   StatusChip,
   TableActionButton,
+  TableActionsMenu,
+  type TableActionsMenuAction,
 } from '../../components/ui'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/format'
@@ -590,14 +592,20 @@ function QuoteActions({
   onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void
   onCreateShippingOrder: (quote: Quote) => void
 }) {
+  const [showCancellationForm, setShowCancellationForm] = useState(false)
+  const actions = quoteActions({
+    onCancelQuote: () => setShowCancellationForm(true),
+    onCreateShippingOrder: () => onCreateShippingOrder(quote),
+    onEditQuote: () => onEditQuote(quote),
+    quote,
+  })
+
   if (quote.shippingOrderId) {
     return (
       <ActionStack>
-        <ActionGroup>
-          <TableActionButton href={quotePdfHref(quote)}>
-            Baixar PDF
-          </TableActionButton>
-        </ActionGroup>
+        <div className='flex justify-end'>
+          <TableActionsMenu actions={actions} />
+        </div>
         <InlineNote>Pedido para envio criado</InlineNote>
       </ActionStack>
     )
@@ -606,11 +614,9 @@ function QuoteActions({
   if (quote.status !== 'DRAFT') {
     return (
       <ActionStack>
-        <ActionGroup>
-          <TableActionButton href={quotePdfHref(quote)}>
-            Baixar PDF
-          </TableActionButton>
-        </ActionGroup>
+        <div className='flex justify-end'>
+          <TableActionsMenu actions={actions} />
+        </div>
         <InlineNote>Orcamento cancelado</InlineNote>
       </ActionStack>
     )
@@ -618,35 +624,70 @@ function QuoteActions({
 
   return (
     <ActionStack>
-      <ActionGroup>
-        <TableActionButton href={quotePdfHref(quote)}>
-          Baixar PDF
-        </TableActionButton>
-        <TableActionButton type='button' onClick={() => onEditQuote(quote)}>
-          Editar
-        </TableActionButton>
-        <TableActionButton
-          type='button'
-          onClick={() => onCreateShippingOrder(quote)}>
-          Enviar p/ envio
-        </TableActionButton>
-      </ActionGroup>
-      <form
-        className='grid gap-2'
-        onSubmit={(event) => onCancelQuote(event, quote)}>
-        <TextField
-          label='Motivo do cancelamento'
-          name='quoteCancellationReason'
-          size='small'
-          slotProps={{ htmlInput: { maxLength: 500 } }}
-          required
-        />
-        <ActionGroup>
-          <TableActionButton type='submit'>Cancelar</TableActionButton>
-        </ActionGroup>
-      </form>
+      <div className='flex justify-end'>
+        <TableActionsMenu actions={actions} />
+      </div>
+      {showCancellationForm ? (
+        <form
+          className='grid w-full max-w-72 gap-2'
+          onSubmit={(event) => onCancelQuote(event, quote)}>
+          <TextField
+            label='Motivo do cancelamento'
+            name='quoteCancellationReason'
+            size='small'
+            slotProps={{ htmlInput: { maxLength: 500 } }}
+            required
+          />
+          <div className='flex flex-wrap gap-2'>
+            <TableActionButton type='submit'>Cancelar</TableActionButton>
+            <TableActionButton
+              type='button'
+              onClick={() => setShowCancellationForm(false)}>
+              Fechar
+            </TableActionButton>
+          </div>
+        </form>
+      ) : null}
     </ActionStack>
   )
+}
+
+function quoteActions({
+  onCancelQuote,
+  onCreateShippingOrder,
+  onEditQuote,
+  quote,
+}: {
+  onCancelQuote: () => void
+  onCreateShippingOrder: () => void
+  onEditQuote: () => void
+  quote: Quote
+}) {
+  const actions: TableActionsMenuAction[] = [
+    {
+      href: quotePdfHref(quote),
+      label: 'Baixar PDF',
+    },
+  ]
+
+  quote.status === 'DRAFT' &&
+    !quote.shippingOrderId &&
+    actions.push(
+      {
+        label: 'Editar',
+        onSelect: onEditQuote,
+      },
+      {
+        label: 'Enviar p/ envio',
+        onSelect: onCreateShippingOrder,
+      },
+      {
+        label: 'Cancelar orcamento',
+        onSelect: onCancelQuote,
+      },
+    )
+
+  return actions
 }
 
 function quotePdfHref(quote: Quote) {

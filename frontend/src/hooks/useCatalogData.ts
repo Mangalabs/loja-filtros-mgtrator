@@ -11,6 +11,7 @@ import {
   type PaymentMethod,
   type PickupReservation,
   type Product,
+  type PurchaseInvoice,
   type Quote,
   type ReportsOverview,
   type Sale,
@@ -32,6 +33,9 @@ export function useCatalogData() {
     [],
   );
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseInvoice[]>(
+    [],
+  );
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [cashRegister, setCashRegister] = useState<CashRegisterSession | null>(
@@ -68,6 +72,7 @@ export function useCatalogData() {
         stockEntriesResult,
         stockAdjustmentsResult,
         stockMovementsResult,
+        purchaseInvoicesResult,
         lowStockResult,
         paymentMethodsResult,
         cashRegisterResult,
@@ -87,6 +92,7 @@ export function useCatalogData() {
         apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
         apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments"),
         apiGet<ApiResult<StockMovement[]>>("/stock-movements"),
+        fetchPurchaseInvoices(),
         apiGet<ApiResult<Product[]>>("/products/low-stock"),
         apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
         apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
@@ -107,6 +113,7 @@ export function useCatalogData() {
       setStockEntries(stockEntriesResult.data);
       setStockAdjustments(stockAdjustmentsResult.data);
       setStockMovements(stockMovementsResult.data);
+      setPurchaseInvoices(purchaseInvoicesResult.data);
       setLowStockProducts(lowStockResult.data);
       setPaymentMethods(paymentMethodsResult.data);
       setCashRegister(cashRegisterResult.data);
@@ -178,6 +185,7 @@ export function useCatalogData() {
     paymentMethods,
     pickupReservations,
     products,
+    purchaseInvoices,
     quotes,
     reportsOverview,
     runAction,
@@ -223,6 +231,24 @@ async function fetchCommercialSettings() {
   } catch (error) {
     if (error instanceof Error && error.message.includes("Route not found")) {
       return null;
+    }
+
+    throw error;
+  }
+}
+
+async function fetchPurchaseInvoices() {
+  try {
+    const result = await apiGet<ApiResult<PurchaseInvoice[]>>(
+      "/purchase-invoices",
+    );
+
+    return result;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Route not found")) {
+      return { code: 200, status: "success", data: [] } as ApiResult<
+        PurchaseInvoice[]
+      >;
     }
 
     throw error;

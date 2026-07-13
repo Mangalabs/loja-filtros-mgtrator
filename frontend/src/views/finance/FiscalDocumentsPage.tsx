@@ -6,7 +6,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
 import { FileText } from 'lucide-react'
-import type { FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import type {
   Client,
   FiscalDocument,
@@ -23,7 +23,12 @@ import {
   PagePanel,
   ResponsiveTable,
 } from '../../components/layout'
-import { StatusChip, TableActionButton } from '../../components/ui'
+import {
+  StatusChip,
+  TableActionButton,
+  TableActionsMenu,
+  type TableActionsMenuAction,
+} from '../../components/ui'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import { formatCurrency, formatDateTime } from '../../utils/format'
 import {
@@ -809,6 +814,8 @@ function FiscalDocumentActions({
   ) => void
   onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void
 }) {
+  const [showCancellationForm, setShowCancellationForm] = useState(false)
+
   if (document.status === 'CANCELLED') {
     return <span className='text-sm text-[#5f665f]'>Documento cancelado</span>
   }
@@ -821,17 +828,28 @@ function FiscalDocumentActions({
     )
   }
 
-  return (
-    <div className='grid min-w-[220px] gap-2'>
-      <TableActionButton
-        type='button'
-        onClick={() => onSyncFiscalDocument(document)}>
-        Atualizar
-      </TableActionButton>
+  const actions: TableActionsMenuAction[] = [
+    {
+      label: 'Atualizar retorno',
+      onSelect: () => onSyncFiscalDocument(document),
+    },
+  ]
 
-      {document.status === 'AUTHORIZED' ? (
+  document.status === 'AUTHORIZED' &&
+    actions.push({
+      label: 'Cancelar NF-e',
+      onSelect: () => setShowCancellationForm(true),
+    })
+
+  return (
+    <div className='grid min-w-0 gap-2'>
+      <div className='flex justify-end'>
+        <TableActionsMenu actions={actions} />
+      </div>
+
+      {showCancellationForm && document.status === 'AUTHORIZED' ? (
         <form
-          className='grid gap-2'
+          className='grid w-full max-w-72 gap-2'
           onSubmit={(event) => onCancelFiscalDocument(event, document)}>
           <TextField
             name='fiscalCancellationReason'
@@ -841,7 +859,14 @@ function FiscalDocumentActions({
             size='small'
             required
           />
-          <TableActionButton type='submit'>Cancelar NF-e</TableActionButton>
+          <div className='flex flex-wrap gap-2'>
+            <TableActionButton type='submit'>Cancelar NF-e</TableActionButton>
+            <TableActionButton
+              type='button'
+              onClick={() => setShowCancellationForm(false)}>
+              Fechar
+            </TableActionButton>
+          </div>
         </form>
       ) : null}
     </div>

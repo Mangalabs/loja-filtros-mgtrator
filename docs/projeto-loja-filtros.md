@@ -310,11 +310,16 @@ Estado: parcialmente entregue.
 
 - Venda de balcao, reserva, envio, baixa de estoque e cancelamentos principais existem.
 - Caixa ja possui abertura, fechamento, divergencia, sangria, suprimento e conferencia por forma de pagamento.
-- Base backend de devolucao operacional de item entregue, com retorno ao estoque e historico.
-- Falta estorno financeiro detalhado e exposicao da devolucao por item no frontend.
+- Devolucao operacional de item entregue para venda de balcao e vendas concluidas via envio/retirada, com retorno ao estoque e historico.
+- Historico de vendas permite registrar devolucao por item quando nao houver NF-e ativa bloqueando a operacao.
+- Caixa considera devolucoes no total liquido e no resumo por forma de pagamento.
+- Devolucoes registram base financeira do estorno: valor, forma de pagamento, data e referencia opcional.
+- Tela de devolucao permite informar valor, forma, data e referencia do estorno.
+- Historico de vendas mostra os estornos ja registrados por item devolvido.
+- Historico de vendas mostra valor liquido quando houver estornos, mantendo original e estornado visiveis.
 - Desconto direto em venda de balcao entregue no backend e no frontend.
 - Orcamentos podem ser editados enquanto estiverem em rascunho.
-- Orcamentos possuem desconto direto geral e desconto direto por item.
+- Orcamentos possuem desconto percentual geral e desconto percentual por item.
 - Orcamentos destacam a forma de pagamento na tela e no PDF comercial.
 - Historico de vendas permite baixar comprovante comercial sem valor fiscal para vendas concluidas.
 - Pedidos para envio podem ser concluidos como venda em um passo, sem exigir separacao manual na tela.
@@ -350,7 +355,23 @@ Estado: inicial entregue.
 
 ## Rumo Recomendado
 
-### 1. Fechar o ciclo comercial/fiscal MVP
+### 1. Compras e estoque
+
+- Entrada por XML de NF-e de compra.
+- Vincular itens do XML a produtos.
+- Abrir revisao da importacao com formulario pre-preenchido antes de qualquer entrada no estoque.
+- Confirmar manualmente o produto correto por item, pois codigos podem se repetir entre fabricantes diferentes.
+- Atualizar custo e estoque a partir da compra.
+- Historico formal de compras registradas por fornecedor e custo por produto.
+
+### 2. Relatorios
+
+- Vendas por periodo, produto, cliente e forma de pagamento.
+- Estoque baixo, giro e produtos sem movimentacao.
+- Caixa por periodo.
+- Margem, lucro e curva ABC.
+
+### 3. Fechar o ciclo comercial/fiscal MVP
 
 - Atualizar documentacao conforme os testes manuais e tecnicos avancarem.
 - Melhorar a tela de detalhes da NF-e e a leitura de rejeicoes.
@@ -358,23 +379,16 @@ Estado: inicial entregue.
 - Validar NF-e com descontos em venda de balcao e em venda originada de orcamento.
 - Manter producao bloqueada ate checklist fiscal final ser cumprido.
 
-### 2. Completar PDV/Caixa
+### 4. Ajustes de experiencia
+
+- Compactar acoes de tabelas em menu MUI nas listas com muitas opcoes.
+- Manter formularios de acao destrutiva ou detalhada ocultos ate o usuario escolher a acao.
+- Garantir botao de fechar/cancelar em formularios abertos dentro de linhas.
+- Tratar os demais pontos de UX como acabamento apos as funcoes prioritarias.
+
+### 5. Completar PDV/Caixa
 
 - Estorno financeiro detalhado de itens devolvidos.
-- Expor devolucao por item na tela de vendas.
-
-### 3. Compras
-
-- Entrada por XML de NF-e de compra.
-- Vincular itens do XML a produtos.
-- Atualizar custo e estoque a partir da compra.
-
-### 5. Relatorios
-
-- Vendas por periodo e produto.
-- Estoque atual e estoque baixo.
-- Caixa por periodo.
-- Margem, lucro e curva ABC em fase posterior.
 
 ## Observacoes Sobre Modelagem
 

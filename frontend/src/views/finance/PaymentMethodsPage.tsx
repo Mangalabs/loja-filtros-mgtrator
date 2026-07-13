@@ -1,12 +1,7 @@
 import { CreditCard, Power, PowerOff } from 'lucide-react'
 import type { PaymentMethod } from '../../api'
-import {
-  ActionGroup,
-  PageHeader,
-  PagePanel,
-  ResponsiveTable,
-} from '../../components/layout'
-import { StatusChip, TableActionButton } from '../../components/ui'
+import { PageHeader, PagePanel, ResponsiveTable } from '../../components/layout'
+import { StatusChip, TableActionsMenu } from '../../components/ui'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 
 export function PaymentMethodsPage({
@@ -39,20 +34,21 @@ export function PaymentMethodsPage({
     {
       header: 'Acoes',
       render: (paymentMethod: PaymentMethod) => (
-        <ActionGroup>
-          <TableActionButton
-            icon={
-              paymentMethod.active ? (
-                <PowerOff size={14} />
-              ) : (
-                <Power size={14} />
-              )
-            }
-            type='button'
-            onClick={() => onChangeStatus(paymentMethod)}>
-            {paymentMethod.active ? 'Inativar' : 'Ativar'}
-          </TableActionButton>
-        </ActionGroup>
+        <div className='flex justify-end'>
+          <TableActionsMenu
+            actions={[
+              {
+                icon: paymentMethod.active ? (
+                  <PowerOff size={14} />
+                ) : (
+                  <Power size={14} />
+                ),
+                label: paymentMethod.active ? 'Inativar' : 'Ativar',
+                onSelect: () => onChangeStatus(paymentMethod),
+              },
+            ]}
+          />
+        </div>
       ),
     },
   ]

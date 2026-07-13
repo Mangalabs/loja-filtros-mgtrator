@@ -66,7 +66,23 @@ export type SaleItem = {
   unitPrice: string;
   discountAmount: string;
   totalAmount: string;
+  returnedQuantity: string;
+  returnableQuantity: string;
+  returns: SaleItemReturn[];
   position: number;
+};
+
+export type SaleItemReturn = {
+  id: string;
+  quantity: string;
+  reason: string;
+  refundAmount: string;
+  refundPaymentMethodId: string;
+  refundPaymentMethodName: string;
+  refundedAt: Date;
+  refundReference: string | null;
+  createdByUserName: string;
+  createdAt: Date;
 };
 
 export type SaleItemForReturn = {
@@ -74,6 +90,14 @@ export type SaleItemForReturn = {
   saleId: string;
   productId: string;
   quantity: string;
+  totalAmount: string;
+};
+
+export type SaleReturnRefundInput = {
+  refundAmount: number;
+  refundPaymentMethodId: string;
+  refundedAt: string;
+  refundReference?: string | null;
 };
 
 export type SaleProduct = {
@@ -140,8 +164,11 @@ type SaleRow = Omit<
   Sale,
   "items" | "productId" | "productName" | "quantity" | "unitPrice"
 >;
-type SaleItemRow = SaleItem & {
+type SaleItemRow = Omit<SaleItem, "returnableQuantity" | "returns"> & {
   saleId: string;
+};
+type SaleItemReturnRow = SaleItemReturn & {
+  saleItemId: string;
 };
 
 export async function listSales(): Promise<Sale[]> {
@@ -209,16 +236,45 @@ export async function saleHasBlockingFiscalDocument(
   transaction: Knex.Transaction,
   saleId: string,
 ): Promise<boolean> {
+  const sourceRefs = await saleFiscalDocumentSourceRefs(transaction, saleId);
   const fiscalDocument = await transaction("fiscal_documents")
     .select("id")
-    .where({
-      source_type: "SALE",
-      source_id: saleId,
+    .where((builder) => {
+      for (const sourceRef of sourceRefs) {
+        builder.orWhere({
+          source_type: sourceRef.sourceType,
+          source_id: sourceRef.sourceId,
+        });
+      }
     })
     .whereIn("status", ["PENDING", "PROCESSING", "AUTHORIZED"])
     .first();
 
   return Boolean(fiscalDocument);
+}
+
+async function saleFiscalDocumentSourceRefs(
+  transaction: Knex.Transaction,
+  saleId: string,
+) {
+  const linkedShippingOrders = await transaction("shipping_orders")
+    .select<{ id: string }[]>(["id"])
+    .where("sale_id", saleId);
+  const linkedPickupReservations = await transaction("pickup_reservations")
+    .select<{ id: string }[]>(["id"])
+    .where("sale_id", saleId);
+
+  return [
+    { sourceType: "SALE", sourceId: saleId },
+    ...linkedShippingOrders.map((order) => ({
+      sourceType: "SHIPPING_ORDER",
+      sourceId: order.id,
+    })),
+    ...linkedPickupReservations.map((reservation) => ({
+      sourceType: "PICKUP_RESERVATION",
+      sourceId: reservation.id,
+    })),
+  ];
 }
 
 export async function lockSaleItemForReturn(
@@ -232,10 +288,23 @@ export async function lockSaleItemForReturn(
       "sale_id as saleId",
       "product_id as productId",
       "quantity",
+      "total_amount as totalAmount",
     ])
     .where({ id: saleItemId, sale_id: saleId })
     .forUpdate()
     .first();
+}
+
+export async function salePaymentMethodId(
+  transaction: Knex.Transaction,
+  saleId: string,
+): Promise<string | undefined> {
+  const payment = await transaction("sale_payments")
+    .select("payment_method_id as paymentMethodId")
+    .where("sale_id", saleId)
+    .first<{ paymentMethodId: string }>();
+
+  return payment?.paymentMethodId;
 }
 
 export async function returnedSaleItemQuantity(
@@ -353,6 +422,7 @@ export async function returnSaleItem(
   quantity: number,
   createdByUserId: string,
   reason: string,
+  refund: SaleReturnRefundInput,
 ): Promise<Sale> {
   await transaction("sale_item_returns").insert({
     sale_id: saleId,
@@ -361,6 +431,10 @@ export async function returnSaleItem(
     created_by_user_id: createdByUserId,
     quantity,
     reason,
+    refund_amount: refund.refundAmount,
+    refund_payment_method_id: refund.refundPaymentMethodId,
+    refunded_at: refund.refundedAt,
+    refund_reference: refund.refundReference,
   });
 
   await transaction("stock_movements").insert({
@@ -494,14 +568,55 @@ async function withSaleItems(
   const saleIds = sales.map((sale) => sale.id);
   const items = await database("sale_items")
     .join("products", "products.id", "sale_items.product_id")
-    .select<SaleItemRow[]>(saleItemColumns)
+    .select<SaleItemRow[]>([
+      ...saleItemColumns,
+      database.raw(
+        `coalesce(
+          (
+            select sum(sale_item_returns.quantity)
+            from sale_item_returns
+            where sale_item_returns.sale_item_id = sale_items.id
+          ),
+          0
+        )::numeric(12, 3) as "returnedQuantity"`,
+      ),
+    ])
     .whereIn("sale_items.sale_id", saleIds)
     .orderBy("sale_items.position", "asc");
+  const itemIds = items.map((item) => item.id);
+  const returns = itemIds.length
+    ? await database("sale_item_returns")
+        .join(
+          "payment_methods",
+          "payment_methods.id",
+          "sale_item_returns.refund_payment_method_id",
+        )
+        .join("users", "users.id", "sale_item_returns.created_by_user_id")
+        .select<SaleItemReturnRow[]>([
+          "sale_item_returns.id",
+          "sale_item_returns.sale_item_id as saleItemId",
+          "sale_item_returns.quantity",
+          "sale_item_returns.reason",
+          "sale_item_returns.refund_amount as refundAmount",
+          "sale_item_returns.refund_payment_method_id as refundPaymentMethodId",
+          "payment_methods.name as refundPaymentMethodName",
+          "sale_item_returns.refunded_at as refundedAt",
+          "sale_item_returns.refund_reference as refundReference",
+          "users.name as createdByUserName",
+          "sale_item_returns.created_at as createdAt",
+        ])
+        .whereIn("sale_item_returns.sale_item_id", itemIds)
+        .orderBy("sale_item_returns.created_at", "asc")
+    : [];
 
   return sales.map((sale) => {
     const saleItems = items
       .filter((item) => item.saleId === sale.id)
-      .map(({ saleId: _saleId, ...item }) => item);
+      .map(({ saleId: _saleId, ...item }) => ({
+        ...item,
+        returnableQuantity: saleItemReturnableQuantity(item),
+        returns: saleItemReturns(returns, item.id),
+      }));
     const firstItem = saleItems[0];
 
     return {
@@ -513,6 +628,22 @@ async function withSaleItems(
       items: saleItems,
     };
   });
+}
+
+function saleItemReturns(returns: SaleItemReturnRow[], saleItemId: string) {
+  return returns
+    .filter((itemReturn) => itemReturn.saleItemId === saleItemId)
+    .map(({ saleItemId: _saleItemId, ...itemReturn }) => itemReturn);
+}
+
+function saleItemReturnableQuantity(item: {
+  quantity: string;
+  returnedQuantity: string;
+}) {
+  return Math.max(
+    Number(item.quantity) - Number(item.returnedQuantity),
+    0,
+  ).toFixed(3);
 }
 
 function saleItemDiscountAmount(item: {

@@ -41,6 +41,7 @@ export function AuthenticatedApp({
     paymentMethods,
     pickupReservations,
     products,
+    purchaseInvoices,
     quotes,
     reportsOverview,
     runAction,
@@ -69,7 +70,11 @@ export function AuthenticatedApp({
     showProducts: () => setView("products"),
   });
 
-  const stockActions = useStockActions({ loadCatalog, runAction });
+  const stockActions = useStockActions({
+    loadCatalog,
+    requestConfirmation,
+    runAction,
+  });
 
   const financeActions = useFinanceActions({
     loadCatalog,
@@ -178,6 +183,7 @@ export function AuthenticatedApp({
           paymentMethods={paymentMethods}
           pickupReservations={pickupReservations}
           products={products}
+          purchaseInvoices={purchaseInvoices}
           quoteActions={quoteActions}
           quotes={quotes}
           reportsOverview={reportsOverview}

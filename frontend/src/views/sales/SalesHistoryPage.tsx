@@ -4,25 +4,35 @@ import { FileText, ReceiptText } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type {
   FiscalDocument,
+  PaymentMethod,
   PickupReservation,
   Sale,
   ShippingOrder,
 } from '../../api'
 import { apiUrl } from '../../api'
 import {
-  ActionGroup,
+  ActionStack,
   InlineNote,
   PageHeader,
   PagePanel,
   ResponsiveTable,
 } from '../../components/layout'
-import { StatusChip, TableActionButton } from '../../components/ui'
+import {
+  StatusChip,
+  TableActionsMenu,
+  type TableActionsMenuAction,
+} from '../../components/ui'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
-import { formatCurrency, formatDateTime } from '../../utils/format'
+import {
+  formatCurrency,
+  formatDateTime,
+  formatQuantity,
+} from '../../utils/format'
 import {
   fiscalDocumentStatusLabel,
   fiscalDocumentStatusTone,
 } from '../finance/fiscalPresentation'
+import { SaleReturnForm, type SaleReturnHandler } from './SaleReturnForm'
 
 type SalesHistoryOrigin = 'ALL' | 'PICKUP_RESERVATION' | 'SALE' | 'SHIPPING_ORDER'
 type SalesHistoryFiscalFilter =
@@ -41,22 +51,29 @@ type SalesHistoryRow = {
   originLabel: string
   clientName: string
   totalAmount: string
+  refundAmount: number
+  netAmount: number
   operatorName: string
   completedAt: string
   saleId: string | null
+  sale: Sale | null
   fiscalDocument?: FiscalDocument
 }
 
 export function SalesHistoryPage({
-  fiscalDocuments,
-  pickupReservations,
-  sales,
-  shippingOrders,
+  fiscalDocuments = [],
+  paymentMethods = [],
+  pickupReservations = [],
+  sales = [],
+  shippingOrders = [],
+  onReturnItem,
 }: {
   fiscalDocuments: FiscalDocument[]
+  paymentMethods: PaymentMethod[]
   pickupReservations: PickupReservation[]
   sales: Sale[]
   shippingOrders: ShippingOrder[]
+  onReturnItem: SaleReturnHandler
 }) {
   const [search, setSearch] = useState('')
   const [origin, setOrigin] = useState<SalesHistoryOrigin>('ALL')
@@ -151,7 +168,7 @@ export function SalesHistoryPage({
           {
             align: 'right',
             header: 'Total',
-            render: (row) => formatCurrency(row.totalAmount),
+            render: (row) => <SalesHistoryTotal row={row} />,
           },
           {
             header: 'NF-e',
@@ -163,8 +180,14 @@ export function SalesHistoryPage({
           },
           {
             align: 'right',
-            header: 'Arquivos',
-            render: (row) => <SalesHistoryFiles row={row} />,
+            header: 'Acoes',
+            render: (row) => (
+              <SalesHistoryActions
+                paymentMethods={paymentMethods}
+                row={row}
+                onReturnItem={onReturnItem}
+              />
+            ),
           },
         ]}
         emptyMessage='Nenhuma venda fechada encontrada.'
@@ -194,7 +217,34 @@ function SalesHistoryFiscalStatus({ row }: { row: SalesHistoryRow }) {
   )
 }
 
-function SalesHistoryFiles({ row }: { row: SalesHistoryRow }) {
+function SalesHistoryTotal({ row }: { row: SalesHistoryRow }) {
+  return row.refundAmount > 0 ? (
+    <>
+      <strong>{formatCurrency(row.netAmount)}</strong>
+      <InlineNote>
+        Original {formatCurrency(row.totalAmount)} | Estornos{' '}
+        {formatCurrency(row.refundAmount)}
+      </InlineNote>
+    </>
+  ) : (
+    formatCurrency(row.totalAmount)
+  )
+}
+
+function SalesHistoryActions({
+  paymentMethods,
+  row,
+  onReturnItem,
+}: {
+  paymentMethods: PaymentMethod[]
+  row: SalesHistoryRow
+  onReturnItem: SaleReturnHandler
+}) {
+  const [showReturnForm, setShowReturnForm] = useState(false)
+  const fiscalDocumentBlocksReturn = Boolean(
+    row.fiscalDocument &&
+      returnBlockingFiscalStatuses.includes(row.fiscalDocument.status),
+  )
   const fiscalLinks = [
     { label: 'DANFE', url: row.fiscalDocument?.pdfUrl },
     { label: 'XML', url: row.fiscalDocument?.xmlUrl },
@@ -202,30 +252,88 @@ function SalesHistoryFiles({ row }: { row: SalesHistoryRow }) {
     (link): link is { label: 'DANFE' | 'XML'; url: string } =>
       Boolean(link.url),
   )
+  const actions: TableActionsMenuAction[] = [
+    ...fiscalLinks.map((link) => ({
+      href: fiscalDocumentFileHref(link.url),
+      icon: <FileText size={14} />,
+      label: `Baixar ${link.label}`,
+    })),
+  ]
+
+  row.saleId &&
+    actions.unshift({
+      href: apiUrl(`/sales/${row.saleId}/receipt`),
+      icon: <ReceiptText size={14} />,
+      label: 'Baixar comprovante',
+    })
+
+  row.sale &&
+    actions.push({
+      disabled: fiscalDocumentBlocksReturn,
+      label: 'Registrar devolucao',
+      onSelect: () => setShowReturnForm(true),
+    })
 
   return (
-    <ActionGroup>
-      {row.saleId ? (
-        <TableActionButton
-          href={apiUrl(`/sales/${row.saleId}/receipt`)}
-          icon={<ReceiptText size={14} />}>
-          Comprovante
-        </TableActionButton>
+    <ActionStack>
+      <div className='flex justify-end'>
+        <TableActionsMenu actions={actions} />
+      </div>
+      {showReturnForm && row.sale && !fiscalDocumentBlocksReturn ? (
+        <SaleReturnForm
+          onCancel={() => setShowReturnForm(false)}
+          paymentMethods={paymentMethods}
+          sale={row.sale}
+          onReturnItem={onReturnItem}
+        />
       ) : null}
-      {fiscalLinks.map((link) => (
-        <TableActionButton
-          href={fiscalDocumentFileHref(link.url)}
-          icon={<FileText size={14} />}
-          key={link.label}>
-          {link.label}
-        </TableActionButton>
-      ))}
+      {row.sale && fiscalDocumentBlocksReturn ? (
+        <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>
+      ) : null}
       {!row.saleId && fiscalLinks.length === 0 ? (
         <InlineNote>Sem arquivos</InlineNote>
       ) : null}
-    </ActionGroup>
+      {row.sale ? <SaleReturnSummary sale={row.sale} /> : null}
+    </ActionStack>
   )
 }
+
+function SaleReturnSummary({ sale }: { sale: Sale }) {
+  const returns = saleItems(sale).flatMap((item) =>
+    saleItemReturns(item).map((itemReturn) => ({
+      ...itemReturn,
+      productName: item.productName,
+    })),
+  )
+
+  return returns.length > 0 ? (
+    <div className='grid gap-1 rounded-lg border border-[#e4e9e5] bg-[#fbfcfb] p-2 text-left'>
+      <strong className='text-xs uppercase tracking-wide text-[#203466]'>
+        Estornos registrados
+      </strong>
+      {returns.map((itemReturn) => (
+        <div className='text-xs text-[#2c281e]' key={itemReturn.id}>
+          <strong>{itemReturn.productName}</strong> | Qtd.{' '}
+          {formatQuantity(itemReturn.quantity)} |{' '}
+          {formatCurrency(itemReturn.refundAmount)} via{' '}
+          {itemReturn.refundPaymentMethodName}
+          <InlineNote>
+            {formatDateTime(itemReturn.refundedAt)}
+            {itemReturn.refundReference
+              ? ` | Ref. ${itemReturn.refundReference}`
+              : ''}
+          </InlineNote>
+        </div>
+      ))}
+    </div>
+  ) : null
+}
+
+const returnBlockingFiscalStatuses: FiscalDocument['status'][] = [
+  'AUTHORIZED',
+  'PENDING',
+  'PROCESSING',
+]
 
 function buildSalesHistoryRows({
   fiscalDocuments,
@@ -251,8 +359,11 @@ function buildSalesHistoryRows({
       completedAt: sale.createdAt,
       fiscalDocument: findFiscalDocument(fiscalDocuments, 'SALE', sale.id),
       id: `SALE-${sale.id}`,
+      netAmount: saleNetAmount(sale, sale.totalAmount),
       operatorName: sale.createdByUserName,
       originLabel: 'Balcao',
+      refundAmount: saleRefundAmount(sale),
+      sale,
       saleId: sale.id,
       sourceId: sale.id,
       sourceType: 'SALE',
@@ -260,47 +371,92 @@ function buildSalesHistoryRows({
     }))
   const shippingRows = shippingOrders
     .filter((order) => order.status === 'COMPLETED')
-    .map((order): SalesHistoryRow => ({
-      clientName: order.clientName,
-      completedAt: order.completedAt ?? order.createdAt,
-      fiscalDocument: findFiscalDocument(
-        fiscalDocuments,
-        'SHIPPING_ORDER',
-        order.id,
-      ),
-      id: `SHIPPING_ORDER-${order.id}`,
-      operatorName: order.completedByUserName ?? order.createdByUserName,
-      originLabel: 'Para envio',
-      saleId: order.saleId,
-      sourceId: order.id,
-      sourceType: 'SHIPPING_ORDER',
-      totalAmount: order.totalAmount,
-    }))
+    .map((order): SalesHistoryRow => {
+      const sale = findSale(sales, order.saleId)
+
+      return {
+        clientName: order.clientName,
+        completedAt: order.completedAt ?? order.createdAt,
+        fiscalDocument: findFiscalDocument(
+          fiscalDocuments,
+          'SHIPPING_ORDER',
+          order.id,
+        ),
+        id: `SHIPPING_ORDER-${order.id}`,
+        netAmount: saleNetAmount(sale, order.totalAmount),
+        operatorName: order.completedByUserName ?? order.createdByUserName,
+        originLabel: 'Para envio',
+        refundAmount: saleRefundAmount(sale),
+        sale,
+        saleId: order.saleId,
+        sourceId: order.id,
+        sourceType: 'SHIPPING_ORDER',
+        totalAmount: order.totalAmount,
+      }
+    })
   const pickupRows = pickupReservations
     .filter((reservation) => reservation.status === 'COMPLETED')
-    .map((reservation): SalesHistoryRow => ({
-      clientName: reservation.clientName,
-      completedAt: reservation.completedAt ?? reservation.createdAt,
-      fiscalDocument: findFiscalDocument(
-        fiscalDocuments,
-        'PICKUP_RESERVATION',
-        reservation.id,
-      ),
-      id: `PICKUP_RESERVATION-${reservation.id}`,
-      operatorName:
-        reservation.completedByUserName ?? reservation.createdByUserName,
-      originLabel: 'Retirada',
-      saleId: reservation.saleId,
-      sourceId: reservation.id,
-      sourceType: 'PICKUP_RESERVATION',
-      totalAmount: reservation.totalAmount,
-    }))
+    .map((reservation): SalesHistoryRow => {
+      const sale = findSale(sales, reservation.saleId)
+
+      return {
+        clientName: reservation.clientName,
+        completedAt: reservation.completedAt ?? reservation.createdAt,
+        fiscalDocument: findFiscalDocument(
+          fiscalDocuments,
+          'PICKUP_RESERVATION',
+          reservation.id,
+        ),
+        id: `PICKUP_RESERVATION-${reservation.id}`,
+        netAmount: saleNetAmount(sale, reservation.totalAmount),
+        operatorName:
+          reservation.completedByUserName ?? reservation.createdByUserName,
+        originLabel: 'Retirada',
+        refundAmount: saleRefundAmount(sale),
+        sale,
+        saleId: reservation.saleId,
+        sourceId: reservation.id,
+        sourceType: 'PICKUP_RESERVATION',
+        totalAmount: reservation.totalAmount,
+      }
+    })
 
   return [...directSaleRows, ...shippingRows, ...pickupRows].sort(
     (current, next) =>
       new Date(next.completedAt).getTime() -
       new Date(current.completedAt).getTime(),
   )
+}
+
+function findSale(sales: Sale[], saleId: string | null) {
+  return saleId ? sales.find((sale) => sale.id === saleId) ?? null : null
+}
+
+function saleRefundAmount(sale: Sale | null) {
+  return (
+    saleItems(sale).reduce(
+      (total, item) =>
+        total +
+        saleItemReturns(item).reduce(
+          (itemTotal, itemReturn) =>
+            itemTotal + Number(itemReturn.refundAmount),
+          0,
+        ),
+      0,
+    )
+  )
+}
+
+function saleItems(sale: Sale | null) {
+  return Array.isArray(sale?.items) ? sale.items : []
+}
+
+function saleItemReturns(item: Sale['items'][number]) {
+  return Array.isArray(item.returns) ? item.returns : []
+}
+
+function saleNetAmount(sale: Sale | null, fallbackTotalAmount: string) {
+  return Math.max(Number(fallbackTotalAmount) - saleRefundAmount(sale), 0)
 }
 
 function filterSalesHistoryRows(

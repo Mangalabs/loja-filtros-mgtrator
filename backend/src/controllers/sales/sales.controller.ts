@@ -13,6 +13,7 @@ import {
   lockSaleForCancellation,
   returnSaleItem,
   returnedSaleItemQuantity,
+  salePaymentMethodId,
   saleHasBlockingFiscalDocument,
   saleHasLinkedOperation,
   type SaleInput,
@@ -184,6 +185,12 @@ export async function returnCounterSaleItem(
   quantity: number,
   reason: string,
   createdByUserId: string,
+  refundInput: {
+    refundAmount?: number;
+    refundPaymentMethodId?: string;
+    refundedAt?: string | null;
+    refundReference?: string | null;
+  } = {},
 ) {
   const sale = await db.transaction(async (transaction) => {
     const lockedSale = await lockSaleForCancellation(transaction, id);
@@ -194,13 +201,6 @@ export async function returnCounterSaleItem(
 
     if (lockedSale.status === "CANCELLED") {
       throw new AppError("Venda cancelada nao pode receber devolucao.", 409);
-    }
-
-    if (await saleHasLinkedOperation(transaction, id)) {
-      throw new AppError(
-        "Venda gerada por envio ou retirada nao pode receber devolucao por este fluxo.",
-        409,
-      );
     }
 
     if (await saleHasBlockingFiscalDocument(transaction, id)) {
@@ -229,6 +229,23 @@ export async function returnCounterSaleItem(
       );
     }
 
+    const refundPaymentMethodId =
+      refundInput.refundPaymentMethodId ??
+      (await salePaymentMethodId(transaction, id));
+
+    if (!refundPaymentMethodId) {
+      throw new AppError(
+        "Forma de estorno nao encontrada para esta venda.",
+        422,
+      );
+    }
+
+    if (
+      !(await activePaymentMethodExists(transaction, refundPaymentMethodId))
+    ) {
+      throw new AppError("Forma de estorno informada nao disponivel.", 422);
+    }
+
     return returnSaleItem(
       transaction,
       id,
@@ -236,6 +253,13 @@ export async function returnCounterSaleItem(
       quantity,
       createdByUserId,
       reason,
+      {
+        refundAmount:
+          refundInput.refundAmount ?? saleItemRefundAmount(saleItem, quantity),
+        refundPaymentMethodId,
+        refundedAt: refundInput.refundedAt ?? new Date().toISOString(),
+        refundReference: refundInput.refundReference,
+      },
     );
   });
 
@@ -244,6 +268,16 @@ export async function returnCounterSaleItem(
     status: "success",
     data: sale,
   };
+}
+
+function saleItemRefundAmount(
+  saleItem: { quantity: string; totalAmount: string },
+  returnQuantity: number,
+) {
+  const amount =
+    (returnQuantity / Number(saleItem.quantity)) * Number(saleItem.totalAmount);
+
+  return Number(amount.toFixed(2));
 }
 
 function aggregateSaleItems(

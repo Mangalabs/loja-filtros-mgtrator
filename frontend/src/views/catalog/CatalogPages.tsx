@@ -33,6 +33,7 @@ import {
   SecondaryButton,
   StatusChip,
   TableActionButton,
+  TableActionsMenu,
 } from "../../components/ui";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import { formatCurrency, formatQuantity } from "../../utils/format";
@@ -150,23 +151,25 @@ function ProductTable({
           align: "right",
           header: "Acoes",
           render: (product) => (
-            <div className="flex flex-wrap justify-end gap-2">
-              <TableActionButton
-                icon={<Pencil size={15} />}
-                type="button"
-                onClick={() => onEdit(product)}
-              >
-                Editar
-              </TableActionButton>
-              <TableActionButton
-                icon={
-                  product.active ? <PowerOff size={15} /> : <Power size={15} />
-                }
-                type="button"
-                onClick={() => onChangeStatus(product)}
-              >
-                {product.active ? "Inativar" : "Ativar"}
-              </TableActionButton>
+            <div className="flex justify-end">
+              <TableActionsMenu
+                actions={[
+                  {
+                    icon: <Pencil size={15} />,
+                    label: "Editar",
+                    onSelect: () => onEdit(product),
+                  },
+                  {
+                    icon: product.active ? (
+                      <PowerOff size={15} />
+                    ) : (
+                      <Power size={15} />
+                    ),
+                    label: product.active ? "Inativar" : "Ativar",
+                    onSelect: () => onChangeStatus(product),
+                  },
+                ]}
+              />
             </div>
           ),
         },
@@ -862,27 +865,25 @@ export function ClientsPage({
               align: "right",
               header: "Acoes",
               render: (client) => (
-                <div className="flex flex-wrap justify-end gap-2">
-                  <TableActionButton
-                    icon={<Pencil size={14} />}
-                    type="button"
-                    onClick={() => onEdit(client)}
-                  >
-                    Editar
-                  </TableActionButton>
-                  <TableActionButton
-                    icon={
-                      client.active ? (
-                        <PowerOff size={14} />
-                      ) : (
-                        <Power size={14} />
-                      )
-                    }
-                    type="button"
-                    onClick={() => onChangeStatus(client)}
-                  >
-                    {client.active ? "Inativar" : "Ativar"}
-                  </TableActionButton>
+                <div className="flex justify-end">
+                  <TableActionsMenu
+                    actions={[
+                      {
+                        icon: <Pencil size={14} />,
+                        label: "Editar",
+                        onSelect: () => onEdit(client),
+                      },
+                      {
+                        icon: client.active ? (
+                          <PowerOff size={14} />
+                        ) : (
+                          <Power size={14} />
+                        ),
+                        label: client.active ? "Inativar" : "Ativar",
+                        onSelect: () => onChangeStatus(client),
+                      },
+                    ]}
+                  />
                 </div>
               ),
             },

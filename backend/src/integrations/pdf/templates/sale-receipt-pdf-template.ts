@@ -1,8 +1,19 @@
-import type { Sale, SaleItem } from "../../../models/sales/sales.model.js";
+import type {
+  Sale,
+  SaleItem,
+  SaleItemReturn,
+} from "../../../models/sales/sales.model.js";
 import type { QuotePdfStore } from "./quote-pdf-template.js";
 
 export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
   const rows = sale.items.map((item) => saleItemRow(item)).join("");
+  const returnRows = sale.items
+    .flatMap((item) =>
+      item.returns.map((itemReturn) => saleReturnRow(item, itemReturn)),
+    )
+    .join("");
+  const refundAmount = saleRefundAmount(sale);
+  const netAmount = Math.max(Number(sale.totalAmount) - refundAmount, 0);
   const storeContact = [store.phone, store.email].filter(Boolean).join(" | ");
 
   return `
@@ -56,6 +67,26 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
             <tbody>${rows}</tbody>
           </table>
 
+          ${
+            returnRows
+              ? `<section class="returns-section">
+                  <h2>Devolucoes e estornos</h2>
+                  <table class="returns-table">
+                    <thead>
+                      <tr>
+                        <th>Produto</th>
+                        <th class="text-right">Qtde</th>
+                        <th class="text-right">Valor</th>
+                        <th>Forma</th>
+                        <th>Data</th>
+                      </tr>
+                    </thead>
+                    <tbody>${returnRows}</tbody>
+                  </table>
+                </section>`
+              : ""
+          }
+
           <table class="summary-table">
             <tbody>
               <tr>
@@ -67,9 +98,21 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
                 <td class="text-right">${formatCurrency(sale.discountAmount)}</td>
               </tr>
               <tr class="total-row">
-                <td>Total</td>
+                <td>Total da venda</td>
                 <td class="text-right">${formatCurrency(sale.totalAmount)}</td>
               </tr>
+              ${
+                refundAmount > 0
+                  ? `<tr>
+                      <td>Estornos</td>
+                      <td class="text-right">-${formatCurrency(refundAmount)}</td>
+                    </tr>
+                    <tr class="net-row">
+                      <td>Total liquido</td>
+                      <td class="text-right">${formatCurrency(netAmount)}</td>
+                    </tr>`
+                  : ""
+              }
             </tbody>
           </table>
 
@@ -81,6 +124,18 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
       </body>
     </html>
   `;
+}
+
+function saleRefundAmount(sale: Sale) {
+  return sale.items.reduce(
+    (total, item) =>
+      total +
+      item.returns.reduce(
+        (itemTotal, itemReturn) => itemTotal + Number(itemReturn.refundAmount),
+        0,
+      ),
+    0,
+  );
 }
 
 function saleItemRow(item: SaleItem) {
@@ -95,6 +150,29 @@ function saleItemRow(item: SaleItem) {
       <td class="text-right">${formatCurrency(item.unitPrice)}</td>
       <td class="text-right">${formatCurrency(item.discountAmount)}</td>
       <td class="text-right">${formatCurrency(item.totalAmount)}</td>
+    </tr>
+  `;
+}
+
+function saleReturnRow(item: SaleItem, itemReturn: SaleItemReturn) {
+  const reference = itemReturn.refundReference
+    ? `<small>Ref.: ${escapeHtml(itemReturn.refundReference)}</small>`
+    : "";
+  const reason = itemReturn.reason
+    ? `<small>Motivo: ${escapeHtml(itemReturn.reason)}</small>`
+    : "";
+
+  return `
+    <tr>
+      <td>
+        ${escapeHtml(item.productName)}
+        ${reason}
+        ${reference}
+      </td>
+      <td class="text-right">${formatQuantity(itemReturn.quantity)}</td>
+      <td class="text-right">${formatCurrency(itemReturn.refundAmount)}</td>
+      <td>${escapeHtml(itemReturn.refundPaymentMethodName)}</td>
+      <td>${formatDateTime(itemReturn.refundedAt)}</td>
     </tr>
   `;
 }
@@ -193,7 +271,22 @@ function saleReceiptCss() {
       margin-top: 14px;
       width: 260px;
     }
+    .returns-section {
+      margin-top: 14px;
+    }
+    .returns-section h2 {
+      color: #203466;
+      font-size: 10pt;
+      margin: 0 0 6px;
+      text-transform: uppercase;
+    }
     .total-row {
+      color: #203466;
+      font-size: 11pt;
+      font-weight: 700;
+    }
+    .net-row {
+      background: #f8fafc;
       color: #203466;
       font-size: 11pt;
       font-weight: 700;
