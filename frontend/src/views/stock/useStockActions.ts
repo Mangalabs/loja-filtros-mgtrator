@@ -7,6 +7,7 @@ import {
   type PurchaseInvoiceDraft,
 } from "../../api";
 import { nullableFormValue } from "../../utils/forms";
+import { parsePurchaseXmlPreview } from "./purchaseXmlPreview";
 
 type StockActionsOptions = {
   loadCatalog: () => Promise<void>;
@@ -57,12 +58,9 @@ export function useStockActions({
     let parsedInvoice: PurchaseInvoiceDraft | null = null;
 
     await runAction(async () => {
-      const result = await apiPost<ApiResult<PurchaseInvoiceDraft>>(
-        "/purchase-invoices/parse-xml",
-        { xmlContent },
-      );
+      const result = await parsePurchaseInvoiceXmlWithFallback(xmlContent);
 
-      parsedInvoice = result.data;
+      parsedInvoice = result;
     });
 
     return parsedInvoice;
@@ -100,4 +98,21 @@ export function useStockActions({
     parsePurchaseInvoiceXml,
     savePurchaseInvoiceReview,
   };
+}
+
+async function parsePurchaseInvoiceXmlWithFallback(xmlContent: string) {
+  try {
+    const result = await apiPost<ApiResult<PurchaseInvoiceDraft>>(
+      "/purchase-invoices/parse-xml",
+      { xmlContent },
+    );
+
+    return result.data;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Route not found")) {
+      return parsePurchaseXmlPreview(xmlContent);
+    }
+
+    throw error;
+  }
 }
