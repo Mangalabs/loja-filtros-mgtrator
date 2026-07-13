@@ -65,9 +65,7 @@ export function useStockActions({
     let parsedInvoice: PurchaseInvoiceDraft | null = null;
 
     await runAction(async () => {
-      const result = await parsePurchaseInvoiceXmlWithFallback(xmlContent);
-
-      parsedInvoice = result;
+      parsedInvoice = parsePurchaseXmlPreview(xmlContent);
     });
 
     return parsedInvoice;
@@ -78,18 +76,22 @@ export function useStockActions({
     invoiceId?: string,
   ) {
     await runAction(async () => {
-      const result = invoiceId
-        ? await apiPut<ApiResult<PurchaseInvoice>>(
-            `/purchase-invoices/${invoiceId}`,
-            await purchaseInvoiceReviewPayload(input),
-          )
-        : await apiPost<ApiResult<PurchaseInvoice>>(
-            "/purchase-invoices",
-            await purchaseInvoiceReviewPayload(input, true),
-          );
+      try {
+        const result = invoiceId
+          ? await apiPut<ApiResult<PurchaseInvoice>>(
+              `/purchase-invoices/${invoiceId}`,
+              await purchaseInvoiceReviewPayload(input),
+            )
+          : await apiPost<ApiResult<PurchaseInvoice>>(
+              "/purchase-invoices",
+              await purchaseInvoiceReviewPayload(input, true),
+            );
 
-      void result;
-      await loadCatalog();
+        void result;
+        await loadCatalog();
+      } catch (error) {
+        handleMissingPurchaseInvoiceRoutes(error);
+      }
     });
   }
 
@@ -158,19 +160,12 @@ async function createSupplierFromPurchaseInvoice(input: PurchaseInvoiceDraft) {
   return result.data.id;
 }
 
-async function parsePurchaseInvoiceXmlWithFallback(xmlContent: string) {
-  try {
-    const result = await apiPost<ApiResult<PurchaseInvoiceDraft>>(
-      "/purchase-invoices/parse-xml",
-      { xmlContent },
+function handleMissingPurchaseInvoiceRoutes(error: unknown) {
+  if (error instanceof Error && error.message.includes("Route not found")) {
+    throw new Error(
+      "As rotas de compras ainda nao estao ativas no backend em execucao. Reinicie o backend atualizado e rode as migrations antes de salvar a revisao.",
     );
-
-    return result.data;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("Route not found")) {
-      return parsePurchaseXmlPreview(xmlContent);
-    }
-
-    throw error;
   }
+
+  throw error;
 }
