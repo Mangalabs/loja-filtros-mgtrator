@@ -93,6 +93,34 @@ type StockMovement = {
   notes: string | null;
 };
 
+type PurchaseInvoice = {
+  id: string;
+  supplierId: string | null;
+  supplierName: string;
+  supplierDocument: string | null;
+  createdByUserName: string;
+  accessKey: string;
+  number: string | null;
+  series: string | null;
+  issueDate: string | null;
+  totalAmount: string;
+  status: "IMPORTED" | "POSTED" | "CANCELLED";
+  items: Array<{
+    id: string;
+    productId: string | null;
+    productName: string | null;
+    position: number;
+    supplierProductCode: string | null;
+    description: string;
+    ncm: string | null;
+    cfop: string | null;
+    unit: string | null;
+    quantity: string;
+    unitCost: string;
+    totalAmount: string;
+  }>;
+};
+
 type Sale = {
   id: string;
   productId: string;
@@ -419,7 +447,7 @@ beforeEach(async () => {
   env.fiscal.provider = "mock";
 
   await db.raw(
-    "truncate table commercial_settings, fiscal_settings, fiscal_documents, cash_register_sessions, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
+    "truncate table commercial_settings, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
   await db("payment_methods").update({ active: true });
 });
@@ -5337,6 +5365,87 @@ describe("catalog routes", () => {
     assert.equal(response.body.message, "Fornecedor informado nao encontrado.");
     assert.equal(unchangedProduct.body.data?.currentStock, "0.000");
     assert.equal(entries.body.data?.length, 0);
+  });
+
+  it("imports a structured purchase invoice without posting stock", async () => {
+    const supplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor XML" },
+    });
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro XML", costPrice: 20 },
+    });
+    const accessKey = "1".repeat(44);
+
+    const created = await request<PurchaseInvoice>("/purchase-invoices", {
+      method: "POST",
+      body: {
+        accessKey,
+        issueDate: "2026-07-13",
+        number: "123",
+        series: "1",
+        supplierDocument: "12345678000199",
+        supplierId: supplier.body.data?.id,
+        supplierName: "Fornecedor XML",
+        totalAmount: 42.5,
+        xmlContent: "<nfe>teste</nfe>",
+        items: [
+          {
+            cfop: "5102",
+            description: "Filtro vindo do XML",
+            ncm: "84212300",
+            position: 1,
+            productId: product.body.data?.id,
+            quantity: 2,
+            supplierProductCode: "FX-1",
+            totalAmount: 42.5,
+            unit: "UN",
+            unitCost: 21.25,
+          },
+        ],
+      },
+    });
+    const duplicated = await request("/purchase-invoices", {
+      method: "POST",
+      body: {
+        accessKey,
+        supplierName: "Fornecedor XML",
+        totalAmount: 42.5,
+        items: [
+          {
+            description: "Filtro vindo do XML",
+            position: 1,
+            quantity: 2,
+            totalAmount: 42.5,
+            unitCost: 21.25,
+          },
+        ],
+      },
+    });
+    const listed = await request<PurchaseInvoice[]>("/purchase-invoices");
+    const unchangedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.accessKey, accessKey);
+    assert.equal(created.body.data?.status, "IMPORTED");
+    assert.equal(created.body.data?.supplierName, "Fornecedor XML");
+    assert.equal(
+      created.body.data?.createdByUserName,
+      "Administrador de teste",
+    );
+    assert.equal(created.body.data?.totalAmount, "42.50");
+    assert.equal(created.body.data?.items[0]?.productName, "Filtro XML");
+    assert.equal(created.body.data?.items[0]?.quantity, "2.000");
+    assert.equal(created.body.data?.items[0]?.unitCost, "21.25");
+    assert.equal(duplicated.status, 409);
+    assert.equal(listed.status, 200);
+    assert.equal(listed.body.data?.length, 1);
+    assert.equal(listed.body.data?.[0]?.items.length, 1);
+    assert.equal(unchangedProduct.body.data?.currentStock, "0.000");
+    assert.equal(unchangedProduct.body.data?.costPrice, "20.00");
   });
 
   it("records a stock adjustment and changes current product balance", async () => {

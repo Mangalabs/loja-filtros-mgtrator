@@ -13,6 +13,7 @@ import { paymentMethodsRoutes } from "./payment-methods/payment-methods.routes.j
 import { pickupReservationsRoutes } from "./pickup-reservations/pickup-reservations.routes.js";
 import { productGroupsRoutes } from "./product-groups/product-groups.routes.js";
 import { productsRoutes } from "./products/products.routes.js";
+import { purchaseInvoicesRoutes } from "./purchase-invoices/purchase-invoices.routes.js";
 import { quotesRoutes } from "./quotes/quotes.routes.js";
 import { reportsRoutes } from "./reports/reports.routes.js";
 import { rootRoutes } from "./root/root.routes.js";
@@ -40,6 +41,7 @@ export function registerRoutes(app: Express): void {
   app.use(pickupReservationsRoutes);
   app.use(productGroupsRoutes);
   app.use(productsRoutes);
+  app.use(purchaseInvoicesRoutes);
   app.use(quotesRoutes);
   app.use(reportsRoutes);
   app.use(salesRoutes);
