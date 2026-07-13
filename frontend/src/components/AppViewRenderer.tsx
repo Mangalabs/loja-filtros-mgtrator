@@ -9,6 +9,7 @@ import type {
   PaymentMethod,
   PickupReservation,
   Product,
+  PurchaseInvoice,
   Quote,
   ReportsOverview,
   Sale,
@@ -58,6 +59,7 @@ import {
   StockEntriesPage,
   StockMovementsPage,
 } from "../views/stock/StockPages";
+import { PurchaseInvoicesPage } from "../views/stock/PurchaseInvoicesPage";
 import type { useStockActions } from "../views/stock/useStockActions";
 
 type AppViewRendererProps = {
@@ -74,6 +76,7 @@ type AppViewRendererProps = {
   paymentMethods: PaymentMethod[];
   pickupReservations: PickupReservation[];
   products: Product[];
+  purchaseInvoices: PurchaseInvoice[];
   quoteActions: ReturnType<typeof useQuoteActions>;
   quotes: Quote[];
   reportsOverview: ReportsOverview | null;
@@ -115,6 +118,7 @@ export function AppViewRenderer({
   paymentMethods,
   pickupReservations,
   products,
+  purchaseInvoices,
   quoteActions,
   quotes,
   reportsOverview,
@@ -185,6 +189,15 @@ export function AppViewRenderer({
           products={products}
           suppliers={suppliers}
           onSubmit={stockActions.createStockEntry}
+        />
+      ),
+    "purchase-invoices": (
+        <PurchaseInvoicesPage
+          invoices={purchaseInvoices}
+          products={products}
+          suppliers={suppliers}
+          onParseXml={stockActions.parsePurchaseInvoiceXml}
+          onSaveReview={stockActions.savePurchaseInvoiceReview}
         />
       ),
     "stock-adjustments": (

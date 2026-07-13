@@ -134,6 +134,13 @@ export function AppSidebar({
             Entrada manual
           </NavButton>
           <NavButton
+            active={view === "purchase-invoices"}
+            icon={<FileText size={18} />}
+            onClick={() => onSelectView("purchase-invoices")}
+          >
+            Importar XML
+          </NavButton>
+          <NavButton
             active={view === "stock-adjustments"}
             icon={<SlidersHorizontal size={18} />}
             onClick={() => onSelectView("stock-adjustments")}

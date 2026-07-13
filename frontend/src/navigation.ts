@@ -6,6 +6,7 @@ export type View =
   | "edit-product"
   | "commercial-settings"
   | "stock-entries"
+  | "purchase-invoices"
   | "stock-adjustments"
   | "stock-movements"
   | "low-stock"
@@ -39,7 +40,13 @@ export type NavSectionKey =
 export const navSectionViews: Record<NavSectionKey, View[]> = {
   products: ["products", "new-product", "edit-product", "commercial-settings"],
   catalog: ["brands", "clients"],
-  stock: ["stock-entries", "stock-adjustments", "stock-movements", "low-stock"],
+  stock: [
+    "stock-entries",
+    "purchase-invoices",
+    "stock-adjustments",
+    "stock-movements",
+    "low-stock",
+  ],
   suppliers: ["suppliers"],
   finance: ["payment-methods", "fiscal-settings", "fiscal-documents"],
   cash: ["cash-register"],
@@ -129,6 +136,11 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       title: "Entrada de mercadoria",
       description:
         "Registre produtos recebidos e atualize o estoque da filial.",
+    },
+    "purchase-invoices": {
+      title: "Importacao XML",
+      description:
+        "Leia XML de compra, revise os itens e confirme os produtos internos.",
     },
     "stock-adjustments": {
       title: "Ajuste de estoque",

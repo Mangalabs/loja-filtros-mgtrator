@@ -119,6 +119,62 @@ export type StockMovement = {
   createdAt: string;
 };
 
+export type PurchaseInvoiceItemDraft = {
+  cfop: string | null;
+  description: string;
+  ncm: string | null;
+  position: number;
+  productId?: string | null;
+  quantity: number;
+  supplierProductCode: string | null;
+  totalAmount: number;
+  unit: string | null;
+  unitCost: number;
+};
+
+export type PurchaseInvoiceDraft = {
+  accessKey: string;
+  issueDate?: string | null;
+  items: PurchaseInvoiceItemDraft[];
+  number?: string | null;
+  series?: string | null;
+  supplierDocument?: string | null;
+  supplierId?: string | null;
+  supplierName: string;
+  totalAmount: number;
+  xmlContent?: string | null;
+};
+
+export type PurchaseInvoice = {
+  id: string;
+  supplierId: string | null;
+  supplierName: string;
+  supplierDocument: string | null;
+  createdByUserName: string;
+  accessKey: string;
+  number: string | null;
+  series: string | null;
+  issueDate: string | null;
+  totalAmount: string;
+  status: "IMPORTED" | "POSTED" | "CANCELLED";
+  items: Array<{
+    id: string;
+    productId: string | null;
+    productName: string | null;
+    position: number;
+    supplierProductCode: string | null;
+    description: string;
+    ncm: string | null;
+    cfop: string | null;
+    unit: string | null;
+    quantity: string;
+    unitCost: string;
+    totalAmount: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PaymentMethod = {
   id: string;
   code: string;

@@ -41,6 +41,7 @@ export function AuthenticatedApp({
     paymentMethods,
     pickupReservations,
     products,
+    purchaseInvoices,
     quotes,
     reportsOverview,
     runAction,
@@ -178,6 +179,7 @@ export function AuthenticatedApp({
           paymentMethods={paymentMethods}
           pickupReservations={pickupReservations}
           products={products}
+          purchaseInvoices={purchaseInvoices}
           quoteActions={quoteActions}
           quotes={quotes}
           reportsOverview={reportsOverview}

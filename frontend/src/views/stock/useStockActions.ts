@@ -1,5 +1,11 @@
 import type { FormEvent } from "react";
-import { apiPost } from "../../api";
+import {
+  apiPost,
+  apiPut,
+  type ApiResult,
+  type PurchaseInvoice,
+  type PurchaseInvoiceDraft,
+} from "../../api";
 import { nullableFormValue } from "../../utils/forms";
 
 type StockActionsOptions = {
@@ -47,8 +53,51 @@ export function useStockActions({
     });
   }
 
+  async function parsePurchaseInvoiceXml(xmlContent: string) {
+    let parsedInvoice: PurchaseInvoiceDraft | null = null;
+
+    await runAction(async () => {
+      const result = await apiPost<ApiResult<PurchaseInvoiceDraft>>(
+        "/purchase-invoices/parse-xml",
+        { xmlContent },
+      );
+
+      parsedInvoice = result.data;
+    });
+
+    return parsedInvoice;
+  }
+
+  async function savePurchaseInvoiceReview(
+    input: PurchaseInvoiceDraft,
+    invoiceId?: string,
+  ) {
+    await runAction(async () => {
+      const result = invoiceId
+        ? await apiPut<ApiResult<PurchaseInvoice>>(
+            `/purchase-invoices/${invoiceId}`,
+            {
+              issueDate: input.issueDate,
+              items: input.items,
+              number: input.number,
+              series: input.series,
+              supplierDocument: input.supplierDocument,
+              supplierId: input.supplierId,
+              supplierName: input.supplierName,
+              totalAmount: input.totalAmount,
+            },
+          )
+        : await apiPost<ApiResult<PurchaseInvoice>>("/purchase-invoices", input);
+
+      void result;
+      await loadCatalog();
+    });
+  }
+
   return {
     createStockAdjustment,
     createStockEntry,
+    parsePurchaseInvoiceXml,
+    savePurchaseInvoiceReview,
   };
 }
