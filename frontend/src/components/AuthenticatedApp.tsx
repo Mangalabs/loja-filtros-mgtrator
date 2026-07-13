@@ -36,6 +36,7 @@ export function AuthenticatedApp({
     fiscalDocuments,
     fiscalSettings,
     loadCatalog,
+    loadSalesReport,
     lowStockProducts,
     message,
     paymentMethods,
@@ -190,6 +191,7 @@ export function AuthenticatedApp({
           reportsOverview={reportsOverview}
           sales={sales}
           salesReport={salesReport}
+          onLoadSalesReport={loadSalesReport}
           salesActions={salesActions}
           search={search}
           selectedClient={selectedClient}

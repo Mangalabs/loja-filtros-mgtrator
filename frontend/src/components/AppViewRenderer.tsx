@@ -100,6 +100,10 @@ type AppViewRendererProps = {
   onCancelProductEdit: () => void;
   onOpenQuotes: () => void;
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
+  onLoadSalesReport: (filters?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }) => Promise<boolean>;
   onSelectView: (view: View) => void;
   onSearchChange: (value: string) => void;
   onSelectClient: (client: Client | undefined) => void;
@@ -141,6 +145,7 @@ export function AppViewRenderer({
   view,
   onCancelClient,
   onCancelProductEdit,
+  onLoadSalesReport,
   onOpenQuotes,
   onResolveFiscalPendency,
   onSelectView,
@@ -267,7 +272,11 @@ export function AppViewRenderer({
         />
       ),
     reports: (
-      <ReportsPage overview={reportsOverview} salesReport={salesReport} />
+      <ReportsPage
+        overview={reportsOverview}
+        salesReport={salesReport}
+        onLoadSalesReport={onLoadSalesReport}
+      />
     ),
     quotes: (
         <QuotesPage

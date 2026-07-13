@@ -1,5 +1,7 @@
 import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
 import Skeleton from "@mui/material/Skeleton";
+import TextField from "@mui/material/TextField";
 import {
   AlertTriangle,
   Banknote,
@@ -9,7 +11,7 @@ import {
   Send,
   ShoppingCart,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import type { ReportsOverview, SalesReport } from "../../api";
 import { PageHeader, PagePanel, ResponsiveTable } from "../../components/layout";
 import { StatusChip } from "../../components/ui";
@@ -21,9 +23,11 @@ import {
 } from "../../utils/format";
 
 export function ReportsPage({
+  onLoadSalesReport,
   overview,
   salesReport,
 }: {
+  onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
   overview: ReportsOverview | null;
   salesReport: SalesReport | null;
 }) {
@@ -33,6 +37,7 @@ export function ReportsPage({
       overview && salesReport ? (
         <ReportsOverviewContent
           overview={overview}
+          onLoadSalesReport={onLoadSalesReport}
           salesReport={salesReport}
         />
       ) : null,
@@ -59,9 +64,11 @@ function ReportsLoading() {
 }
 
 function ReportsOverviewContent({
+  onLoadSalesReport,
   overview,
   salesReport,
 }: {
+  onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
   overview: ReportsOverview;
   salesReport: SalesReport;
 }) {
@@ -129,15 +136,79 @@ function ReportsOverviewContent({
         </PagePanel>
       </section>
 
-      <SalesReportSection salesReport={salesReport} />
+      <SalesReportSection
+        salesReport={salesReport}
+        onLoadSalesReport={onLoadSalesReport}
+      />
     </section>
   );
 }
 
-function SalesReportSection({ salesReport }: { salesReport: SalesReport }) {
+function SalesReportSection({
+  onLoadSalesReport,
+  salesReport,
+}: {
+  onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
+  salesReport: SalesReport;
+}) {
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function filterSalesReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+
+    await onLoadSalesReport({ dateFrom, dateTo });
+    setLoading(false);
+  }
+
+  async function clearSalesReportFilters() {
+    setDateFrom("");
+    setDateTo("");
+    setLoading(true);
+
+    await onLoadSalesReport();
+    setLoading(false);
+  }
+
   return (
     <PagePanel wide>
       <PageHeader
+        actions={
+          <form
+            className="grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto"
+            onSubmit={filterSalesReport}
+          >
+            <TextField
+              label="De"
+              size="small"
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              label="Ate"
+              size="small"
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <Button disabled={loading} type="submit" variant="contained">
+              Filtrar
+            </Button>
+            <Button
+              disabled={loading || (!dateFrom && !dateTo)}
+              type="button"
+              variant="outlined"
+              onClick={() => void clearSalesReportFilters()}
+            >
+              Limpar
+            </Button>
+          </form>
+        }
         description="Vendas concluidas agrupadas por produto, cliente e forma de pagamento."
         icon={<CircleDollarSign size={18} />}
         title="Relatorio comercial"
@@ -235,6 +306,11 @@ function SalesReportSection({ salesReport }: { salesReport: SalesReport }) {
     </PagePanel>
   );
 }
+
+type SalesReportFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+};
 
 function ReportDetail({ label, value }: { label: string; value: string }) {
   return (

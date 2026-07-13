@@ -137,6 +137,24 @@ export function useCatalogData() {
     }
   }
 
+  async function loadSalesReport(filters: SalesReportFilters = {}) {
+    setMessage("");
+
+    try {
+      const result = await apiGet<ApiResult<SalesReport>>(
+        salesReportPath(filters),
+      );
+
+      setSalesReport(result.data);
+      setState("ready");
+      return true;
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+      return false;
+    }
+  }
+
   useEffect(() => {
     void loadCatalog();
   }, []);
@@ -196,6 +214,7 @@ export function useCatalogData() {
     runAction,
     sales,
     salesReport,
+    loadSalesReport,
     search,
     setMessage,
     setSearch,
@@ -206,6 +225,27 @@ export function useCatalogData() {
     stockMovements,
     suppliers,
   };
+}
+
+type SalesReportFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+function salesReportPath(filters: SalesReportFilters) {
+  const params = new URLSearchParams();
+
+  if (filters.dateFrom) {
+    params.set("dateFrom", filters.dateFrom);
+  }
+
+  if (filters.dateTo) {
+    params.set("dateTo", filters.dateTo);
+  }
+
+  const query = params.toString();
+
+  return query ? `/reports/sales?${query}` : "/reports/sales";
 }
 
 async function fetchProductCatalog() {
