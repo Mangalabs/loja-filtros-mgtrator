@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   indexPurchaseInvoices,
+  parsePurchaseInvoiceXml,
   storePurchaseInvoice,
 } from "../../controllers/purchase-invoices/purchase-invoices.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
@@ -67,10 +68,24 @@ const createPurchaseInvoiceSchema = z.object({
     .optional(),
 });
 
+const parsePurchaseInvoiceXmlSchema = z.object({
+  xmlContent: z.string().trim().min(1),
+});
+
 purchaseInvoicesRoutes.get(
   "/purchase-invoices",
   async (_request, response) => {
     const result = await indexPurchaseInvoices();
+
+    response.status(200).json(result);
+  },
+);
+
+purchaseInvoicesRoutes.post(
+  "/purchase-invoices/parse-xml",
+  async (request, response) => {
+    const body = validateBody(request, parsePurchaseInvoiceXmlSchema);
+    const result = parsePurchaseInvoiceXml(body.xmlContent);
 
     response.status(200).json(result);
   },

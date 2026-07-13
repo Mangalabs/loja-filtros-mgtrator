@@ -121,6 +121,28 @@ type PurchaseInvoice = {
   }>;
 };
 
+type ParsedPurchaseInvoice = {
+  accessKey: string;
+  issueDate: string | null;
+  items: Array<{
+    cfop: string | null;
+    description: string;
+    ncm: string | null;
+    position: number;
+    quantity: number;
+    supplierProductCode: string | null;
+    totalAmount: number;
+    unit: string | null;
+    unitCost: number;
+  }>;
+  number: string | null;
+  series: string | null;
+  supplierDocument: string | null;
+  supplierName: string;
+  totalAmount: number;
+  xmlContent: string;
+};
+
 type Sale = {
   id: string;
   productId: string;
@@ -5367,6 +5389,42 @@ describe("catalog routes", () => {
     assert.equal(entries.body.data?.length, 0);
   });
 
+  it("parses a purchase invoice XML preview", async () => {
+    const accessKey = "2".repeat(44);
+    const parsed = await request<ParsedPurchaseInvoice>(
+      "/purchase-invoices/parse-xml",
+      {
+        method: "POST",
+        body: { xmlContent: purchaseInvoiceXml(accessKey) },
+      },
+    );
+    const invalid = await request("/purchase-invoices/parse-xml", {
+      method: "POST",
+      body: { xmlContent: "<NFe><infNFe></infNFe></NFe>" },
+    });
+
+    assert.equal(parsed.status, 200);
+    assert.equal(parsed.body.data?.accessKey, accessKey);
+    assert.equal(parsed.body.data?.supplierName, "FORNECEDOR XML LTDA");
+    assert.equal(parsed.body.data?.supplierDocument, "12345678000199");
+    assert.equal(parsed.body.data?.number, "321");
+    assert.equal(parsed.body.data?.series, "1");
+    assert.equal(parsed.body.data?.issueDate, "2026-07-13");
+    assert.equal(parsed.body.data?.totalAmount, 84.5);
+    assert.equal(parsed.body.data?.items.length, 2);
+    assert.equal(parsed.body.data?.items[0]?.position, 1);
+    assert.equal(parsed.body.data?.items[0]?.supplierProductCode, "FX-1");
+    assert.equal(parsed.body.data?.items[0]?.description, "Filtro & oleo");
+    assert.equal(parsed.body.data?.items[0]?.quantity, 2);
+    assert.equal(parsed.body.data?.items[0]?.unitCost, 21.25);
+    assert.equal(parsed.body.data?.items[1]?.position, 2);
+    assert.equal(invalid.status, 422);
+    assert.equal(
+      invalid.body.message,
+      "XML de compra sem chave de acesso valida.",
+    );
+  });
+
   it("imports a structured purchase invoice without posting stock", async () => {
     const supplier = await request<NamedEntity>("/suppliers", {
       method: "POST",
@@ -5583,6 +5641,55 @@ describe("catalog routes", () => {
     assert.equal(adjustments.body.data?.length, 0);
   });
 });
+
+function purchaseInvoiceXml(accessKey: string) {
+  return `
+    <nfeProc>
+      <NFe>
+        <infNFe Id="NFe${accessKey}">
+          <ide>
+            <serie>1</serie>
+            <nNF>321</nNF>
+            <dhEmi>2026-07-13T08:30:00-03:00</dhEmi>
+          </ide>
+          <emit>
+            <CNPJ>12345678000199</CNPJ>
+            <xNome>FORNECEDOR XML LTDA</xNome>
+          </emit>
+          <det nItem="1">
+            <prod>
+              <cProd>FX-1</cProd>
+              <xProd>Filtro &amp; oleo</xProd>
+              <NCM>84212300</NCM>
+              <CFOP>5102</CFOP>
+              <uCom>UN</uCom>
+              <qCom>2.0000</qCom>
+              <vUnCom>21.2500</vUnCom>
+              <vProd>42.50</vProd>
+            </prod>
+          </det>
+          <det nItem="2">
+            <prod>
+              <cProd>FX-2</cProd>
+              <xProd>Filtro combustivel</xProd>
+              <NCM>84212300</NCM>
+              <CFOP>5102</CFOP>
+              <uCom>UN</uCom>
+              <qCom>1.0000</qCom>
+              <vUnCom>42.0000</vUnCom>
+              <vProd>42.00</vProd>
+            </prod>
+          </det>
+          <total>
+            <ICMSTot>
+              <vNF>84.50</vNF>
+            </ICMSTot>
+          </total>
+        </infNFe>
+      </NFe>
+    </nfeProc>
+  `;
+}
 
 function focusIssueRequest(): FiscalIssueRequest {
   return {

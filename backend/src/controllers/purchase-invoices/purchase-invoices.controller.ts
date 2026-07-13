@@ -1,4 +1,5 @@
 import { db } from "../../database/knex.js";
+import { parseNfePurchaseXml } from "../../integrations/purchase-xml/nfe-purchase-xml-parser.js";
 import {
   insertPurchaseInvoice,
   listPurchaseInvoices,
@@ -15,6 +16,14 @@ export async function indexPurchaseInvoices() {
     code: 200,
     status: "success",
     data: invoices,
+  };
+}
+
+export function parsePurchaseInvoiceXml(xmlContent: string) {
+  return {
+    code: 200,
+    status: "success",
+    data: parseNfePurchaseXml(xmlContent),
   };
 }
 
