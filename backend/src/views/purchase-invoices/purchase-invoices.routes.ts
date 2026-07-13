@@ -5,6 +5,7 @@ import {
   indexPurchaseInvoices,
   parsePurchaseInvoiceXml,
   storePurchaseInvoice,
+  updatePurchaseInvoice,
 } from "../../controllers/purchase-invoices/purchase-invoices.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
@@ -69,8 +70,17 @@ const createPurchaseInvoiceSchema = z.object({
     .optional(),
 });
 
+const updatePurchaseInvoiceSchema = createPurchaseInvoiceSchema.omit({
+  accessKey: true,
+  xmlContent: true,
+});
+
 const parsePurchaseInvoiceXmlSchema = z.object({
   xmlContent: z.string().trim().min(1),
+});
+
+const purchaseInvoiceParamsSchema = z.object({
+  id: z.uuid(),
 });
 
 purchaseInvoicesRoutes.get(
@@ -110,3 +120,14 @@ purchaseInvoicesRoutes.post("/purchase-invoices", async (request, response) => {
 
   response.status(201).json(result);
 });
+
+purchaseInvoicesRoutes.put(
+  "/purchase-invoices/:id",
+  async (request, response) => {
+    const { id } = purchaseInvoiceParamsSchema.parse(request.params);
+    const body = validateBody(request, updatePurchaseInvoiceSchema);
+    const result = await updatePurchaseInvoice(id, body);
+
+    response.status(200).json(result);
+  },
+);

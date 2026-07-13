@@ -5457,6 +5457,82 @@ describe("catalog routes", () => {
     assert.equal(listed.body.data?.length, 1);
   });
 
+  it("reviews an imported purchase invoice before posting stock", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro correto do XML", costPrice: 30 },
+    });
+    const accessKey = "4".repeat(44);
+    const imported = await request<PurchaseInvoice>(
+      "/purchase-invoices/import-xml",
+      {
+        method: "POST",
+        body: { xmlContent: purchaseInvoiceXml(accessKey) },
+      },
+    );
+
+    const reviewed = await request<PurchaseInvoice>(
+      `/purchase-invoices/${imported.body.data?.id}`,
+      {
+        method: "PUT",
+        body: {
+          issueDate: "2026-07-13",
+          number: "321",
+          series: "1",
+          supplierDocument: "12345678000199",
+          supplierName: "FORNECEDOR XML LTDA",
+          totalAmount: 84.5,
+          items: [
+            {
+              cfop: "5102",
+              description: "Filtro revisado",
+              ncm: "84212300",
+              position: 1,
+              productId: product.body.data?.id,
+              quantity: 2,
+              supplierProductCode: "FX-1",
+              totalAmount: 42.5,
+              unit: "UN",
+              unitCost: 21.25,
+            },
+            {
+              cfop: "5102",
+              description: "Filtro combustivel",
+              ncm: "84212300",
+              position: 2,
+              quantity: 1,
+              supplierProductCode: "FX-2",
+              totalAmount: 42,
+              unit: "UN",
+              unitCost: 42,
+            },
+          ],
+        },
+      },
+    );
+    const listed = await request<PurchaseInvoice[]>("/purchase-invoices");
+    const unchangedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(reviewed.status, 200);
+    assert.equal(reviewed.body.data?.status, "IMPORTED");
+    assert.equal(reviewed.body.data?.accessKey, accessKey);
+    assert.equal(reviewed.body.data?.items.length, 2);
+    assert.equal(
+      reviewed.body.data?.items[0]?.productName,
+      "Filtro correto do XML",
+    );
+    assert.equal(reviewed.body.data?.items[0]?.description, "Filtro revisado");
+    assert.equal(reviewed.body.data?.items[1]?.productId, null);
+    assert.equal(
+      listed.body.data?.[0]?.items[0]?.productId,
+      product.body.data?.id,
+    );
+    assert.equal(unchangedProduct.body.data?.currentStock, "0.000");
+    assert.equal(unchangedProduct.body.data?.costPrice, "30.00");
+  });
+
   it("imports a structured purchase invoice without posting stock", async () => {
     const supplier = await request<NamedEntity>("/suppliers", {
       method: "POST",

@@ -359,6 +359,8 @@ Estado: inicial entregue.
 
 - Entrada por XML de NF-e de compra.
 - Vincular itens do XML a produtos.
+- Abrir revisao da importacao com formulario pre-preenchido antes de qualquer entrada no estoque.
+- Confirmar manualmente o produto correto por item, pois codigos podem se repetir entre fabricantes diferentes.
 - Atualizar custo e estoque a partir da compra.
 - Historico formal de compras registradas por fornecedor e custo por produto.
 

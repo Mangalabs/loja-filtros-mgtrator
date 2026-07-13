@@ -14,6 +14,11 @@ export type PurchaseInvoiceInput = {
   xmlContent?: string | null;
 };
 
+export type PurchaseInvoiceUpdateInput = Omit<
+  PurchaseInvoiceInput,
+  "accessKey" | "xmlContent"
+>;
+
 export type PurchaseInvoiceItemInput = {
   cfop?: string | null;
   description: string;
@@ -158,6 +163,63 @@ export async function insertPurchaseInvoice(
 
   if (!invoice) {
     throw new Error("Purchase invoice was not found after creation");
+  }
+
+  return invoice;
+}
+
+export async function findPurchaseInvoiceStatus(
+  transaction: Knex.Transaction,
+  id: string,
+): Promise<PurchaseInvoice["status"] | undefined> {
+  const invoice = await transaction("purchase_invoices")
+    .select<{ status: PurchaseInvoice["status"] }>("status")
+    .where("id", id)
+    .forUpdate()
+    .first();
+
+  return invoice?.status;
+}
+
+export async function updatePurchaseInvoiceReview(
+  transaction: Knex.Transaction,
+  id: string,
+  input: PurchaseInvoiceUpdateInput,
+): Promise<PurchaseInvoice> {
+  await transaction("purchase_invoices").where("id", id).update({
+    issue_date: input.issueDate,
+    number: input.number,
+    series: input.series,
+    supplier_document: input.supplierDocument,
+    supplier_id: input.supplierId,
+    supplier_name: input.supplierName,
+    total_amount: input.totalAmount,
+    updated_at: transaction.fn.now(),
+  });
+
+  await transaction("purchase_invoice_items")
+    .where("purchase_invoice_id", id)
+    .del();
+  await transaction("purchase_invoice_items").insert(
+    input.items.map((item) => ({
+      cfop: item.cfop,
+      description: item.description,
+      ncm: item.ncm,
+      position: item.position,
+      product_id: item.productId,
+      purchase_invoice_id: id,
+      quantity: item.quantity,
+      supplier_product_code: item.supplierProductCode,
+      total_amount: item.totalAmount,
+      unit: item.unit,
+      unit_cost: item.unitCost,
+    })),
+  );
+
+  const invoice = await findPurchaseInvoiceById(transaction, id);
+
+  if (!invoice) {
+    throw new Error("Purchase invoice was not found after review update");
   }
 
   return invoice;
