@@ -22,6 +22,7 @@ export type Product = {
   location: string | null;
   costPrice: string;
   salePrice: string;
+  profitMarginPercentage: string | null;
   minimumStock: string;
   currentStock: string;
   reservedStock: string;

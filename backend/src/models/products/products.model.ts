@@ -19,6 +19,7 @@ export type ProductListItem = {
   location: string | null;
   costPrice: string;
   salePrice: string;
+  profitMarginPercentage: string | null;
   minimumStock: string;
   currentStock: string;
   reservedStock: string;
@@ -44,6 +45,7 @@ export type ProductCreateInput = {
   location?: string | null;
   costPrice?: number;
   salePrice?: number;
+  profitMarginPercentage?: number | null;
   minimumStock?: number;
   ncm?: string | null;
   cest?: string | null;
@@ -78,6 +80,7 @@ export async function listProducts(
       "products.location",
       "products.cost_price as costPrice",
       "products.sale_price as salePrice",
+      "products.profit_margin_percentage as profitMarginPercentage",
       "products.minimum_stock as minimumStock",
       "products.current_stock as currentStock",
       "products.reserved_stock as reservedStock",
@@ -133,6 +136,7 @@ export async function listLowStockProducts(): Promise<ProductListItem[]> {
       "products.location",
       "products.cost_price as costPrice",
       "products.sale_price as salePrice",
+      "products.profit_margin_percentage as profitMarginPercentage",
       "products.minimum_stock as minimumStock",
       "products.current_stock as currentStock",
       "products.reserved_stock as reservedStock",
@@ -172,6 +176,7 @@ export async function createProduct(
       location: input.location,
       cost_price: input.costPrice,
       sale_price: input.salePrice,
+      profit_margin_percentage: input.profitMarginPercentage,
       minimum_stock: input.minimumStock,
       ncm: input.ncm,
       cest: input.cest,
@@ -216,6 +221,7 @@ export async function updateProduct(
       location: input.location,
       cost_price: input.costPrice,
       sale_price: input.salePrice,
+      profit_margin_percentage: input.profitMarginPercentage,
       minimum_stock: input.minimumStock,
       ncm: input.ncm,
       cest: input.cest,
@@ -274,6 +280,7 @@ async function findProductById(
       "products.location",
       "products.cost_price as costPrice",
       "products.sale_price as salePrice",
+      "products.profit_margin_percentage as profitMarginPercentage",
       "products.minimum_stock as minimumStock",
       "products.current_stock as currentStock",
       "products.reserved_stock as reservedStock",

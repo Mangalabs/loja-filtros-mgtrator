@@ -42,6 +42,7 @@ type Product = {
   location: string | null;
   costPrice: string;
   salePrice: string;
+  profitMarginPercentage: string | null;
   minimumStock: string;
   currentStock: string;
   reservedStock: string;
@@ -4898,6 +4899,7 @@ describe("catalog routes", () => {
         location: "Corredor A - Prateleira 2",
         costPrice: 18.5,
         salePrice: 29.9,
+        profitMarginPercentage: 61.62,
         minimumStock: 3,
         ncm: "84212300",
         cest: "0100100",
@@ -4919,6 +4921,7 @@ describe("catalog routes", () => {
         body: {
           name: "Filtro Wega FAP4040 Atualizado",
           salePrice: 31.9,
+          profitMarginPercentage: 72.43,
           location: "",
         },
       },
@@ -4940,6 +4943,7 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.currentStock, "0.000");
     assert.equal(created.body.data?.reservedStock, "0.000");
     assert.equal(created.body.data?.availableStock, "0.000");
+    assert.equal(created.body.data?.profitMarginPercentage, "61.62");
     assert.equal(created.body.data?.ncm, "84212300");
     assert.equal(created.body.data?.cest, "0100100");
     assert.equal(created.body.data?.cfop, "5102");
@@ -4961,6 +4965,7 @@ describe("catalog routes", () => {
     );
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.name, "Filtro Wega FAP4040 Atualizado");
+    assert.equal(updated.body.data?.profitMarginPercentage, "72.43");
     assert.equal(updated.body.data?.location, null);
     assert.equal(deactivated.status, 200);
     assert.equal(deactivated.body.data?.active, false);

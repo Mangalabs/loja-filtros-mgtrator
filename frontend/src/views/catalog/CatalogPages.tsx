@@ -199,6 +199,9 @@ export function ProductForm({
   );
   const [costPrice, setCostPrice] = useState(product?.costPrice ?? "");
   const [salePrice, setSalePrice] = useState(product?.salePrice ?? "");
+  const [profitMarginPercentage, setProfitMarginPercentage] = useState(
+    product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
+  );
   const [salePriceTouched, setSalePriceTouched] = useState(
     Boolean(product?.salePrice),
   );
@@ -206,18 +209,25 @@ export function ProductForm({
   useEffect(() => {
     setCostPrice(product?.costPrice ?? "");
     setSalePrice(product?.salePrice ?? "");
+    setProfitMarginPercentage(
+      product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
+    );
     setSalePriceTouched(Boolean(product?.salePrice));
-  }, [product?.id, product?.costPrice, product?.salePrice]);
+  }, [
+    defaultProfitMarginPercentage,
+    product?.costPrice,
+    product?.id,
+    product?.profitMarginPercentage,
+    product?.salePrice,
+  ]);
 
   useEffect(() => {
     if (salePriceTouched) {
       return;
     }
 
-    setSalePrice(
-      suggestedSalePrice(costPrice, defaultProfitMarginPercentage),
-    );
-  }, [costPrice, defaultProfitMarginPercentage, salePriceTouched]);
+    setSalePrice(suggestedSalePrice(costPrice, profitMarginPercentage));
+  }, [costPrice, profitMarginPercentage, salePriceTouched]);
 
   return (
     <FormGrid className="max-w-5xl gap-5" onSubmit={onSubmit}>
@@ -283,7 +293,21 @@ export function ProductForm({
           slotProps={{ htmlInput: { step: "0.01" } }}
         />
         <TextField
-          helperText={salePriceHelperText(defaultProfitMarginPercentage)}
+          helperText={profitMarginHelperText(defaultProfitMarginPercentage)}
+          label="Margem de lucro (%)"
+          name="profitMarginPercentage"
+          type="number"
+          value={profitMarginPercentage}
+          onChange={(event) => {
+            setProfitMarginPercentage(event.target.value);
+            setSalePriceTouched(false);
+          }}
+          slotProps={{ htmlInput: { min: "0", max: "1000", step: "0.01" } }}
+        />
+      </FormRow>
+      <FormRow columns={3}>
+        <TextField
+          helperText={salePriceHelperText(profitMarginPercentage)}
           label="Venda"
           name="salePrice"
           type="number"
@@ -381,22 +405,29 @@ export function ProductForm({
   );
 }
 
-function suggestedSalePrice(costPrice: string, profitMarginPercentage: number) {
+function suggestedSalePrice(costPrice: string, profitMarginPercentage: string) {
   const cost = Number(costPrice);
+  const margin = Number(profitMarginPercentage);
 
-  if (!Number.isFinite(cost) || cost <= 0) {
+  if (!Number.isFinite(cost) || !Number.isFinite(margin) || cost <= 0) {
     return "";
   }
 
-  return (cost * (1 + profitMarginPercentage / 100)).toFixed(2);
+  return (cost * (1 + margin / 100)).toFixed(2);
 }
 
-function salePriceHelperText(profitMarginPercentage: number) {
-  if (profitMarginPercentage <= 0) {
+function salePriceHelperText(profitMarginPercentage: string) {
+  const margin = Number(profitMarginPercentage);
+
+  if (!Number.isFinite(margin) || margin <= 0) {
     return "Configure uma margem comercial para sugerir o preco automaticamente.";
   }
 
-  return `Sugestao automatica pela margem base de ${profitMarginPercentage.toLocaleString("pt-BR")}%`;
+  return `Sugestao automatica pela margem de ${margin.toLocaleString("pt-BR")}%`;
+}
+
+function profitMarginHelperText(defaultProfitMarginPercentage: number) {
+  return `Preenchido pela margem padrao de ${defaultProfitMarginPercentage.toLocaleString("pt-BR")}%, mas pode variar por produto.`;
 }
 
 export function NamedEntityPage({
