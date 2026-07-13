@@ -497,14 +497,21 @@ function PurchaseInvoiceInstallments({
             <TextField
               defaultValue={installment.dueDate ?? ""}
               label="Vencimento"
+              name={`purchaseInstallmentDueDate_${index}`}
               type="date"
               slotProps={{ inputLabel: { shrink: true } }}
             />
             <TextField
               defaultValue={installment.value}
               label="Valor"
+              name={`purchaseInstallmentValue_${index}`}
               type="number"
               slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
+            />
+            <input
+              name={`purchaseInstallmentNumber_${index}`}
+              type="hidden"
+              value={installment.number ?? ""}
             />
           </FormRow>
         </FormCard>
@@ -692,9 +699,22 @@ function reviewInputFromForm(
     transporterDocument: nullableFormValue(form, "purchaseTransporterDocument"),
     transporterName: nullableFormValue(form, "purchaseTransporterName"),
     createSupplierFromXml: form.get("purchaseCreateSupplier") === "yes",
-    installments: draft.installments,
+    installments: installmentInputsFromForm(form, draft.installments),
     xmlContent: draft.xmlContent ?? null,
   };
+}
+
+function installmentInputsFromForm(
+  form: FormData,
+  installments: PurchaseInvoiceDraft["installments"] = [],
+) {
+  return installments.map((installment, index) => ({
+    dueDate: nullableFormValue(form, `purchaseInstallmentDueDate_${index}`),
+    number:
+      nullableFormValue(form, `purchaseInstallmentNumber_${index}`) ??
+      installment.number,
+    value: numberFormValue(form, `purchaseInstallmentValue_${index}`),
+  }));
 }
 
 function formValue(form: FormData, key: string) {
