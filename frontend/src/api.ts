@@ -443,6 +443,45 @@ export type PurchaseReport = {
   }>;
 };
 
+export type CashReport = {
+  summary: {
+    sessionsCount: number;
+    openSessionsCount: number;
+    closedSessionsCount: number;
+    openingAmount: string;
+    grossSalesAmount: string;
+    refundAmount: string;
+    netSalesAmount: string;
+    supplyAmount: string;
+    withdrawalAmount: string;
+    expectedClosingAmount: string;
+    closingAmount: string;
+    closedDifferenceAmount: string;
+  };
+  byPaymentMethod: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    grossAmount: string;
+    refundAmount: string;
+    netAmount: string;
+  }>;
+  sessions: Array<{
+    id: string;
+    openedByUserName: string;
+    closedByUserName: string | null;
+    status: "OPEN" | "CLOSED";
+    openedAt: string;
+    closedAt: string | null;
+    openingBalance: string;
+    salesAmount: string;
+    supplyAmount: string;
+    withdrawalAmount: string;
+    expectedClosingBalance: string;
+    closingBalance: string | null;
+    difference: string | null;
+  }>;
+};
+
 export type ShippingOrder = {
   id: string;
   quoteId: string | null;

@@ -481,6 +481,45 @@ type PurchaseReport = {
   }>;
 };
 
+type CashReport = {
+  summary: {
+    sessionsCount: number;
+    openSessionsCount: number;
+    closedSessionsCount: number;
+    openingAmount: string;
+    grossSalesAmount: string;
+    refundAmount: string;
+    netSalesAmount: string;
+    supplyAmount: string;
+    withdrawalAmount: string;
+    expectedClosingAmount: string;
+    closingAmount: string;
+    closedDifferenceAmount: string;
+  };
+  byPaymentMethod: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    grossAmount: string;
+    refundAmount: string;
+    netAmount: string;
+  }>;
+  sessions: Array<{
+    id: string;
+    openedByUserName: string;
+    closedByUserName: string | null;
+    status: "OPEN" | "CLOSED";
+    openedAt: string;
+    closedAt: string | null;
+    openingBalance: string;
+    salesAmount: string;
+    supplyAmount: string;
+    withdrawalAmount: string;
+    expectedClosingBalance: string;
+    closingBalance: string | null;
+    difference: string | null;
+  }>;
+};
+
 type FiscalDocument = {
   id: string;
   sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
@@ -3635,6 +3674,82 @@ describe("catalog routes", () => {
       )?.quantity,
       "2.000",
     );
+  });
+
+  it("returns cash reports with sales, movements, and closing differences", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro relatorio caixa", salePrice: 50 },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 5,
+        reason: "Saldo para relatorio de caixa",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 100 },
+    });
+    await request("/sales", {
+      method: "POST",
+      body: {
+        items: [{ productId: product.body.data?.id, quantity: 2 }],
+        paymentMethodId: pix?.id,
+      },
+    });
+    await request("/cash-register/movements", {
+      method: "POST",
+      body: {
+        type: "SUPPLY",
+        amount: 30,
+        reason: "Suprimento para relatorio",
+      },
+    });
+    await request("/cash-register/movements", {
+      method: "POST",
+      body: {
+        type: "WITHDRAWAL",
+        amount: 10,
+        reason: "Sangria para relatorio",
+      },
+    });
+    await request("/cash-register/close", {
+      method: "PATCH",
+      body: {
+        closingBalance: 221,
+        closingPayments: [{ paymentMethodId: pix?.id, amount: 100 }],
+      },
+    });
+
+    const report = await request<CashReport>("/reports/cash");
+
+    assert.equal(report.status, 200);
+    assert.equal(report.body.data?.summary.sessionsCount, 1);
+    assert.equal(report.body.data?.summary.openSessionsCount, 0);
+    assert.equal(report.body.data?.summary.closedSessionsCount, 1);
+    assert.equal(report.body.data?.summary.openingAmount, "100.00");
+    assert.equal(report.body.data?.summary.grossSalesAmount, "100.00");
+    assert.equal(report.body.data?.summary.netSalesAmount, "100.00");
+    assert.equal(report.body.data?.summary.supplyAmount, "30.00");
+    assert.equal(report.body.data?.summary.withdrawalAmount, "10.00");
+    assert.equal(report.body.data?.summary.expectedClosingAmount, "220.00");
+    assert.equal(report.body.data?.summary.closingAmount, "221.00");
+    assert.equal(report.body.data?.summary.closedDifferenceAmount, "1.00");
+    assert.equal(report.body.data?.byPaymentMethod[0]?.paymentMethodName, "PIX");
+    assert.equal(report.body.data?.byPaymentMethod[0]?.netAmount, "100.00");
+    assert.equal(report.body.data?.sessions[0]?.status, "CLOSED");
+    assert.equal(report.body.data?.sessions[0]?.expectedClosingBalance, "220.00");
+    assert.equal(report.body.data?.sessions[0]?.difference, "1.00");
   });
 
   it("creates a shipping quote and reserves its item after approval", async () => {

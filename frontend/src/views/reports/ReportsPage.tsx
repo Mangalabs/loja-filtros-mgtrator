@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import type {
+  CashReport,
   PurchaseReport,
   ReportsOverview,
   SalesReport,
@@ -30,6 +31,8 @@ import {
 } from "../../utils/format";
 
 export function ReportsPage({
+  cashReport,
+  onLoadCashReport,
   onLoadSalesReport,
   onLoadPurchaseReport,
   onLoadStockReport,
@@ -38,6 +41,8 @@ export function ReportsPage({
   salesReport,
   stockReport,
 }: {
+  cashReport: CashReport | null;
+  onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>;
   onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
   onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>;
   onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>;
@@ -49,9 +54,11 @@ export function ReportsPage({
   const contentByState = {
     loading: <ReportsLoading />,
     ready:
-      overview && salesReport && stockReport && purchaseReport ? (
+      overview && salesReport && stockReport && purchaseReport && cashReport ? (
         <ReportsOverviewContent
+          cashReport={cashReport}
           overview={overview}
+          onLoadCashReport={onLoadCashReport}
           onLoadPurchaseReport={onLoadPurchaseReport}
           onLoadSalesReport={onLoadSalesReport}
           onLoadStockReport={onLoadStockReport}
@@ -62,7 +69,7 @@ export function ReportsPage({
       ) : null,
   };
   const state =
-    overview && salesReport && stockReport && purchaseReport
+    overview && salesReport && stockReport && purchaseReport && cashReport
       ? "ready"
       : "loading";
 
@@ -86,6 +93,8 @@ function ReportsLoading() {
 }
 
 function ReportsOverviewContent({
+  cashReport,
+  onLoadCashReport,
   onLoadPurchaseReport,
   onLoadSalesReport,
   onLoadStockReport,
@@ -94,6 +103,8 @@ function ReportsOverviewContent({
   salesReport,
   stockReport,
 }: {
+  cashReport: CashReport;
+  onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>;
   onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>;
   onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
   onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>;
@@ -173,6 +184,10 @@ function ReportsOverviewContent({
       <PurchaseReportSection
         purchaseReport={purchaseReport}
         onLoadPurchaseReport={onLoadPurchaseReport}
+      />
+      <CashReportSection
+        cashReport={cashReport}
+        onLoadCashReport={onLoadCashReport}
       />
       <StockReportSection
         stockReport={stockReport}
@@ -508,6 +523,184 @@ function PurchaseReportSection({
           emptyMessage="Nenhuma compra por produto."
           getRowId={(item) => item.productId}
           items={purchaseReport.byProduct}
+        />
+      </div>
+    </PagePanel>
+  );
+}
+
+function CashReportSection({
+  cashReport,
+  onLoadCashReport,
+}: {
+  cashReport: CashReport;
+  onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>;
+}) {
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function filterCashReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+
+    await onLoadCashReport({ dateFrom, dateTo });
+    setLoading(false);
+  }
+
+  async function clearCashReportFilters() {
+    setDateFrom("");
+    setDateTo("");
+    setLoading(true);
+
+    await onLoadCashReport();
+    setLoading(false);
+  }
+
+  return (
+    <PagePanel wide>
+      <PageHeader
+        actions={
+          <form
+            className="grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto"
+            onSubmit={filterCashReport}
+          >
+            <TextField
+              label="De"
+              size="small"
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              label="Ate"
+              size="small"
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <Button disabled={loading} type="submit" variant="contained">
+              Filtrar caixa
+            </Button>
+            <Button
+              disabled={loading || (!dateFrom && !dateTo)}
+              type="button"
+              variant="outlined"
+              onClick={() => void clearCashReportFilters()}
+            >
+              Limpar
+            </Button>
+          </form>
+        }
+        description="Conferencia de vendas, entradas, sangrias e fechamento por caixa aberto no periodo."
+        icon={<Banknote size={18} />}
+        title="Relatorio financeiro de caixa"
+      />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <ReportMetric
+          icon={<Banknote size={18} />}
+          label="Caixas"
+          value={String(cashReport.summary.sessionsCount)}
+        />
+        <ReportMetric
+          icon={<ShoppingCart size={18} />}
+          label="Vendas liquidas"
+          value={formatCurrency(cashReport.summary.netSalesAmount)}
+        />
+        <ReportMetric
+          icon={<CircleDollarSign size={18} />}
+          label="Suprimentos"
+          value={formatCurrency(cashReport.summary.supplyAmount)}
+        />
+        <ReportMetric
+          icon={<CreditCard size={18} />}
+          label="Sangrias"
+          value={formatCurrency(cashReport.summary.withdrawalAmount)}
+        />
+        <ReportMetric
+          icon={<Banknote size={18} />}
+          label="Fechamento esperado"
+          value={formatCurrency(cashReport.summary.expectedClosingAmount)}
+        />
+        <ReportMetric
+          icon={<AlertTriangle size={18} />}
+          label="Divergencia fechada"
+          value={formatCurrency(cashReport.summary.closedDifferenceAmount)}
+        />
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)]">
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Pagamento",
+              render: (item) => item.paymentMethodName,
+            },
+            {
+              align: "right",
+              header: "Bruto",
+              render: (item) => formatCurrency(item.grossAmount),
+            },
+            {
+              align: "right",
+              header: "Devol.",
+              render: (item) => formatCurrency(item.refundAmount),
+            },
+            {
+              align: "right",
+              header: "Liquido",
+              render: (item) => formatCurrency(item.netAmount),
+            },
+          ]}
+          emptyMessage="Nenhum pagamento registrado no periodo."
+          getRowId={(item) => item.paymentMethodId}
+          items={cashReport.byPaymentMethod}
+        />
+
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Caixa",
+              render: (item) => (
+                <div className="grid gap-1">
+                  <strong>{item.openedByUserName}</strong>
+                  <span className="text-xs text-[#5f665f]">
+                    {formatDateTime(item.openedAt)}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              header: "Status",
+              render: (item) =>
+                item.status === "OPEN" ? (
+                  <StatusChip label="Aberto" tone="warning" />
+                ) : (
+                  <StatusChip label="Fechado" tone="success" />
+                ),
+            },
+            {
+              align: "right",
+              header: "Vendas",
+              render: (item) => formatCurrency(item.salesAmount),
+            },
+            {
+              align: "right",
+              header: "Esperado",
+              render: (item) => formatCurrency(item.expectedClosingBalance),
+            },
+            {
+              align: "right",
+              header: "Diverg.",
+              render: (item) =>
+                item.difference ? formatCurrency(item.difference) : "-",
+            },
+          ]}
+          emptyMessage="Nenhum caixa no periodo."
+          getRowId={(item) => item.id}
+          items={cashReport.sessions}
         />
       </div>
     </PagePanel>

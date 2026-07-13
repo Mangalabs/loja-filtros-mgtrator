@@ -1,4 +1,5 @@
 import { db } from "../../database/knex.js";
+import type { Knex } from "knex";
 
 export type ReportsOverview = {
   salesCount: number;
@@ -51,6 +52,11 @@ export type StockReportFilters = {
 };
 
 export type PurchaseReportFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+export type CashReportFilters = {
   dateFrom?: string;
   dateTo?: string;
 };
@@ -109,6 +115,45 @@ export type PurchaseReport = {
     productName: string;
     quantity: string;
     totalAmount: string;
+  }>;
+};
+
+export type CashReport = {
+  summary: {
+    sessionsCount: number;
+    openSessionsCount: number;
+    closedSessionsCount: number;
+    openingAmount: string;
+    grossSalesAmount: string;
+    refundAmount: string;
+    netSalesAmount: string;
+    supplyAmount: string;
+    withdrawalAmount: string;
+    expectedClosingAmount: string;
+    closingAmount: string;
+    closedDifferenceAmount: string;
+  };
+  byPaymentMethod: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    grossAmount: string;
+    refundAmount: string;
+    netAmount: string;
+  }>;
+  sessions: Array<{
+    id: string;
+    openedByUserName: string;
+    closedByUserName: string | null;
+    status: "OPEN" | "CLOSED";
+    openedAt: Date;
+    closedAt: Date | null;
+    openingBalance: string;
+    salesAmount: string;
+    supplyAmount: string;
+    withdrawalAmount: string;
+    expectedClosingBalance: string;
+    closingBalance: string | null;
+    difference: string | null;
   }>;
 };
 
@@ -210,6 +255,34 @@ type PurchaseByProductRow = {
   quantity: string;
   totalAmount: string;
 };
+
+type CashReportSessionSummaryRow = {
+  sessionsCount: string;
+  openSessionsCount: string;
+  closedSessionsCount: string;
+  openingAmount: string;
+  closingAmount: string;
+};
+
+type CashReportAmountRow = {
+  amount: string;
+};
+
+type CashReportPaymentMethodAmountRow = {
+  paymentMethodId: string;
+  paymentMethodName: string;
+  amount: string;
+};
+
+type CashReportPaymentMethodRow = {
+  paymentMethodId: string;
+  paymentMethodName: string;
+  grossAmount: string;
+  refundAmount: string;
+  netAmount: string;
+};
+
+type CashReportSessionRow = CashReport["sessions"][number];
 
 export async function getReportsOverview(): Promise<ReportsOverview> {
   const [
@@ -533,6 +606,89 @@ export async function getPurchaseReport(
   };
 }
 
+export async function getCashReport(
+  filters: CashReportFilters,
+): Promise<CashReport> {
+  const [
+    sessionSummary,
+    grossSales,
+    refunds,
+    supplies,
+    withdrawals,
+    closedDifference,
+    grossByPaymentMethod,
+    refundsByPaymentMethod,
+    sessions,
+  ] = await Promise.all([
+    cashRegisterSessionsQuery(filters)
+      .select<CashReportSessionSummaryRow[]>([
+        db.raw("count(cash_register_sessions.id)::text as ??", [
+          "sessionsCount",
+        ]),
+        db.raw(
+          "count(cash_register_sessions.id) filter (where cash_register_sessions.status = 'OPEN')::text as ??",
+          ["openSessionsCount"],
+        ),
+        db.raw(
+          "count(cash_register_sessions.id) filter (where cash_register_sessions.status = 'CLOSED')::text as ??",
+          ["closedSessionsCount"],
+        ),
+        db.raw(
+          "coalesce(sum(cash_register_sessions.opening_balance), 0)::numeric(12, 2)::text as ??",
+          ["openingAmount"],
+        ),
+        db.raw(
+          "coalesce(sum(cash_register_sessions.closing_balance), 0)::numeric(12, 2)::text as ??",
+          ["closingAmount"],
+        ),
+      ])
+      .first(),
+    cashReportGrossSalesQuery(filters).first(),
+    cashReportRefundsQuery(filters).first(),
+    cashReportMovementsQuery(filters, "SUPPLY").first(),
+    cashReportMovementsQuery(filters, "WITHDRAWAL").first(),
+    cashReportClosedDifferenceQuery(filters).first(),
+    cashReportGrossSalesByPaymentMethodQuery(filters),
+    cashReportRefundsByPaymentMethodQuery(filters),
+    cashReportSessionsRowsQuery(filters),
+  ]);
+  const grossSalesAmount = grossSales?.amount ?? "0.00";
+  const refundAmount = refunds?.amount ?? "0.00";
+  const netSalesAmount = subtractMoney(grossSalesAmount, refundAmount);
+  const supplyAmount = supplies?.amount ?? "0.00";
+  const withdrawalAmount = withdrawals?.amount ?? "0.00";
+  const expectedClosingAmount = subtractMoney(
+    addMoney(
+      sessionSummary?.openingAmount ?? "0.00",
+      netSalesAmount,
+      supplyAmount,
+    ),
+    withdrawalAmount,
+  );
+
+  return {
+    summary: {
+      sessionsCount: Number(sessionSummary?.sessionsCount ?? 0),
+      openSessionsCount: Number(sessionSummary?.openSessionsCount ?? 0),
+      closedSessionsCount: Number(sessionSummary?.closedSessionsCount ?? 0),
+      openingAmount: sessionSummary?.openingAmount ?? "0.00",
+      grossSalesAmount,
+      refundAmount,
+      netSalesAmount,
+      supplyAmount,
+      withdrawalAmount,
+      expectedClosingAmount,
+      closingAmount: sessionSummary?.closingAmount ?? "0.00",
+      closedDifferenceAmount: closedDifference?.amount ?? "0.00",
+    },
+    byPaymentMethod: mergeCashReportPaymentMethods(
+      grossByPaymentMethod,
+      refundsByPaymentMethod,
+    ),
+    sessions,
+  };
+}
+
 function lowStockProductsQuery() {
   return db("products")
     .where("products.active", true)
@@ -633,4 +789,279 @@ function purchaseReportBaseQuery(filters: PurchaseReportFilters) {
 
 function purchaseSourceSql() {
   return "case when stock_movements.purchase_invoice_id is not null or stock_movements.notes ilike 'Entrada por XML NF-e%' then 'XML' else 'MANUAL' end";
+}
+
+function cashRegisterSessionsQuery(filters: CashReportFilters) {
+  return db("cash_register_sessions").modify((query) => {
+    applyCashReportFilters(query, filters);
+  });
+}
+
+function cashReportGrossSalesQuery(filters: CashReportFilters) {
+  return db("sale_payments")
+    .join("sales", "sales.id", "sale_payments.sale_id")
+    .join(
+      "cash_register_sessions",
+      "cash_register_sessions.id",
+      "sales.cash_register_session_id",
+    )
+    .where("sales.status", "COMPLETED")
+    .modify((query) => {
+      applyCashReportFilters(query, filters);
+    })
+    .select<CashReportAmountRow[]>([
+      db.raw("coalesce(sum(sale_payments.amount), 0)::numeric(12, 2)::text as ??", [
+        "amount",
+      ]),
+    ]);
+}
+
+function cashReportRefundsQuery(filters: CashReportFilters) {
+  return db("sale_item_returns")
+    .join("sales", "sales.id", "sale_item_returns.sale_id")
+    .join(
+      "cash_register_sessions",
+      "cash_register_sessions.id",
+      "sales.cash_register_session_id",
+    )
+    .where("sales.status", "COMPLETED")
+    .modify((query) => {
+      applyCashReportFilters(query, filters);
+    })
+    .select<CashReportAmountRow[]>([
+      db.raw(
+        "coalesce(sum(sale_item_returns.refund_amount), 0)::numeric(12, 2)::text as ??",
+        ["amount"],
+      ),
+    ]);
+}
+
+function cashReportMovementsQuery(
+  filters: CashReportFilters,
+  movementType: "SUPPLY" | "WITHDRAWAL",
+) {
+  return db("cash_register_movements")
+    .join(
+      "cash_register_sessions",
+      "cash_register_sessions.id",
+      "cash_register_movements.cash_register_session_id",
+    )
+    .where("cash_register_movements.type", movementType)
+    .modify((query) => {
+      applyCashReportFilters(query, filters);
+    })
+    .select<CashReportAmountRow[]>([
+      db.raw(
+        "coalesce(sum(cash_register_movements.amount), 0)::numeric(12, 2)::text as ??",
+        ["amount"],
+      ),
+    ]);
+}
+
+function cashReportClosedDifferenceQuery(filters: CashReportFilters) {
+  return cashRegisterSessionsQuery(filters)
+    .where("cash_register_sessions.status", "CLOSED")
+    .select<CashReportAmountRow[]>([
+      db.raw(
+        `(coalesce(sum(cash_register_sessions.closing_balance - (cash_register_sessions.opening_balance + (${cashReportSessionSalesAmountSql()}) + (${cashReportSessionMovementAmountSql("SUPPLY")}) - (${cashReportSessionMovementAmountSql("WITHDRAWAL")}))), 0))::numeric(12, 2)::text as ??`,
+        ["amount"],
+      ),
+    ]);
+}
+
+function cashReportGrossSalesByPaymentMethodQuery(filters: CashReportFilters) {
+  return db("sale_payments")
+    .join("sales", "sales.id", "sale_payments.sale_id")
+    .join(
+      "cash_register_sessions",
+      "cash_register_sessions.id",
+      "sales.cash_register_session_id",
+    )
+    .join(
+      "payment_methods",
+      "payment_methods.id",
+      "sale_payments.payment_method_id",
+    )
+    .where("sales.status", "COMPLETED")
+    .modify((query) => {
+      applyCashReportFilters(query, filters);
+    })
+    .select<CashReportPaymentMethodAmountRow[]>([
+      "payment_methods.id as paymentMethodId",
+      "payment_methods.name as paymentMethodName",
+      db.raw("sum(sale_payments.amount)::numeric(12, 2)::text as ??", [
+        "amount",
+      ]),
+    ])
+    .groupBy("payment_methods.id", "payment_methods.name");
+}
+
+function cashReportRefundsByPaymentMethodQuery(filters: CashReportFilters) {
+  return db("sale_item_returns")
+    .join("sales", "sales.id", "sale_item_returns.sale_id")
+    .join(
+      "cash_register_sessions",
+      "cash_register_sessions.id",
+      "sales.cash_register_session_id",
+    )
+    .join(
+      "payment_methods",
+      "payment_methods.id",
+      "sale_item_returns.refund_payment_method_id",
+    )
+    .where("sales.status", "COMPLETED")
+    .modify((query) => {
+      applyCashReportFilters(query, filters);
+    })
+    .select<CashReportPaymentMethodAmountRow[]>([
+      "payment_methods.id as paymentMethodId",
+      "payment_methods.name as paymentMethodName",
+      db.raw(
+        "sum(sale_item_returns.refund_amount)::numeric(12, 2)::text as ??",
+        ["amount"],
+      ),
+    ])
+    .groupBy("payment_methods.id", "payment_methods.name");
+}
+
+function cashReportSessionsRowsQuery(filters: CashReportFilters) {
+  return cashRegisterSessionsQuery(filters)
+    .join(
+      { opened_users: "users" },
+      "opened_users.id",
+      "cash_register_sessions.opened_by_user_id",
+    )
+    .leftJoin(
+      { closed_users: "users" },
+      "closed_users.id",
+      "cash_register_sessions.closed_by_user_id",
+    )
+    .select<CashReportSessionRow[]>([
+      "cash_register_sessions.id",
+      "opened_users.name as openedByUserName",
+      "closed_users.name as closedByUserName",
+      "cash_register_sessions.status",
+      "cash_register_sessions.opened_at as openedAt",
+      "cash_register_sessions.closed_at as closedAt",
+      "cash_register_sessions.opening_balance as openingBalance",
+      db.raw(
+        `(${cashReportSessionSalesAmountSql()})::numeric(12, 2)::text as ??`,
+        ["salesAmount"],
+      ),
+      db.raw(
+        `(${cashReportSessionMovementAmountSql("SUPPLY")})::numeric(12, 2)::text as ??`,
+        ["supplyAmount"],
+      ),
+      db.raw(
+        `(${cashReportSessionMovementAmountSql("WITHDRAWAL")})::numeric(12, 2)::text as ??`,
+        ["withdrawalAmount"],
+      ),
+      db.raw(
+        `(cash_register_sessions.opening_balance + (${cashReportSessionSalesAmountSql()}) + (${cashReportSessionMovementAmountSql("SUPPLY")}) - (${cashReportSessionMovementAmountSql("WITHDRAWAL")}))::numeric(12, 2)::text as ??`,
+        ["expectedClosingBalance"],
+      ),
+      "cash_register_sessions.closing_balance as closingBalance",
+      db.raw(
+        `(case when cash_register_sessions.closing_balance is null then null else cash_register_sessions.closing_balance - (cash_register_sessions.opening_balance + (${cashReportSessionSalesAmountSql()}) + (${cashReportSessionMovementAmountSql("SUPPLY")}) - (${cashReportSessionMovementAmountSql("WITHDRAWAL")})) end)::numeric(12, 2)::text as ??`,
+        ["difference"],
+      ),
+    ])
+    .orderBy("cash_register_sessions.opened_at", "desc")
+    .limit(20);
+}
+
+function cashReportSessionSalesAmountSql() {
+  return `
+    coalesce((
+      select sum(sale_payments.amount)
+      from sale_payments
+      join sales on sales.id = sale_payments.sale_id
+      where sales.cash_register_session_id = cash_register_sessions.id
+        and sales.status = 'COMPLETED'
+    ), 0) -
+    coalesce((
+      select sum(sale_item_returns.refund_amount)
+      from sale_item_returns
+      join sales on sales.id = sale_item_returns.sale_id
+      where sales.cash_register_session_id = cash_register_sessions.id
+        and sales.status = 'COMPLETED'
+    ), 0)
+  `;
+}
+
+function cashReportSessionMovementAmountSql(
+  movementType: "SUPPLY" | "WITHDRAWAL",
+) {
+  return `
+    coalesce((
+      select sum(cash_register_movements.amount)
+      from cash_register_movements
+      where cash_register_movements.cash_register_session_id = cash_register_sessions.id
+        and cash_register_movements.type = '${movementType}'
+    ), 0)
+  `;
+}
+
+function applyCashReportFilters(
+  query: Knex.QueryBuilder,
+  filters: CashReportFilters,
+) {
+  if (filters.dateFrom) {
+    query.where("cash_register_sessions.opened_at", ">=", filters.dateFrom);
+  }
+
+  if (filters.dateTo) {
+    query.where(
+      "cash_register_sessions.opened_at",
+      "<",
+      db.raw("?::date + interval '1 day'", [filters.dateTo]),
+    );
+  }
+}
+
+function mergeCashReportPaymentMethods(
+  grossRows: CashReportPaymentMethodAmountRow[],
+  refundRows: CashReportPaymentMethodAmountRow[],
+): CashReportPaymentMethodRow[] {
+  const paymentMethods = new Map<string, CashReportPaymentMethodRow>();
+
+  for (const row of grossRows) {
+    paymentMethods.set(row.paymentMethodId, {
+      paymentMethodId: row.paymentMethodId,
+      paymentMethodName: row.paymentMethodName,
+      grossAmount: row.amount,
+      refundAmount: "0.00",
+      netAmount: row.amount,
+    });
+  }
+
+  for (const row of refundRows) {
+    const current = paymentMethods.get(row.paymentMethodId) ?? {
+      paymentMethodId: row.paymentMethodId,
+      paymentMethodName: row.paymentMethodName,
+      grossAmount: "0.00",
+      refundAmount: "0.00",
+      netAmount: "0.00",
+    };
+
+    paymentMethods.set(row.paymentMethodId, {
+      ...current,
+      refundAmount: row.amount,
+      netAmount: subtractMoney(current.grossAmount, row.amount),
+    });
+  }
+
+  return [...paymentMethods.values()].sort(
+    (first, second) => Number(second.netAmount) - Number(first.netAmount),
+  );
+}
+
+function addMoney(...values: string[]) {
+  const total = values.reduce((sum, value) => sum + Number(value), 0);
+
+  return total.toFixed(2);
+}
+
+function subtractMoney(value: string, subtract: string) {
+  return (Number(value) - Number(subtract)).toFixed(2);
 }

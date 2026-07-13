@@ -1,8 +1,10 @@
 import {
+  getCashReport,
   getReportsOverview,
   getPurchaseReport,
   getSalesReport,
   getStockReport,
+  type CashReportFilters,
   type PurchaseReportFilters,
   type SalesReportFilters,
   type StockReportFilters,
@@ -37,5 +39,13 @@ export async function showPurchaseReport(filters: PurchaseReportFilters) {
     code: 200,
     status: "success",
     data: await getPurchaseReport(filters),
+  };
+}
+
+export async function showCashReport(filters: CashReportFilters) {
+  return {
+    code: 200,
+    status: "success",
+    data: await getCashReport(filters),
   };
 }

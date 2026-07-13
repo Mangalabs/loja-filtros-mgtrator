@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  showCashReport,
   showPurchaseReport,
   showReportsOverview,
   showSalesReport,
@@ -34,4 +35,10 @@ reportsRoutes.get("/reports/purchases", async (request, response) => {
   const query = salesReportQuerySchema.parse(request.query);
 
   response.status(200).json(await showPurchaseReport(query));
+});
+
+reportsRoutes.get("/reports/cash", async (request, response) => {
+  const query = salesReportQuerySchema.parse(request.query);
+
+  response.status(200).json(await showCashReport(query));
 });

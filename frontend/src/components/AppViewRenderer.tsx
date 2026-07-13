@@ -1,5 +1,6 @@
 import type {
   CashRegisterSession,
+  CashReport,
   Client,
   CommercialSettings,
   AuthUser,
@@ -68,6 +69,7 @@ import type { useStockActions } from "../views/stock/useStockActions";
 type AppViewRendererProps = {
   brands: NamedEntity[];
   cashRegister: CashRegisterSession | null;
+  cashReport: CashReport | null;
   catalogActions: ReturnType<typeof useCatalogActions>;
   clients: Client[];
   commercialSettings: CommercialSettings | null;
@@ -108,6 +110,10 @@ type AppViewRendererProps = {
     dateFrom?: string;
     dateTo?: string;
   }) => Promise<boolean>;
+  onLoadCashReport: (filters?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }) => Promise<boolean>;
   onLoadStockReport: (filters?: {
     dateFrom?: string;
     dateTo?: string;
@@ -125,6 +131,7 @@ type AppViewRendererProps = {
 export function AppViewRenderer({
   brands,
   cashRegister,
+  cashReport,
   catalogActions,
   clients,
   commercialSettings,
@@ -160,6 +167,7 @@ export function AppViewRenderer({
   onCancelClient,
   onCancelProductEdit,
   onLoadSalesReport,
+  onLoadCashReport,
   onLoadPurchaseReport,
   onLoadStockReport,
   onOpenQuotes,
@@ -289,9 +297,11 @@ export function AppViewRenderer({
       ),
     reports: (
       <ReportsPage
+        cashReport={cashReport}
         overview={reportsOverview}
         purchaseReport={purchaseReport}
         salesReport={salesReport}
+        onLoadCashReport={onLoadCashReport}
         onLoadSalesReport={onLoadSalesReport}
         onLoadPurchaseReport={onLoadPurchaseReport}
         stockReport={stockReport}

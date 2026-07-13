@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   apiGet,
   type ApiResult,
+  type CashReport,
   type CashRegisterSession,
   type Client,
   type CommercialSettings,
@@ -51,6 +52,7 @@ export function useCatalogData() {
   const [purchaseReport, setPurchaseReport] = useState<PurchaseReport | null>(
     null,
   );
+  const [cashReport, setCashReport] = useState<CashReport | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [fiscalDocuments, setFiscalDocuments] = useState<FiscalDocument[]>([]);
@@ -88,6 +90,7 @@ export function useCatalogData() {
         salesReportResult,
         stockReportResult,
         purchaseReportResult,
+        cashReportResult,
         quotesResult,
         salesResult,
         fiscalDocumentsResult,
@@ -111,6 +114,7 @@ export function useCatalogData() {
         apiGet<ApiResult<SalesReport>>("/reports/sales"),
         apiGet<ApiResult<StockReport>>("/reports/stock"),
         apiGet<ApiResult<PurchaseReport>>("/reports/purchases"),
+        apiGet<ApiResult<CashReport>>("/reports/cash"),
         apiGet<ApiResult<Quote[]>>("/quotes"),
         apiGet<ApiResult<Sale[]>>("/sales"),
         apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents"),
@@ -135,6 +139,7 @@ export function useCatalogData() {
       setSalesReport(salesReportResult.data);
       setStockReport(stockReportResult.data);
       setPurchaseReport(purchaseReportResult.data);
+      setCashReport(cashReportResult.data);
       setQuotes(quotesResult.data);
       setSales(salesResult.data);
       setFiscalDocuments(fiscalDocumentsResult.data);
@@ -203,6 +208,24 @@ export function useCatalogData() {
     }
   }
 
+  async function loadCashReport(filters: ReportPeriodFilters = {}) {
+    setMessage("");
+
+    try {
+      const result = await apiGet<ApiResult<CashReport>>(
+        reportPath("/reports/cash", filters),
+      );
+
+      setCashReport(result.data);
+      setState("ready");
+      return true;
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+      return false;
+    }
+  }
+
   useEffect(() => {
     void loadCatalog();
   }, []);
@@ -245,12 +268,14 @@ export function useCatalogData() {
   return {
     brands,
     cashRegister,
+    cashReport,
     clients,
     commercialSettings,
     filteredProducts,
     fiscalDocuments,
     fiscalSettings,
     loadCatalog,
+    loadCashReport,
     lowStockProducts,
     loadPurchaseReport,
     loadStockReport,

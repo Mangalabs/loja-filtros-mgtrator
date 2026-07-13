@@ -30,12 +30,14 @@ export function AuthenticatedApp({
   const {
     brands,
     cashRegister,
+    cashReport,
     clients,
     commercialSettings,
     filteredProducts,
     fiscalDocuments,
     fiscalSettings,
     loadCatalog,
+    loadCashReport,
     loadPurchaseReport,
     loadSalesReport,
     loadStockReport,
@@ -178,6 +180,7 @@ export function AuthenticatedApp({
         <AppViewRenderer
           brands={brands}
           cashRegister={cashRegister}
+          cashReport={cashReport}
           catalogActions={catalogActions}
           clients={clients}
           commercialSettings={commercialSettings}
@@ -196,6 +199,7 @@ export function AuthenticatedApp({
           reportsOverview={reportsOverview}
           sales={sales}
           salesReport={salesReport}
+          onLoadCashReport={loadCashReport}
           onLoadPurchaseReport={loadPurchaseReport}
           onLoadSalesReport={loadSalesReport}
           onLoadStockReport={loadStockReport}
