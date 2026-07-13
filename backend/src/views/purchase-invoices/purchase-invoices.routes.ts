@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  importPurchaseInvoiceXml,
   indexPurchaseInvoices,
   parsePurchaseInvoiceXml,
   storePurchaseInvoice,
@@ -88,6 +89,17 @@ purchaseInvoicesRoutes.post(
     const result = parsePurchaseInvoiceXml(body.xmlContent);
 
     response.status(200).json(result);
+  },
+);
+
+purchaseInvoicesRoutes.post(
+  "/purchase-invoices/import-xml",
+  async (request, response) => {
+    const body = validateBody(request, parsePurchaseInvoiceXmlSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+    const result = await importPurchaseInvoiceXml(body.xmlContent, userId);
+
+    response.status(201).json(result);
   },
 );
 

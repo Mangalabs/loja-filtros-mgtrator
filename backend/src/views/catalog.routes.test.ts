@@ -5425,6 +5425,38 @@ describe("catalog routes", () => {
     );
   });
 
+  it("imports a purchase invoice directly from XML without posting stock", async () => {
+    const accessKey = "3".repeat(44);
+
+    const created = await request<PurchaseInvoice>(
+      "/purchase-invoices/import-xml",
+      {
+        method: "POST",
+        body: { xmlContent: purchaseInvoiceXml(accessKey) },
+      },
+    );
+    const duplicated = await request("/purchase-invoices/import-xml", {
+      method: "POST",
+      body: { xmlContent: purchaseInvoiceXml(accessKey) },
+    });
+    const listed = await request<PurchaseInvoice[]>("/purchase-invoices");
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.accessKey, accessKey);
+    assert.equal(created.body.data?.supplierName, "FORNECEDOR XML LTDA");
+    assert.equal(
+      created.body.data?.createdByUserName,
+      "Administrador de teste",
+    );
+    assert.equal(created.body.data?.totalAmount, "84.50");
+    assert.equal(created.body.data?.items.length, 2);
+    assert.equal(created.body.data?.items[0]?.productId, null);
+    assert.equal(created.body.data?.items[0]?.description, "Filtro & oleo");
+    assert.equal(created.body.data?.items[1]?.totalAmount, "42.00");
+    assert.equal(duplicated.status, 409);
+    assert.equal(listed.body.data?.length, 1);
+  });
+
   it("imports a structured purchase invoice without posting stock", async () => {
     const supplier = await request<NamedEntity>("/suppliers", {
       method: "POST",

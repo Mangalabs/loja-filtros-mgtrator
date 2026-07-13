@@ -27,6 +27,13 @@ export function parsePurchaseInvoiceXml(xmlContent: string) {
   };
 }
 
+export async function importPurchaseInvoiceXml(
+  xmlContent: string,
+  createdByUserId: string,
+) {
+  return storePurchaseInvoice(parseNfePurchaseXml(xmlContent), createdByUserId);
+}
+
 export async function storePurchaseInvoice(
   input: PurchaseInvoiceInput,
   createdByUserId: string,
