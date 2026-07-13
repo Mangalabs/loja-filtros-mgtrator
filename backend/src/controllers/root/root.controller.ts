@@ -25,6 +25,7 @@ export function showApiInfo() {
         "/quotes/:id/shipping-order",
         "/purchase-invoices",
         "/purchase-invoices/:id",
+        "/purchase-invoices/:id/post",
         "/purchase-invoices/import-xml",
         "/purchase-invoices/parse-xml",
         "/reports/overview",

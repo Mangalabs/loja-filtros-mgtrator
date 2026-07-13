@@ -210,6 +210,43 @@ export async function findPurchaseInvoiceStatus(
   return invoice?.status;
 }
 
+export async function findPurchaseInvoiceForPosting(
+  transaction: Knex.Transaction,
+  id: string,
+): Promise<PurchaseInvoice | undefined> {
+  const invoice = await transaction("purchase_invoices")
+    .join("users", "users.id", "purchase_invoices.created_by_user_id")
+    .select<PurchaseInvoiceRow[]>(purchaseInvoiceColumns)
+    .where("purchase_invoices.id", id)
+    .forUpdate()
+    .first();
+
+  if (!invoice) {
+    return undefined;
+  }
+
+  const [withDetails] = await withPurchaseInvoiceDetails(transaction, [invoice]);
+  return withDetails;
+}
+
+export async function markPurchaseInvoiceAsPosted(
+  transaction: Knex.Transaction,
+  id: string,
+): Promise<PurchaseInvoice> {
+  await transaction("purchase_invoices").where("id", id).update({
+    status: "POSTED",
+    updated_at: transaction.fn.now(),
+  });
+
+  const invoice = await findPurchaseInvoiceById(transaction, id);
+
+  if (!invoice) {
+    throw new Error("Purchase invoice was not found after posting");
+  }
+
+  return invoice;
+}
+
 export async function updatePurchaseInvoiceReview(
   transaction: Knex.Transaction,
   id: string,

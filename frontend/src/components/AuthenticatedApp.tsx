@@ -70,7 +70,11 @@ export function AuthenticatedApp({
     showProducts: () => setView("products"),
   });
 
-  const stockActions = useStockActions({ loadCatalog, runAction });
+  const stockActions = useStockActions({
+    loadCatalog,
+    requestConfirmation,
+    runAction,
+  });
 
   const financeActions = useFinanceActions({
     loadCatalog,

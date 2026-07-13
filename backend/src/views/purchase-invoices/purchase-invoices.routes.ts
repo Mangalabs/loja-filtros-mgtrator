@@ -4,6 +4,7 @@ import {
   importPurchaseInvoiceXml,
   indexPurchaseInvoices,
   parsePurchaseInvoiceXml,
+  postPurchaseInvoice,
   storePurchaseInvoice,
   updatePurchaseInvoice,
 } from "../../controllers/purchase-invoices/purchase-invoices.controller.js";
@@ -148,6 +149,17 @@ purchaseInvoicesRoutes.put(
     const { id } = purchaseInvoiceParamsSchema.parse(request.params);
     const body = validateBody(request, updatePurchaseInvoiceSchema);
     const result = await updatePurchaseInvoice(id, body);
+
+    response.status(200).json(result);
+  },
+);
+
+purchaseInvoicesRoutes.post(
+  "/purchase-invoices/:id/post",
+  async (request, response) => {
+    const { id } = purchaseInvoiceParamsSchema.parse(request.params);
+    const userId = response.locals.authenticatedUser.id as string;
+    const result = await postPurchaseInvoice(id, userId);
 
     response.status(200).json(result);
   },

@@ -197,6 +197,9 @@ export function AppViewRenderer({
           products={products}
           suppliers={suppliers}
           onParseXml={stockActions.parsePurchaseInvoiceXml}
+          onPostInvoice={(invoice) =>
+            void stockActions.postPurchaseInvoice(invoice)
+          }
           onSaveReview={stockActions.savePurchaseInvoiceReview}
         />
       ),

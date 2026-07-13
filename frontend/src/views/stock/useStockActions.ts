@@ -12,11 +12,17 @@ import { parsePurchaseXmlPreview } from "./purchaseXmlPreview";
 
 type StockActionsOptions = {
   loadCatalog: () => Promise<void>;
+  requestConfirmation: (
+    message: string,
+    title?: string,
+    confirmLabel?: string,
+  ) => Promise<boolean>;
   runAction: (action: () => Promise<void>) => Promise<boolean>;
 };
 
 export function useStockActions({
   loadCatalog,
+  requestConfirmation,
   runAction,
 }: StockActionsOptions) {
   async function createStockEntry(event: FormEvent<HTMLFormElement>) {
@@ -87,10 +93,32 @@ export function useStockActions({
     });
   }
 
+  async function postPurchaseInvoice(invoice: PurchaseInvoice) {
+    const confirmed = await requestConfirmation(
+      "Esta acao vai lancar os itens da compra no estoque e atualizar o custo dos produtos vinculados.",
+      "Lancar compra no estoque",
+      "Lancar estoque",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPost<ApiResult<PurchaseInvoice>>(
+        `/purchase-invoices/${invoice.id}/post`,
+        {},
+      );
+
+      await loadCatalog();
+    });
+  }
+
   return {
     createStockAdjustment,
     createStockEntry,
     parsePurchaseInvoiceXml,
+    postPurchaseInvoice,
     savePurchaseInvoiceReview,
   };
 }

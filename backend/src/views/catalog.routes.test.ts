@@ -5582,6 +5582,95 @@ describe("catalog routes", () => {
     assert.equal(unchangedProduct.body.data?.costPrice, "30.00");
   });
 
+  it("posts a reviewed purchase invoice to stock", async () => {
+    const supplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor para XML" },
+    });
+    const firstProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro XML estoque A", costPrice: 10 },
+    });
+    const secondProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro XML estoque B", costPrice: 15 },
+    });
+    const imported = await request<PurchaseInvoice>(
+      "/purchase-invoices/import-xml",
+      {
+        method: "POST",
+        body: { xmlContent: purchaseInvoiceXml("5".repeat(44)) },
+      },
+    );
+    const reviewed = await request<PurchaseInvoice>(
+      `/purchase-invoices/${imported.body.data?.id}`,
+      {
+        method: "PUT",
+        body: {
+          issueDate: "2026-07-13",
+          number: "321",
+          series: "1",
+          supplierDocument: "12345678000199",
+          supplierId: supplier.body.data?.id,
+          supplierName: "FORNECEDOR XML LTDA",
+          totalAmount: 84.5,
+          items: [
+            {
+              cfop: "5102",
+              description: "Filtro XML estoque A",
+              ncm: "84212300",
+              position: 1,
+              productId: firstProduct.body.data?.id,
+              quantity: 2,
+              supplierProductCode: "FX-1",
+              totalAmount: 42.5,
+              unit: "UN",
+              unitCost: 21.25,
+            },
+            {
+              cfop: "5102",
+              description: "Filtro XML estoque B",
+              ncm: "84212300",
+              position: 2,
+              productId: secondProduct.body.data?.id,
+              quantity: 1,
+              supplierProductCode: "FX-2",
+              totalAmount: 42,
+              unit: "UN",
+              unitCost: 42,
+            },
+          ],
+        },
+      },
+    );
+
+    const posted = await request<PurchaseInvoice>(
+      `/purchase-invoices/${reviewed.body.data?.id}/post`,
+      { method: "POST" },
+    );
+    const firstUpdatedProduct = await request<Product>(
+      `/products/${firstProduct.body.data?.id}`,
+    );
+    const secondUpdatedProduct = await request<Product>(
+      `/products/${secondProduct.body.data?.id}`,
+    );
+    const entries = await request<StockEntry[]>("/stock-entries");
+    const repost = await request(
+      `/purchase-invoices/${reviewed.body.data?.id}/post`,
+      { method: "POST" },
+    );
+
+    assert.equal(posted.status, 200);
+    assert.equal(posted.body.data?.status, "POSTED");
+    assert.equal(firstUpdatedProduct.body.data?.currentStock, "2.000");
+    assert.equal(firstUpdatedProduct.body.data?.costPrice, "21.25");
+    assert.equal(secondUpdatedProduct.body.data?.currentStock, "1.000");
+    assert.equal(secondUpdatedProduct.body.data?.costPrice, "42.00");
+    assert.equal(entries.body.data?.length, 2);
+    assert.equal(entries.body.data?.[0]?.supplierName, "Fornecedor para XML");
+    assert.equal(repost.status, 409);
+  });
+
   it("imports a structured purchase invoice without posting stock", async () => {
     const supplier = await request<NamedEntity>("/suppliers", {
       method: "POST",

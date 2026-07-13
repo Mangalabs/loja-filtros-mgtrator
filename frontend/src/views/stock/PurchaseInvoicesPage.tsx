@@ -4,7 +4,7 @@ import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
-import { FileText, RotateCcw, Save, Upload } from "lucide-react";
+import { FileText, PackageCheck, RotateCcw, Save, Upload } from "lucide-react";
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import type {
   Product,
@@ -35,6 +35,7 @@ type PurchaseInvoicesPageProps = {
   products: Product[];
   suppliers: Supplier[];
   onParseXml: (xmlContent: string) => Promise<PurchaseInvoiceDraft | null>;
+  onPostInvoice: (invoice: PurchaseInvoice) => void;
   onSaveReview: (
     input: PurchaseInvoiceDraft,
     invoiceId?: string,
@@ -46,6 +47,7 @@ export function PurchaseInvoicesPage({
   products,
   suppliers,
   onParseXml,
+  onPostInvoice,
   onSaveReview,
 }: PurchaseInvoicesPageProps) {
   const [draft, setDraft] = useState<PurchaseInvoiceDraft | null>(null);
@@ -382,6 +384,12 @@ export function PurchaseInvoicesPage({
                       icon: <FileText size={16} />,
                       label: "Revisar dados",
                       onSelect: () => reviewInvoice(invoice),
+                    },
+                    {
+                      disabled: invoice.status !== "IMPORTED",
+                      icon: <PackageCheck size={16} />,
+                      label: "Lancar no estoque",
+                      onSelect: () => onPostInvoice(invoice),
                     },
                   ]}
                 />
