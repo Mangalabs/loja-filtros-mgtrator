@@ -3,8 +3,10 @@ import {
   apiPost,
   apiPut,
   type ApiResult,
+  type Product,
   type PurchaseInvoice,
   type PurchaseInvoiceDraft,
+  type PurchaseInvoiceItemDraft,
   type Supplier,
 } from "../../api";
 import { nullableFormValue } from "../../utils/forms";
@@ -116,13 +118,54 @@ export function useStockActions({
     });
   }
 
+  async function createProductFromPurchaseItem(
+    item: PurchaseInvoiceItemDraft,
+  ) {
+    let createdProduct: Product | null = null;
+
+    await runAction(async () => {
+      const result = await apiPost<ApiResult<Product>>(
+        "/products",
+        productPayloadFromPurchaseItem(item),
+      );
+
+      createdProduct = result.data;
+      await loadCatalog();
+    });
+
+    return createdProduct;
+  }
+
   return {
+    createProductFromPurchaseItem,
     createStockAdjustment,
     createStockEntry,
     parsePurchaseInvoiceXml,
     postPurchaseInvoice,
     savePurchaseInvoiceReview,
   };
+}
+
+function productPayloadFromPurchaseItem(item: PurchaseInvoiceItemDraft) {
+  return {
+    active: true,
+    costPrice: item.unitCost,
+    internalCode: item.supplierProductCode ?? "",
+    minimumStock: 0,
+    name: item.description,
+    ncm: item.ncm ?? "",
+    salePrice: item.unitCost,
+    unit: productUnitFromPurchaseItem(item.unit),
+  };
+}
+
+function productUnitFromPurchaseItem(unit: string | null) {
+  const normalizedUnit = unit?.trim().toUpperCase();
+  const allowedUnits = new Set(["UN", "KIT", "CJ"]);
+
+  return normalizedUnit && allowedUnits.has(normalizedUnit)
+    ? normalizedUnit
+    : "UN";
 }
 
 async function purchaseInvoiceReviewPayload(

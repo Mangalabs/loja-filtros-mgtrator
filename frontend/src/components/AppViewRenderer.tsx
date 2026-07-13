@@ -196,6 +196,7 @@ export function AppViewRenderer({
           invoices={purchaseInvoices}
           products={products}
           suppliers={suppliers}
+          onCreateProductFromItem={stockActions.createProductFromPurchaseItem}
           onParseXml={stockActions.parsePurchaseInvoiceXml}
           onPostInvoice={(invoice) =>
             void stockActions.postPurchaseInvoice(invoice)

@@ -7,7 +7,14 @@ import MenuItem from "@mui/material/MenuItem";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import TextField from "@mui/material/TextField";
-import { FileText, PackageCheck, RotateCcw, Save, Upload } from "lucide-react";
+import {
+  FileText,
+  PackageCheck,
+  PackagePlus,
+  RotateCcw,
+  Save,
+  Upload,
+} from "lucide-react";
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import type {
   Product,
@@ -38,6 +45,9 @@ type PurchaseInvoicesPageProps = {
   invoices: PurchaseInvoice[];
   products: Product[];
   suppliers: Supplier[];
+  onCreateProductFromItem: (
+    item: PurchaseInvoiceDraft["items"][number],
+  ) => Promise<Product | null>;
   onParseXml: (xmlContent: string) => Promise<PurchaseInvoiceDraft | null>;
   onPostInvoice: (invoice: PurchaseInvoice) => void;
   onSaveReview: (
@@ -50,6 +60,7 @@ export function PurchaseInvoicesPage({
   invoices,
   products,
   suppliers,
+  onCreateProductFromItem,
   onParseXml,
   onPostInvoice,
   onSaveReview,
@@ -122,6 +133,25 @@ export function PurchaseInvoicesPage({
     setXmlContent("");
     setXmlFileName("");
     setXmlFileError("");
+  }
+
+  async function createProductFromItem(index: number) {
+    if (!draft) {
+      return;
+    }
+
+    const product = await onCreateProductFromItem(draft.items[index]);
+
+    if (!product) {
+      return;
+    }
+
+    setDraft({
+      ...draft,
+      items: draft.items.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, productId: product.id } : item,
+      ),
+    });
   }
 
   return (
@@ -276,6 +306,7 @@ export function PurchaseInvoicesPage({
                     item={item}
                     key={`${reviewKey}-${item.position}-${index}`}
                     products={products}
+                    onCreateProduct={() => void createProductFromItem(index)}
                   />
                 ))}
               </div>
@@ -525,10 +556,12 @@ function PurchaseInvoiceInstallments({
 function PurchaseInvoiceItemReview({
   index,
   item,
+  onCreateProduct,
   products,
 }: {
   index: number;
   item: PurchaseInvoiceDraft["items"][number];
+  onCreateProduct: () => void;
   products: Product[];
 }) {
   const candidateProducts = purchaseItemProductCandidates(item, products);
@@ -577,6 +610,15 @@ function PurchaseInvoiceItemReview({
           </div>
         </div>
       ) : null}
+      <div className="flex justify-end">
+        <SecondaryButton
+          icon={<PackagePlus size={16} />}
+          type="button"
+          onClick={onCreateProduct}
+        >
+          Criar produto deste item
+        </SecondaryButton>
+      </div>
       <TextField
         defaultValue={item.description}
         label="Detalhes / descricao do XML"
