@@ -11,6 +11,7 @@ import {
   type PaymentMethod,
   type PickupReservation,
   type Product,
+  type PurchaseReport,
   type PurchaseInvoice,
   type Quote,
   type ReportsOverview,
@@ -47,6 +48,9 @@ export function useCatalogData() {
     useState<ReportsOverview | null>(null);
   const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
   const [stockReport, setStockReport] = useState<StockReport | null>(null);
+  const [purchaseReport, setPurchaseReport] = useState<PurchaseReport | null>(
+    null,
+  );
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [fiscalDocuments, setFiscalDocuments] = useState<FiscalDocument[]>([]);
@@ -83,6 +87,7 @@ export function useCatalogData() {
         reportsOverviewResult,
         salesReportResult,
         stockReportResult,
+        purchaseReportResult,
         quotesResult,
         salesResult,
         fiscalDocumentsResult,
@@ -105,6 +110,7 @@ export function useCatalogData() {
         apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
         apiGet<ApiResult<SalesReport>>("/reports/sales"),
         apiGet<ApiResult<StockReport>>("/reports/stock"),
+        apiGet<ApiResult<PurchaseReport>>("/reports/purchases"),
         apiGet<ApiResult<Quote[]>>("/quotes"),
         apiGet<ApiResult<Sale[]>>("/sales"),
         apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents"),
@@ -128,6 +134,7 @@ export function useCatalogData() {
       setReportsOverview(reportsOverviewResult.data);
       setSalesReport(salesReportResult.data);
       setStockReport(stockReportResult.data);
+      setPurchaseReport(purchaseReportResult.data);
       setQuotes(quotesResult.data);
       setSales(salesResult.data);
       setFiscalDocuments(fiscalDocumentsResult.data);
@@ -169,6 +176,24 @@ export function useCatalogData() {
       );
 
       setStockReport(result.data);
+      setState("ready");
+      return true;
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+      return false;
+    }
+  }
+
+  async function loadPurchaseReport(filters: ReportPeriodFilters = {}) {
+    setMessage("");
+
+    try {
+      const result = await apiGet<ApiResult<PurchaseReport>>(
+        reportPath("/reports/purchases", filters),
+      );
+
+      setPurchaseReport(result.data);
       setState("ready");
       return true;
     } catch (error) {
@@ -227,11 +252,13 @@ export function useCatalogData() {
     fiscalSettings,
     loadCatalog,
     lowStockProducts,
+    loadPurchaseReport,
     loadStockReport,
     message,
     paymentMethods,
     pickupReservations,
     products,
+    purchaseReport,
     purchaseInvoices,
     quotes,
     reportsOverview,

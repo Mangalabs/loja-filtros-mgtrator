@@ -11,9 +11,15 @@ import {
   PackagePlus,
   Send,
   ShoppingCart,
+  Truck,
 } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
-import type { ReportsOverview, SalesReport, StockReport } from "../../api";
+import type {
+  PurchaseReport,
+  ReportsOverview,
+  SalesReport,
+  StockReport,
+} from "../../api";
 import { PageHeader, PagePanel, ResponsiveTable } from "../../components/layout";
 import { StatusChip } from "../../components/ui";
 import { frontendPalette } from "../../theme";
@@ -25,31 +31,40 @@ import {
 
 export function ReportsPage({
   onLoadSalesReport,
+  onLoadPurchaseReport,
   onLoadStockReport,
   overview,
+  purchaseReport,
   salesReport,
   stockReport,
 }: {
   onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
+  onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>;
   onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>;
   overview: ReportsOverview | null;
+  purchaseReport: PurchaseReport | null;
   salesReport: SalesReport | null;
   stockReport: StockReport | null;
 }) {
   const contentByState = {
     loading: <ReportsLoading />,
     ready:
-      overview && salesReport && stockReport ? (
+      overview && salesReport && stockReport && purchaseReport ? (
         <ReportsOverviewContent
           overview={overview}
+          onLoadPurchaseReport={onLoadPurchaseReport}
           onLoadSalesReport={onLoadSalesReport}
           onLoadStockReport={onLoadStockReport}
+          purchaseReport={purchaseReport}
           salesReport={salesReport}
           stockReport={stockReport}
         />
       ) : null,
   };
-  const state = overview && salesReport && stockReport ? "ready" : "loading";
+  const state =
+    overview && salesReport && stockReport && purchaseReport
+      ? "ready"
+      : "loading";
 
   return contentByState[state];
 }
@@ -71,15 +86,19 @@ function ReportsLoading() {
 }
 
 function ReportsOverviewContent({
+  onLoadPurchaseReport,
   onLoadSalesReport,
   onLoadStockReport,
   overview,
+  purchaseReport,
   salesReport,
   stockReport,
 }: {
+  onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>;
   onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
   onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>;
   overview: ReportsOverview;
+  purchaseReport: PurchaseReport;
   salesReport: SalesReport;
   stockReport: StockReport;
 }) {
@@ -150,6 +169,10 @@ function ReportsOverviewContent({
       <SalesReportSection
         salesReport={salesReport}
         onLoadSalesReport={onLoadSalesReport}
+      />
+      <PurchaseReportSection
+        purchaseReport={purchaseReport}
+        onLoadPurchaseReport={onLoadPurchaseReport}
       />
       <StockReportSection
         stockReport={stockReport}
@@ -316,6 +339,175 @@ function SalesReportSection({
           emptyMessage="Nenhuma venda por pagamento."
           getRowId={(item) => item.paymentMethodId}
           items={salesReport.byPaymentMethod}
+        />
+      </div>
+    </PagePanel>
+  );
+}
+
+function PurchaseReportSection({
+  onLoadPurchaseReport,
+  purchaseReport,
+}: {
+  onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>;
+  purchaseReport: PurchaseReport;
+}) {
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function filterPurchaseReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+
+    await onLoadPurchaseReport({ dateFrom, dateTo });
+    setLoading(false);
+  }
+
+  async function clearPurchaseReportFilters() {
+    setDateFrom("");
+    setDateTo("");
+    setLoading(true);
+
+    await onLoadPurchaseReport();
+    setLoading(false);
+  }
+
+  return (
+    <PagePanel wide>
+      <PageHeader
+        actions={
+          <form
+            className="grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto"
+            onSubmit={filterPurchaseReport}
+          >
+            <TextField
+              label="De"
+              size="small"
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              label="Ate"
+              size="small"
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <Button disabled={loading} type="submit" variant="contained">
+              Filtrar compras
+            </Button>
+            <Button
+              disabled={loading || (!dateFrom && !dateTo)}
+              type="button"
+              variant="outlined"
+              onClick={() => void clearPurchaseReportFilters()}
+            >
+              Limpar
+            </Button>
+          </form>
+        }
+        description="Gastos com entradas manuais e compras importadas por XML."
+        icon={<Truck size={18} />}
+        title="Gastos com compras"
+      />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <ReportMetric
+          icon={<Truck size={18} />}
+          label="Entradas"
+          value={String(purchaseReport.summary.entriesCount)}
+        />
+        <ReportMetric
+          icon={<PackagePlus size={18} />}
+          label="Qtde comprada"
+          value={formatQuantity(purchaseReport.summary.totalQuantity)}
+        />
+        <ReportMetric
+          icon={<Banknote size={18} />}
+          label="Total comprado"
+          value={formatCurrency(purchaseReport.summary.totalAmount)}
+        />
+        <ReportMetric
+          icon={<PackageSearch size={18} />}
+          label="Entrada manual"
+          value={formatCurrency(purchaseReport.summary.manualAmount)}
+        />
+        <ReportMetric
+          icon={<CreditCard size={18} />}
+          label="XML NF-e"
+          value={formatCurrency(purchaseReport.summary.xmlAmount)}
+        />
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Origem",
+              render: (item) =>
+                item.source === "XML" ? "XML de compra" : "Entrada manual",
+            },
+            {
+              align: "right",
+              header: "Entradas",
+              render: (item) => item.entriesCount,
+            },
+            {
+              align: "right",
+              header: "Total",
+              render: (item) => formatCurrency(item.totalAmount),
+            },
+          ]}
+          emptyMessage="Nenhuma compra por origem."
+          getRowId={(item) => item.source}
+          items={purchaseReport.bySource}
+        />
+
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Fornecedor",
+              render: (item) => item.supplierName,
+            },
+            {
+              align: "right",
+              header: "Entradas",
+              render: (item) => item.entriesCount,
+            },
+            {
+              align: "right",
+              header: "Total",
+              render: (item) => formatCurrency(item.totalAmount),
+            },
+          ]}
+          emptyMessage="Nenhuma compra por fornecedor."
+          getRowId={(item) => item.supplierId}
+          items={purchaseReport.bySupplier}
+        />
+
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Produto",
+              render: (item) => item.productName,
+            },
+            {
+              align: "right",
+              header: "Qtde",
+              render: (item) => formatQuantity(item.quantity),
+            },
+            {
+              align: "right",
+              header: "Total",
+              render: (item) => formatCurrency(item.totalAmount),
+            },
+          ]}
+          emptyMessage="Nenhuma compra por produto."
+          getRowId={(item) => item.productId}
+          items={purchaseReport.byProduct}
         />
       </div>
     </PagePanel>

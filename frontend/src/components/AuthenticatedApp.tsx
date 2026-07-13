@@ -36,6 +36,7 @@ export function AuthenticatedApp({
     fiscalDocuments,
     fiscalSettings,
     loadCatalog,
+    loadPurchaseReport,
     loadSalesReport,
     loadStockReport,
     lowStockProducts,
@@ -44,6 +45,7 @@ export function AuthenticatedApp({
     pickupReservations,
     products,
     purchaseInvoices,
+    purchaseReport,
     quotes,
     reportsOverview,
     runAction,
@@ -188,11 +190,13 @@ export function AuthenticatedApp({
           pickupReservations={pickupReservations}
           products={products}
           purchaseInvoices={purchaseInvoices}
+          purchaseReport={purchaseReport}
           quoteActions={quoteActions}
           quotes={quotes}
           reportsOverview={reportsOverview}
           sales={sales}
           salesReport={salesReport}
+          onLoadPurchaseReport={loadPurchaseReport}
           onLoadSalesReport={loadSalesReport}
           onLoadStockReport={loadStockReport}
           salesActions={salesActions}

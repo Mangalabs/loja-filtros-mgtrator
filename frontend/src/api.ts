@@ -415,6 +415,34 @@ export type StockReport = {
   }>;
 };
 
+export type PurchaseReport = {
+  summary: {
+    entriesCount: number;
+    totalQuantity: string;
+    totalAmount: string;
+    manualAmount: string;
+    xmlAmount: string;
+  };
+  bySource: Array<{
+    source: "MANUAL" | "XML";
+    entriesCount: number;
+    totalQuantity: string;
+    totalAmount: string;
+  }>;
+  bySupplier: Array<{
+    supplierId: string;
+    supplierName: string;
+    entriesCount: number;
+    totalAmount: string;
+  }>;
+  byProduct: Array<{
+    productId: string;
+    productName: string;
+    quantity: string;
+    totalAmount: string;
+  }>;
+};
+
 export type ShippingOrder = {
   id: string;
   quoteId: string | null;

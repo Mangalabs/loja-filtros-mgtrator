@@ -50,6 +50,11 @@ export type StockReportFilters = {
   dateTo?: string;
 };
 
+export type PurchaseReportFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+};
+
 export type StockReport = {
   summary: {
     activeProductsCount: number;
@@ -76,6 +81,34 @@ export type StockReport = {
     productName: string;
     soldQuantity: string;
     lastSaleAt: Date | null;
+  }>;
+};
+
+export type PurchaseReport = {
+  summary: {
+    entriesCount: number;
+    totalQuantity: string;
+    totalAmount: string;
+    manualAmount: string;
+    xmlAmount: string;
+  };
+  bySource: Array<{
+    source: "MANUAL" | "XML";
+    entriesCount: number;
+    totalQuantity: string;
+    totalAmount: string;
+  }>;
+  bySupplier: Array<{
+    supplierId: string;
+    supplierName: string;
+    entriesCount: number;
+    totalAmount: string;
+  }>;
+  byProduct: Array<{
+    productId: string;
+    productName: string;
+    quantity: string;
+    totalAmount: string;
   }>;
 };
 
@@ -147,6 +180,35 @@ type StockTurnoverProductRow = {
 
 type StockSummaryRow = {
   soldQuantity: string;
+};
+
+type PurchaseReportSummaryRow = {
+  entriesCount: string;
+  totalQuantity: string;
+  totalAmount: string;
+  manualAmount: string;
+  xmlAmount: string;
+};
+
+type PurchaseBySourceRow = {
+  source: "MANUAL" | "XML";
+  entriesCount: string;
+  totalQuantity: string;
+  totalAmount: string;
+};
+
+type PurchaseBySupplierRow = {
+  supplierId: string;
+  supplierName: string;
+  entriesCount: string;
+  totalAmount: string;
+};
+
+type PurchaseByProductRow = {
+  productId: string;
+  productName: string;
+  quantity: string;
+  totalAmount: string;
 };
 
 export async function getReportsOverview(): Promise<ReportsOverview> {
@@ -373,6 +435,104 @@ export async function getStockReport(
   };
 }
 
+export async function getPurchaseReport(
+  filters: PurchaseReportFilters,
+): Promise<PurchaseReport> {
+  const [summary, bySource, bySupplier, byProduct] = await Promise.all([
+    purchaseReportBaseQuery(filters)
+      .select<PurchaseReportSummaryRow[]>([
+        db.raw("count(stock_movements.id)::text as ??", ["entriesCount"]),
+        db.raw(
+          "coalesce(sum(stock_movements.quantity), 0)::numeric(12, 3)::text as ??",
+          ["totalQuantity"],
+        ),
+        db.raw(
+          "coalesce(sum(stock_movements.quantity * stock_movements.unit_cost), 0)::numeric(12, 2)::text as ??",
+          ["totalAmount"],
+        ),
+        db.raw(
+          `coalesce(sum(case when ${purchaseSourceSql()} = 'MANUAL' then stock_movements.quantity * stock_movements.unit_cost else 0 end), 0)::numeric(12, 2)::text as ??`,
+          ["manualAmount"],
+        ),
+        db.raw(
+          `coalesce(sum(case when ${purchaseSourceSql()} = 'XML' then stock_movements.quantity * stock_movements.unit_cost else 0 end), 0)::numeric(12, 2)::text as ??`,
+          ["xmlAmount"],
+        ),
+      ])
+      .first(),
+    purchaseReportBaseQuery(filters)
+      .select<PurchaseBySourceRow[]>([
+        db.raw(`${purchaseSourceSql()} as ??`, ["source"]),
+        db.raw("count(stock_movements.id)::text as ??", ["entriesCount"]),
+        db.raw(
+          "sum(stock_movements.quantity)::numeric(12, 3)::text as ??",
+          ["totalQuantity"],
+        ),
+        db.raw(
+          "sum(stock_movements.quantity * stock_movements.unit_cost)::numeric(12, 2)::text as ??",
+          ["totalAmount"],
+        ),
+      ])
+      .groupByRaw(purchaseSourceSql())
+      .orderByRaw(
+        "sum(stock_movements.quantity * stock_movements.unit_cost) desc",
+      ),
+    purchaseReportBaseQuery(filters)
+      .join("suppliers", "suppliers.id", "stock_movements.supplier_id")
+      .select<PurchaseBySupplierRow[]>([
+        "suppliers.id as supplierId",
+        "suppliers.name as supplierName",
+        db.raw("count(stock_movements.id)::text as ??", ["entriesCount"]),
+        db.raw(
+          "sum(stock_movements.quantity * stock_movements.unit_cost)::numeric(12, 2)::text as ??",
+          ["totalAmount"],
+        ),
+      ])
+      .groupBy("suppliers.id", "suppliers.name")
+      .orderByRaw(
+        "sum(stock_movements.quantity * stock_movements.unit_cost) desc",
+      )
+      .limit(20),
+    purchaseReportBaseQuery(filters)
+      .join("products", "products.id", "stock_movements.product_id")
+      .select<PurchaseByProductRow[]>([
+        "products.id as productId",
+        "products.name as productName",
+        db.raw("sum(stock_movements.quantity)::numeric(12, 3)::text as ??", [
+          "quantity",
+        ]),
+        db.raw(
+          "sum(stock_movements.quantity * stock_movements.unit_cost)::numeric(12, 2)::text as ??",
+          ["totalAmount"],
+        ),
+      ])
+      .groupBy("products.id", "products.name")
+      .orderByRaw(
+        "sum(stock_movements.quantity * stock_movements.unit_cost) desc",
+      )
+      .limit(20),
+  ]);
+
+  return {
+    summary: {
+      entriesCount: Number(summary?.entriesCount ?? 0),
+      totalQuantity: summary?.totalQuantity ?? "0.000",
+      totalAmount: summary?.totalAmount ?? "0.00",
+      manualAmount: summary?.manualAmount ?? "0.00",
+      xmlAmount: summary?.xmlAmount ?? "0.00",
+    },
+    bySource: bySource.map((source) => ({
+      ...source,
+      entriesCount: Number(source.entriesCount),
+    })),
+    bySupplier: bySupplier.map((supplier) => ({
+      ...supplier,
+      entriesCount: Number(supplier.entriesCount),
+    })),
+    byProduct,
+  };
+}
+
 function lowStockProductsQuery() {
   return db("products")
     .where("products.active", true)
@@ -451,4 +611,26 @@ function stockTurnoverQuery(filters: StockReportFilters) {
         );
       }
     });
+}
+
+function purchaseReportBaseQuery(filters: PurchaseReportFilters) {
+  return db("stock_movements")
+    .where("stock_movements.type", "ENTRY")
+    .modify((query) => {
+      if (filters.dateFrom) {
+        query.where("stock_movements.created_at", ">=", filters.dateFrom);
+      }
+
+      if (filters.dateTo) {
+        query.where(
+          "stock_movements.created_at",
+          "<",
+          db.raw("?::date + interval '1 day'", [filters.dateTo]),
+        );
+      }
+    });
+}
+
+function purchaseSourceSql() {
+  return "case when stock_movements.purchase_invoice_id is not null or stock_movements.notes ilike 'Entrada por XML NF-e%' then 'XML' else 'MANUAL' end";
 }

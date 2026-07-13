@@ -127,6 +127,7 @@ export async function postPurchaseInvoice(id: string, createdByUserId: string) {
       const input = {
         productId,
         supplierId: purchaseInvoice.supplierId,
+        purchaseInvoiceId: purchaseInvoice.id,
         quantity: Number(item.quantity),
         unitCost: Number(item.unitCost),
         notes: `Entrada por XML NF-e ${purchaseInvoice.number ?? purchaseInvoice.accessKey}`,

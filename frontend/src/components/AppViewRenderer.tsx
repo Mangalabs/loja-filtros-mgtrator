@@ -10,6 +10,7 @@ import type {
   PickupReservation,
   Product,
   PurchaseInvoice,
+  PurchaseReport,
   Quote,
   ReportsOverview,
   Sale,
@@ -79,6 +80,7 @@ type AppViewRendererProps = {
   pickupReservations: PickupReservation[];
   products: Product[];
   purchaseInvoices: PurchaseInvoice[];
+  purchaseReport: PurchaseReport | null;
   quoteActions: ReturnType<typeof useQuoteActions>;
   quotes: Quote[];
   reportsOverview: ReportsOverview | null;
@@ -110,6 +112,10 @@ type AppViewRendererProps = {
     dateFrom?: string;
     dateTo?: string;
   }) => Promise<boolean>;
+  onLoadPurchaseReport: (filters?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }) => Promise<boolean>;
   onSelectView: (view: View) => void;
   onSearchChange: (value: string) => void;
   onSelectClient: (client: Client | undefined) => void;
@@ -131,6 +137,7 @@ export function AppViewRenderer({
   pickupReservations,
   products,
   purchaseInvoices,
+  purchaseReport,
   quoteActions,
   quotes,
   reportsOverview,
@@ -153,6 +160,7 @@ export function AppViewRenderer({
   onCancelClient,
   onCancelProductEdit,
   onLoadSalesReport,
+  onLoadPurchaseReport,
   onLoadStockReport,
   onOpenQuotes,
   onResolveFiscalPendency,
@@ -282,8 +290,10 @@ export function AppViewRenderer({
     reports: (
       <ReportsPage
         overview={reportsOverview}
+        purchaseReport={purchaseReport}
         salesReport={salesReport}
         onLoadSalesReport={onLoadSalesReport}
+        onLoadPurchaseReport={onLoadPurchaseReport}
         stockReport={stockReport}
         onLoadStockReport={onLoadStockReport}
       />

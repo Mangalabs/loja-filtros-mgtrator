@@ -453,6 +453,34 @@ type StockReport = {
   }>;
 };
 
+type PurchaseReport = {
+  summary: {
+    entriesCount: number;
+    totalQuantity: string;
+    totalAmount: string;
+    manualAmount: string;
+    xmlAmount: string;
+  };
+  bySource: Array<{
+    source: "MANUAL" | "XML";
+    entriesCount: number;
+    totalQuantity: string;
+    totalAmount: string;
+  }>;
+  bySupplier: Array<{
+    supplierId: string;
+    supplierName: string;
+    entriesCount: number;
+    totalAmount: string;
+  }>;
+  byProduct: Array<{
+    productId: string;
+    productName: string;
+    quantity: string;
+    totalAmount: string;
+  }>;
+};
+
 type FiscalDocument = {
   id: string;
   sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
@@ -3529,6 +3557,84 @@ describe("catalog routes", () => {
       soldProduct.body.data?.id,
     );
     assert.equal(report.body.data?.turnoverProducts[0]?.soldQuantity, "3.000");
+  });
+
+  it("returns purchase spending reports from manual entries and posted XML purchases", async () => {
+    const manualProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro compra manual", salePrice: 70 },
+    });
+    const xmlProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro compra XML", salePrice: 90 },
+    });
+    const manualSupplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor entrada manual" },
+    });
+    const xmlSupplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor XML" },
+    });
+
+    await request("/stock-entries", {
+      method: "POST",
+      body: {
+        productId: manualProduct.body.data?.id,
+        supplierId: manualSupplier.body.data?.id,
+        quantity: 2,
+        unitCost: 30,
+      },
+    });
+
+    const invoice = await request<PurchaseInvoice>("/purchase-invoices", {
+      method: "POST",
+      body: {
+        accessKey: "1".repeat(44),
+        supplierId: xmlSupplier.body.data?.id,
+        supplierName: xmlSupplier.body.data?.name,
+        totalAmount: 80,
+        items: [
+          {
+            description: "Filtro compra XML",
+            position: 1,
+            productId: xmlProduct.body.data?.id,
+            quantity: 4,
+            totalAmount: 80,
+            unitCost: 20,
+          },
+        ],
+      },
+    });
+
+    await request(`/purchase-invoices/${invoice.body.data?.id}/post`, {
+      method: "POST",
+    });
+
+    const report = await request<PurchaseReport>("/reports/purchases");
+
+    assert.equal(report.status, 200);
+    assert.equal(report.body.data?.summary.entriesCount, 2);
+    assert.equal(report.body.data?.summary.totalQuantity, "6.000");
+    assert.equal(report.body.data?.summary.totalAmount, "140.00");
+    assert.equal(report.body.data?.summary.manualAmount, "60.00");
+    assert.equal(report.body.data?.summary.xmlAmount, "80.00");
+    assert.deepEqual(
+      report.body.data?.bySource.map((source) => source.source).sort(),
+      ["MANUAL", "XML"],
+    );
+    assert.equal(
+      report.body.data?.bySupplier.find(
+        (supplier) => supplier.supplierId === xmlSupplier.body.data?.id,
+      )?.totalAmount,
+      "80.00",
+    );
+    assert.equal(
+      report.body.data?.byProduct.find(
+        (product) => product.productId === manualProduct.body.data?.id,
+      )?.quantity,
+      "2.000",
+    );
   });
 
   it("creates a shipping quote and reserves its item after approval", async () => {

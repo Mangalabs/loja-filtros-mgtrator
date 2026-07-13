@@ -4,6 +4,7 @@ import { db } from '../../database/knex.js'
 export type StockEntryInput = {
   productId: string
   supplierId: string
+  purchaseInvoiceId?: string | null
   quantity: number
   unitCost: number
   notes?: string | null
@@ -77,6 +78,7 @@ export async function insertStockEntry(
     .insert({
       product_id: input.productId,
       supplier_id: input.supplierId,
+      purchase_invoice_id: input.purchaseInvoiceId,
       created_by_user_id: createdByUserId,
       type: 'ENTRY',
       quantity: input.quantity,
