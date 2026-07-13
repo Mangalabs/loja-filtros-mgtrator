@@ -1,8 +1,9 @@
 import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import { FileText, RotateCcw, Save, Upload } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import type {
   Product,
   PurchaseInvoice,
@@ -48,6 +49,8 @@ export function PurchaseInvoicesPage({
   const [draft, setDraft] = useState<PurchaseInvoiceDraft | null>(null);
   const [reviewInvoiceId, setReviewInvoiceId] = useState<string>();
   const [xmlContent, setXmlContent] = useState("");
+  const [xmlFileName, setXmlFileName] = useState("");
+  const [xmlFileError, setXmlFileError] = useState("");
   const { pagination, visibleItems } =
     usePaginatedRows<PurchaseInvoice>(invoices);
   const reviewKey = reviewInvoiceId ?? draft?.accessKey ?? "new-purchase";
@@ -63,6 +66,24 @@ export function PurchaseInvoicesPage({
     }
   }
 
+  async function selectXmlFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setXmlFileName(file.name);
+    setXmlFileError("");
+
+    try {
+      setXmlContent(await file.text());
+    } catch {
+      setXmlFileError("Nao foi possivel ler o arquivo XML selecionado.");
+    }
+  }
+
   async function saveReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -70,7 +91,10 @@ export function PurchaseInvoicesPage({
       return;
     }
 
-    await onSaveReview(reviewInputFromForm(new FormData(event.currentTarget), draft), reviewInvoiceId);
+    await onSaveReview(
+      reviewInputFromForm(new FormData(event.currentTarget), draft),
+      reviewInvoiceId,
+    );
     clearReview();
   }
 
@@ -84,6 +108,8 @@ export function PurchaseInvoicesPage({
     setDraft(null);
     setReviewInvoiceId(undefined);
     setXmlContent("");
+    setXmlFileName("");
+    setXmlFileError("");
   }
 
   return (
@@ -91,13 +117,40 @@ export function PurchaseInvoicesPage({
       <div className="grid content-start gap-4">
         <FormGrid onSubmit={parseXml}>
           <PageHeader
-            description="Cole o XML da NF-e de compra para preencher a revisao antes da entrada no estoque."
+            description="Selecione o XML da NF-e de compra para preencher a revisao antes da entrada no estoque."
             icon={<Upload size={18} />}
             title="Importar XML de compra"
           />
+          <Button
+            component="label"
+            startIcon={<Upload size={17} />}
+            variant="outlined"
+            sx={{
+              borderColor: "#cfd8d5",
+              borderRadius: 2,
+              color: "#203466",
+              justifyContent: "flex-start",
+              minHeight: 44,
+            }}
+          >
+            Escolher arquivo XML
+            <input
+              accept=".xml,application/xml,text/xml"
+              hidden
+              type="file"
+              onChange={selectXmlFile}
+            />
+          </Button>
+          {xmlFileName ? (
+            <span className="text-sm text-[#5f665f]">
+              Arquivo selecionado: {xmlFileName}
+            </span>
+          ) : null}
+          {xmlFileError ? <Alert severity="error">{xmlFileError}</Alert> : null}
           <TextField
-            label="XML da NF-e"
-            minRows={8}
+            helperText="O conteudo do arquivo fica disponivel aqui para conferencia antes da leitura."
+            label="Conteudo do XML"
+            minRows={6}
             multiline
             required
             value={xmlContent}
@@ -121,7 +174,9 @@ export function PurchaseInvoicesPage({
                 </SecondaryButton>
               }
               description="Confira fornecedor, valores e vincule o produto interno correto em cada item."
-              title={reviewInvoiceId ? "Revisar compra importada" : "Revisar XML lido"}
+              title={
+                reviewInvoiceId ? "Revisar compra importada" : "Revisar XML lido"
+              }
             />
 
             <Alert severity="info">
