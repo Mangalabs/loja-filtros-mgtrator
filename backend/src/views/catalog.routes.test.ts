@@ -579,6 +579,7 @@ before(async () => {
     directory: "./database/migrations",
     extension: "cjs",
   });
+  await db("auth_events").del();
   await db("users").del();
   await db("branches").del();
 
@@ -610,7 +611,7 @@ beforeEach(async () => {
   env.fiscal.provider = "mock";
 
   await db.raw(
-    "truncate table commercial_settings, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
+    "truncate table auth_events, commercial_settings, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
   await db("payment_methods").update({ active: true });
 });
@@ -793,6 +794,12 @@ describe("catalog routes", () => {
     const storedAdministrator = await db("users")
       .where("email", "admin@example.com")
       .first();
+    const authEvents = await db("auth_events")
+      .whereIn("email", ["admin@example.com", "funcionario@example.com"])
+      .select<Array<{ eventType: string; reason: string | null }>>([
+        "event_type as eventType",
+        "reason",
+      ]);
     const loginBody = login.body as ApiResponse<User> & {
       token?: string;
       data?: User & { passwordHash?: string };
@@ -850,6 +857,17 @@ describe("catalog routes", () => {
     assert.equal(logout.status, 200);
     assert.equal(logout.cookie, "auth_token=");
     assert.equal(deactivatedEmployeeLogin.status, 401);
+    assert.ok(
+      authEvents.some(
+        (event) =>
+          event.eventType === "LOGIN_FAILURE" &&
+          event.reason === "INVALID_PASSWORD",
+      ),
+    );
+    assert.ok(
+      authEvents.some((event) => event.eventType === "LOGIN_SUCCESS"),
+    );
+    assert.ok(authEvents.some((event) => event.eventType === "LOGOUT"));
   });
 
   it("shows and updates fiscal settings with production guard", async () => {

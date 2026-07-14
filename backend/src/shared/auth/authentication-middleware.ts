@@ -1,4 +1,4 @@
-import type { RequestHandler } from "express";
+import type { Request, RequestHandler } from "express";
 import { findActiveUserById } from "../../models/users/users.model.js";
 import { AppError } from "../errors/app-error.js";
 import { verifyAuthToken, type AuthenticatedUser } from "./token.js";
@@ -10,9 +10,7 @@ export const requireAuthentication: RequestHandler = async (
   response,
   next,
 ) => {
-  const token =
-    readBearerToken(request.headers.authorization) ??
-    readCookieToken(request.headers.cookie);
+  const token = readAuthTokenFromRequest(request);
 
   if (!token) {
     next(new AppError("Autenticacao necessaria.", 401));
@@ -30,6 +28,13 @@ export const requireAuthentication: RequestHandler = async (
   response.locals.authenticatedUser = user satisfies AuthenticatedUser;
   next();
 };
+
+export function readAuthTokenFromRequest(request: Request): string | undefined {
+  return (
+    readBearerToken(request.headers.authorization) ??
+    readCookieToken(request.headers.cookie)
+  );
+}
 
 function readBearerToken(authorization?: string): string | undefined {
   if (!authorization?.startsWith("Bearer ")) {

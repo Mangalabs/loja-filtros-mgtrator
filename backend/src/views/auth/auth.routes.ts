@@ -1,14 +1,16 @@
-import { Router, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import {
   authenticateUser,
+  logoutUser,
   setupInitialUser,
   showSetupStatus,
 } from "../../controllers/auth/auth.controller.js";
 import { env } from "../../config/env.js";
 import {
   authCookieName,
+  readAuthTokenFromRequest,
   requireAuthentication,
 } from "../../shared/auth/authentication-middleware.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
@@ -55,7 +57,7 @@ authRoutes.post(
   authenticationRateLimit,
   async (request, response) => {
     const body = validateBody(request, setupSchema);
-    const result = await setupInitialUser(body);
+    const result = await setupInitialUser(body, authRequestMetadata(request));
 
     setAuthCookie(response, result.token);
     response.status(201).json({ ...result.response, code: 201 });
@@ -67,7 +69,7 @@ authRoutes.post(
   authenticationRateLimit,
   async (request, response) => {
     const body = validateBody(request, credentialsSchema);
-    const result = await authenticateUser(body);
+    const result = await authenticateUser(body, authRequestMetadata(request));
 
     setAuthCookie(response, result.token);
     response.status(200).json(result.response);
@@ -82,7 +84,12 @@ authRoutes.get("/auth/session", requireAuthentication, (_request, response) => {
   });
 });
 
-authRoutes.post("/auth/logout", (_request, response) => {
+authRoutes.post("/auth/logout", async (request, response) => {
+  await logoutUser(
+    readAuthTokenFromRequest(request),
+    authRequestMetadata(request),
+  );
+
   response.clearCookie(authCookieName, cookieOptions());
   response.status(200).json({
     code: 200,
@@ -112,4 +119,13 @@ function optionalText(max: number) {
     .union([z.string().trim().min(1).max(max), z.literal(""), z.null()])
     .transform((value) => value || null)
     .optional();
+}
+
+function authRequestMetadata(request: Request) {
+  const userAgent = request.get("user-agent");
+
+  return {
+    ipAddress: request.ip,
+    userAgent: userAgent ? userAgent.slice(0, 500) : null,
+  };
 }
