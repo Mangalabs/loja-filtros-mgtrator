@@ -69,11 +69,7 @@ export function useAdministrationData() {
     const saveRequest = selectedEmployee
       ? () =>
           apiPut<ApiResult<AuthUser>>(`/users/${selectedEmployee.id}`, input)
-      : () =>
-          apiPost<ApiResult<AuthUser>>("/users", {
-            ...input,
-            role: "EMPLOYEE",
-          });
+      : () => apiPost<ApiResult<AuthUser>>("/users", input);
 
     await runAction(async () => {
       await saveRequest();

@@ -2,7 +2,6 @@ import {
   createUser,
   findUserById,
   listUsers,
-  type UserCreateInput,
   type UserUpdateInput,
   updateUser,
   updateUserStatus,
@@ -11,7 +10,11 @@ import { findActiveBranchById } from "../../models/branches/branches.model.js";
 import { hashPassword } from "../../shared/auth/password.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
-export type StoreUserInput = Omit<UserCreateInput, "passwordHash"> & {
+export type StoreUserInput = {
+  name: string;
+  email: string;
+  phone?: string | null;
+  branchId: string;
   password: string;
 };
 
@@ -28,13 +31,13 @@ export async function indexUsers() {
 }
 
 export async function storeUser(input: StoreUserInput) {
-  await ensureUserBranch(input);
+  await ensureEmployeeBranch(input.branchId);
 
   const user = await createUser({
     name: input.name,
     email: input.email,
     phone: input.phone,
-    role: input.role,
+    role: "EMPLOYEE",
     branchId: input.branchId,
     passwordHash: await hashPassword(input.password),
   });
@@ -79,18 +82,6 @@ export async function changeEmployeeStatus(id: string, active: boolean) {
     status: "success",
     data: user,
   };
-}
-
-async function ensureUserBranch(input: StoreUserInput) {
-  if (input.role !== "EMPLOYEE") {
-    return;
-  }
-
-  if (!input.branchId) {
-    throw new AppError("Funcionario deve estar vinculado a uma filial.", 422);
-  }
-
-  await ensureEmployeeBranch(input.branchId);
 }
 
 async function ensureEmployeeBranch(branchId: string) {

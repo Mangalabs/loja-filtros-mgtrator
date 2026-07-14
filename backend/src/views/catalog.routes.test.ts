@@ -673,13 +673,14 @@ describe("catalog routes", () => {
         password: "senha-segura-456",
       },
     });
-    const created = await request<User>("/users", {
+    const blockedAdminCreation = await request("/users", {
       method: "POST",
       body: {
         name: "Segundo usuario",
         email: "segundo@example.com",
         phone: "85911110000",
         role: "ADMIN",
+        branchId: randomUUID(),
         password: "senha-segura-789",
       },
     });
@@ -696,7 +697,6 @@ describe("catalog routes", () => {
         name: "Funcionario filial",
         email: "funcionario@example.com",
         phone: "85922220000",
-        role: "EMPLOYEE",
         branchId: branch.body.data?.id,
         password: "senha-segura-456",
       },
@@ -758,15 +758,6 @@ describe("catalog routes", () => {
         },
       },
     );
-    const blockedAdministratorUpdate = await request<User>(
-      `/users/${created.body.data?.id}/status`,
-      {
-        method: "PATCH",
-        body: {
-          active: false,
-        },
-      },
-    );
     const users = await request<User[]>("/users");
     const unauthenticatedCreate = await request("/users", {
       method: "POST",
@@ -809,9 +800,7 @@ describe("catalog routes", () => {
     assert.notEqual(storedAdministrator?.password_hash, "senha-segura-123");
     assert.match(storedAdministrator?.password_hash ?? "", /^scrypt\$/);
     assert.equal(repeatedSetup.status, 403);
-    assert.equal(created.status, 201);
-    assert.equal(created.body.data?.role, "ADMIN");
-    assert.equal(created.body.data?.phone, "85911110000");
+    assert.equal(blockedAdminCreation.status, 422);
     assert.equal(branch.status, 201);
     assert.equal(employee.status, 201);
     assert.equal(employee.body.data?.role, "EMPLOYEE");
@@ -832,16 +821,11 @@ describe("catalog routes", () => {
     assert.equal(updatedEmployee.body.data?.phone, "85933330000");
     assert.equal(deactivatedEmployee.status, 200);
     assert.equal(deactivatedEmployee.body.data?.active, false);
-    assert.equal(blockedAdministratorUpdate.status, 404);
-    assert.equal(
-      blockedAdministratorUpdate.body.message,
-      "Funcionario nao encontrado.",
-    );
     assert.equal(users.status, 200);
-    assert.equal(users.body.data?.length, 3);
+    assert.equal(users.body.data?.length, 2);
     assert.deepEqual(
       users.body.data?.map((user) => user.email),
-      ["admin@example.com", "funcionario@example.com", "segundo@example.com"],
+      ["admin@example.com", "funcionario@example.com"],
     );
     assert.equal(unauthenticatedCreate.status, 401);
     assert.equal(logout.status, 200);

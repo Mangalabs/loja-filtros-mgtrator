@@ -19,8 +19,7 @@ const createUserSchema = z
       .max(160)
       .transform((email) => email.trim().toLowerCase()),
     phone: optionalText(32),
-    role: z.enum(["ADMIN", "EMPLOYEE"]).default("EMPLOYEE"),
-    branchId: z.uuid().nullable().optional(),
+    branchId: z.uuid(),
     password: z.string().min(12).max(128),
   })
   .strict();
