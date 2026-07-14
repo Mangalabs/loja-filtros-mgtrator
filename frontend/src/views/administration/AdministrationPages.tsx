@@ -32,7 +32,6 @@ import {
   PrimaryButton,
   SecondaryButton,
   StatusChip,
-  TableActionButton,
   TableActionsMenu,
 } from "../../components/ui";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
@@ -133,194 +132,204 @@ export function EmployeesPage({
           key={selectedEmployee?.id ?? "new-employee"}
           onSubmit={administration.saveEmployee}
         >
-        <PageHeader
-          description={
-            selectedEmployee
-              ? "Atualize os dados do acesso. Deixe a senha vazia para manter a atual."
-              : "Crie um acesso individual para identificar as operacoes do funcionario."
-          }
-          icon={selectedEmployee ? <Pencil size={18} /> : <UserPlus size={18} />}
-          title={selectedEmployee ? "Editar funcionario" : "Novo funcionario"}
-        />
-        <TextField
-          defaultValue={selectedEmployee?.name ?? ""}
-          label="Nome completo"
-          name="name"
-          required
-        />
-        <FormRow>
-          <TextField
-            autoComplete="off"
-            defaultValue={selectedEmployee?.email ?? ""}
-            label="Email de acesso"
-            name="email"
-            required
-            type="email"
-          />
-          <TextField
-            defaultValue={selectedEmployee?.phone ?? ""}
-            label="Telefone"
-            name="phone"
-          />
-        </FormRow>
-        <TextField
-          defaultValue={selectedEmployee?.branchId ?? ""}
-          label="Filial"
-          name="branchId"
-          required
-          select
-        >
-          <MenuItem value="" disabled>
-            Selecione uma filial
-          </MenuItem>
-          {administration.branches
-            .filter((branch) => branch.active)
-            .map((branch) => (
-              <MenuItem key={branch.id} value={branch.id}>
-                {branch.name}
-              </MenuItem>
-            ))}
-        </TextField>
-        <TextField
-          autoComplete="new-password"
-          helperText={
-            selectedEmployee
-              ? "Preencha somente para trocar a senha atual."
-              : "Use pelo menos 12 caracteres. A senha sera entregue ao funcionario."
-          }
-          label={selectedEmployee ? "Nova senha" : "Senha inicial"}
-          name="password"
-          required={!selectedEmployee}
-          slotProps={{ htmlInput: { minLength: 12 } }}
-          type="password"
-        />
-        <section className="grid gap-3 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4">
-          <div>
-            <strong className="block text-sm text-[#2c281e]">
-              Permissoes do funcionario
-            </strong>
-            <span className="text-xs text-[#5f665f]">
-              Marque apenas as areas que esse usuario pode acessar.
-            </span>
-          </div>
-          <div className="grid gap-1 sm:grid-cols-2">
-            {employeePermissionOptions.map((permission) => (
-              <FormControlLabel
-                key={permission.value}
-                control={
-                  <Switch
-                    defaultChecked={selectedEmployee?.permissions.includes(
-                      permission.value,
-                    )}
-                    name="permissions"
-                    value={permission.value}
-                  />
-                }
-                label={permission.label}
-              />
-            ))}
-          </div>
-        </section>
-        <ActionGroup align="start">
-          <PrimaryButton
-            disabled={
-              administration.state === "loading" ||
-              administration.branches.length === 0
+          <PageHeader
+            description={
+              selectedEmployee
+                ? "Atualize os dados do acesso. Deixe a senha vazia para manter a atual."
+                : "Crie um acesso individual para identificar as operacoes do funcionario."
             }
             icon={
-              selectedEmployee ? (
-                <Pencil size={17} />
-              ) : (
-                <UserPlus size={17} />
-              )
+              selectedEmployee ? <Pencil size={18} /> : <UserPlus size={18} />
             }
-            type="submit"
+            title={selectedEmployee ? "Editar funcionario" : "Novo funcionario"}
+          />
+          <TextField
+            defaultValue={selectedEmployee?.name ?? ""}
+            label="Nome completo"
+            name="name"
+            required
+          />
+          <FormRow>
+            <TextField
+              autoComplete="off"
+              defaultValue={selectedEmployee?.email ?? ""}
+              label="Email de acesso"
+              name="email"
+              required
+              type="email"
+            />
+            <TextField
+              defaultValue={selectedEmployee?.phone ?? ""}
+              label="Telefone"
+              name="phone"
+            />
+          </FormRow>
+          <TextField
+            defaultValue={selectedEmployee?.branchId ?? ""}
+            label="Filial"
+            name="branchId"
+            required
+            select
           >
-            {selectedEmployee ? "Salvar alteracoes" : "Criar acesso"}
-          </PrimaryButton>
-          {selectedEmployee ? (
-            <SecondaryButton
-              icon={<X size={17} />}
-              type="button"
-              onClick={administration.clearSelectedEmployee}
+            <MenuItem value="" disabled>
+              Selecione uma filial
+            </MenuItem>
+            {administration.branches
+              .filter((branch) => branch.active)
+              .map((branch) => (
+                <MenuItem key={branch.id} value={branch.id}>
+                  {branch.name}
+                </MenuItem>
+              ))}
+          </TextField>
+          <TextField
+            autoComplete="new-password"
+            helperText={
+              selectedEmployee
+                ? "Preencha somente para trocar a senha atual."
+                : "Use pelo menos 12 caracteres. A senha sera entregue ao funcionario."
+            }
+            label={selectedEmployee ? "Nova senha" : "Senha inicial"}
+            name="password"
+            required={!selectedEmployee}
+            slotProps={{ htmlInput: { minLength: 12 } }}
+            type="password"
+          />
+          <section className="grid gap-3 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4">
+            <div>
+              <strong className="block text-sm text-[#2c281e]">
+                Permissoes do funcionario
+              </strong>
+              <span className="text-xs text-[#5f665f]">
+                Marque apenas as areas que esse usuario pode acessar.
+              </span>
+            </div>
+            <div className="grid gap-1 sm:grid-cols-2">
+              {employeePermissionOptions.map((permission) => (
+                <FormControlLabel
+                  key={permission.value}
+                  control={
+                    <Switch
+                      defaultChecked={selectedEmployee?.permissions.includes(
+                        permission.value,
+                      )}
+                      name="permissions"
+                      value={permission.value}
+                    />
+                  }
+                  label={permission.label}
+                />
+              ))}
+            </div>
+          </section>
+          <ActionGroup align="start">
+            <PrimaryButton
+              disabled={
+                administration.state === "loading" ||
+                administration.branches.length === 0
+              }
+              icon={
+                selectedEmployee ? (
+                  <Pencil size={17} />
+                ) : (
+                  <UserPlus size={17} />
+                )
+              }
+              type="submit"
             >
-              Cancelar edicao
-            </SecondaryButton>
-          ) : null}
-        </ActionGroup>
-        <AdministrationMessage administration={administration} />
+              {selectedEmployee ? "Salvar alteracoes" : "Criar acesso"}
+            </PrimaryButton>
+            {selectedEmployee ? (
+              <SecondaryButton
+                icon={<X size={17} />}
+                type="button"
+                onClick={administration.clearSelectedEmployee}
+              >
+                Cancelar edicao
+              </SecondaryButton>
+            ) : null}
+          </ActionGroup>
+          <AdministrationMessage administration={administration} />
         </FormGrid>
 
         <PagePanel wide>
-        <PageHeader
-          description="Acessos operacionais vinculados as filiais."
-          icon={<Users size={18} />}
-          title="Funcionarios cadastrados"
-        />
-        <ResponsiveTable
-          columns={[
-            {
-              header: "Funcionario",
-              render: (employee: AuthUser) => employee.name,
-            },
-            {
-              header: "Email",
-              render: (employee: AuthUser) => employee.email,
-            },
-            {
-              header: "Filial",
-              render: (employee: AuthUser) => employee.branchName ?? "-",
-            },
-            {
-              header: "Telefone",
-              render: (employee: AuthUser) => employee.phone ?? "-",
-            },
-            {
-              header: "Status",
-              render: (employee: AuthUser) => (
-                <StatusChip
-                  label={employee.active ? "Ativo" : "Inativo"}
-                  tone={employee.active ? "success" : "neutral"}
-                />
-              ),
-            },
-            {
-              align: "right",
-              header: "Acoes",
-              render: (employee: AuthUser) => (
-                <div className="flex justify-end">
-                  <TableActionsMenu
-                    actions={[
-                      {
-                        icon: <Pencil size={15} />,
-                        label: "Editar",
-                        onSelect: () => administration.selectEmployee(employee),
-                      },
-                      {
-                        icon: employee.active ? (
-                          <PowerOff size={15} />
-                        ) : (
-                          <Power size={15} />
-                        ),
-                        label: employee.active ? "Inativar" : "Ativar",
-                        onSelect: () =>
-                          void confirmEmployeeStatus(
-                            employee,
-                            requestConfirmation,
-                            administration.changeEmployeeStatus,
-                          ),
-                      },
-                    ]}
+          <PageHeader
+            description="Acessos operacionais vinculados as filiais."
+            icon={<Users size={18} />}
+            title="Funcionarios cadastrados"
+          />
+          <ResponsiveTable
+            columns={[
+              {
+                header: "Funcionario",
+                render: (employee: AuthUser) => employee.name,
+              },
+              {
+                header: "Email",
+                render: (employee: AuthUser) => employee.email,
+              },
+              {
+                header: "Filial",
+                render: (employee: AuthUser) => employee.branchName ?? "-",
+              },
+              {
+                header: "Telefone",
+                render: (employee: AuthUser) => employee.phone ?? "-",
+              },
+              {
+                header: "Ultimo login",
+                render: (employee: AuthUser) =>
+                  employee.lastLoginAt
+                    ? formatDateTime(employee.lastLoginAt)
+                    : "-",
+              },
+              {
+                header: "Status",
+                render: (employee: AuthUser) => (
+                  <StatusChip
+                    label={employee.active ? "Ativo" : "Inativo"}
+                    tone={employee.active ? "success" : "neutral"}
                   />
-                </div>
-              ),
-            },
-          ]}
-          emptyMessage="Nenhum funcionario cadastrado."
-          getRowId={(employee) => employee.id}
-          items={visibleItems}
-          pagination={pagination}
-        />
+                ),
+              },
+              {
+                align: "right",
+                header: "Acoes",
+                render: (employee: AuthUser) => (
+                  <div className="flex justify-end">
+                    <TableActionsMenu
+                      actions={[
+                        {
+                          icon: <Pencil size={15} />,
+                          label: "Editar",
+                          onSelect: () =>
+                            administration.selectEmployee(employee),
+                        },
+                        {
+                          icon: employee.active ? (
+                            <PowerOff size={15} />
+                          ) : (
+                            <Power size={15} />
+                          ),
+                          label: employee.active ? "Inativar" : "Ativar",
+                          onSelect: () =>
+                            void confirmEmployeeStatus(
+                              employee,
+                              requestConfirmation,
+                              administration.changeEmployeeStatus,
+                            ),
+                        },
+                      ]}
+                    />
+                  </div>
+                ),
+              },
+            ]}
+            emptyMessage="Nenhum funcionario cadastrado."
+            getRowId={(employee) => employee.id}
+            items={visibleItems}
+            pagination={pagination}
+          />
         </PagePanel>
       </div>
 

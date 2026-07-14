@@ -210,6 +210,7 @@ export type AuthUser = {
   branchName: string | null;
   active: boolean;
   permissions: EmployeePermission[];
+  lastLoginAt?: string | null;
 };
 
 export type AuthEvent = {

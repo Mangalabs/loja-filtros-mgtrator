@@ -337,6 +337,7 @@ type User = {
   branchName: string | null;
   active: boolean;
   permissions: string[];
+  lastLoginAt?: string | null;
 };
 
 type Branch = {
@@ -855,6 +856,13 @@ describe("catalog routes", () => {
     assert.equal(users.status, 200);
     assert.equal(listedAuthEvents.status, 200);
     assert.equal(users.body.data?.length, 2);
+    assert.ok(
+      users.body.data?.some(
+        (user) =>
+          user.email === "funcionario@example.com" &&
+          typeof user.lastLoginAt === "string",
+      ),
+    );
     assert.deepEqual(
       users.body.data?.map((user) => user.email),
       ["admin@example.com", "funcionario@example.com"],

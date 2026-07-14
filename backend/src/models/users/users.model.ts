@@ -12,6 +12,7 @@ export type User = {
   branchName: string | null;
   active: boolean;
   permissions: EmployeePermission[];
+  lastLoginAt?: string | null;
 };
 
 export type UserRole = "ADMIN" | "EMPLOYEE";
@@ -63,7 +64,9 @@ export async function listUsers(database: Database = db): Promise<User[]> {
     .select(userColumns)
     .orderBy("users.name", "asc");
 
-  return attachPermissions(database, users);
+  const usersWithPermissions = await attachPermissions(database, users);
+
+  return attachLastLogin(database, usersWithPermissions);
 }
 
 export async function createUser(
@@ -207,6 +210,38 @@ async function attachPermissions<T extends User>(
   return users.map((user) => ({
     ...user,
     permissions: permissionsByUser[user.id] ?? [],
+  }));
+}
+
+async function attachLastLogin<T extends User>(
+  database: Database,
+  users: T[],
+): Promise<T[]> {
+  const userIds = users.map((user) => user.id);
+
+  if (userIds.length === 0) {
+    return users;
+  }
+
+  const rows = await database("auth_events")
+    .whereIn("user_id", userIds)
+    .where("event_type", "LOGIN_SUCCESS")
+    .groupBy("user_id")
+    .select<Array<{ userId: string; lastLoginAt: string }>>([
+      "user_id as userId",
+      database.raw("max(created_at) as ??", ["lastLoginAt"]),
+    ]);
+  const lastLoginByUser = rows.reduce<Record<string, string>>(
+    (lastLogins, row) => ({
+      ...lastLogins,
+      [row.userId]: row.lastLoginAt,
+    }),
+    {},
+  );
+
+  return users.map((user) => ({
+    ...user,
+    lastLoginAt: lastLoginByUser[user.id] ?? null,
   }));
 }
 
