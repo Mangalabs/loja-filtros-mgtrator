@@ -1,3 +1,5 @@
+import type { AuthUser, EmployeePermission } from "./api";
+
 export type LoadState = "idle" | "loading" | "ready" | "error";
 
 export type View =
@@ -74,6 +76,29 @@ const initialOpenNavSections: Record<NavSectionKey, boolean> = {
 };
 
 export const navSectionsStorageKey = "loja-filtros.nav-sections.v2";
+
+export const viewPermissionRequirements: Partial<
+  Record<View, EmployeePermission>
+> = {
+  "commercial-settings": "MANAGE_COMMERCIAL_SETTINGS",
+  "purchase-invoices": "IMPORT_PURCHASE_INVOICES",
+  "stock-adjustments": "MANAGE_STOCK_ADJUSTMENTS",
+  "payment-methods": "MANAGE_PAYMENT_METHODS",
+  "fiscal-settings": "MANAGE_FISCAL_SETTINGS",
+  "fiscal-documents": "MANAGE_FISCAL_DOCUMENTS",
+  "cash-register": "MANAGE_CASH_REGISTER",
+  reports: "VIEW_REPORTS",
+};
+
+export function canAccessView(user: AuthUser, view: View) {
+  const requiredPermission = viewPermissionRequirements[view];
+
+  return (
+    user.role === "ADMIN" ||
+    !requiredPermission ||
+    user.permissions.includes(requiredPermission)
+  );
+}
 
 export function findActiveNavSection(view: View) {
   return (Object.keys(navSectionViews) as NavSectionKey[]).find((section) =>

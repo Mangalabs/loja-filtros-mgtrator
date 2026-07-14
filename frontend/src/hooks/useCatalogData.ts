@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   apiGet,
   type ApiResult,
+  type AuthUser,
   type CashReport,
   type CashRegisterSession,
   type Client,
@@ -26,8 +27,9 @@ import {
   type Supplier,
 } from "../api";
 import type { LoadState } from "../navigation";
+import { canAccessView } from "../navigation";
 
-export function useCatalogData() {
+export function useCatalogData(user: AuthUser) {
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -104,21 +106,37 @@ export function useCatalogData() {
         apiGet<ApiResult<Client[]>>("/clients"),
         apiGet<ApiResult<Supplier[]>>("/suppliers"),
         apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
-        apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments"),
+        canAccessView(user, "stock-adjustments")
+          ? apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments")
+          : emptyResult<StockAdjustment[]>([]),
         apiGet<ApiResult<StockMovement[]>>("/stock-movements"),
-        fetchPurchaseInvoices(),
+        canAccessView(user, "purchase-invoices")
+          ? fetchPurchaseInvoices()
+          : emptyResult<PurchaseInvoice[]>([]),
         apiGet<ApiResult<Product[]>>("/products/low-stock"),
         apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
         apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
         apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
-        apiGet<ApiResult<SalesReport>>("/reports/sales"),
-        apiGet<ApiResult<StockReport>>("/reports/stock"),
-        apiGet<ApiResult<PurchaseReport>>("/reports/purchases"),
-        apiGet<ApiResult<CashReport>>("/reports/cash"),
+        canAccessView(user, "reports")
+          ? apiGet<ApiResult<SalesReport>>("/reports/sales")
+          : emptyResult<SalesReport | null>(null),
+        canAccessView(user, "reports")
+          ? apiGet<ApiResult<StockReport>>("/reports/stock")
+          : emptyResult<StockReport | null>(null),
+        canAccessView(user, "reports")
+          ? apiGet<ApiResult<PurchaseReport>>("/reports/purchases")
+          : emptyResult<PurchaseReport | null>(null),
+        canAccessView(user, "reports")
+          ? apiGet<ApiResult<CashReport>>("/reports/cash")
+          : emptyResult<CashReport | null>(null),
         apiGet<ApiResult<Quote[]>>("/quotes"),
         apiGet<ApiResult<Sale[]>>("/sales"),
-        apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents"),
-        apiGet<ApiResult<FiscalSettings>>("/fiscal-settings"),
+        canAccessView(user, "fiscal-documents")
+          ? apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents")
+          : emptyResult<FiscalDocument[]>([]),
+        canAccessView(user, "fiscal-settings")
+          ? apiGet<ApiResult<FiscalSettings>>("/fiscal-settings")
+          : emptyResult<FiscalSettings | null>(null),
         fetchCommercialSettings(),
         apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
         apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
@@ -228,7 +246,7 @@ export function useCatalogData() {
 
   useEffect(() => {
     void loadCatalog();
-  }, []);
+  }, [user.id]);
 
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -382,4 +400,12 @@ async function fetchPurchaseInvoices() {
 
     throw error;
   }
+}
+
+function emptyResult<T>(data: T): Promise<ApiResult<T>> {
+  return Promise.resolve({
+    code: 200,
+    status: "success",
+    data,
+  });
 }

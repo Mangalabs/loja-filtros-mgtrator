@@ -4,6 +4,7 @@ import {
   replaceFiscalSettings,
   showFiscalSettings,
 } from "../../controllers/fiscal-settings/fiscal-settings.controller.js";
+import { requirePermission } from "../../shared/auth/authorization-middleware.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const fiscalSettingsRoutes = Router();
@@ -23,12 +24,20 @@ const fiscalSettingsSchema = z
   })
   .strict();
 
-fiscalSettingsRoutes.get("/fiscal-settings", async (_request, response) => {
-  response.status(200).json(await showFiscalSettings());
-});
+fiscalSettingsRoutes.get(
+  "/fiscal-settings",
+  requirePermission("MANAGE_FISCAL_SETTINGS"),
+  async (_request, response) => {
+    response.status(200).json(await showFiscalSettings());
+  },
+);
 
-fiscalSettingsRoutes.put("/fiscal-settings", async (request, response) => {
-  const body = validateBody(request, fiscalSettingsSchema);
+fiscalSettingsRoutes.put(
+  "/fiscal-settings",
+  requirePermission("MANAGE_FISCAL_SETTINGS"),
+  async (request, response) => {
+    const body = validateBody(request, fiscalSettingsSchema);
 
-  response.status(200).json(await replaceFiscalSettings(body));
-});
+    response.status(200).json(await replaceFiscalSettings(body));
+  },
+);

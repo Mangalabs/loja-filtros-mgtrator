@@ -8,6 +8,7 @@ import {
 } from "../../models/users/users.model.js";
 import { findActiveBranchById } from "../../models/branches/branches.model.js";
 import { hashPassword } from "../../shared/auth/password.js";
+import type { EmployeePermission } from "../../shared/auth/permissions.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
 export type StoreUserInput = {
@@ -15,6 +16,7 @@ export type StoreUserInput = {
   email: string;
   phone?: string | null;
   branchId: string;
+  permissions?: EmployeePermission[];
   password: string;
 };
 
@@ -39,6 +41,7 @@ export async function storeUser(input: StoreUserInput) {
     phone: input.phone,
     role: "EMPLOYEE",
     branchId: input.branchId,
+    permissions: input.permissions ?? [],
     passwordHash: await hashPassword(input.password),
   });
 
@@ -61,6 +64,7 @@ export async function replaceEmployee(
     email: input.email,
     phone: input.phone,
     branchId: input.branchId,
+    permissions: input.permissions ?? [],
     passwordHash: input.password
       ? await hashPassword(input.password)
       : undefined,

@@ -64,6 +64,7 @@ export function useAdministrationData() {
       email: data.get("email"),
       phone: data.get("phone"),
       branchId: data.get("branchId"),
+      permissions: data.getAll("permissions"),
       password: data.get("password"),
     };
     const saveRequest = selectedEmployee

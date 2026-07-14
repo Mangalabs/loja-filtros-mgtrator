@@ -8,6 +8,7 @@ import {
   storePurchaseInvoice,
   updatePurchaseInvoice,
 } from "../../controllers/purchase-invoices/purchase-invoices.controller.js";
+import { requirePermission } from "../../shared/auth/authorization-middleware.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const purchaseInvoicesRoutes = Router();
@@ -107,6 +108,7 @@ const purchaseInvoiceParamsSchema = z.object({
 
 purchaseInvoicesRoutes.get(
   "/purchase-invoices",
+  requirePermission("IMPORT_PURCHASE_INVOICES"),
   async (_request, response) => {
     const result = await indexPurchaseInvoices();
 
@@ -116,6 +118,7 @@ purchaseInvoicesRoutes.get(
 
 purchaseInvoicesRoutes.post(
   "/purchase-invoices/parse-xml",
+  requirePermission("IMPORT_PURCHASE_INVOICES"),
   async (request, response) => {
     const body = validateBody(request, parsePurchaseInvoiceXmlSchema);
     const result = parsePurchaseInvoiceXml(body.xmlContent);
@@ -126,6 +129,7 @@ purchaseInvoicesRoutes.post(
 
 purchaseInvoicesRoutes.post(
   "/purchase-invoices/import-xml",
+  requirePermission("IMPORT_PURCHASE_INVOICES"),
   async (request, response) => {
     const body = validateBody(request, parsePurchaseInvoiceXmlSchema);
     const userId = response.locals.authenticatedUser.id as string;
@@ -135,16 +139,21 @@ purchaseInvoicesRoutes.post(
   },
 );
 
-purchaseInvoicesRoutes.post("/purchase-invoices", async (request, response) => {
-  const body = validateBody(request, createPurchaseInvoiceSchema);
-  const userId = response.locals.authenticatedUser.id as string;
-  const result = await storePurchaseInvoice(body, userId);
+purchaseInvoicesRoutes.post(
+  "/purchase-invoices",
+  requirePermission("IMPORT_PURCHASE_INVOICES"),
+  async (request, response) => {
+    const body = validateBody(request, createPurchaseInvoiceSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+    const result = await storePurchaseInvoice(body, userId);
 
-  response.status(201).json(result);
-});
+    response.status(201).json(result);
+  },
+);
 
 purchaseInvoicesRoutes.put(
   "/purchase-invoices/:id",
+  requirePermission("IMPORT_PURCHASE_INVOICES"),
   async (request, response) => {
     const { id } = purchaseInvoiceParamsSchema.parse(request.params);
     const body = validateBody(request, updatePurchaseInvoiceSchema);
@@ -156,6 +165,7 @@ purchaseInvoicesRoutes.put(
 
 purchaseInvoicesRoutes.post(
   "/purchase-invoices/:id/post",
+  requirePermission("IMPORT_PURCHASE_INVOICES"),
   async (request, response) => {
     const { id } = purchaseInvoiceParamsSchema.parse(request.params);
     const userId = response.locals.authenticatedUser.id as string;

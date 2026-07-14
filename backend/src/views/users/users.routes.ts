@@ -7,6 +7,7 @@ import {
   storeUser,
 } from "../../controllers/users/users.controller.js";
 import { requireAdmin } from "../../shared/auth/authorization-middleware.js";
+import { employeePermissionValues } from "../../shared/auth/permissions.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const usersRoutes = Router();
@@ -20,6 +21,7 @@ const createUserSchema = z
       .transform((email) => email.trim().toLowerCase()),
     phone: optionalText(32),
     branchId: z.uuid(),
+    permissions: z.array(z.enum(employeePermissionValues)).default([]),
     password: z.string().min(12).max(128),
   })
   .strict();
@@ -37,6 +39,7 @@ const replaceEmployeeSchema = z
       .transform((email) => email.trim().toLowerCase()),
     phone: optionalText(32),
     branchId: z.uuid(),
+    permissions: z.array(z.enum(employeePermissionValues)).default([]),
     password: z
       .union([z.string().min(12).max(128), z.literal("")])
       .transform((value) => value || undefined)

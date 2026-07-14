@@ -4,6 +4,7 @@ import {
   changePaymentMethodStatus,
   indexPaymentMethods,
 } from "../../controllers/payment-methods/payment-methods.controller.js";
+import { requirePermission } from "../../shared/auth/authorization-middleware.js";
 import { parseBooleanFilter } from "../../shared/http/query-params.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
@@ -27,6 +28,7 @@ paymentMethodsRoutes.get("/payment-methods", async (request, response) => {
 
 paymentMethodsRoutes.patch(
   "/payment-methods/:id/status",
+  requirePermission("MANAGE_PAYMENT_METHODS"),
   async (request, response) => {
     const { id } = paymentMethodParamsSchema.parse(request.params);
     const body = validateBody(request, updatePaymentMethodStatusSchema);

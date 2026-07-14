@@ -1,5 +1,7 @@
 import Alert from "@mui/material/Alert";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
+import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import {
   Building2,
@@ -11,7 +13,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import type { AuthUser, Branch } from "../../api";
+import type { AuthUser, Branch, EmployeePermission } from "../../api";
 import {
   ActionGroup,
   FormGrid,
@@ -181,6 +183,33 @@ export function EmployeesPage({
           slotProps={{ htmlInput: { minLength: 12 } }}
           type="password"
         />
+        <section className="grid gap-3 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4">
+          <div>
+            <strong className="block text-sm text-[#2c281e]">
+              Permissoes do funcionario
+            </strong>
+            <span className="text-xs text-[#5f665f]">
+              Marque apenas as areas que esse usuario pode acessar.
+            </span>
+          </div>
+          <div className="grid gap-1 sm:grid-cols-2">
+            {employeePermissionOptions.map((permission) => (
+              <FormControlLabel
+                key={permission.value}
+                control={
+                  <Switch
+                    defaultChecked={selectedEmployee?.permissions.includes(
+                      permission.value,
+                    )}
+                    name="permissions"
+                    value={permission.value}
+                  />
+                }
+                label={permission.label}
+              />
+            ))}
+          </div>
+        </section>
         <ActionGroup align="start">
           <PrimaryButton
             disabled={
@@ -285,6 +314,44 @@ export function EmployeesPage({
     </div>
   );
 }
+
+const employeePermissionOptions: Array<{
+  value: EmployeePermission;
+  label: string;
+}> = [
+  {
+    value: "MANAGE_COMMERCIAL_SETTINGS",
+    label: "Configuracao comercial",
+  },
+  {
+    value: "IMPORT_PURCHASE_INVOICES",
+    label: "Importar XML de compra",
+  },
+  {
+    value: "MANAGE_STOCK_ADJUSTMENTS",
+    label: "Ajuste manual de estoque",
+  },
+  {
+    value: "MANAGE_PAYMENT_METHODS",
+    label: "Formas de pagamento",
+  },
+  {
+    value: "MANAGE_FISCAL_SETTINGS",
+    label: "Configuracao fiscal",
+  },
+  {
+    value: "MANAGE_FISCAL_DOCUMENTS",
+    label: "Notas fiscais",
+  },
+  {
+    value: "MANAGE_CASH_REGISTER",
+    label: "Caixa",
+  },
+  {
+    value: "VIEW_REPORTS",
+    label: "Relatorios gerenciais",
+  },
+];
 
 async function confirmEmployeeStatus(
   employee: AuthUser,

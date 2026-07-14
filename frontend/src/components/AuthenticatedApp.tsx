@@ -63,7 +63,7 @@ export function AuthenticatedApp({
     stockMovements,
     stockReport,
     suppliers,
-  } = useCatalogData();
+  } = useCatalogData(user);
   const { openNavSections, toggleNavSection } = useNavigationState();
 
   const catalogActions = useCatalogActions({

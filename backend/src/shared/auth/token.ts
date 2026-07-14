@@ -1,5 +1,9 @@
 import { SignJWT, jwtVerify } from "jose";
 import { env } from "../../config/env.js";
+import {
+  employeePermissionValues,
+  type EmployeePermission,
+} from "./permissions.js";
 
 const issuer = "loja-filtros-backend";
 const audience = "loja-filtros-frontend";
@@ -14,6 +18,7 @@ export type AuthenticatedUser = {
   role: "ADMIN" | "EMPLOYEE";
   branchId?: string | null;
   branchName?: string | null;
+  permissions?: EmployeePermission[];
 };
 
 export async function issueAuthToken(user: AuthenticatedUser): Promise<string> {
@@ -24,6 +29,7 @@ export async function issueAuthToken(user: AuthenticatedUser): Promise<string> {
     role: user.role,
     branchId: user.branchId ?? null,
     branchName: user.branchName ?? null,
+    permissions: user.permissions ?? [],
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuer(issuer)
@@ -51,6 +57,8 @@ export async function verifyAuthToken(
       (typeof payload.phone !== "string" &&
         payload.phone !== null &&
         typeof payload.phone !== "undefined") ||
+      (typeof payload.permissions !== "undefined" &&
+        !isValidPermissions(payload.permissions)) ||
       !["ADMIN", "EMPLOYEE"].includes(String(payload.role))
     ) {
       return undefined;
@@ -65,8 +73,20 @@ export async function verifyAuthToken(
       branchId: typeof payload.branchId === "string" ? payload.branchId : null,
       branchName:
         typeof payload.branchName === "string" ? payload.branchName : null,
+      permissions: Array.isArray(payload.permissions)
+        ? (payload.permissions as EmployeePermission[])
+        : [],
     };
   } catch {
     return undefined;
   }
+}
+
+function isValidPermissions(value: unknown): value is EmployeePermission[] {
+  return (
+    Array.isArray(value) &&
+    value.every((permission) =>
+      employeePermissionValues.includes(permission as EmployeePermission),
+    )
+  );
 }

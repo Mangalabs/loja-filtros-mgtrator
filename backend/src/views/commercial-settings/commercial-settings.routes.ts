@@ -4,6 +4,7 @@ import {
   replaceCommercialSettings,
   showCommercialSettings,
 } from "../../controllers/commercial-settings/commercial-settings.controller.js";
+import { requirePermission } from "../../shared/auth/authorization-middleware.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const commercialSettingsRoutes = Router();
@@ -21,8 +22,12 @@ commercialSettingsRoutes.get(
   },
 );
 
-commercialSettingsRoutes.put("/commercial-settings", async (request, response) => {
-  const body = validateBody(request, commercialSettingsSchema);
+commercialSettingsRoutes.put(
+  "/commercial-settings",
+  requirePermission("MANAGE_COMMERCIAL_SETTINGS"),
+  async (request, response) => {
+    const body = validateBody(request, commercialSettingsSchema);
 
-  response.status(200).json(await replaceCommercialSettings(body));
-});
+    response.status(200).json(await replaceCommercialSettings(body));
+  },
+);

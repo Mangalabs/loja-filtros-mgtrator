@@ -1,3 +1,4 @@
+import Alert from "@mui/material/Alert";
 import type {
   CashRegisterSession,
   CashReport,
@@ -24,7 +25,8 @@ import type {
   Supplier,
 } from "../api";
 import type { ReactNode } from "react";
-import type { LoadState, View } from "../navigation";
+import { canAccessView, type LoadState, type View } from "../navigation";
+import { PageHeader, PagePanel } from "./layout";
 import type { useCatalogActions } from "../views/catalog/useCatalogActions";
 import {
   BranchesPage,
@@ -177,6 +179,20 @@ export function AppViewRenderer({
   onSelectClient,
   requestConfirmation,
 }: AppViewRendererProps) {
+  if (!canAccessView(user, view)) {
+    return (
+      <PagePanel>
+        <PageHeader
+          description="Solicite ao administrador a liberacao desta permissao para o seu usuario."
+          title="Acesso nao permitido"
+        />
+        <Alert severity="warning" variant="outlined">
+          Seu usuario nao possui permissao para acessar esta tela.
+        </Alert>
+      </PagePanel>
+    );
+  }
+
   const viewRenderers: Record<View, ReactNode> = {
     products: (
         <ProductsPage

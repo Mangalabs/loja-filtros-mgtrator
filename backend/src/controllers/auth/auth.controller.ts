@@ -81,6 +81,7 @@ async function authenticatedResult(user: User) {
     branchId: user.branchId,
     branchName: user.branchName,
     active: user.active,
+    permissions: user.permissions,
   };
   const token = await issueAuthToken(publicUser);
 

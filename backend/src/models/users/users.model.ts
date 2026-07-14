@@ -1,5 +1,6 @@
 import type { Knex } from "knex";
 import { db } from "../../database/knex.js";
+import type { EmployeePermission } from "../../shared/auth/permissions.js";
 
 export type User = {
   id: string;
@@ -10,6 +11,7 @@ export type User = {
   branchId: string | null;
   branchName: string | null;
   active: boolean;
+  permissions: EmployeePermission[];
 };
 
 export type UserRole = "ADMIN" | "EMPLOYEE";
@@ -25,6 +27,7 @@ export type UserCreateInput = {
   role?: UserRole;
   branchId?: string | null;
   passwordHash: string;
+  permissions?: EmployeePermission[];
 };
 
 export type UserUpdateInput = {
@@ -33,6 +36,7 @@ export type UserUpdateInput = {
   phone?: string | null;
   branchId: string;
   passwordHash?: string;
+  permissions?: EmployeePermission[];
 };
 
 type Database = Knex | Knex.Transaction;
@@ -54,12 +58,12 @@ export async function hasUsers(database: Database = db): Promise<boolean> {
   return Boolean(user);
 }
 
-export async function listUsers(
-  database: Database = db,
-): Promise<User[]> {
-  return userQuery(database)
+export async function listUsers(database: Database = db): Promise<User[]> {
+  const users = await userQuery(database)
     .select(userColumns)
     .orderBy("users.name", "asc");
+
+  return attachPermissions(database, users);
 }
 
 export async function createUser(
@@ -77,6 +81,8 @@ export async function createUser(
     })
     .returning("id");
 
+  await replaceUserPermissions(database, user.id, input.permissions ?? []);
+
   const created = await findActiveUserById(user.id, database);
 
   if (!created) {
@@ -89,30 +95,36 @@ export async function createUser(
 export async function findUserByEmail(
   email: string,
 ): Promise<UserWithPassword | undefined> {
-  return userQuery(db)
+  const user = await userQuery(db)
     .select([...userColumns, "password_hash as passwordHash"])
     .where("users.email", email)
     .first();
+
+  return user ? (await attachPermissions(db, [user]))[0] : undefined;
 }
 
 export async function findActiveUserById(
   id: string,
   database: Database = db,
 ): Promise<User | undefined> {
-  return userQuery(database)
+  const user = await userQuery(database)
     .select(userColumns)
     .where({ "users.id": id, "users.active": true })
     .first();
+
+  return user ? (await attachPermissions(database, [user]))[0] : undefined;
 }
 
 export async function findUserById(
   id: string,
   database: Database = db,
 ): Promise<User | undefined> {
-  return userQuery(database)
+  const user = await userQuery(database)
     .select(userColumns)
     .where("users.id", id)
     .first();
+
+  return user ? (await attachPermissions(database, [user]))[0] : undefined;
 }
 
 export async function updateUser(
@@ -133,7 +145,15 @@ export async function updateUser(
       updated_at: database.fn.now(),
     });
 
-  return updated ? findUserById(id, database) : undefined;
+  if (!updated) {
+    return undefined;
+  }
+
+  if (input.permissions) {
+    await replaceUserPermissions(database, id, input.permissions);
+  }
+
+  return findUserById(id, database);
 }
 
 export async function updateUserStatus(
@@ -156,5 +176,55 @@ function userQuery(database: Database) {
     "branches",
     "branches.id",
     "users.branch_id",
+  );
+}
+
+async function attachPermissions<T extends User>(
+  database: Database,
+  users: T[],
+): Promise<T[]> {
+  const userIds = users.map((user) => user.id);
+
+  if (userIds.length === 0) {
+    return users;
+  }
+
+  const rows = await database("user_permissions")
+    .whereIn("user_id", userIds)
+    .select<Array<{ userId: string; permission: EmployeePermission }>>([
+      "user_id as userId",
+      "permission",
+    ]);
+  const permissionsByUser = rows.reduce<
+    Record<string, EmployeePermission[]>
+  >((permissions, row) => {
+    return {
+      ...permissions,
+      [row.userId]: [...(permissions[row.userId] ?? []), row.permission],
+    };
+  }, {});
+
+  return users.map((user) => ({
+    ...user,
+    permissions: permissionsByUser[user.id] ?? [],
+  }));
+}
+
+async function replaceUserPermissions(
+  database: Database,
+  userId: string,
+  permissions: EmployeePermission[],
+) {
+  await database("user_permissions").where("user_id", userId).del();
+
+  if (permissions.length === 0) {
+    return;
+  }
+
+  await database("user_permissions").insert(
+    [...new Set(permissions)].map((permission) => ({
+      user_id: userId,
+      permission,
+    })),
   );
 }

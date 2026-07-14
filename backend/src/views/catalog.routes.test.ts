@@ -336,6 +336,7 @@ type User = {
   branchId: string | null;
   branchName: string | null;
   active: boolean;
+  permissions: string[];
 };
 
 type Branch = {
@@ -698,6 +699,7 @@ describe("catalog routes", () => {
         email: "funcionario@example.com",
         phone: "85922220000",
         branchId: branch.body.data?.id,
+        permissions: ["VIEW_REPORTS"],
         password: "senha-segura-456",
       },
     });
@@ -727,6 +729,16 @@ describe("catalog routes", () => {
     const employeeUsers = await request("/users", {
       cookie: employeeLogin.cookie,
     });
+    const employeeReports = await request("/reports/sales", {
+      cookie: employeeLogin.cookie,
+    });
+    const employeeCash = await request("/cash-register/open", {
+      method: "POST",
+      cookie: employeeLogin.cookie,
+      body: {
+        openingBalance: 0,
+      },
+    });
     await request("/auth/logout", { method: "POST" });
     await request("/auth/login", {
       method: "POST",
@@ -745,6 +757,7 @@ describe("catalog routes", () => {
           email: "funcionario@example.com",
           phone: "85933330000",
           branchId: branch.body.data?.id,
+          permissions: ["MANAGE_CASH_REGISTER"],
           password: "nova-senha-segura-456",
         },
       },
@@ -806,6 +819,7 @@ describe("catalog routes", () => {
     assert.equal(employee.body.data?.role, "EMPLOYEE");
     assert.equal(employee.body.data?.branchId, branch.body.data?.id);
     assert.equal(employee.body.data?.branchName, "Filial Norte");
+    assert.deepEqual(employee.body.data?.permissions, ["VIEW_REPORTS"]);
     assert.equal(employeeLogin.status, 200);
     assert.equal(employeeLogin.body.data?.role, "EMPLOYEE");
     assert.equal(employeeLogin.body.data?.branchName, "Filial Norte");
@@ -816,9 +830,14 @@ describe("catalog routes", () => {
     );
     assert.equal(employeeBranches.status, 403);
     assert.equal(employeeUsers.status, 403);
+    assert.equal(employeeReports.status, 200);
+    assert.equal(employeeCash.status, 403);
     assert.equal(updatedEmployee.status, 200);
     assert.equal(updatedEmployee.body.data?.name, "Funcionario atualizado");
     assert.equal(updatedEmployee.body.data?.phone, "85933330000");
+    assert.deepEqual(updatedEmployee.body.data?.permissions, [
+      "MANAGE_CASH_REGISTER",
+    ]);
     assert.equal(deactivatedEmployee.status, 200);
     assert.equal(deactivatedEmployee.body.data?.active, false);
     assert.equal(users.status, 200);

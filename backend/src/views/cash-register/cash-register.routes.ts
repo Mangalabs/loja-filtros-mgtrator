@@ -6,6 +6,7 @@ import {
   recordCashRegisterMovement,
   showCurrentCashRegister,
 } from "../../controllers/cash-register/cash-register.controller.js";
+import { requirePermission } from "../../shared/auth/authorization-middleware.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const cashRegisterRoutes = Router();
@@ -46,28 +47,37 @@ cashRegisterRoutes.get("/cash-register/current", async (_request, response) => {
   response.status(200).json(result);
 });
 
-cashRegisterRoutes.post("/cash-register/open", async (request, response) => {
-  const body = validateBody(request, openCashRegisterSchema);
-  const userId = response.locals.authenticatedUser.id as string;
-  const result = await openCashRegister(userId, body.openingBalance);
+cashRegisterRoutes.post(
+  "/cash-register/open",
+  requirePermission("MANAGE_CASH_REGISTER"),
+  async (request, response) => {
+    const body = validateBody(request, openCashRegisterSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+    const result = await openCashRegister(userId, body.openingBalance);
 
-  response.status(201).json(result);
-});
+    response.status(201).json(result);
+  },
+);
 
-cashRegisterRoutes.patch("/cash-register/close", async (request, response) => {
-  const body = validateBody(request, closeCashRegisterSchema);
-  const userId = response.locals.authenticatedUser.id as string;
-  const result = await closeCurrentCashRegister(
-    userId,
-    body.closingBalance,
-    body.closingPayments ?? [],
-  );
+cashRegisterRoutes.patch(
+  "/cash-register/close",
+  requirePermission("MANAGE_CASH_REGISTER"),
+  async (request, response) => {
+    const body = validateBody(request, closeCashRegisterSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+    const result = await closeCurrentCashRegister(
+      userId,
+      body.closingBalance,
+      body.closingPayments ?? [],
+    );
 
-  response.status(200).json(result);
-});
+    response.status(200).json(result);
+  },
+);
 
 cashRegisterRoutes.post(
   "/cash-register/movements",
+  requirePermission("MANAGE_CASH_REGISTER"),
   async (request, response) => {
     const body = validateBody(request, cashRegisterMovementSchema);
     const userId = response.locals.authenticatedUser.id as string;
