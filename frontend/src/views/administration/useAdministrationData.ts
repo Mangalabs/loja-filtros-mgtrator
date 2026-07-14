@@ -5,6 +5,7 @@ import {
   apiPost,
   apiPut,
   type ApiResult,
+  type AuthEvent,
   type AuthUser,
   type Branch,
 } from "../../api";
@@ -13,6 +14,7 @@ type AdministrationState = "loading" | "ready" | "error";
 
 export function useAdministrationData() {
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [authEvents, setAuthEvents] = useState<AuthEvent[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<AuthUser>();
   const [state, setState] = useState<AdministrationState>("loading");
@@ -22,13 +24,16 @@ export function useAdministrationData() {
     setState("loading");
 
     try {
-      const [branchesResult, usersResult] = await Promise.all([
-        apiGet<ApiResult<Branch[]>>("/branches"),
-        apiGet<ApiResult<AuthUser[]>>("/users"),
-      ]);
+      const [branchesResult, usersResult, authEventsResult] =
+        await Promise.all([
+          apiGet<ApiResult<Branch[]>>("/branches"),
+          apiGet<ApiResult<AuthUser[]>>("/users"),
+          apiGet<ApiResult<AuthEvent[]>>("/auth-events"),
+        ]);
 
       setBranches(branchesResult.data);
       setUsers(usersResult.data);
+      setAuthEvents(authEventsResult.data);
       setState("ready");
     } catch (error) {
       setMessage(readErrorMessage(error));
@@ -112,6 +117,7 @@ export function useAdministrationData() {
   }
 
   return {
+    authEvents,
     branches,
     changeEmployeeStatus,
     clearSelectedEmployee: () => setSelectedEmployee(undefined),

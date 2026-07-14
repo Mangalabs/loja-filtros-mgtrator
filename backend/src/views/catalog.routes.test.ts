@@ -730,6 +730,9 @@ describe("catalog routes", () => {
     const employeeUsers = await request("/users", {
       cookie: employeeLogin.cookie,
     });
+    const employeeAuthEvents = await request("/auth-events", {
+      cookie: employeeLogin.cookie,
+    });
     const employeeReports = await request("/reports/sales", {
       cookie: employeeLogin.cookie,
     });
@@ -773,6 +776,7 @@ describe("catalog routes", () => {
       },
     );
     const users = await request<User[]>("/users");
+    const listedAuthEvents = await request("/auth-events");
     const unauthenticatedCreate = await request("/users", {
       method: "POST",
       authenticated: false,
@@ -837,6 +841,7 @@ describe("catalog routes", () => {
     );
     assert.equal(employeeBranches.status, 403);
     assert.equal(employeeUsers.status, 403);
+    assert.equal(employeeAuthEvents.status, 403);
     assert.equal(employeeReports.status, 200);
     assert.equal(employeeCash.status, 403);
     assert.equal(updatedEmployee.status, 200);
@@ -848,6 +853,7 @@ describe("catalog routes", () => {
     assert.equal(deactivatedEmployee.status, 200);
     assert.equal(deactivatedEmployee.body.data?.active, false);
     assert.equal(users.status, 200);
+    assert.equal(listedAuthEvents.status, 200);
     assert.equal(users.body.data?.length, 2);
     assert.deepEqual(
       users.body.data?.map((user) => user.email),

@@ -4,6 +4,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import {
+  Activity,
   Building2,
   Pencil,
   Plus,
@@ -13,7 +14,12 @@ import {
   Users,
   X,
 } from "lucide-react";
-import type { AuthUser, Branch, EmployeePermission } from "../../api";
+import type {
+  AuthEvent,
+  AuthUser,
+  Branch,
+  EmployeePermission,
+} from "../../api";
 import {
   ActionGroup,
   FormGrid,
@@ -115,13 +121,18 @@ export function EmployeesPage({
     (user) => user.role === "EMPLOYEE",
   );
   const { pagination, visibleItems } = usePaginatedRows(employees);
+  const {
+    pagination: authEventsPagination,
+    visibleItems: visibleAuthEvents,
+  } = usePaginatedRows(administration.authEvents);
 
   return (
-    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
-      <FormGrid
-        key={selectedEmployee?.id ?? "new-employee"}
-        onSubmit={administration.saveEmployee}
-      >
+    <div className="grid min-w-0 gap-5">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
+        <FormGrid
+          key={selectedEmployee?.id ?? "new-employee"}
+          onSubmit={administration.saveEmployee}
+        >
         <PageHeader
           description={
             selectedEmployee
@@ -238,9 +249,9 @@ export function EmployeesPage({
           ) : null}
         </ActionGroup>
         <AdministrationMessage administration={administration} />
-      </FormGrid>
+        </FormGrid>
 
-      <PagePanel wide>
+        <PagePanel wide>
         <PageHeader
           description="Acessos operacionais vinculados as filiais."
           icon={<Users size={18} />}
@@ -310,8 +321,68 @@ export function EmployeesPage({
           items={visibleItems}
           pagination={pagination}
         />
-      </PagePanel>
+        </PagePanel>
+      </div>
+
+      <AuthEventsPanel
+        authEvents={visibleAuthEvents}
+        pagination={authEventsPagination}
+      />
     </div>
+  );
+}
+
+function AuthEventsPanel({
+  authEvents,
+  pagination,
+}: {
+  authEvents: AuthEvent[];
+  pagination: ReturnType<typeof usePaginatedRows<AuthEvent>>["pagination"];
+}) {
+  return (
+    <PagePanel wide>
+      <PageHeader
+        description="Ultimos acessos registrados pelo sistema para investigacao administrativa."
+        icon={<Activity size={18} />}
+        title="Auditoria de acessos"
+      />
+      <ResponsiveTable
+        columns={[
+          {
+            header: "Evento",
+            render: (event: AuthEvent) => (
+              <StatusChip
+                label={authEventLabels[event.eventType]}
+                tone={authEventTones[event.eventType]}
+              />
+            ),
+          },
+          {
+            header: "Email",
+            render: (event: AuthEvent) => event.email,
+          },
+          {
+            header: "Motivo",
+            render: (event: AuthEvent) =>
+              event.reason
+                ? authEventReasonLabels[event.reason] ?? event.reason
+                : "-",
+          },
+          {
+            header: "IP",
+            render: (event: AuthEvent) => event.ipAddress ?? "-",
+          },
+          {
+            header: "Data",
+            render: (event: AuthEvent) => formatDateTime(event.createdAt),
+          },
+        ]}
+        emptyMessage="Nenhum acesso registrado."
+        getRowId={(event) => event.id}
+        items={authEvents}
+        pagination={pagination}
+      />
+    </PagePanel>
   );
 }
 
@@ -353,6 +424,30 @@ const employeePermissionOptions: Array<{
   },
 ];
 
+const authEventLabels: Record<AuthEvent["eventType"], string> = {
+  SETUP_SUCCESS: "Setup inicial",
+  LOGIN_SUCCESS: "Login",
+  LOGIN_FAILURE: "Falha no login",
+  LOGOUT: "Logout",
+};
+
+const authEventTones: Record<
+  AuthEvent["eventType"],
+  "success" | "neutral" | "warning" | "error"
+> = {
+  SETUP_SUCCESS: "success",
+  LOGIN_SUCCESS: "success",
+  LOGIN_FAILURE: "error",
+  LOGOUT: "neutral",
+};
+
+const authEventReasonLabels: Record<string, string> = {
+  USER_NOT_FOUND: "Usuario nao encontrado",
+  INACTIVE_USER: "Usuario inativo",
+  INVALID_PASSWORD: "Senha invalida",
+  UNKNOWN: "Motivo indefinido",
+};
+
 async function confirmEmployeeStatus(
   employee: AuthUser,
   requestConfirmation: RequestConfirmation,
@@ -370,6 +465,13 @@ async function confirmEmployeeStatus(
   }
 
   await changeEmployeeStatus(employee);
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function AdministrationMessage({

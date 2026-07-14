@@ -57,5 +57,6 @@ export async function listAuthEvents(
       "reason",
       "created_at as createdAt",
     ])
-    .orderBy("created_at", "desc");
+    .orderBy("created_at", "desc")
+    .limit(100);
 }

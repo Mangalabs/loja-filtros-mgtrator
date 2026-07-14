@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { requireAuthentication } from "../shared/auth/authentication-middleware.js";
+import { authEventsRoutes } from "./auth-events/auth-events.routes.js";
 import { authRoutes } from "./auth/auth.routes.js";
 import { brandsRoutes } from "./brands/brands.routes.js";
 import { branchesRoutes } from "./branches/branches.routes.js";
@@ -30,6 +31,7 @@ export function registerRoutes(app: Express): void {
   app.use(healthRoutes);
   app.use(authRoutes);
   app.use(requireAuthentication);
+  app.use(authEventsRoutes);
   app.use(brandsRoutes);
   app.use(branchesRoutes);
   app.use(cashRegisterRoutes);

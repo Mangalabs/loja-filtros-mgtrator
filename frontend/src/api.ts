@@ -212,6 +212,17 @@ export type AuthUser = {
   permissions: EmployeePermission[];
 };
 
+export type AuthEvent = {
+  id: string;
+  userId: string | null;
+  email: string;
+  eventType: "SETUP_SUCCESS" | "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGOUT";
+  ipAddress: string | null;
+  userAgent: string | null;
+  reason: string | null;
+  createdAt: string;
+};
+
 export type EmployeePermission =
   | "MANAGE_COMMERCIAL_SETTINGS"
   | "IMPORT_PURCHASE_INVOICES"
