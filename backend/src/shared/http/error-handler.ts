@@ -56,6 +56,16 @@ export const errorHandler: ErrorRequestHandler = (
       });
       return;
     }
+
+    if (["42703", "42P01"].includes(error.code ?? "")) {
+      response.status(500).json({
+        code: 500,
+        status: "error",
+        message:
+          "Estrutura do banco desatualizada. Rode as migrations e reinicie o backend.",
+      });
+      return;
+    }
   }
 
   console.error(error);
