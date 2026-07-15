@@ -1,9 +1,15 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { AuthUser, Client, Product } from "../api";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useConfirmation } from "../hooks/useConfirmation";
 import { useNavigationState } from "../hooks/useNavigationState";
-import { viewTitles, type View } from "../navigation";
+import {
+  activeViewStorageKey,
+  canAccessView,
+  isView,
+  viewTitles,
+  type View,
+} from "../navigation";
 import { useCatalogActions } from "../views/catalog/useCatalogActions";
 import { useFinanceActions } from "../views/finance/useFinanceActions";
 import { useQuoteActions } from "../views/quotes/useQuoteActions";
@@ -22,7 +28,7 @@ export function AuthenticatedApp({
   user: AuthUser;
   onLogout: () => void;
 }) {
-  const [view, setView] = useState<View>("products");
+  const [view, setViewState] = useState<View>(() => readInitialView(user));
   const [selectedProduct, setSelectedProduct] = useState<Product>();
   const [selectedClient, setSelectedClient] = useState<Client>();
   const { closeConfirmation, confirmation, requestConfirmation } =
@@ -65,6 +71,10 @@ export function AuthenticatedApp({
     suppliers,
   } = useCatalogData(user);
   const { openNavSections, toggleNavSection } = useNavigationState();
+  const setView = useCallback((nextView: View) => {
+    setViewState(nextView);
+    storeActiveView(nextView);
+  }, []);
 
   const catalogActions = useCatalogActions({
     loadCatalog,
@@ -229,4 +239,26 @@ export function AuthenticatedApp({
       </section>
     </main>
   );
+}
+
+function readInitialView(user: AuthUser): View {
+  if (typeof window === "undefined") {
+    return "products";
+  }
+
+  const storedView = window.localStorage.getItem(activeViewStorageKey);
+
+  if (!isView(storedView) || storedView === "edit-product") {
+    return "products";
+  }
+
+  return canAccessView(user, storedView) ? storedView : "products";
+}
+
+function storeActiveView(view: View) {
+  if (typeof window === "undefined" || view === "edit-product") {
+    return;
+  }
+
+  window.localStorage.setItem(activeViewStorageKey, view);
 }

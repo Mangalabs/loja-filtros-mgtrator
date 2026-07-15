@@ -76,6 +76,34 @@ const initialOpenNavSections: Record<NavSectionKey, boolean> = {
 };
 
 export const navSectionsStorageKey = "loja-filtros.nav-sections.v2";
+export const activeViewStorageKey = "loja-filtros.active-view.v1";
+
+const viewValues: View[] = [
+  "products",
+  "new-product",
+  "edit-product",
+  "commercial-settings",
+  "stock-entries",
+  "purchase-invoices",
+  "stock-adjustments",
+  "stock-movements",
+  "low-stock",
+  "payment-methods",
+  "fiscal-settings",
+  "fiscal-documents",
+  "cash-register",
+  "reports",
+  "quotes",
+  "sales",
+  "sales-history",
+  "shipping-orders",
+  "pickup-reservations",
+  "brands",
+  "clients",
+  "suppliers",
+  "branches",
+  "employees",
+];
 
 export const viewPermissionRequirements: Partial<
   Record<View, EmployeePermission>
@@ -98,6 +126,10 @@ export function canAccessView(user: AuthUser, view: View) {
     !requiredPermission ||
     user.permissions.includes(requiredPermission)
   );
+}
+
+export function isView(value: string | null): value is View {
+  return viewValues.includes(value as View);
 }
 
 export function findActiveNavSection(view: View) {
