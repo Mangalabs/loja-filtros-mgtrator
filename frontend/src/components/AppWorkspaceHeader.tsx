@@ -2,9 +2,11 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
+import { useState } from "react";
 import {
   AlertTriangle,
   Banknote,
+  KeyRound,
   LogOut,
   PackagePlus,
   RefreshCcw,
@@ -13,6 +15,7 @@ import {
   Truck,
 } from "lucide-react";
 import type { AuthUser, CashRegisterSession } from "../api";
+import { PasswordChangeForm } from "../auth/PasswordChangeForm";
 import type { View } from "../navigation";
 import { frontendPalette } from "../theme";
 import { Metric } from "./shell";
@@ -28,6 +31,7 @@ export function AppWorkspaceHeader({
   supplierCount,
   user,
   view,
+  onChangePassword,
   onLogout,
   onRefresh,
   onSelectView,
@@ -41,11 +45,16 @@ export function AppWorkspaceHeader({
   supplierCount: number;
   user: AuthUser;
   view: View;
+  onChangePassword: (input: {
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<void>;
   onLogout: () => void;
   onRefresh: () => void;
   onSelectView: (view: View) => void;
 }) {
   const cashStatus = cashRegister ? "Aberto" : "Fechado";
+  const [profileOpen, setProfileOpen] = useState(false);
 
   return (
     <>
@@ -71,7 +80,11 @@ export function AppWorkspaceHeader({
             Caixa {cashStatus}
           </Button>
 
-          <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-[#dfe5e1] bg-[#f7f7f4] px-3 py-2">
+          <button
+            className="flex min-w-0 cursor-pointer items-center gap-2 rounded-2xl border border-[#dfe5e1] bg-[#f7f7f4] px-3 py-2 text-left hover:border-[#8a9f9d]"
+            type="button"
+            onClick={() => setProfileOpen((open) => !open)}
+          >
             <ShieldCheck color={frontendPalette.primaryNavy} size={17} />
             <div className="min-w-0">
               <strong className="block truncate text-sm text-[#2c281e]">
@@ -81,7 +94,7 @@ export function AppWorkspaceHeader({
                 {user.email}
               </span>
             </div>
-          </div>
+          </button>
 
           <Tooltip title="Atualizar dados">
             <IconButton color="primary" onClick={onRefresh}>
@@ -98,6 +111,48 @@ export function AppWorkspaceHeader({
           </SecondaryButton>
         </div>
       </header>
+
+      {profileOpen ? (
+        <section className="mt-4 grid gap-4 rounded-3xl border border-[#dfe5e1] bg-white p-4 shadow-sm sm:p-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(320px,1.2fr)]">
+          <div className="min-w-0">
+            <div className="mb-4 flex items-center gap-2 text-[#203466]">
+              <ShieldCheck size={18} />
+              <strong>Meu perfil</strong>
+            </div>
+            <dl className="grid gap-3 text-sm">
+              <ProfileItem label="Nome" value={user.name} />
+              <ProfileItem label="Email" value={user.email} />
+              <ProfileItem
+                label="Filial"
+                value={user.branchName ?? "Sem filial vinculada"}
+              />
+              <ProfileItem
+                label="Perfil"
+                value={user.role === "ADMIN" ? "Administrador" : "Funcionario"}
+              />
+              <ProfileItem
+                label="Permissoes"
+                value={
+                  user.role === "ADMIN"
+                    ? "Acesso administrativo"
+                    : `${user.permissions.length} permissao(oes)`
+                }
+              />
+            </dl>
+          </div>
+          <div className="min-w-0 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4">
+            <div className="flex items-center gap-2 text-[#203466]">
+              <KeyRound size={18} />
+              <strong>Alterar senha</strong>
+            </div>
+            <PasswordChangeForm
+              successMessage="Senha alterada. Continue usando normalmente."
+              onCancel={() => setProfileOpen(false)}
+              onChangePassword={onChangePassword}
+            />
+          </div>
+        </section>
+      ) : null}
 
       <section className="my-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
@@ -138,5 +193,16 @@ export function AppWorkspaceHeader({
         ) : null}
       </section>
     </>
+  );
+}
+
+function ProfileItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#e4e9e5] bg-[#fbfcfb] px-3 py-2">
+      <dt className="text-xs font-semibold uppercase tracking-wide text-[#5f665f]">
+        {label}
+      </dt>
+      <dd className="m-0 truncate text-[#2c281e]">{value}</dd>
+    </div>
   );
 }

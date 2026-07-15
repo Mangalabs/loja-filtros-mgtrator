@@ -68,8 +68,12 @@ const authStateRenderers: Record<
       onSetup={onSetup}
     />
   ),
-  authenticated: ({ onLogout, user }) => (
-    <AuthenticatedApp user={user!} onLogout={onLogout} />
+  authenticated: ({ onChangePassword, onLogout, user }) => (
+    <AuthenticatedApp
+      user={user!}
+      onChangePassword={onChangePassword}
+      onLogout={onLogout}
+    />
   ),
   "change-password": ({ onChangePassword, onLogout }) => (
     <PasswordChangePage

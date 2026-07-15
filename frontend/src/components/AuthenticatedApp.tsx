@@ -23,9 +23,14 @@ import type { FiscalPendencyTarget } from "../views/finance/FiscalDocumentsPage"
 
 export function AuthenticatedApp({
   user,
+  onChangePassword,
   onLogout,
 }: {
   user: AuthUser;
+  onChangePassword: (input: {
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<void>;
   onLogout: () => void;
 }) {
   const [view, setViewState] = useState<View>(() => readInitialView(user));
@@ -165,6 +170,7 @@ export function AuthenticatedApp({
           supplierCount={suppliers.length}
           user={user}
           view={view}
+          onChangePassword={onChangePassword}
           onLogout={onLogout}
           onRefresh={() => void loadCatalog()}
           onSelectView={setView}
