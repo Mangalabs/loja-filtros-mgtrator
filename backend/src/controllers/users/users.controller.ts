@@ -6,6 +6,7 @@ import {
   updateUser,
   updateUserStatus,
 } from "../../models/users/users.model.js";
+import { createAuthEvent } from "../../models/auth-events/auth-events.model.js";
 import { findActiveBranchById } from "../../models/branches/branches.model.js";
 import { hashPassword } from "../../shared/auth/password.js";
 import type { EmployeePermission } from "../../shared/auth/permissions.js";
@@ -22,6 +23,11 @@ export type StoreUserInput = {
 
 export type ReplaceEmployeeInput = Omit<UserUpdateInput, "passwordHash"> & {
   password?: string;
+};
+
+export type AuthenticatedAdministratorInput = {
+  id: string;
+  email: string;
 };
 
 export async function indexUsers() {
@@ -42,6 +48,7 @@ export async function storeUser(input: StoreUserInput) {
     role: "EMPLOYEE",
     branchId: input.branchId,
     permissions: input.permissions ?? [],
+    mustChangePassword: true,
     passwordHash: await hashPassword(input.password),
   });
 
@@ -55,6 +62,7 @@ export async function storeUser(input: StoreUserInput) {
 export async function replaceEmployee(
   id: string,
   input: ReplaceEmployeeInput,
+  administrator?: AuthenticatedAdministratorInput,
 ) {
   await ensureEmployee(id);
   await ensureEmployeeBranch(input.branchId);
@@ -65,10 +73,22 @@ export async function replaceEmployee(
     phone: input.phone,
     branchId: input.branchId,
     permissions: input.permissions ?? [],
+    mustChangePassword: Boolean(input.password),
     passwordHash: input.password
       ? await hashPassword(input.password)
       : undefined,
   });
+
+  if (input.password && user) {
+    await createAuthEvent({
+      userId: user.id,
+      email: user.email,
+      eventType: "PASSWORD_RESET",
+      reason: administrator
+        ? `ADMIN:${administrator.email}`
+        : "ADMIN_RESET",
+    });
+  }
 
   return {
     code: 200,

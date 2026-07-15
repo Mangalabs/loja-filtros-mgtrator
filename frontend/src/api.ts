@@ -211,13 +211,20 @@ export type AuthUser = {
   active: boolean;
   permissions: EmployeePermission[];
   lastLoginAt?: string | null;
+  mustChangePassword: boolean;
 };
 
 export type AuthEvent = {
   id: string;
   userId: string | null;
   email: string;
-  eventType: "SETUP_SUCCESS" | "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGOUT";
+  eventType:
+    | "SETUP_SUCCESS"
+    | "LOGIN_SUCCESS"
+    | "LOGIN_FAILURE"
+    | "LOGOUT"
+    | "PASSWORD_CHANGED"
+    | "PASSWORD_RESET";
   ipAddress: string | null;
   userAgent: string | null;
   reason: string | null;

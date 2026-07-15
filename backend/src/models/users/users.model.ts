@@ -13,6 +13,7 @@ export type User = {
   active: boolean;
   permissions: EmployeePermission[];
   lastLoginAt?: string | null;
+  mustChangePassword: boolean;
 };
 
 export type UserRole = "ADMIN" | "EMPLOYEE";
@@ -29,6 +30,7 @@ export type UserCreateInput = {
   branchId?: string | null;
   passwordHash: string;
   permissions?: EmployeePermission[];
+  mustChangePassword?: boolean;
 };
 
 export type UserUpdateInput = {
@@ -38,6 +40,12 @@ export type UserUpdateInput = {
   branchId: string;
   passwordHash?: string;
   permissions?: EmployeePermission[];
+  mustChangePassword?: boolean;
+};
+
+export type UserPasswordUpdateInput = {
+  passwordHash: string;
+  mustChangePassword: boolean;
 };
 
 type Database = Knex | Knex.Transaction;
@@ -51,6 +59,7 @@ const userColumns = [
   "users.branch_id as branchId",
   "branches.name as branchName",
   "users.active",
+  "users.must_change_password as mustChangePassword",
 ];
 
 export async function hasUsers(database: Database = db): Promise<boolean> {
@@ -81,6 +90,7 @@ export async function createUser(
       role: input.role ?? "ADMIN",
       branch_id: input.branchId,
       password_hash: input.passwordHash,
+      must_change_password: input.mustChangePassword ?? false,
     })
     .returning("id");
 
@@ -104,6 +114,18 @@ export async function findUserByEmail(
     .first();
 
   return user ? (await attachPermissions(db, [user]))[0] : undefined;
+}
+
+export async function findUserWithPasswordById(
+  id: string,
+  database: Database = db,
+): Promise<UserWithPassword | undefined> {
+  const user = await userQuery(database)
+    .select([...userColumns, "password_hash as passwordHash"])
+    .where("users.id", id)
+    .first();
+
+  return user ? (await attachPermissions(database, [user]))[0] : undefined;
 }
 
 export async function findActiveUserById(
@@ -143,7 +165,10 @@ export async function updateUser(
       phone: input.phone,
       branch_id: input.branchId,
       ...(input.passwordHash
-        ? { password_hash: input.passwordHash }
+        ? {
+            password_hash: input.passwordHash,
+            must_change_password: input.mustChangePassword ?? false,
+          }
         : {}),
       updated_at: database.fn.now(),
     });
@@ -170,6 +195,20 @@ export async function updateUserStatus(
       active,
       updated_at: database.fn.now(),
     });
+
+  return updated ? findUserById(id, database) : undefined;
+}
+
+export async function updateUserPassword(
+  id: string,
+  input: UserPasswordUpdateInput,
+  database: Database = db,
+): Promise<User | undefined> {
+  const updated = await database("users").where("id", id).update({
+    password_hash: input.passwordHash,
+    must_change_password: input.mustChangePassword,
+    updated_at: database.fn.now(),
+  });
 
   return updated ? findUserById(id, database) : undefined;
 }

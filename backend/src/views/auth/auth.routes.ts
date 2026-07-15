@@ -3,6 +3,7 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import {
   authenticateUser,
+  changeOwnPassword,
   logoutUser,
   setupInitialUser,
   showSetupStatus,
@@ -31,6 +32,13 @@ const setupSchema = credentialsSchema
   .extend({
     name: z.string().trim().min(1).max(160),
     phone: optionalText(32),
+  })
+  .strict();
+
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(12).max(128),
+    newPassword: z.string().min(12).max(128),
   })
   .strict();
 
@@ -83,6 +91,22 @@ authRoutes.get("/auth/session", requireAuthentication, (_request, response) => {
     data: response.locals.authenticatedUser,
   });
 });
+
+authRoutes.post(
+  "/auth/password",
+  requireAuthentication,
+  async (request, response) => {
+    const body = validateBody(request, changePasswordSchema);
+    const result = await changeOwnPassword(
+      response.locals.authenticatedUser.id,
+      body,
+      authRequestMetadata(request),
+    );
+
+    setAuthCookie(response, result.token);
+    response.status(200).json(result.response);
+  },
+);
 
 authRoutes.post("/auth/logout", async (request, response) => {
   await logoutUser(

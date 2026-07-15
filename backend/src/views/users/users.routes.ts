@@ -67,7 +67,10 @@ usersRoutes.post("/users", requireAdmin, async (request, response) => {
 usersRoutes.put("/users/:id", requireAdmin, async (request, response) => {
   const { id } = employeeParamsSchema.parse(request.params);
   const body = validateBody(request, replaceEmployeeSchema);
-  const result = await replaceEmployee(id, body);
+  const result = await replaceEmployee(id, body, {
+    id: response.locals.authenticatedUser.id,
+    email: response.locals.authenticatedUser.email,
+  });
 
   response.status(200).json(result);
 });

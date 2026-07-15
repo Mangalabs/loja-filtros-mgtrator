@@ -21,6 +21,10 @@ type AuthContextValue = {
   user?: AuthUser;
   loading: boolean;
   requiresSetup: boolean;
+  changePassword: (input: {
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<void>;
   login: (credentials: Credentials) => Promise<void>;
   setup: (input: SetupInput) => Promise<void>;
   logout: () => Promise<void>;
@@ -72,6 +76,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRequiresSetup(false);
   }
 
+  async function changePassword(input: {
+    currentPassword: string;
+    newPassword: string;
+  }) {
+    const session = await apiPost<ApiResult<AuthUser>>(
+      "/auth/password",
+      input,
+    );
+    setUser(session.data);
+    setRequiresSetup(false);
+  }
+
   async function logout() {
     await apiPost<ApiResult<null>>("/auth/logout", {});
     setUser(undefined);
@@ -80,7 +96,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, requiresSetup, login, setup, logout }}
+      value={{
+        user,
+        loading,
+        requiresSetup,
+        changePassword,
+        login,
+        setup,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

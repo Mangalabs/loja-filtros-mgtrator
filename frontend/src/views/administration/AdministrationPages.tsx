@@ -438,6 +438,8 @@ const authEventLabels: Record<AuthEvent["eventType"], string> = {
   LOGIN_SUCCESS: "Login",
   LOGIN_FAILURE: "Falha no login",
   LOGOUT: "Logout",
+  PASSWORD_CHANGED: "Senha alterada",
+  PASSWORD_RESET: "Senha redefinida",
 };
 
 const authEventTones: Record<
@@ -448,6 +450,8 @@ const authEventTones: Record<
   LOGIN_SUCCESS: "success",
   LOGIN_FAILURE: "error",
   LOGOUT: "neutral",
+  PASSWORD_CHANGED: "success",
+  PASSWORD_RESET: "warning",
 };
 
 const authEventReasonLabels: Record<string, string> = {

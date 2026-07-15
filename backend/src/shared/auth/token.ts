@@ -19,6 +19,7 @@ export type AuthenticatedUser = {
   branchId?: string | null;
   branchName?: string | null;
   permissions?: EmployeePermission[];
+  mustChangePassword?: boolean;
 };
 
 export async function issueAuthToken(user: AuthenticatedUser): Promise<string> {
@@ -30,6 +31,7 @@ export async function issueAuthToken(user: AuthenticatedUser): Promise<string> {
     branchId: user.branchId ?? null,
     branchName: user.branchName ?? null,
     permissions: user.permissions ?? [],
+    mustChangePassword: user.mustChangePassword ?? false,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuer(issuer)
@@ -59,6 +61,8 @@ export async function verifyAuthToken(
         typeof payload.phone !== "undefined") ||
       (typeof payload.permissions !== "undefined" &&
         !isValidPermissions(payload.permissions)) ||
+      (typeof payload.mustChangePassword !== "undefined" &&
+        typeof payload.mustChangePassword !== "boolean") ||
       !["ADMIN", "EMPLOYEE"].includes(String(payload.role))
     ) {
       return undefined;
@@ -76,6 +80,10 @@ export async function verifyAuthToken(
       permissions: Array.isArray(payload.permissions)
         ? (payload.permissions as EmployeePermission[])
         : [],
+      mustChangePassword:
+        typeof payload.mustChangePassword === "boolean"
+          ? payload.mustChangePassword
+          : false,
     };
   } catch {
     return undefined;

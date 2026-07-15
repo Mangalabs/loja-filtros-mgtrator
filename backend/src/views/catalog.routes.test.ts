@@ -338,6 +338,7 @@ type User = {
   active: boolean;
   permissions: string[];
   lastLoginAt?: string | null;
+  mustChangePassword: boolean;
 };
 
 type Branch = {
@@ -714,9 +715,17 @@ describe("catalog routes", () => {
         password: "senha-segura-456",
       },
     });
-    const employeeCreate = await request("/users", {
+    const changedEmployeePassword = await request<User>("/auth/password", {
       method: "POST",
       cookie: employeeLogin.cookie,
+      body: {
+        currentPassword: "senha-segura-456",
+        newPassword: "senha-alterada-456",
+      },
+    });
+    const employeeCreate = await request("/users", {
+      method: "POST",
+      cookie: changedEmployeePassword.cookie,
       body: {
         name: "Criado por funcionario",
         email: "bloqueado@example.com",
@@ -726,20 +735,20 @@ describe("catalog routes", () => {
       },
     });
     const employeeBranches = await request("/branches", {
-      cookie: employeeLogin.cookie,
+      cookie: changedEmployeePassword.cookie,
     });
     const employeeUsers = await request("/users", {
-      cookie: employeeLogin.cookie,
+      cookie: changedEmployeePassword.cookie,
     });
     const employeeAuthEvents = await request("/auth-events", {
-      cookie: employeeLogin.cookie,
+      cookie: changedEmployeePassword.cookie,
     });
     const employeeReports = await request("/reports/sales", {
-      cookie: employeeLogin.cookie,
+      cookie: changedEmployeePassword.cookie,
     });
     const employeeCash = await request("/cash-register/open", {
       method: "POST",
-      cookie: employeeLogin.cookie,
+      cookie: changedEmployeePassword.cookie,
       body: {
         openingBalance: 0,
       },
@@ -832,9 +841,13 @@ describe("catalog routes", () => {
     assert.equal(employee.body.data?.branchId, branch.body.data?.id);
     assert.equal(employee.body.data?.branchName, "Filial Norte");
     assert.deepEqual(employee.body.data?.permissions, ["VIEW_REPORTS"]);
+    assert.equal(employee.body.data?.mustChangePassword, true);
     assert.equal(employeeLogin.status, 200);
     assert.equal(employeeLogin.body.data?.role, "EMPLOYEE");
     assert.equal(employeeLogin.body.data?.branchName, "Filial Norte");
+    assert.equal(employeeLogin.body.data?.mustChangePassword, true);
+    assert.equal(changedEmployeePassword.status, 200);
+    assert.equal(changedEmployeePassword.body.data?.mustChangePassword, false);
     assert.equal(employeeCreate.status, 403);
     assert.equal(
       employeeCreate.body.message,
@@ -848,6 +861,7 @@ describe("catalog routes", () => {
     assert.equal(updatedEmployee.status, 200);
     assert.equal(updatedEmployee.body.data?.name, "Funcionario atualizado");
     assert.equal(updatedEmployee.body.data?.phone, "85933330000");
+    assert.equal(updatedEmployee.body.data?.mustChangePassword, true);
     assert.deepEqual(updatedEmployee.body.data?.permissions, [
       "MANAGE_CASH_REGISTER",
     ]);
@@ -882,6 +896,12 @@ describe("catalog routes", () => {
       authEvents.some((event) => event.eventType === "LOGIN_SUCCESS"),
     );
     assert.ok(authEvents.some((event) => event.eventType === "LOGOUT"));
+    assert.ok(
+      authEvents.some((event) => event.eventType === "PASSWORD_CHANGED"),
+    );
+    assert.ok(
+      authEvents.some((event) => event.eventType === "PASSWORD_RESET"),
+    );
   });
 
   it("shows and updates fiscal settings with production guard", async () => {

@@ -4,7 +4,9 @@ import {
   createUser,
   findActiveUserById,
   findUserByEmail,
+  findUserWithPasswordById,
   hasUsers,
+  updateUserPassword,
   type User,
 } from "../../models/users/users.model.js";
 import { hashPassword, verifyPassword } from "../../shared/auth/password.js";
@@ -24,6 +26,11 @@ export type SetupInput = CredentialsInput & {
 export type AuthRequestMetadata = {
   ipAddress?: string | null;
   userAgent?: string | null;
+};
+
+export type ChangePasswordInput = {
+  currentPassword: string;
+  newPassword: string;
 };
 
 const dummyPasswordHash = hashPassword(
@@ -134,6 +141,39 @@ export async function logoutUser(
   });
 }
 
+export async function changeOwnPassword(
+  userId: string,
+  input: ChangePasswordInput,
+  metadata: AuthRequestMetadata = {},
+) {
+  const user = await findUserWithPasswordById(userId);
+  const passwordIsValid = user
+    ? await verifyPassword(input.currentPassword, user.passwordHash)
+    : false;
+
+  if (!user || !user.active || !passwordIsValid) {
+    throw new AppError("Senha atual invalida.", 401);
+  }
+
+  const updatedUser = await updateUserPassword(user.id, {
+    passwordHash: await hashPassword(input.newPassword),
+    mustChangePassword: false,
+  });
+
+  if (!updatedUser) {
+    throw new AppError("Usuario nao encontrado.", 404);
+  }
+
+  await createAuthEvent({
+    userId: updatedUser.id,
+    email: updatedUser.email,
+    eventType: "PASSWORD_CHANGED",
+    ...metadata,
+  });
+
+  return authenticatedResult(updatedUser);
+}
+
 async function authenticatedResult(user: User) {
   const publicUser: User = {
     id: user.id,
@@ -145,6 +185,7 @@ async function authenticatedResult(user: User) {
     branchName: user.branchName,
     active: user.active,
     permissions: user.permissions,
+    mustChangePassword: user.mustChangePassword,
   };
   const token = await issueAuthToken(publicUser);
 

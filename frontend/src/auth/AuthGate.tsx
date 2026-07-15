@@ -2,8 +2,13 @@ import type { ReactNode } from "react";
 import type { AuthUser } from "../api";
 import { AuthenticatedApp } from "../components/AuthenticatedApp";
 import { LoginPage } from "./LoginPage";
+import { PasswordChangePage } from "./PasswordChangePage";
 
-type AuthGateState = "anonymous" | "authenticated" | "loading";
+type AuthGateState =
+  | "anonymous"
+  | "authenticated"
+  | "change-password"
+  | "loading";
 
 type LoginInput = {
   email: string;
@@ -19,6 +24,10 @@ type AuthGateProps = {
   loading: boolean;
   requiresSetup: boolean;
   user?: AuthUser;
+  onChangePassword: (input: {
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<void>;
   onLogin: (credentials: LoginInput) => Promise<void>;
   onLogout: () => void;
   onSetup: (input: SetupInput) => Promise<void>;
@@ -33,6 +42,10 @@ const authStateStrategies: AuthStateStrategy[] = [
   {
     matches: ({ loading }) => loading,
     state: "loading",
+  },
+  {
+    matches: ({ user }) => Boolean(user?.mustChangePassword),
+    state: "change-password",
   },
   {
     matches: ({ user }) => Boolean(user),
@@ -57,6 +70,12 @@ const authStateRenderers: Record<
   ),
   authenticated: ({ onLogout, user }) => (
     <AuthenticatedApp user={user!} onLogout={onLogout} />
+  ),
+  "change-password": ({ onChangePassword, onLogout }) => (
+    <PasswordChangePage
+      onChangePassword={onChangePassword}
+      onLogout={onLogout}
+    />
   ),
   loading: () => (
     <div className="flex min-h-screen items-center justify-center text-[#5f665f]">
