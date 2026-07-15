@@ -234,6 +234,15 @@ export type AuthEvent = {
   createdAt: string;
 };
 
+export type AuthEventPage = {
+  items: AuthEvent[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+};
+
 export type EmployeePermission =
   | "MANAGE_COMMERCIAL_SETTINGS"
   | "IMPORT_PURCHASE_INVOICES"

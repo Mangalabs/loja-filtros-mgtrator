@@ -12,6 +12,18 @@ export type AuthEventType =
   | "EMPLOYEE_UPDATED"
   | "EMPLOYEE_STATUS_CHANGED";
 
+export const authEventTypeValues = [
+  "SETUP_SUCCESS",
+  "LOGIN_SUCCESS",
+  "LOGIN_FAILURE",
+  "LOGOUT",
+  "PASSWORD_CHANGED",
+  "PASSWORD_RESET",
+  "EMPLOYEE_CREATED",
+  "EMPLOYEE_UPDATED",
+  "EMPLOYEE_STATUS_CHANGED",
+] as const satisfies AuthEventType[];
+
 export type AuthEventInput = {
   userId?: string | null;
   email: string;
@@ -32,6 +44,24 @@ export type AuthEvent = {
   createdAt: string;
 };
 
+export type AuthEventFilters = {
+  email?: string;
+  eventType?: AuthEventType;
+  dateFrom?: string;
+  dateTo?: string;
+  page: number;
+  limit: number;
+};
+
+export type AuthEventPage = {
+  items: AuthEvent[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+};
+
 type Database = Knex | Knex.Transaction;
 
 export async function createAuthEvent(
@@ -49,9 +79,17 @@ export async function createAuthEvent(
 }
 
 export async function listAuthEvents(
+  filters: AuthEventFilters,
   database: Database = db,
-): Promise<AuthEvent[]> {
-  return database("auth_events")
+): Promise<AuthEventPage> {
+  const query = applyAuthEventFilters(database("auth_events"), filters);
+  const [{ count }] = await query
+    .clone()
+    .clearSelect()
+    .clearOrder()
+    .count<{ count: string }[]>({ count: "*" });
+  const total = Number(count);
+  const items = await query
     .select<AuthEvent[]>([
       "id",
       "user_id as userId",
@@ -63,5 +101,40 @@ export async function listAuthEvents(
       "created_at as createdAt",
     ])
     .orderBy("created_at", "desc")
-    .limit(100);
+    .limit(filters.limit)
+    .offset((filters.page - 1) * filters.limit);
+
+  return {
+    items,
+    pagination: {
+      total,
+      page: filters.page,
+      limit: filters.limit,
+    },
+  };
+}
+
+function applyAuthEventFilters(
+  query: Knex.QueryBuilder,
+  filters: AuthEventFilters,
+) {
+  const filteredQuery = filters.email
+    ? query.whereILike("email", `%${filters.email}%`)
+    : query;
+  const eventTypeQuery = filters.eventType
+    ? filteredQuery.where("event_type", filters.eventType)
+    : filteredQuery;
+  const dateFromQuery = filters.dateFrom
+    ? eventTypeQuery.where("created_at", ">=", filters.dateFrom)
+    : eventTypeQuery;
+
+  return filters.dateTo
+    ? dateFromQuery.where("created_at", "<=", normalizeEndDate(filters.dateTo))
+    : dateFromQuery;
+}
+
+function normalizeEndDate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? `${value}T23:59:59.999Z`
+    : value;
 }

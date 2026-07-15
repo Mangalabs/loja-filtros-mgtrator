@@ -796,6 +796,10 @@ describe("catalog routes", () => {
     );
     const users = await request<User[]>("/users");
     const listedAuthEvents = await request("/auth-events");
+    const filteredAuthEvents = await request<{
+      items: Array<{ email: string; eventType: string }>;
+      pagination: { total: number };
+    }>("/auth-events?eventType=LOGIN_SUCCESS&email=funcionario");
     const unauthenticatedCreate = await request("/users", {
       method: "POST",
       authenticated: false,
@@ -880,6 +884,24 @@ describe("catalog routes", () => {
     assert.equal(deactivatedEmployee.body.data?.active, false);
     assert.equal(users.status, 200);
     assert.equal(listedAuthEvents.status, 200);
+    assert.equal(filteredAuthEvents.status, 200);
+    assert.ok(
+      Array.isArray(
+        (
+          listedAuthEvents.body.data as {
+            items?: unknown[];
+          }
+        )?.items,
+      ),
+    );
+    assert.ok((filteredAuthEvents.body.data?.pagination.total ?? 0) >= 1);
+    assert.ok(
+      filteredAuthEvents.body.data?.items.every(
+        (event) =>
+          event.email === "funcionario@example.com" &&
+          event.eventType === "LOGIN_SUCCESS",
+      ),
+    );
     assert.equal(users.body.data?.length, 2);
     assert.ok(
       users.body.data?.some(

@@ -1,9 +1,12 @@
-import { listAuthEvents } from "../../models/auth-events/auth-events.model.js";
+import {
+  listAuthEvents,
+  type AuthEventFilters,
+} from "../../models/auth-events/auth-events.model.js";
 
-export async function indexAuthEvents() {
+export async function indexAuthEvents(filters: AuthEventFilters) {
   return {
     code: 200,
     status: "success",
-    data: await listAuthEvents(),
+    data: await listAuthEvents(filters),
   };
 }

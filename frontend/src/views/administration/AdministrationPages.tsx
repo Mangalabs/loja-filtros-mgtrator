@@ -123,10 +123,6 @@ export function EmployeesPage({
     (user) => user.role === "EMPLOYEE",
   );
   const { pagination, visibleItems } = usePaginatedRows(employees);
-  const {
-    pagination: authEventsPagination,
-    visibleItems: visibleAuthEvents,
-  } = usePaginatedRows(administration.authEvents);
 
   return (
     <div className="grid min-w-0 gap-5">
@@ -378,19 +374,16 @@ export function EmployeesPage({
       </div>
 
       <AuthEventsPanel
-        authEvents={visibleAuthEvents}
-        pagination={authEventsPagination}
+        administration={administration}
       />
     </div>
   );
 }
 
 function AuthEventsPanel({
-  authEvents,
-  pagination,
+  administration,
 }: {
-  authEvents: AuthEvent[];
-  pagination: ReturnType<typeof usePaginatedRows<AuthEvent>>["pagination"];
+  administration: ReturnType<typeof useAdministrationData>;
 }) {
   return (
     <PagePanel wide>
@@ -399,6 +392,57 @@ function AuthEventsPanel({
         icon={<Activity size={18} />}
         title="Auditoria de acessos"
       />
+      <form
+        key={JSON.stringify(administration.authEventFilters)}
+        className="grid gap-3 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4 md:grid-cols-5"
+        onSubmit={administration.applyAuthEventFilters}
+      >
+        <TextField
+          defaultValue={administration.authEventFilters.email}
+          label="Email"
+          name="email"
+          size="small"
+        />
+        <TextField
+          defaultValue={administration.authEventFilters.eventType}
+          label="Evento"
+          name="eventType"
+          select
+          size="small"
+        >
+          <MenuItem value="">Todos</MenuItem>
+          {Object.entries(authEventLabels).map(([value, label]) => (
+            <MenuItem key={value} value={value}>
+              {label}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          defaultValue={administration.authEventFilters.dateFrom}
+          label="Data inicial"
+          name="dateFrom"
+          size="small"
+          type="date"
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+        <TextField
+          defaultValue={administration.authEventFilters.dateTo}
+          label="Data final"
+          name="dateTo"
+          size="small"
+          type="date"
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+        <ActionGroup align="start" className="md:items-center">
+          <PrimaryButton type="submit">Filtrar</PrimaryButton>
+          <SecondaryButton
+            type="button"
+            onClick={administration.clearAuthEventFilters}
+          >
+            Limpar
+          </SecondaryButton>
+        </ActionGroup>
+      </form>
       <ResponsiveTable
         columns={[
           {
@@ -432,8 +476,8 @@ function AuthEventsPanel({
         ]}
         emptyMessage="Nenhum acesso registrado."
         getRowId={(event) => event.id}
-        items={authEvents}
-        pagination={pagination}
+        items={administration.authEvents}
+        pagination={administration.authEventsPagination}
       />
     </PagePanel>
   );

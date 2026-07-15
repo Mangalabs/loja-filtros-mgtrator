@@ -6,15 +6,31 @@ import {
   apiPut,
   type ApiResult,
   type AuthEvent,
+  type AuthEventPage,
   type AuthUser,
   type Branch,
 } from "../../api";
 
 type AdministrationState = "loading" | "ready" | "error";
+type AuthEventFilters = {
+  email: string;
+  eventType: string;
+  dateFrom: string;
+  dateTo: string;
+};
 
 export function useAdministrationData() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [authEvents, setAuthEvents] = useState<AuthEvent[]>([]);
+  const [authEventFilters, setAuthEventFilters] = useState<AuthEventFilters>({
+    email: "",
+    eventType: "",
+    dateFrom: "",
+    dateTo: "",
+  });
+  const [authEventPage, setAuthEventPage] = useState(0);
+  const [authEventRowsPerPage, setAuthEventRowsPerPage] = useState(15);
+  const [authEventTotal, setAuthEventTotal] = useState(0);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<AuthUser>();
   const [selectedPasswordResetEmployee, setSelectedPasswordResetEmployee] =
@@ -30,18 +46,25 @@ export function useAdministrationData() {
         await Promise.all([
           apiGet<ApiResult<Branch[]>>("/branches"),
           apiGet<ApiResult<AuthUser[]>>("/users"),
-          apiGet<ApiResult<AuthEvent[]>>("/auth-events"),
+          apiGet<ApiResult<AuthEventPage>>(
+            `/auth-events?${buildAuthEventSearchParams(
+              authEventFilters,
+              authEventPage,
+              authEventRowsPerPage,
+            )}`,
+          ),
         ]);
 
       setBranches(branchesResult.data);
       setUsers(usersResult.data);
-      setAuthEvents(authEventsResult.data);
+      setAuthEvents(authEventsResult.data.items);
+      setAuthEventTotal(authEventsResult.data.pagination.total);
       setState("ready");
     } catch (error) {
       setMessage(readErrorMessage(error));
       setState("error");
     }
-  }, []);
+  }, [authEventFilters, authEventPage, authEventRowsPerPage]);
 
   useEffect(() => {
     void loadAdministration();
@@ -132,6 +155,29 @@ export function useAdministrationData() {
     });
   }
 
+  function applyAuthEventFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    setAuthEventPage(0);
+    setAuthEventFilters({
+      email: String(form.get("email") ?? "").trim(),
+      eventType: String(form.get("eventType") ?? ""),
+      dateFrom: String(form.get("dateFrom") ?? ""),
+      dateTo: String(form.get("dateTo") ?? ""),
+    });
+  }
+
+  function clearAuthEventFilters() {
+    setAuthEventPage(0);
+    setAuthEventFilters({
+      email: "",
+      eventType: "",
+      dateFrom: "",
+      dateTo: "",
+    });
+  }
+
   async function runAction(action: () => Promise<void>) {
     setState("loading");
     setMessage("");
@@ -147,8 +193,21 @@ export function useAdministrationData() {
 
   return {
     authEvents,
+    authEventFilters,
+    authEventsPagination: {
+      count: authEventTotal,
+      page: authEventPage,
+      rowsPerPage: authEventRowsPerPage,
+      onPageChange: setAuthEventPage,
+      onRowsPerPageChange: (rowsPerPage: number) => {
+        setAuthEventRowsPerPage(rowsPerPage);
+        setAuthEventPage(0);
+      },
+    },
+    applyAuthEventFilters,
     branches,
     changeEmployeeStatus,
+    clearAuthEventFilters,
     clearSelectedEmployee: () => setSelectedEmployee(undefined),
     clearSelectedPasswordResetEmployee: () =>
       setSelectedPasswordResetEmployee(undefined),
@@ -164,6 +223,25 @@ export function useAdministrationData() {
     state,
     users,
   };
+}
+
+function buildAuthEventSearchParams(
+  filters: AuthEventFilters,
+  page: number,
+  rowsPerPage: number,
+) {
+  const params = new URLSearchParams({
+    page: String(page + 1),
+    limit: String(rowsPerPage),
+  });
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) {
+      params.set(key, value);
+    }
+  });
+
+  return params.toString();
 }
 
 function readErrorMessage(error: unknown) {
