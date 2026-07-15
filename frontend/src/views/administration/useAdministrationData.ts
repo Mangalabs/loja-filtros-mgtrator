@@ -17,6 +17,8 @@ export function useAdministrationData() {
   const [authEvents, setAuthEvents] = useState<AuthEvent[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<AuthUser>();
+  const [selectedPasswordResetEmployee, setSelectedPasswordResetEmployee] =
+    useState<AuthUser>();
   const [state, setState] = useState<AdministrationState>("loading");
   const [message, setMessage] = useState("");
 
@@ -81,6 +83,7 @@ export function useAdministrationData() {
       await saveRequest();
       form.reset();
       setSelectedEmployee(undefined);
+      setSelectedPasswordResetEmployee(undefined);
       setMessage(
         selectedEmployee
           ? "Funcionario atualizado com sucesso."
@@ -95,10 +98,36 @@ export function useAdministrationData() {
         active: !employee.active,
       });
       setSelectedEmployee(undefined);
+      setSelectedPasswordResetEmployee(undefined);
       setMessage(
         employee.active
           ? "Acesso do funcionario inativado."
           : "Acesso do funcionario ativado.",
+      );
+    });
+  }
+
+  async function resetEmployeePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedPasswordResetEmployee) {
+      return;
+    }
+
+    const form = event.currentTarget;
+    const data = new FormData(form);
+
+    await runAction(async () => {
+      await apiPost<ApiResult<AuthUser>>(
+        `/users/${selectedPasswordResetEmployee.id}/password-reset`,
+        {
+          password: data.get("password"),
+        },
+      );
+      form.reset();
+      setSelectedPasswordResetEmployee(undefined);
+      setMessage(
+        "Senha redefinida. O funcionario devera trocar a senha no proximo acesso.",
       );
     });
   }
@@ -121,11 +150,16 @@ export function useAdministrationData() {
     branches,
     changeEmployeeStatus,
     clearSelectedEmployee: () => setSelectedEmployee(undefined),
+    clearSelectedPasswordResetEmployee: () =>
+      setSelectedPasswordResetEmployee(undefined),
     createBranch,
     message,
+    resetEmployeePassword,
     saveEmployee,
     selectedEmployee,
+    selectedPasswordResetEmployee,
     selectEmployee: setSelectedEmployee,
+    selectPasswordResetEmployee: setSelectedPasswordResetEmployee,
     setMessage,
     state,
     users,

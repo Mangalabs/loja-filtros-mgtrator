@@ -4,6 +4,7 @@ import {
   listUsers,
   type UserUpdateInput,
   updateUser,
+  updateUserPassword,
   updateUserStatus,
 } from "../../models/users/users.model.js";
 import { createAuthEvent } from "../../models/auth-events/auth-events.model.js";
@@ -23,6 +24,10 @@ export type StoreUserInput = {
 
 export type ReplaceEmployeeInput = Omit<UserUpdateInput, "passwordHash"> & {
   password?: string;
+};
+
+export type ResetEmployeePasswordInput = {
+  password: string;
 };
 
 export type AuthenticatedAdministratorInput = {
@@ -89,6 +94,36 @@ export async function replaceEmployee(
         : "ADMIN_RESET",
     });
   }
+
+  return {
+    code: 200,
+    status: "success",
+    data: user,
+  };
+}
+
+export async function resetEmployeePassword(
+  id: string,
+  input: ResetEmployeePasswordInput,
+  administrator: AuthenticatedAdministratorInput,
+) {
+  await ensureEmployee(id);
+
+  const user = await updateUserPassword(id, {
+    passwordHash: await hashPassword(input.password),
+    mustChangePassword: true,
+  });
+
+  if (!user) {
+    throw new AppError("Funcionario nao encontrado.", 404);
+  }
+
+  await createAuthEvent({
+    userId: user.id,
+    email: user.email,
+    eventType: "PASSWORD_RESET",
+    reason: `ADMIN:${administrator.email}`,
+  });
 
   return {
     code: 200,

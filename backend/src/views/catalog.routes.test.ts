@@ -776,6 +776,15 @@ describe("catalog routes", () => {
         },
       },
     );
+    const passwordResetEmployee = await request<User>(
+      `/users/${employee.body.data?.id}/password-reset`,
+      {
+        method: "POST",
+        body: {
+          password: "senha-redefinida-456",
+        },
+      },
+    );
     const deactivatedEmployee = await request<User>(
       `/users/${employee.body.data?.id}/status`,
       {
@@ -865,6 +874,8 @@ describe("catalog routes", () => {
     assert.deepEqual(updatedEmployee.body.data?.permissions, [
       "MANAGE_CASH_REGISTER",
     ]);
+    assert.equal(passwordResetEmployee.status, 200);
+    assert.equal(passwordResetEmployee.body.data?.mustChangePassword, true);
     assert.equal(deactivatedEmployee.status, 200);
     assert.equal(deactivatedEmployee.body.data?.active, false);
     assert.equal(users.status, 200);

@@ -4,6 +4,7 @@ import {
   changeEmployeeStatus,
   indexUsers,
   replaceEmployee,
+  resetEmployeePassword,
   storeUser,
 } from "../../controllers/users/users.controller.js";
 import { requireAdmin } from "../../shared/auth/authorization-middleware.js";
@@ -53,6 +54,12 @@ const updateEmployeeStatusSchema = z
   })
   .strict();
 
+const resetEmployeePasswordSchema = z
+  .object({
+    password: z.string().min(12).max(128),
+  })
+  .strict();
+
 usersRoutes.get("/users", requireAdmin, async (_request, response) => {
   response.status(200).json(await indexUsers());
 });
@@ -82,6 +89,21 @@ usersRoutes.patch(
     const { id } = employeeParamsSchema.parse(request.params);
     const body = validateBody(request, updateEmployeeStatusSchema);
     const result = await changeEmployeeStatus(id, body.active);
+
+    response.status(200).json(result);
+  },
+);
+
+usersRoutes.post(
+  "/users/:id/password-reset",
+  requireAdmin,
+  async (request, response) => {
+    const { id } = employeeParamsSchema.parse(request.params);
+    const body = validateBody(request, resetEmployeePasswordSchema);
+    const result = await resetEmployeePassword(id, body, {
+      id: response.locals.authenticatedUser.id,
+      email: response.locals.authenticatedUser.email,
+    });
 
     response.status(200).json(result);
   },

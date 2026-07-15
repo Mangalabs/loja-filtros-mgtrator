@@ -6,6 +6,7 @@ import TextField from "@mui/material/TextField";
 import {
   Activity,
   Building2,
+  KeyRound,
   Pencil,
   Plus,
   Power,
@@ -116,6 +117,8 @@ export function EmployeesPage({
 }) {
   const administration = useAdministrationData();
   const selectedEmployee = administration.selectedEmployee;
+  const selectedPasswordResetEmployee =
+    administration.selectedPasswordResetEmployee;
   const employees = administration.users.filter(
     (user) => user.role === "EMPLOYEE",
   );
@@ -306,6 +309,14 @@ export function EmployeesPage({
                             administration.selectEmployee(employee),
                         },
                         {
+                          icon: <KeyRound size={15} />,
+                          label: "Redefinir senha",
+                          onSelect: () =>
+                            administration.selectPasswordResetEmployee(
+                              employee,
+                            ),
+                        },
+                        {
                           icon: employee.active ? (
                             <PowerOff size={15} />
                           ) : (
@@ -330,6 +341,39 @@ export function EmployeesPage({
             items={visibleItems}
             pagination={pagination}
           />
+          {selectedPasswordResetEmployee ? (
+            <form
+              className="mt-5 grid gap-4 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4"
+              onSubmit={administration.resetEmployeePassword}
+            >
+              <PageHeader
+                description={`Defina uma senha temporaria para ${selectedPasswordResetEmployee.name}. O funcionario sera obrigado a trocar no proximo acesso.`}
+                icon={<KeyRound size={18} />}
+                title="Redefinir senha"
+              />
+              <TextField
+                autoComplete="new-password"
+                helperText="Use pelo menos 12 caracteres."
+                label="Nova senha temporaria"
+                name="password"
+                required
+                slotProps={{ htmlInput: { minLength: 12 } }}
+                type="password"
+              />
+              <ActionGroup align="start">
+                <PrimaryButton icon={<KeyRound size={17} />} type="submit">
+                  Redefinir senha
+                </PrimaryButton>
+                <SecondaryButton
+                  icon={<X size={17} />}
+                  type="button"
+                  onClick={administration.clearSelectedPasswordResetEmployee}
+                >
+                  Cancelar
+                </SecondaryButton>
+              </ActionGroup>
+            </form>
+          ) : null}
         </PagePanel>
       </div>
 
