@@ -185,8 +185,8 @@ export function EmployeesPage({
             autoComplete="new-password"
             helperText={
               selectedEmployee
-                ? "Preencha somente para trocar a senha atual."
-                : "Use pelo menos 12 caracteres. A senha sera entregue ao funcionario."
+                ? "Preencha somente para trocar a senha atual. Ao trocar, o funcionario devera definir uma nova senha no proximo acesso."
+                : "Use pelo menos 12 caracteres. Esta senha temporaria sera entregue ao funcionario."
             }
             label={selectedEmployee ? "Nova senha" : "Senha inicial"}
             name="password"
@@ -200,7 +200,8 @@ export function EmployeesPage({
                 Permissoes do funcionario
               </strong>
               <span className="text-xs text-[#5f665f]">
-                Marque apenas as areas que esse usuario pode acessar.
+                Marque apenas as areas sensiveis que esse usuario pode acessar.
+                O menu e a API bloqueiam telas nao liberadas.
               </span>
             </div>
             <div className="grid gap-1 sm:grid-cols-2">
@@ -261,7 +262,18 @@ export function EmployeesPage({
             columns={[
               {
                 header: "Funcionario",
-                render: (employee: AuthUser) => employee.name,
+                render: (employee: AuthUser) => (
+                  <div className="grid gap-1">
+                    <strong className="font-semibold text-[#2c281e]">
+                      {employee.name}
+                    </strong>
+                    {employee.mustChangePassword ? (
+                      <StatusChip label="Troca obrigatoria" tone="warning" />
+                    ) : (
+                      <StatusChip label="Senha definida" tone="success" />
+                    )}
+                  </div>
+                ),
               },
               {
                 header: "Email",
@@ -281,6 +293,11 @@ export function EmployeesPage({
                   employee.lastLoginAt
                     ? formatDateTime(employee.lastLoginAt)
                     : "-",
+              },
+              {
+                header: "Permissoes",
+                render: (employee: AuthUser) =>
+                  formatEmployeePermissions(employee.permissions),
               },
               {
                 header: "Status",
@@ -521,6 +538,16 @@ const employeePermissionOptions: Array<{
   },
 ];
 
+const employeePermissionLabels = employeePermissionOptions.reduce<
+  Record<EmployeePermission, string>
+>(
+  (labels, permission) => ({
+    ...labels,
+    [permission.value]: permission.label,
+  }),
+  {} as Record<EmployeePermission, string>,
+);
+
 const authEventLabels: Record<AuthEvent["eventType"], string> = {
   SETUP_SUCCESS: "Setup inicial",
   LOGIN_SUCCESS: "Login",
@@ -554,6 +581,20 @@ const authEventReasonLabels: Record<string, string> = {
   INVALID_PASSWORD: "Senha invalida",
   UNKNOWN: "Motivo indefinido",
 };
+
+function formatEmployeePermissions(permissions: EmployeePermission[]) {
+  if (permissions.length === 0) {
+    return "Operacao basica";
+  }
+
+  const [firstPermission, ...otherPermissions] = permissions;
+  const firstPermissionLabel =
+    employeePermissionLabels[firstPermission] ?? firstPermission;
+
+  return otherPermissions.length === 0
+    ? firstPermissionLabel
+    : `${firstPermissionLabel} +${otherPermissions.length}`;
+}
 
 async function confirmEmployeeStatus(
   employee: AuthUser,
