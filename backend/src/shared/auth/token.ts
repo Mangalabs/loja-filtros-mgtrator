@@ -18,6 +18,7 @@ export type AuthenticatedUser = {
   role: "ADMIN" | "EMPLOYEE";
   branchId?: string | null;
   branchName?: string | null;
+  lastLoginAt?: string | null;
   permissions?: EmployeePermission[];
   mustChangePassword?: boolean;
 };
@@ -30,6 +31,7 @@ export async function issueAuthToken(user: AuthenticatedUser): Promise<string> {
     role: user.role,
     branchId: user.branchId ?? null,
     branchName: user.branchName ?? null,
+    lastLoginAt: user.lastLoginAt ?? null,
     permissions: user.permissions ?? [],
     mustChangePassword: user.mustChangePassword ?? false,
   })
@@ -61,6 +63,9 @@ export async function verifyAuthToken(
         typeof payload.phone !== "undefined") ||
       (typeof payload.permissions !== "undefined" &&
         !isValidPermissions(payload.permissions)) ||
+      (typeof payload.lastLoginAt !== "undefined" &&
+        payload.lastLoginAt !== null &&
+        typeof payload.lastLoginAt !== "string") ||
       (typeof payload.mustChangePassword !== "undefined" &&
         typeof payload.mustChangePassword !== "boolean") ||
       !["ADMIN", "EMPLOYEE"].includes(String(payload.role))
@@ -77,6 +82,8 @@ export async function verifyAuthToken(
       branchId: typeof payload.branchId === "string" ? payload.branchId : null,
       branchName:
         typeof payload.branchName === "string" ? payload.branchName : null,
+      lastLoginAt:
+        typeof payload.lastLoginAt === "string" ? payload.lastLoginAt : null,
       permissions: Array.isArray(payload.permissions)
         ? (payload.permissions as EmployeePermission[])
         : [],

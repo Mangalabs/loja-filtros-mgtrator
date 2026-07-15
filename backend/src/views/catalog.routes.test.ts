@@ -844,6 +844,7 @@ describe("catalog routes", () => {
     assert.match(login.rawCookie ?? "", /SameSite=Strict/);
     assert.equal(loginBody.token, undefined);
     assert.equal(loginBody.data?.passwordHash, undefined);
+    assert.equal(typeof loginBody.data?.lastLoginAt, "string");
     assert.notEqual(storedAdministrator?.password_hash, "senha-segura-123");
     assert.match(storedAdministrator?.password_hash ?? "", /^scrypt\$/);
     assert.equal(repeatedSetup.status, 403);
@@ -859,6 +860,7 @@ describe("catalog routes", () => {
     assert.equal(employeeLogin.body.data?.role, "EMPLOYEE");
     assert.equal(employeeLogin.body.data?.branchName, "Filial Norte");
     assert.equal(employeeLogin.body.data?.mustChangePassword, true);
+    assert.equal(typeof employeeLogin.body.data?.lastLoginAt, "string");
     assert.equal(changedEmployeePassword.status, 200);
     assert.equal(changedEmployeePassword.body.data?.mustChangePassword, false);
     assert.equal(employeeCreate.status, 403);

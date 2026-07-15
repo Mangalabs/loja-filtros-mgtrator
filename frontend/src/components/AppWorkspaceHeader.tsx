@@ -131,6 +131,12 @@ export function AppWorkspaceHeader({
                 value={user.role === "ADMIN" ? "Administrador" : "Funcionario"}
               />
               <ProfileItem
+                label="Ultimo login"
+                value={
+                  user.lastLoginAt ? formatDateTime(user.lastLoginAt) : "-"
+                }
+              />
+              <ProfileItem
                 label="Permissoes"
                 value={
                   user.role === "ADMIN"
@@ -194,6 +200,13 @@ export function AppWorkspaceHeader({
       </section>
     </>
   );
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function ProfileItem({ label, value }: { label: string; value: string }) {

@@ -110,7 +110,7 @@ export async function authenticateUser(
     ...metadata,
   });
 
-  return authenticatedResult(user);
+  return authenticatedResult((await findActiveUserById(user.id)) ?? user);
 }
 
 export async function logoutUser(
@@ -185,6 +185,7 @@ async function authenticatedResult(user: User) {
     branchName: user.branchName,
     active: user.active,
     permissions: user.permissions,
+    lastLoginAt: user.lastLoginAt,
     mustChangePassword: user.mustChangePassword,
   };
   const token = await issueAuthToken(publicUser);

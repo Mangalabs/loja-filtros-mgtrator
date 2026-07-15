@@ -73,9 +73,7 @@ export async function listUsers(database: Database = db): Promise<User[]> {
     .select(userColumns)
     .orderBy("users.name", "asc");
 
-  const usersWithPermissions = await attachPermissions(database, users);
-
-  return attachLastLogin(database, usersWithPermissions);
+  return attachUserDetails(database, users);
 }
 
 export async function createUser(
@@ -113,7 +111,7 @@ export async function findUserByEmail(
     .where("users.email", email)
     .first();
 
-  return user ? (await attachPermissions(db, [user]))[0] : undefined;
+  return user ? (await attachUserDetails(db, [user]))[0] : undefined;
 }
 
 export async function findUserWithPasswordById(
@@ -125,7 +123,7 @@ export async function findUserWithPasswordById(
     .where("users.id", id)
     .first();
 
-  return user ? (await attachPermissions(database, [user]))[0] : undefined;
+  return user ? (await attachUserDetails(database, [user]))[0] : undefined;
 }
 
 export async function findActiveUserById(
@@ -137,7 +135,7 @@ export async function findActiveUserById(
     .where({ "users.id": id, "users.active": true })
     .first();
 
-  return user ? (await attachPermissions(database, [user]))[0] : undefined;
+  return user ? (await attachUserDetails(database, [user]))[0] : undefined;
 }
 
 export async function findUserById(
@@ -149,7 +147,7 @@ export async function findUserById(
     .where("users.id", id)
     .first();
 
-  return user ? (await attachPermissions(database, [user]))[0] : undefined;
+  return user ? (await attachUserDetails(database, [user]))[0] : undefined;
 }
 
 export async function updateUser(
@@ -219,6 +217,13 @@ function userQuery(database: Database) {
     "branches.id",
     "users.branch_id",
   );
+}
+
+async function attachUserDetails<T extends User>(
+  database: Database,
+  users: T[],
+) {
+  return attachLastLogin(database, await attachPermissions(database, users));
 }
 
 async function attachPermissions<T extends User>(
