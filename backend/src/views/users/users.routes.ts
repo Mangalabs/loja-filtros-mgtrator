@@ -66,7 +66,10 @@ usersRoutes.get("/users", requireAdmin, async (_request, response) => {
 
 usersRoutes.post("/users", requireAdmin, async (request, response) => {
   const body = validateBody(request, createUserSchema);
-  const result = await storeUser(body);
+  const result = await storeUser(body, {
+    id: response.locals.authenticatedUser.id,
+    email: response.locals.authenticatedUser.email,
+  });
 
   response.status(201).json(result);
 });
@@ -88,7 +91,10 @@ usersRoutes.patch(
   async (request, response) => {
     const { id } = employeeParamsSchema.parse(request.params);
     const body = validateBody(request, updateEmployeeStatusSchema);
-    const result = await changeEmployeeStatus(id, body.active);
+    const result = await changeEmployeeStatus(id, body.active, {
+      id: response.locals.authenticatedUser.id,
+      email: response.locals.authenticatedUser.email,
+    });
 
     response.status(200).json(result);
   },

@@ -43,7 +43,10 @@ export async function indexUsers() {
   };
 }
 
-export async function storeUser(input: StoreUserInput) {
+export async function storeUser(
+  input: StoreUserInput,
+  administrator: AuthenticatedAdministratorInput,
+) {
   await ensureEmployeeBranch(input.branchId);
 
   const user = await createUser({
@@ -57,6 +60,13 @@ export async function storeUser(input: StoreUserInput) {
     passwordHash: await hashPassword(input.password),
   });
 
+  await createAuthEvent({
+    userId: user.id,
+    email: user.email,
+    eventType: "EMPLOYEE_CREATED",
+    reason: `ADMIN:${administrator.email}`,
+  });
+
   return {
     code: 201,
     status: "success",
@@ -67,7 +77,7 @@ export async function storeUser(input: StoreUserInput) {
 export async function replaceEmployee(
   id: string,
   input: ReplaceEmployeeInput,
-  administrator?: AuthenticatedAdministratorInput,
+  administrator: AuthenticatedAdministratorInput,
 ) {
   await ensureEmployee(id);
   await ensureEmployeeBranch(input.branchId);
@@ -89,9 +99,16 @@ export async function replaceEmployee(
       userId: user.id,
       email: user.email,
       eventType: "PASSWORD_RESET",
-      reason: administrator
-        ? `ADMIN:${administrator.email}`
-        : "ADMIN_RESET",
+      reason: `ADMIN:${administrator.email}`,
+    });
+  }
+
+  if (user) {
+    await createAuthEvent({
+      userId: user.id,
+      email: user.email,
+      eventType: "EMPLOYEE_UPDATED",
+      reason: `ADMIN:${administrator.email}`,
     });
   }
 
@@ -132,9 +149,22 @@ export async function resetEmployeePassword(
   };
 }
 
-export async function changeEmployeeStatus(id: string, active: boolean) {
+export async function changeEmployeeStatus(
+  id: string,
+  active: boolean,
+  administrator: AuthenticatedAdministratorInput,
+) {
   await ensureEmployee(id);
   const user = await updateUserStatus(id, active);
+
+  if (user) {
+    await createAuthEvent({
+      userId: user.id,
+      email: user.email,
+      eventType: "EMPLOYEE_STATUS_CHANGED",
+      reason: `${active ? "ACTIVE" : "INACTIVE"}|ADMIN:${administrator.email}`,
+    });
+  }
 
   return {
     code: 200,

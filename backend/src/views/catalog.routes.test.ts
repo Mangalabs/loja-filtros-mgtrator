@@ -913,6 +913,17 @@ describe("catalog routes", () => {
     assert.ok(
       authEvents.some((event) => event.eventType === "PASSWORD_RESET"),
     );
+    assert.ok(
+      authEvents.some((event) => event.eventType === "EMPLOYEE_CREATED"),
+    );
+    assert.ok(
+      authEvents.some((event) => event.eventType === "EMPLOYEE_UPDATED"),
+    );
+    assert.ok(
+      authEvents.some(
+        (event) => event.eventType === "EMPLOYEE_STATUS_CHANGED",
+      ),
+    );
   });
 
   it("shows and updates fiscal settings with production guard", async () => {

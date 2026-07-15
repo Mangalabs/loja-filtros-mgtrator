@@ -7,7 +7,10 @@ export type AuthEventType =
   | "LOGIN_FAILURE"
   | "LOGOUT"
   | "PASSWORD_CHANGED"
-  | "PASSWORD_RESET";
+  | "PASSWORD_RESET"
+  | "EMPLOYEE_CREATED"
+  | "EMPLOYEE_UPDATED"
+  | "EMPLOYEE_STATUS_CHANGED";
 
 export type AuthEventInput = {
   userId?: string | null;

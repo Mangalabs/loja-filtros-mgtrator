@@ -224,7 +224,10 @@ export type AuthEvent = {
     | "LOGIN_FAILURE"
     | "LOGOUT"
     | "PASSWORD_CHANGED"
-    | "PASSWORD_RESET";
+    | "PASSWORD_RESET"
+    | "EMPLOYEE_CREATED"
+    | "EMPLOYEE_UPDATED"
+    | "EMPLOYEE_STATUS_CHANGED";
   ipAddress: string | null;
   userAgent: string | null;
   reason: string | null;

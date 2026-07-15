@@ -484,6 +484,9 @@ const authEventLabels: Record<AuthEvent["eventType"], string> = {
   LOGOUT: "Logout",
   PASSWORD_CHANGED: "Senha alterada",
   PASSWORD_RESET: "Senha redefinida",
+  EMPLOYEE_CREATED: "Funcionario criado",
+  EMPLOYEE_UPDATED: "Funcionario atualizado",
+  EMPLOYEE_STATUS_CHANGED: "Status alterado",
 };
 
 const authEventTones: Record<
@@ -496,6 +499,9 @@ const authEventTones: Record<
   LOGOUT: "neutral",
   PASSWORD_CHANGED: "success",
   PASSWORD_RESET: "warning",
+  EMPLOYEE_CREATED: "success",
+  EMPLOYEE_UPDATED: "warning",
+  EMPLOYEE_STATUS_CHANGED: "warning",
 };
 
 const authEventReasonLabels: Record<string, string> = {
