@@ -21,6 +21,7 @@ type SetupInput = LoginInput & {
 };
 
 type AuthGateProps = {
+  authNotice: string;
   loading: boolean;
   requiresSetup: boolean;
   user?: AuthUser;
@@ -28,6 +29,7 @@ type AuthGateProps = {
     currentPassword: string;
     newPassword: string;
   }) => Promise<void>;
+  onClearAuthNotice: () => void;
   onLogin: (credentials: LoginInput) => Promise<void>;
   onLogout: () => void;
   onSetup: (input: SetupInput) => Promise<void>;
@@ -61,9 +63,17 @@ const authStateRenderers: Record<
   AuthGateState,
   (props: AuthGateProps) => ReactNode
 > = {
-  anonymous: ({ onLogin, onSetup, requiresSetup }) => (
+  anonymous: ({
+    authNotice,
+    onClearAuthNotice,
+    onLogin,
+    onSetup,
+    requiresSetup,
+  }) => (
     <LoginPage
+      authNotice={authNotice}
       requiresSetup={requiresSetup}
+      onClearAuthNotice={onClearAuthNotice}
       onLogin={onLogin}
       onSetup={onSetup}
     />

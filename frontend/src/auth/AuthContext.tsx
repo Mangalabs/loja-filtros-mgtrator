@@ -5,7 +5,13 @@ import {
   useEffect,
   useState,
 } from "react";
-import { apiGet, apiPost, type ApiResult, type AuthUser } from "../api";
+import {
+  apiGet,
+  apiPost,
+  setUnauthorizedHandler,
+  type ApiResult,
+  type AuthUser,
+} from "../api";
 
 type Credentials = {
   email: string;
@@ -19,12 +25,14 @@ type SetupInput = Credentials & {
 
 type AuthContextValue = {
   user?: AuthUser;
+  authNotice: string;
   loading: boolean;
   requiresSetup: boolean;
   changePassword: (input: {
     currentPassword: string;
     newPassword: string;
   }) => Promise<void>;
+  clearAuthNotice: () => void;
   login: (credentials: Credentials) => Promise<void>;
   setup: (input: SetupInput) => Promise<void>;
   logout: () => Promise<void>;
@@ -34,6 +42,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser>();
+  const [authNotice, setAuthNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [requiresSetup, setRequiresSetup] = useState(false);
 
@@ -41,11 +50,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void restoreSession();
   }, []);
 
+  useEffect(() => {
+    setUnauthorizedHandler(handleProtectedUnauthorized);
+    return () => setUnauthorizedHandler(undefined);
+  }, []);
+
+  function handleProtectedUnauthorized() {
+    setUser(undefined);
+    setRequiresSetup(false);
+    setAuthNotice("Sessao expirada. Entre novamente para continuar.");
+  }
+
   async function restoreSession() {
     try {
       const session = await apiGet<ApiResult<AuthUser>>("/auth/session");
       setUser(session.data);
       setRequiresSetup(false);
+      setAuthNotice("");
     } catch {
       try {
         const setupStatus =
@@ -68,12 +89,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     setUser(session.data);
     setRequiresSetup(false);
+    setAuthNotice("");
   }
 
   async function setup(input: SetupInput) {
     const session = await apiPost<ApiResult<AuthUser>>("/auth/setup", input);
     setUser(session.data);
     setRequiresSetup(false);
+    setAuthNotice("");
   }
 
   async function changePassword(input: {
@@ -86,21 +109,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     setUser(session.data);
     setRequiresSetup(false);
+    setAuthNotice("");
   }
 
   async function logout() {
     await apiPost<ApiResult<null>>("/auth/logout", {});
     setUser(undefined);
     setRequiresSetup(false);
+    setAuthNotice("");
+  }
+
+  function clearAuthNotice() {
+    setAuthNotice("");
   }
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        authNotice,
         loading,
         requiresSetup,
         changePassword,
+        clearAuthNotice,
         login,
         setup,
         logout,

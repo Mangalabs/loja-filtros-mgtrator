@@ -6,6 +6,22 @@ export type ApiResult<T> = {
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
 
+type UnauthorizedHandler = () => void;
+
+let unauthorizedHandler: UnauthorizedHandler | undefined;
+
+const ignoredUnauthorizedPaths = [
+  "/auth/login",
+  "/auth/logout",
+  "/auth/password",
+  "/auth/session",
+  "/auth/setup",
+];
+
+export function setUnauthorizedHandler(handler?: UnauthorizedHandler) {
+  unauthorizedHandler = handler;
+}
+
 export function apiUrl(path: string) {
   return apiBaseUrl ? `${apiBaseUrl}${path}` : `/api${path}`;
 }
@@ -647,7 +663,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(apiUrl(path), {
     credentials: "include",
   });
-  return parseResponse<T>(response);
+  return parseResponse<T>(response, path);
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
@@ -674,17 +690,32 @@ async function apiWrite<T>(
     body: JSON.stringify(body),
   });
 
-  return parseResponse<T>(response);
+  return parseResponse<T>(response, path);
 }
 
-async function parseResponse<T>(response: Response): Promise<T> {
+async function parseResponse<T>(response: Response, path: string): Promise<T> {
   const payload = await response.json();
 
   if (!response.ok) {
+    notifyUnauthorizedResponse(response, path);
     throw new Error(errorMessage(payload));
   }
 
   return payload;
+}
+
+function notifyUnauthorizedResponse(response: Response, path: string) {
+  const shouldNotify =
+    response.status === 401 &&
+    !ignoredUnauthorizedPaths.some((ignoredPath) =>
+      path.startsWith(ignoredPath),
+    );
+
+  if (!shouldNotify) {
+    return;
+  }
+
+  unauthorizedHandler?.();
 }
 
 function errorMessage(payload: {
