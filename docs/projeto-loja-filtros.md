@@ -181,7 +181,7 @@ Relatorios posteriores:
 - O fluxo principal sera venda de balcao.
 - Reservas/pre-vendas serao consideradas no fluxo.
 - Entrada de mercadoria sera manual e tambem por XML.
-- Todos os usuarios poderao nascer com permissao total, mas o sistema tera estrutura para controle de permissoes.
+- Funcionarios devem ter login individual, filial vinculada, permissoes explicitas e operacoes rastreaveis pelo usuario autenticado.
 - Relatorios gerenciais entram desde as primeiras fases.
 - Busca por aplicacao de veiculo ou maquina e uma boa ideia, mas nao e essencial para a primeira entrega.
 - O backend sera construido em TypeScript com Node.js.
@@ -257,6 +257,7 @@ Relatorios posteriores:
 ### Backend
 
 - Login/autenticacao com usuario inicial.
+- Filiais, funcionarios, permissoes administrativas por usuario, troca obrigatoria de senha temporaria e auditoria de eventos de autenticacao.
 - Produtos, fabricantes, fornecedores e clientes.
 - Estoque atual, entrada manual, ajuste manual, historico e reposicao.
 - Formas de pagamento.
@@ -285,6 +286,7 @@ Relatorios posteriores:
 - Sidebar, shell, paginas financeiras e fiscais refatoradas.
 - Tela central de NF-e com fila, documentos emitidos e paginacao.
 - Checklist visual antes de liberar emissao fiscal em producao.
+- Administracao de filiais e funcionarios com switches MUI para permissoes sensiveis, status de senha e historico de acessos.
 - Ainda existem telas grandes a refatorar, principalmente vendas e orcamentos.
 - Ainda nao ha testes frontend automatizados.
 
