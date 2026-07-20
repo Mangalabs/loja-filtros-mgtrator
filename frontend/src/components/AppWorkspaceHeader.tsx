@@ -1,15 +1,15 @@
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import FormControl from "@mui/material/FormControl";
 import IconButton from "@mui/material/IconButton";
-import InputLabel from "@mui/material/InputLabel";
+import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
 import Tooltip from "@mui/material/Tooltip";
 import { useState } from "react";
 import {
   AlertTriangle,
   Banknote,
+  Building2,
+  ChevronDown,
   KeyRound,
   LogOut,
   PackagePlus,
@@ -67,6 +67,18 @@ export function AppWorkspaceHeader({
 }) {
   const cashStatus = cashRegister ? "Aberto" : "Fechado";
   const [profileOpen, setProfileOpen] = useState(false);
+  const [branchMenuAnchor, setBranchMenuAnchor] =
+    useState<HTMLElement | null>(null);
+  const branchLabel = activeBranchName ?? "Todas as filiais";
+
+  function closeBranchMenu() {
+    setBranchMenuAnchor(null);
+  }
+
+  function selectBranch(branchId: string) {
+    onSelectBranch(branchId);
+    closeBranchMenu();
+  }
 
   return (
     <>
@@ -93,26 +105,48 @@ export function AppWorkspaceHeader({
           </Button>
 
           {user.role === "ADMIN" ? (
-            <FormControl
-              className="min-w-[190px] bg-white"
-              size="small"
-              variant="outlined"
-            >
-              <InputLabel id="active-branch-label">Filial ativa</InputLabel>
-              <Select
-                label="Filial ativa"
-                labelId="active-branch-label"
-                value={activeBranchId}
-                onChange={(event) => onSelectBranch(event.target.value)}
+            <>
+              <Button
+                className="justify-start rounded-2xl border-[#dfe5e1] bg-white px-3 py-2 normal-case"
+                color="inherit"
+                endIcon={<ChevronDown size={16} />}
+                startIcon={
+                  <Building2 color={frontendPalette.primaryNavy} size={17} />
+                }
+                variant="outlined"
+                onClick={(event) => setBranchMenuAnchor(event.currentTarget)}
               >
-                <MenuItem value="">Todas as filiais</MenuItem>
+                <span className="flex min-w-0 flex-col items-start leading-tight">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#5f665f]">
+                    Filial ativa
+                  </span>
+                  <span className="max-w-[180px] truncate text-sm font-semibold text-[#2c281e]">
+                    {branchLabel}
+                  </span>
+                </span>
+              </Button>
+              <Menu
+                anchorEl={branchMenuAnchor}
+                open={Boolean(branchMenuAnchor)}
+                onClose={closeBranchMenu}
+              >
+                <MenuItem
+                  selected={!activeBranchId}
+                  onClick={() => selectBranch("")}
+                >
+                  Todas as filiais
+                </MenuItem>
                 {branches.map((branch) => (
-                  <MenuItem key={branch.id} value={branch.id}>
+                  <MenuItem
+                    key={branch.id}
+                    selected={branch.id === activeBranchId}
+                    onClick={() => selectBranch(branch.id)}
+                  >
                     {branch.name}
                   </MenuItem>
                 ))}
-              </Select>
-            </FormControl>
+              </Menu>
+            </>
           ) : null}
 
           <button
