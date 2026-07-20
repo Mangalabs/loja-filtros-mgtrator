@@ -8,6 +8,7 @@ import {
   indexShippingOrders,
   storeShippingOrder,
 } from "../../controllers/shipping-orders/shipping-orders.controller.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const shippingOrdersRoutes = Router();
@@ -128,6 +129,7 @@ shippingOrdersRoutes.patch(
           id,
           body.paymentMethodId,
           userId,
+          requireActiveBranchId(response.locals),
           body.allowInsufficientStock ?? false,
           {
             billingIssueDate: body.billingIssueDate,

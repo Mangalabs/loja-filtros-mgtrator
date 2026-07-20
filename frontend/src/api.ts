@@ -340,6 +340,8 @@ export type ReportsOverview = {
 
 export type Sale = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   productId: string;
   productName: string;
   quantity: string;

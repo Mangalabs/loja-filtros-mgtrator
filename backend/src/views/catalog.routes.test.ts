@@ -1637,6 +1637,8 @@ describe("catalog routes", () => {
   it("includes return refunds in sale receipt html", () => {
     const sale = {
       id: "sale-receipt-return",
+      branchId: "branch-1",
+      branchName: "Matriz Teste",
       productId: "product-1",
       productName: "Filtro teste",
       quantity: "2.000",
@@ -6767,9 +6769,13 @@ async function requestRaw(
   options: {
     method?: string;
     authenticated?: boolean;
+    headers?: Record<string, string>;
   } = {},
 ) {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    ...(defaultBranchId ? { "x-active-branch-id": defaultBranchId } : {}),
+    ...options.headers,
+  };
 
   if (options.authenticated !== false && authCookie) {
     headers.cookie = authCookie;

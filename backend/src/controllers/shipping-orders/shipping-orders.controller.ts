@@ -235,6 +235,7 @@ export async function completeSeparatedShippingOrder(
   id: string,
   paymentMethodId: string,
   completedByUserId: string,
+  branchId: string,
   allowInsufficientStock = false,
   billingDates: {
     billingIssueDate?: string | null;
@@ -331,6 +332,7 @@ export async function completeSeparatedShippingOrder(
       },
       cashRegister.id,
       completedByUserId,
+      branchId,
       saleItems,
       saleSubtotalAmount,
       saleTotalAmount,

@@ -7,6 +7,7 @@ import {
   showSaleReceiptPdf,
   storeSale,
 } from "../../controllers/sales/sales.controller.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const salesRoutes = Router();
@@ -114,12 +115,19 @@ const returnSaleItemSchema = z
   .strict();
 
 salesRoutes.get("/sales", async (_request, response) => {
-  response.status(200).json(await indexSales());
+  response.status(200).json(
+    await indexSales({
+      branchId: requireActiveBranchId(response.locals),
+    }),
+  );
 });
 
 salesRoutes.get("/sales/:id/receipt", async (request, response) => {
   const { id } = saleParamsSchema.parse(request.params);
-  const result = await showSaleReceiptPdf(id);
+  const result = await showSaleReceiptPdf(
+    id,
+    requireActiveBranchId(response.locals),
+  );
 
   response
     .status(200)
@@ -132,7 +140,9 @@ salesRoutes.post("/sales", async (request, response) => {
   const body = validateBody(request, createSaleSchema);
   const userId = response.locals.authenticatedUser.id as string;
 
-  response.status(201).json(await storeSale(body, userId));
+  response
+    .status(201)
+    .json(await storeSale(body, userId, requireActiveBranchId(response.locals)));
 });
 
 salesRoutes.patch("/sales/:id/cancel", async (request, response) => {
@@ -140,7 +150,14 @@ salesRoutes.patch("/sales/:id/cancel", async (request, response) => {
   const body = validateBody(request, cancelSaleSchema);
   const userId = response.locals.authenticatedUser.id as string;
 
-  response.status(200).json(await cancelCounterSale(id, body.reason, userId));
+  response.status(200).json(
+    await cancelCounterSale(
+      id,
+      body.reason,
+      userId,
+      requireActiveBranchId(response.locals),
+    ),
+  );
 });
 
 salesRoutes.post("/sales/:id/returns", async (request, response) => {
@@ -157,6 +174,7 @@ salesRoutes.post("/sales/:id/returns", async (request, response) => {
         body.quantity,
         body.reason,
         userId,
+        requireActiveBranchId(response.locals),
         {
           refundAmount: body.refundAmount,
           refundPaymentMethodId: body.refundPaymentMethodId,

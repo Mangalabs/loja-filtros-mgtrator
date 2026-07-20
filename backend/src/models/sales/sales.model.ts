@@ -16,6 +16,8 @@ export type SaleInput = {
 
 export type Sale = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   productId: string;
   productName: string;
   quantity: string;
@@ -111,6 +113,8 @@ export type SaleProduct = {
 
 const saleColumns = [
   "sales.id",
+  "sales.branch_id as branchId",
+  "branches.name as branchName",
   "sales.subtotal_amount as subtotalAmount",
   "sales.discount_amount as discountAmount",
   "sales.total_amount as totalAmount",
@@ -171,16 +175,26 @@ type SaleItemReturnRow = SaleItemReturn & {
   saleItemId: string;
 };
 
-export async function listSales(): Promise<Sale[]> {
-  const sales = await saleQuery(db).orderBy("sales.created_at", "desc");
+export async function listSales(filters: { branchId: string }): Promise<Sale[]> {
+  const sales = await saleQuery(db)
+    .where("sales.branch_id", filters.branchId)
+    .orderBy("sales.created_at", "desc");
   return withSaleItems(db, sales);
 }
 
 export async function getSaleById(
   id: string,
   database: Knex | Knex.Transaction = db,
+  filters?: { branchId?: string | null },
 ): Promise<Sale | undefined> {
-  const sale = await saleQuery(database).where("sales.id", id).first();
+  const sale = await saleQuery(database)
+    .where("sales.id", id)
+    .modify((query) => {
+      if (filters?.branchId) {
+        query.where("sales.branch_id", filters.branchId);
+      }
+    })
+    .first();
 
   if (!sale) {
     return undefined;
@@ -203,10 +217,11 @@ export async function findOpenCashRegister(
 export async function lockSaleForCancellation(
   transaction: Knex.Transaction,
   id: string,
+  branchId: string,
 ): Promise<{ id: string; status: Sale["status"] } | undefined> {
   return transaction("sales")
     .select(["id", "status"])
-    .where("id", id)
+    .where({ id, branch_id: branchId })
     .forUpdate()
     .first();
 }
@@ -322,6 +337,7 @@ export async function returnedSaleItemQuantity(
 export async function lockSaleProduct(
   transaction: Knex.Transaction,
   productId: string,
+  branchId: string,
 ): Promise<SaleProduct | undefined> {
   return transaction("products")
     .select([
@@ -332,7 +348,7 @@ export async function lockSaleProduct(
       "reserved_stock as reservedStock",
       "active",
     ])
-    .where("id", productId)
+    .where({ id: productId, branch_id: branchId })
     .forUpdate()
     .first();
 }
@@ -467,6 +483,7 @@ export async function insertSale(
   input: SaleInput,
   cashRegisterSessionId: string,
   createdByUserId: string,
+  branchId: string,
   items: Array<{
     productId: string;
     quantity: number;
@@ -481,6 +498,7 @@ export async function insertSale(
     .insert({
       cash_register_session_id: cashRegisterSessionId,
       created_by_user_id: createdByUserId,
+      branch_id: branchId,
       client_id: input.clientId,
       subtotal_amount: subtotalAmount,
       discount_amount: input.discountAmount,
@@ -541,6 +559,7 @@ export async function insertSale(
 
 function saleQuery(database: Knex | Knex.Transaction) {
   return database("sales")
+    .leftJoin("branches", "branches.id", "sales.branch_id")
     .join("sale_payments", "sale_payments.sale_id", "sales.id")
     .join(
       "payment_methods",

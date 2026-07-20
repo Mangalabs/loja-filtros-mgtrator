@@ -20,16 +20,16 @@ import {
 } from "../../models/sales/sales.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
-export async function indexSales() {
+export async function indexSales(filters: { branchId: string }) {
   return {
     code: 200,
     status: "success",
-    data: await listSales(),
+    data: await listSales(filters),
   };
 }
 
-export async function showSaleReceiptPdf(id: string) {
-  const sale = await getSaleById(id);
+export async function showSaleReceiptPdf(id: string, branchId: string) {
+  const sale = await getSaleById(id, db, { branchId });
 
   if (!sale) {
     throw new AppError("Venda nao encontrada.", 404);
@@ -48,7 +48,11 @@ export async function showSaleReceiptPdf(id: string) {
   };
 }
 
-export async function storeSale(input: SaleInput, createdByUserId: string) {
+export async function storeSale(
+  input: SaleInput,
+  createdByUserId: string,
+  branchId: string,
+) {
   const sale = await db.transaction(async (transaction) => {
     const cashRegister = await findOpenCashRegister(transaction);
 
@@ -66,7 +70,11 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
     }> = [];
 
     for (const [index, item] of input.items.entries()) {
-      const product = await lockSaleProduct(transaction, item.productId);
+      const product = await lockSaleProduct(
+        transaction,
+        item.productId,
+        branchId,
+      );
 
       if (!product || !product.active) {
         throw new AppError("Produto informado nao disponivel para venda.", 422);
@@ -126,6 +134,7 @@ export async function storeSale(input: SaleInput, createdByUserId: string) {
       input,
       cashRegister.id,
       createdByUserId,
+      branchId,
       saleItems,
       subtotalAmount,
       totalAmount,
@@ -143,9 +152,14 @@ export async function cancelCounterSale(
   id: string,
   reason: string,
   cancelledByUserId: string,
+  branchId: string,
 ) {
   const sale = await db.transaction(async (transaction) => {
-    const lockedSale = await lockSaleForCancellation(transaction, id);
+    const lockedSale = await lockSaleForCancellation(
+      transaction,
+      id,
+      branchId,
+    );
 
     if (!lockedSale) {
       throw new AppError("Venda nao encontrada.", 404);
@@ -185,6 +199,7 @@ export async function returnCounterSaleItem(
   quantity: number,
   reason: string,
   createdByUserId: string,
+  branchId: string,
   refundInput: {
     refundAmount?: number;
     refundPaymentMethodId?: string;
@@ -193,7 +208,11 @@ export async function returnCounterSaleItem(
   } = {},
 ) {
   const sale = await db.transaction(async (transaction) => {
-    const lockedSale = await lockSaleForCancellation(transaction, id);
+    const lockedSale = await lockSaleForCancellation(
+      transaction,
+      id,
+      branchId,
+    );
 
     if (!lockedSale) {
       throw new AppError("Venda nao encontrada.", 404);

@@ -6,6 +6,7 @@ import {
   indexPickupReservations,
   storePickupReservation,
 } from "../../controllers/pickup-reservations/pickup-reservations.controller.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const pickupReservationsRoutes = Router();
@@ -132,6 +133,7 @@ pickupReservationsRoutes.patch(
           id,
           body.paymentMethodId,
           userId,
+          requireActiveBranchId(response.locals),
           body.allowInsufficientStock ?? false,
           {
             billingIssueDate: body.billingIssueDate,

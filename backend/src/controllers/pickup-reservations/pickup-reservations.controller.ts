@@ -153,6 +153,7 @@ export async function completeReservedPickup(
   id: string,
   paymentMethodId: string,
   completedByUserId: string,
+  branchId: string,
   allowInsufficientStock = false,
   billingDates: {
     billingIssueDate?: string | null;
@@ -231,6 +232,7 @@ export async function completeReservedPickup(
       },
       cashRegister.id,
       completedByUserId,
+      branchId,
       currentReservation.items.map((item) => ({
         productId: item.productId,
         quantity: Number(item.quantity),
