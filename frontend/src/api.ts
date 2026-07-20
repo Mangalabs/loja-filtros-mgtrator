@@ -31,6 +31,8 @@ export type Product = {
   name: string;
   internalCode: string | null;
   barcode: string | null;
+  branchId: string | null;
+  branchName: string | null;
   brandId: string | null;
   brandName: string | null;
   groupName: string | null;

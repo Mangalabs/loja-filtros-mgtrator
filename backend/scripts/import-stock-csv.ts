@@ -3,6 +3,8 @@ import { basename, dirname, resolve } from "node:path";
 import { db } from "../src/database/knex.js";
 
 type ImportOptions = {
+  branchCode?: string;
+  branchId?: string;
   commit: boolean;
   createdByEmail?: string;
   defaultSupplierName: string;
@@ -45,6 +47,11 @@ type ImportRejection = {
 type ImportSummary = {
   mode: "commit" | "dry-run";
   file: string;
+  branch: {
+    id: string;
+    name: string;
+    code: string | null;
+  };
   expectedFields: string[];
   unitMappings: Record<string, string>;
   totals: {
@@ -172,6 +179,7 @@ await db.destroy();
 
 async function importStockCsv(options: ImportOptions): Promise<ImportSummary> {
   const filePath = resolve(options.filePath);
+  const branch = await resolveImportBranch(options);
   const csvContent = await readCsvFile(filePath);
   const parsedRows = parseCsv(csvContent);
   const { acceptedRows, rejections } = normalizeRows(parsedRows, options);
@@ -196,7 +204,7 @@ async function importStockCsv(options: ImportOptions): Promise<ImportSummary> {
   ].sort((left, right) => left.rowNumber - right.rowNumber);
 
   const writeResult = options.commit
-    ? await writeImport(rowsToImport, options)
+    ? await writeImport(rowsToImport, options, branch.id)
     : {
         brandsCreated: 0,
         productsCreated: 0,
@@ -207,6 +215,7 @@ async function importStockCsv(options: ImportOptions): Promise<ImportSummary> {
   const summary: ImportSummary = {
     mode: options.commit ? "commit" : "dry-run",
     file: filePath,
+    branch,
     expectedFields,
     unitMappings,
     totals: {
@@ -223,7 +232,11 @@ async function importStockCsv(options: ImportOptions): Promise<ImportSummary> {
   return summary;
 }
 
-async function writeImport(rows: StockImportRow[], options: ImportOptions) {
+async function writeImport(
+  rows: StockImportRow[],
+  options: ImportOptions,
+  branchId: string,
+) {
   return db.transaction(async (transaction) => {
     const createdByUserId = options.createdByEmail
       ? await findUserIdByEmail(options.createdByEmail)
@@ -248,6 +261,7 @@ async function writeImport(rows: StockImportRow[], options: ImportOptions) {
           name: row.name,
           internal_code: row.internalCode,
           barcode: row.barcode,
+          branch_id: branchId,
           brand_id: brand.id,
           unit: row.unit,
           location: row.location,
@@ -356,6 +370,47 @@ async function findUserIdByEmail(email: string) {
   }
 
   return user.id as string;
+}
+
+async function resolveImportBranch(options: ImportOptions) {
+  const query = db("branches")
+    .select(["id", "name", "code"])
+    .where("active", true)
+    .first();
+
+  const branch = await applyBranchLookup(query, options);
+
+  if (!branch) {
+    throw new Error(
+      "Filial nao encontrada. Informe uma filial ativa com --branch-code CODIGO ou --branch-id UUID.",
+    );
+  }
+
+  return {
+    id: branch.id as string,
+    name: branch.name as string,
+    code: (branch.code as string | null) ?? null,
+  };
+}
+
+function applyBranchLookup(
+  query: ReturnType<typeof db>,
+  options: ImportOptions,
+) {
+  const lookups = [
+    {
+      enabled: Boolean(options.branchId),
+      apply: () => query.where("id", options.branchId),
+    },
+    {
+      enabled: Boolean(options.branchCode),
+      apply: () =>
+        query.whereRaw("lower(code) = lower(?)", [options.branchCode]),
+    },
+  ];
+  const lookup = lookups.find((lookup) => lookup.enabled);
+
+  return lookup?.apply() ?? Promise.resolve(undefined);
 }
 
 async function rejectExistingBarcodes(rows: StockImportRow[]) {
@@ -690,6 +745,8 @@ function parseOptions(args: string[]): ImportOptions {
     {},
   );
   const filePath = stringOption(values.file);
+  const branchCode = stringOption(values["branch-code"]);
+  const branchId = stringOption(values["branch-id"]);
 
   if (!filePath) {
     throw new Error(
@@ -697,7 +754,15 @@ function parseOptions(args: string[]): ImportOptions {
     );
   }
 
+  if (!branchCode && !branchId) {
+    throw new Error(
+      "Informe a filial de destino com --branch-code CODIGO ou --branch-id UUID.",
+    );
+  }
+
   return {
+    branchCode,
+    branchId,
     commit: values.commit === true || values.commit === "true",
     createdByEmail: stringOption(values["created-by-email"]),
     defaultSupplierName:

@@ -12,6 +12,8 @@ export type ProductListItem = {
   name: string;
   internalCode: string | null;
   barcode: string | null;
+  branchId: string | null;
+  branchName: string | null;
   brandId: string | null;
   brandName: string | null;
   groupName: string | null;
@@ -39,6 +41,7 @@ export type ProductCreateInput = {
   name: string;
   internalCode?: string | null;
   barcode?: string | null;
+  branchId?: string | null;
   brandId?: string | null;
   groupId?: string | null;
   unit?: string;
@@ -66,37 +69,10 @@ export async function listProducts(
   const offset = (filters.page - 1) * filters.limit;
 
   const rows = await db("products")
+    .leftJoin("branches", "branches.id", "products.branch_id")
     .leftJoin("brands", "brands.id", "products.brand_id")
     .leftJoin("product_groups", "product_groups.id", "products.group_id")
-    .select([
-      "products.id",
-      "products.name",
-      "products.internal_code as internalCode",
-      "products.barcode",
-      "products.brand_id as brandId",
-      "brands.name as brandName",
-      "product_groups.name as groupName",
-      "products.unit",
-      "products.location",
-      "products.cost_price as costPrice",
-      "products.sale_price as salePrice",
-      "products.profit_margin_percentage as profitMarginPercentage",
-      "products.minimum_stock as minimumStock",
-      "products.current_stock as currentStock",
-      "products.reserved_stock as reservedStock",
-      db.raw("products.current_stock - products.reserved_stock as ??", [
-        "availableStock",
-      ]),
-      "products.ncm",
-      "products.cest",
-      "products.cfop",
-      "products.icms_cst as icmsCst",
-      "products.pis_cst as pisCst",
-      "products.cofins_cst as cofinsCst",
-      "products.origin",
-      "products.description",
-      "products.active",
-    ])
+    .select(productListColumns())
     .modify((query) => {
       if (filters.search) {
         query.where((builder) => {
@@ -122,37 +98,10 @@ export async function listProducts(
 
 export async function listLowStockProducts(): Promise<ProductListItem[]> {
   return db("products")
+    .leftJoin("branches", "branches.id", "products.branch_id")
     .leftJoin("brands", "brands.id", "products.brand_id")
     .leftJoin("product_groups", "product_groups.id", "products.group_id")
-    .select([
-      "products.id",
-      "products.name",
-      "products.internal_code as internalCode",
-      "products.barcode",
-      "products.brand_id as brandId",
-      "brands.name as brandName",
-      "product_groups.name as groupName",
-      "products.unit",
-      "products.location",
-      "products.cost_price as costPrice",
-      "products.sale_price as salePrice",
-      "products.profit_margin_percentage as profitMarginPercentage",
-      "products.minimum_stock as minimumStock",
-      "products.current_stock as currentStock",
-      "products.reserved_stock as reservedStock",
-      db.raw("products.current_stock - products.reserved_stock as ??", [
-        "availableStock",
-      ]),
-      "products.ncm",
-      "products.cest",
-      "products.cfop",
-      "products.icms_cst as icmsCst",
-      "products.pis_cst as pisCst",
-      "products.cofins_cst as cofinsCst",
-      "products.origin",
-      "products.description",
-      "products.active",
-    ])
+    .select(productListColumns())
     .where("products.active", true)
     .andWhere("products.minimum_stock", ">", 0)
     .andWhereRaw(
@@ -170,6 +119,7 @@ export async function createProduct(
       name: input.name,
       internal_code: input.internalCode,
       barcode: input.barcode,
+      branch_id: input.branchId,
       brand_id: input.brandId,
       group_id: input.groupId,
       unit: input.unit,
@@ -215,6 +165,7 @@ export async function updateProduct(
       name: input.name,
       internal_code: input.internalCode,
       barcode: input.barcode,
+      branch_id: input.branchId,
       brand_id: input.brandId,
       group_id: input.groupId,
       unit: input.unit,
@@ -266,37 +217,44 @@ async function findProductById(
   id: string,
 ): Promise<ProductListItem | undefined> {
   return db("products")
+    .leftJoin("branches", "branches.id", "products.branch_id")
     .leftJoin("brands", "brands.id", "products.brand_id")
     .leftJoin("product_groups", "product_groups.id", "products.group_id")
-    .select([
-      "products.id",
-      "products.name",
-      "products.internal_code as internalCode",
-      "products.barcode",
-      "products.brand_id as brandId",
-      "brands.name as brandName",
-      "product_groups.name as groupName",
-      "products.unit",
-      "products.location",
-      "products.cost_price as costPrice",
-      "products.sale_price as salePrice",
-      "products.profit_margin_percentage as profitMarginPercentage",
-      "products.minimum_stock as minimumStock",
-      "products.current_stock as currentStock",
-      "products.reserved_stock as reservedStock",
-      db.raw("products.current_stock - products.reserved_stock as ??", [
-        "availableStock",
-      ]),
-      "products.ncm",
-      "products.cest",
-      "products.cfop",
-      "products.icms_cst as icmsCst",
-      "products.pis_cst as pisCst",
-      "products.cofins_cst as cofinsCst",
-      "products.origin",
-      "products.description",
-      "products.active",
-    ])
+    .select(productListColumns())
     .where("products.id", id)
     .first();
+}
+
+function productListColumns() {
+  return [
+    "products.id",
+    "products.name",
+    "products.internal_code as internalCode",
+    "products.barcode",
+    "products.branch_id as branchId",
+    "branches.name as branchName",
+    "products.brand_id as brandId",
+    "brands.name as brandName",
+    "product_groups.name as groupName",
+    "products.unit",
+    "products.location",
+    "products.cost_price as costPrice",
+    "products.sale_price as salePrice",
+    "products.profit_margin_percentage as profitMarginPercentage",
+    "products.minimum_stock as minimumStock",
+    "products.current_stock as currentStock",
+    "products.reserved_stock as reservedStock",
+    db.raw("products.current_stock - products.reserved_stock as ??", [
+      "availableStock",
+    ]),
+    "products.ncm",
+    "products.cest",
+    "products.cfop",
+    "products.icms_cst as icmsCst",
+    "products.pis_cst as pisCst",
+    "products.cofins_cst as cofinsCst",
+    "products.origin",
+    "products.description",
+    "products.active",
+  ];
 }
