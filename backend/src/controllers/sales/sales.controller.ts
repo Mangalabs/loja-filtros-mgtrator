@@ -54,7 +54,7 @@ export async function storeSale(
   branchId: string,
 ) {
   const sale = await db.transaction(async (transaction) => {
-    const cashRegister = await findOpenCashRegister(transaction);
+    const cashRegister = await findOpenCashRegister(transaction, branchId);
 
     if (!cashRegister) {
       throw new AppError("Abra o caixa antes de registrar uma venda.", 422);

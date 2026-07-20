@@ -206,9 +206,11 @@ export async function getSaleById(
 
 export async function findOpenCashRegister(
   transaction: Knex.Transaction,
+  branchId: string,
 ): Promise<{ id: string } | undefined> {
   return transaction("cash_register_sessions")
     .select("id")
+    .where("branch_id", branchId)
     .where("status", "OPEN")
     .forUpdate()
     .first();

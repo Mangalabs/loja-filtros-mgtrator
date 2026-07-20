@@ -197,7 +197,7 @@ export async function completeReservedPickup(
       throw new AppError("Esta reserva ja foi concluida como venda.", 409);
     }
 
-    const cashRegister = await findOpenCashRegister(transaction);
+    const cashRegister = await findOpenCashRegister(transaction, branchId);
 
     if (!cashRegister) {
       throw new AppError(

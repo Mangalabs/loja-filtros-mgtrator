@@ -285,6 +285,8 @@ export type Branch = {
 
 export type CashRegisterSession = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   openedByUserId: string;
   openedByUserName: string;
   openingBalance: string;

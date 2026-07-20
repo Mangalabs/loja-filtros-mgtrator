@@ -3,6 +3,8 @@ import { db } from "../../database/knex.js";
 
 export type CashRegisterSession = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   openedByUserId: string;
   openedByUserName: string;
   openingBalance: string;
@@ -60,6 +62,8 @@ export type CashRegisterClosingPaymentInput = {
 
 const sessionColumns = [
   "cash_register_sessions.id",
+  "cash_register_sessions.branch_id as branchId",
+  "branches.name as branchName",
   "cash_register_sessions.opened_by_user_id as openedByUserId",
   "opened_users.name as openedByUserName",
   "cash_register_sessions.opening_balance as openingBalance",
@@ -71,10 +75,13 @@ const sessionColumns = [
   "cash_register_sessions.closed_at as closedAt",
 ];
 
-export async function getCurrentCashRegisterSession(): Promise<
+export async function getCurrentCashRegisterSession(filters: {
+  branchId: string;
+}): Promise<
   CashRegisterSession | undefined
 > {
   const session = await sessionQuery(db)
+    .where("cash_register_sessions.branch_id", filters.branchId)
     .where("cash_register_sessions.status", "OPEN")
     .first();
 
@@ -83,10 +90,12 @@ export async function getCurrentCashRegisterSession(): Promise<
 
 export async function createCashRegisterSession(
   openedByUserId: string,
+  branchId: string,
   openingBalance: number,
 ): Promise<CashRegisterSession> {
   const [created] = await db("cash_register_sessions")
     .insert({
+      branch_id: branchId,
       opened_by_user_id: openedByUserId,
       opening_balance: openingBalance,
     })
@@ -105,8 +114,10 @@ export async function createCashRegisterSession(
 
 export async function lockOpenCashRegisterSession(
   transaction: Knex.Transaction,
+  branchId: string,
 ): Promise<CashRegisterSession | undefined> {
   const session = await sessionQuery(transaction)
+    .where("cash_register_sessions.branch_id", branchId)
     .where("cash_register_sessions.status", "OPEN")
     .forUpdate("cash_register_sessions")
     .first();
@@ -180,6 +191,7 @@ export async function insertCashRegisterMovement(
 
 function sessionQuery(database: Knex | Knex.Transaction) {
   return database("cash_register_sessions")
+    .leftJoin("branches", "branches.id", "cash_register_sessions.branch_id")
     .join(
       { opened_users: "users" },
       "opened_users.id",

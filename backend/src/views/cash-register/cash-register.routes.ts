@@ -7,6 +7,7 @@ import {
   showCurrentCashRegister,
 } from "../../controllers/cash-register/cash-register.controller.js";
 import { requirePermission } from "../../shared/auth/authorization-middleware.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const cashRegisterRoutes = Router();
@@ -42,7 +43,9 @@ const cashRegisterMovementSchema = z
   .strict();
 
 cashRegisterRoutes.get("/cash-register/current", async (_request, response) => {
-  const result = await showCurrentCashRegister();
+  const result = await showCurrentCashRegister({
+    branchId: requireActiveBranchId(response.locals),
+  });
 
   response.status(200).json(result);
 });
@@ -53,7 +56,11 @@ cashRegisterRoutes.post(
   async (request, response) => {
     const body = validateBody(request, openCashRegisterSchema);
     const userId = response.locals.authenticatedUser.id as string;
-    const result = await openCashRegister(userId, body.openingBalance);
+    const result = await openCashRegister(
+      userId,
+      requireActiveBranchId(response.locals),
+      body.openingBalance,
+    );
 
     response.status(201).json(result);
   },
@@ -67,6 +74,7 @@ cashRegisterRoutes.patch(
     const userId = response.locals.authenticatedUser.id as string;
     const result = await closeCurrentCashRegister(
       userId,
+      requireActiveBranchId(response.locals),
       body.closingBalance,
       body.closingPayments ?? [],
     );
@@ -81,7 +89,11 @@ cashRegisterRoutes.post(
   async (request, response) => {
     const body = validateBody(request, cashRegisterMovementSchema);
     const userId = response.locals.authenticatedUser.id as string;
-    const result = await recordCashRegisterMovement(userId, body);
+    const result = await recordCashRegisterMovement(
+      userId,
+      requireActiveBranchId(response.locals),
+      body,
+    );
 
     response.status(201).json(result);
   },

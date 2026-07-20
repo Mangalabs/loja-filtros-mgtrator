@@ -87,6 +87,8 @@ function getUniqueConstraintMessage(constraint?: string) {
     branches_name_unique: "Ja existe uma filial com esse nome.",
     branches_code_unique: "Ja existe uma filial com esse codigo.",
     cash_register_sessions_one_open_unique: "Ja existe um caixa aberto.",
+    cash_register_sessions_one_open_per_branch_unique:
+      "Ja existe um caixa aberto para esta filial.",
   };
 
   return constraint

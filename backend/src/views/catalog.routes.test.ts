@@ -356,6 +356,8 @@ type Branch = {
 
 type CashRegisterSession = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   openedByUserId: string;
   openedByUserName: string;
   openingBalance: string;
@@ -1126,7 +1128,62 @@ describe("catalog routes", () => {
     assert.equal(opened.body.data?.status, "OPEN");
     assert.equal(current.body.data?.id, opened.body.data?.id);
     assert.equal(duplicate.status, 409);
-    assert.equal(duplicate.body.message, "Ja existe um caixa aberto.");
+    assert.equal(
+      duplicate.body.message,
+      "Ja existe um caixa aberto para esta filial.",
+    );
+  });
+
+  it("keeps current cash register scoped to the active branch", async () => {
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Caixa Isolado",
+        code: "CAIXA_ISOLADO",
+      },
+    });
+
+    assert.ok(branch.body.data?.id);
+
+    const defaultOpened = await request<CashRegisterSession>(
+      "/cash-register/open",
+      {
+        method: "POST",
+        body: { openingBalance: 100 },
+      },
+    );
+    const isolatedCurrentBeforeOpen = await request<CashRegisterSession | null>(
+      "/cash-register/current",
+      {
+        headers: { "x-active-branch-id": branch.body.data.id },
+      },
+    );
+    const isolatedOpened = await request<CashRegisterSession>(
+      "/cash-register/open",
+      {
+        method: "POST",
+        headers: { "x-active-branch-id": branch.body.data.id },
+        body: { openingBalance: 200 },
+      },
+    );
+    const defaultCurrent = await request<CashRegisterSession>(
+      "/cash-register/current",
+    );
+    const isolatedCurrent = await request<CashRegisterSession>(
+      "/cash-register/current",
+      {
+        headers: { "x-active-branch-id": branch.body.data.id },
+      },
+    );
+
+    assert.equal(defaultOpened.status, 201);
+    assert.equal(defaultOpened.body.data?.branchName, "Matriz Teste");
+    assert.equal(isolatedCurrentBeforeOpen.status, 200);
+    assert.equal(isolatedCurrentBeforeOpen.body.data, null);
+    assert.equal(isolatedOpened.status, 201);
+    assert.equal(isolatedOpened.body.data?.branchName, "Filial Caixa Isolado");
+    assert.equal(defaultCurrent.body.data?.id, defaultOpened.body.data?.id);
+    assert.equal(isolatedCurrent.body.data?.id, isolatedOpened.body.data?.id);
   });
 
   it("records cash register supply and withdrawal movements", async () => {
