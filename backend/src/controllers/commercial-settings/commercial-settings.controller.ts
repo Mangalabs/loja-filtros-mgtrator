@@ -4,22 +4,26 @@ import {
   type CommercialSettingsInput,
 } from "../../models/commercial-settings/commercial-settings.model.js";
 
-export async function showCommercialSettings() {
+export async function showCommercialSettings(branchId: string) {
   return {
     code: 200,
     status: "success",
-    data: await currentCommercialSettings(),
+    data: await currentCommercialSettings(branchId),
   };
 }
 
 export async function replaceCommercialSettings(
+  branchId: string,
   input: CommercialSettingsInput,
 ) {
-  const settings = await upsertCommercialSettings({
-    defaultProfitMarginPercentage: Number(
-      input.defaultProfitMarginPercentage.toFixed(2),
-    ),
-  });
+  const settings = await upsertCommercialSettings(
+    branchId,
+    {
+      defaultProfitMarginPercentage: Number(
+        input.defaultProfitMarginPercentage.toFixed(2),
+      ),
+    },
+  );
 
   return {
     code: 200,
@@ -28,12 +32,12 @@ export async function replaceCommercialSettings(
   };
 }
 
-export async function currentCommercialSettings() {
-  const settings = await getCommercialSettings();
+export async function currentCommercialSettings(branchId: string) {
+  const settings = await getCommercialSettings({ branchId });
 
   return (
     settings ??
-    upsertCommercialSettings({
+    upsertCommercialSettings(branchId, {
       defaultProfitMarginPercentage: 0,
     })
   );

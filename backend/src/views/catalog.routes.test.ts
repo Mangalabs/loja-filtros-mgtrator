@@ -556,6 +556,8 @@ type FiscalDocument = {
 
 type FiscalSettings = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   provider: "MOCK" | "FOCUS";
   environment: "HOMOLOGATION" | "PRODUCTION";
   companyCnpj: string | null;
@@ -566,6 +568,8 @@ type FiscalSettings = {
 
 type CommercialSettings = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   defaultProfitMarginPercentage: string;
   createdAt: string;
   updatedAt: string;
@@ -1043,6 +1047,8 @@ describe("catalog routes", () => {
 
     assert.equal(blocked.status, 401);
     assert.equal(current.status, 200);
+    assert.equal(current.body.data?.branchId, defaultBranchId);
+    assert.equal(current.body.data?.branchName, "Matriz Teste");
     assert.equal(current.body.data?.provider, "MOCK");
     assert.equal(current.body.data?.environment, "HOMOLOGATION");
     assert.equal(current.body.data?.allowProduction, false);
@@ -1079,6 +1085,51 @@ describe("catalog routes", () => {
     assert.equal(production.body.data?.allowProduction, true);
   });
 
+  it("keeps fiscal settings scoped to the active branch", async () => {
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Fiscal Isolada",
+        code: "FISCAL",
+      },
+    });
+    assert.ok(branch.body.data?.id);
+
+    const defaultUpdated = await request<FiscalSettings>("/fiscal-settings", {
+      method: "PUT",
+      body: {
+        provider: "FOCUS",
+        environment: "HOMOLOGATION",
+        companyCnpj: "12.345.678/0001-90",
+        allowProduction: false,
+      },
+    });
+    const isolatedCurrent = await request<FiscalSettings>("/fiscal-settings", {
+      headers: { "x-active-branch-id": branch.body.data.id },
+    });
+    const isolatedUpdated = await request<FiscalSettings>("/fiscal-settings", {
+      method: "PUT",
+      headers: { "x-active-branch-id": branch.body.data.id },
+      body: {
+        provider: "MOCK",
+        environment: "HOMOLOGATION",
+        companyCnpj: null,
+        allowProduction: false,
+      },
+    });
+    const defaultCurrent = await request<FiscalSettings>("/fiscal-settings");
+
+    assert.equal(defaultUpdated.status, 200);
+    assert.equal(defaultUpdated.body.data?.branchId, defaultBranchId);
+    assert.equal(isolatedCurrent.status, 200);
+    assert.equal(isolatedCurrent.body.data?.branchId, branch.body.data.id);
+    assert.equal(isolatedCurrent.body.data?.provider, "MOCK");
+    assert.notEqual(isolatedCurrent.body.data?.companyCnpj, "12345678000190");
+    assert.equal(isolatedUpdated.status, 200);
+    assert.equal(isolatedUpdated.body.data?.branchName, "Filial Fiscal Isolada");
+    assert.equal(defaultCurrent.body.data?.companyCnpj, "12345678000190");
+  });
+
   it("shows and updates commercial settings", async () => {
     const current = await request<CommercialSettings>("/commercial-settings");
     const invalid = await request("/commercial-settings", {
@@ -1093,6 +1144,8 @@ describe("catalog routes", () => {
       await request<CommercialSettings>("/commercial-settings");
 
     assert.equal(current.status, 200);
+    assert.equal(current.body.data?.branchId, defaultBranchId);
+    assert.equal(current.body.data?.branchName, "Matriz Teste");
     assert.equal(current.body.data?.defaultProfitMarginPercentage, "0.00");
     assert.equal(invalid.status, 422);
     assert.equal(updated.status, 200);
@@ -1100,6 +1153,59 @@ describe("catalog routes", () => {
     assert.equal(listedAfterUpdate.body.data?.id, updated.body.data?.id);
     assert.equal(
       listedAfterUpdate.body.data?.defaultProfitMarginPercentage,
+      "50.00",
+    );
+  });
+
+  it("keeps commercial settings scoped to the active branch", async () => {
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Comercial Isolada",
+        code: "COMERCIAL",
+      },
+    });
+    assert.ok(branch.body.data?.id);
+
+    const defaultUpdated = await request<CommercialSettings>(
+      "/commercial-settings",
+      {
+        method: "PUT",
+        body: { defaultProfitMarginPercentage: 50 },
+      },
+    );
+    const isolatedCurrent = await request<CommercialSettings>(
+      "/commercial-settings",
+      {
+        headers: { "x-active-branch-id": branch.body.data.id },
+      },
+    );
+    const isolatedUpdated = await request<CommercialSettings>(
+      "/commercial-settings",
+      {
+        method: "PUT",
+        headers: { "x-active-branch-id": branch.body.data.id },
+        body: { defaultProfitMarginPercentage: 35 },
+      },
+    );
+    const defaultCurrent =
+      await request<CommercialSettings>("/commercial-settings");
+
+    assert.equal(defaultUpdated.status, 200);
+    assert.equal(defaultUpdated.body.data?.branchId, defaultBranchId);
+    assert.equal(isolatedCurrent.status, 200);
+    assert.equal(isolatedCurrent.body.data?.branchId, branch.body.data.id);
+    assert.equal(
+      isolatedCurrent.body.data?.defaultProfitMarginPercentage,
+      "0.00",
+    );
+    assert.equal(isolatedUpdated.status, 200);
+    assert.equal(
+      isolatedUpdated.body.data?.defaultProfitMarginPercentage,
+      "35.00",
+    );
+    assert.equal(
+      defaultCurrent.body.data?.defaultProfitMarginPercentage,
       "50.00",
     );
   });
@@ -2121,6 +2227,7 @@ describe("catalog routes", () => {
     });
 
     await db("fiscal_settings").insert({
+      branch_id: defaultBranchId,
       provider: "MOCK",
       environment: "PRODUCTION",
       allow_production: false,

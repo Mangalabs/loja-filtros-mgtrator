@@ -5,6 +5,7 @@ import {
   showCommercialSettings,
 } from "../../controllers/commercial-settings/commercial-settings.controller.js";
 import { requirePermission } from "../../shared/auth/authorization-middleware.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const commercialSettingsRoutes = Router();
@@ -18,7 +19,9 @@ const commercialSettingsSchema = z
 commercialSettingsRoutes.get(
   "/commercial-settings",
   async (_request, response) => {
-    response.status(200).json(await showCommercialSettings());
+    response
+      .status(200)
+      .json(await showCommercialSettings(requireActiveBranchId(response.locals)));
   },
 );
 
@@ -28,6 +31,13 @@ commercialSettingsRoutes.put(
   async (request, response) => {
     const body = validateBody(request, commercialSettingsSchema);
 
-    response.status(200).json(await replaceCommercialSettings(body));
+    response
+      .status(200)
+      .json(
+        await replaceCommercialSettings(
+          requireActiveBranchId(response.locals),
+          body,
+        ),
+      );
   },
 );

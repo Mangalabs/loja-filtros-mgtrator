@@ -415,6 +415,8 @@ export type FiscalDocument = {
 
 export type FiscalSettings = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   provider: "MOCK" | "FOCUS";
   environment: "HOMOLOGATION" | "PRODUCTION";
   companyCnpj: string | null;
@@ -425,6 +427,8 @@ export type FiscalSettings = {
 
 export type CommercialSettings = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   defaultProfitMarginPercentage: string;
   createdAt: string;
   updatedAt: string;

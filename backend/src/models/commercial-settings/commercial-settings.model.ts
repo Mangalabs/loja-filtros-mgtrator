@@ -2,6 +2,8 @@ import { db } from "../../database/knex.js";
 
 export type CommercialSettings = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   defaultProfitMarginPercentage: string;
   createdAt: Date;
   updatedAt: Date;
@@ -12,22 +14,29 @@ export type CommercialSettingsInput = {
 };
 
 const commercialSettingsColumns = [
-  "id",
-  "default_profit_margin_percentage as defaultProfitMarginPercentage",
-  "created_at as createdAt",
-  "updated_at as updatedAt",
+  "commercial_settings.id",
+  "commercial_settings.branch_id as branchId",
+  "branches.name as branchName",
+  "commercial_settings.default_profit_margin_percentage as defaultProfitMarginPercentage",
+  "commercial_settings.created_at as createdAt",
+  "commercial_settings.updated_at as updatedAt",
 ];
 
-export async function getCommercialSettings(): Promise<
+export async function getCommercialSettings(filters: {
+  branchId: string;
+}): Promise<
   CommercialSettings | undefined
 > {
-  return db("commercial_settings").select(commercialSettingsColumns).first();
+  return commercialSettingsQuery()
+    .where("commercial_settings.branch_id", filters.branchId)
+    .first();
 }
 
 export async function upsertCommercialSettings(
+  branchId: string,
   input: CommercialSettingsInput,
 ): Promise<CommercialSettings> {
-  const existing = await getCommercialSettings();
+  const existing = await getCommercialSettings({ branchId });
 
   if (existing) {
     const [updated] = await db("commercial_settings")
@@ -43,6 +52,7 @@ export async function upsertCommercialSettings(
 
   const [created] = await db("commercial_settings")
     .insert({
+      branch_id: branchId,
       default_profit_margin_percentage: input.defaultProfitMarginPercentage,
     })
     .returning("id");
@@ -50,12 +60,17 @@ export async function upsertCommercialSettings(
   return findCommercialSettingsById(created.id);
 }
 
+function commercialSettingsQuery() {
+  return db("commercial_settings")
+    .leftJoin("branches", "branches.id", "commercial_settings.branch_id")
+    .select<CommercialSettings[]>(commercialSettingsColumns);
+}
+
 async function findCommercialSettingsById(
   id: string,
 ): Promise<CommercialSettings> {
-  const settings = await db("commercial_settings")
-    .select(commercialSettingsColumns)
-    .where("id", id)
+  const settings = await commercialSettingsQuery()
+    .where("commercial_settings.id", id)
     .first();
 
   if (!settings) {

@@ -454,7 +454,7 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       );
     }
 
-    const fiscalSettings = await currentFiscalSettings();
+    const fiscalSettings = await currentFiscalSettings(input.branchId);
     ensureFiscalSettingsCanIssue(fiscalSettings);
     const provider = makeFiscalProviderByName(fiscalSettings.provider);
     const requestPayload = {

@@ -12,25 +12,31 @@ export type FiscalSettingsPayload = FiscalSettingsInput & {
   productionConfirmation?: string | null;
 };
 
-export async function showFiscalSettings() {
+export async function showFiscalSettings(branchId: string) {
   return {
     code: 200,
     status: "success",
-    data: await currentFiscalSettings(),
+    data: await currentFiscalSettings(branchId),
   };
 }
 
-export async function replaceFiscalSettings(input: FiscalSettingsPayload) {
+export async function replaceFiscalSettings(
+  branchId: string,
+  input: FiscalSettingsPayload,
+) {
   ensureProductionIsExplicitlyAllowed(input);
   const companyCnpj = fiscalDigits(input.companyCnpj);
   ensureFocusCompanyCnpj(input.provider, companyCnpj);
 
-  const settings = await upsertFiscalSettings({
-    provider: input.provider,
-    environment: input.environment,
-    allowProduction: fiscalProductionAllowance(input),
-    companyCnpj,
-  });
+  const settings = await upsertFiscalSettings(
+    branchId,
+    {
+      provider: input.provider,
+      environment: input.environment,
+      allowProduction: fiscalProductionAllowance(input),
+      companyCnpj,
+    },
+  );
 
   return {
     code: 200,
@@ -39,14 +45,14 @@ export async function replaceFiscalSettings(input: FiscalSettingsPayload) {
   };
 }
 
-export async function currentFiscalSettings() {
-  const settings = await getFiscalSettings();
+export async function currentFiscalSettings(branchId: string) {
+  const settings = await getFiscalSettings({ branchId });
 
   if (settings) {
     return settings;
   }
 
-  return upsertFiscalSettings({
+  return upsertFiscalSettings(branchId, {
     provider:
       env.fiscal.provider.toUpperCase() as FiscalSettingsInput["provider"],
     environment: env.fiscal.environment,

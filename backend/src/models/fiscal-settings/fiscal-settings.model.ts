@@ -6,6 +6,8 @@ import type {
 
 export type FiscalSettings = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   provider: FiscalProviderName;
   environment: FiscalEnvironment;
   companyCnpj: string | null;
@@ -22,25 +24,32 @@ export type FiscalSettingsInput = {
 };
 
 const fiscalSettingsColumns = [
-  "id",
-  "provider",
-  "environment",
-  "company_cnpj as companyCnpj",
-  "allow_production as allowProduction",
-  "created_at as createdAt",
-  "updated_at as updatedAt",
+  "fiscal_settings.id",
+  "fiscal_settings.branch_id as branchId",
+  "branches.name as branchName",
+  "fiscal_settings.provider",
+  "fiscal_settings.environment",
+  "fiscal_settings.company_cnpj as companyCnpj",
+  "fiscal_settings.allow_production as allowProduction",
+  "fiscal_settings.created_at as createdAt",
+  "fiscal_settings.updated_at as updatedAt",
 ];
 
-export async function getFiscalSettings(): Promise<
+export async function getFiscalSettings(filters: {
+  branchId: string;
+}): Promise<
   FiscalSettings | undefined
 > {
-  return db("fiscal_settings").select(fiscalSettingsColumns).first();
+  return fiscalSettingsQuery()
+    .where("fiscal_settings.branch_id", filters.branchId)
+    .first();
 }
 
 export async function upsertFiscalSettings(
+  branchId: string,
   input: FiscalSettingsInput,
 ): Promise<FiscalSettings> {
-  const existing = await getFiscalSettings();
+  const existing = await getFiscalSettings({ branchId });
 
   if (existing) {
     const [updated] = await db("fiscal_settings")
@@ -59,6 +68,7 @@ export async function upsertFiscalSettings(
 
   const [created] = await db("fiscal_settings")
     .insert({
+      branch_id: branchId,
       provider: input.provider,
       environment: input.environment,
       company_cnpj: input.companyCnpj,
@@ -69,10 +79,15 @@ export async function upsertFiscalSettings(
   return findFiscalSettingsById(created.id);
 }
 
+function fiscalSettingsQuery() {
+  return db("fiscal_settings")
+    .leftJoin("branches", "branches.id", "fiscal_settings.branch_id")
+    .select<FiscalSettings[]>(fiscalSettingsColumns);
+}
+
 async function findFiscalSettingsById(id: string): Promise<FiscalSettings> {
-  const settings = await db("fiscal_settings")
-    .select(fiscalSettingsColumns)
-    .where("id", id)
+  const settings = await fiscalSettingsQuery()
+    .where("fiscal_settings.id", id)
     .first();
 
   if (!settings) {

@@ -5,6 +5,7 @@ import {
   showFiscalSettings,
 } from "../../controllers/fiscal-settings/fiscal-settings.controller.js";
 import { requirePermission } from "../../shared/auth/authorization-middleware.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const fiscalSettingsRoutes = Router();
@@ -28,7 +29,9 @@ fiscalSettingsRoutes.get(
   "/fiscal-settings",
   requirePermission("MANAGE_FISCAL_SETTINGS"),
   async (_request, response) => {
-    response.status(200).json(await showFiscalSettings());
+    response
+      .status(200)
+      .json(await showFiscalSettings(requireActiveBranchId(response.locals)));
   },
 );
 
@@ -38,6 +41,10 @@ fiscalSettingsRoutes.put(
   async (request, response) => {
     const body = validateBody(request, fiscalSettingsSchema);
 
-    response.status(200).json(await replaceFiscalSettings(body));
+    response
+      .status(200)
+      .json(
+        await replaceFiscalSettings(requireActiveBranchId(response.locals), body),
+      );
   },
 );
