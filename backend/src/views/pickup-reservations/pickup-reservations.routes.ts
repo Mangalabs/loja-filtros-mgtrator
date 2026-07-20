@@ -92,7 +92,13 @@ const completePickupReservationSchema = z.object({
 pickupReservationsRoutes.get(
   "/pickup-reservations",
   async (_request, response) => {
-    response.status(200).json(await indexPickupReservations());
+    response
+      .status(200)
+      .json(
+        await indexPickupReservations({
+          branchId: requireActiveBranchId(response.locals),
+        }),
+      );
   },
 );
 
@@ -102,7 +108,15 @@ pickupReservationsRoutes.post(
     const body = validateBody(request, createPickupReservationSchema);
     const userId = response.locals.authenticatedUser.id as string;
 
-    response.status(201).json(await storePickupReservation(body, userId));
+    response
+      .status(201)
+      .json(
+        await storePickupReservation(
+          body,
+          userId,
+          requireActiveBranchId(response.locals),
+        ),
+      );
   },
 );
 
@@ -115,7 +129,14 @@ pickupReservationsRoutes.patch(
 
     response
       .status(200)
-      .json(await cancelOpenPickupReservation(id, body.reason, userId));
+      .json(
+        await cancelOpenPickupReservation(
+          id,
+          body.reason,
+          userId,
+          requireActiveBranchId(response.locals),
+        ),
+      );
   },
 );
 

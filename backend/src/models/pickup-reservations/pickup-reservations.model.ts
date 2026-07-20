@@ -12,6 +12,8 @@ export type PickupReservationInput = {
 
 export type PickupReservation = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   clientId: string;
   clientName: string;
   clientPhone: string | null;
@@ -52,6 +54,8 @@ export type ReservableProduct = {
 
 const pickupReservationColumns = [
   "pickup_reservations.id",
+  "pickup_reservations.branch_id as branchId",
+  "branches.name as branchName",
   "pickup_reservations.client_id as clientId",
   "clients.name as clientName",
   "clients.phone as clientPhone",
@@ -102,11 +106,12 @@ type LockedPickupReservation = {
   items: LockedPickupReservationItem[];
 };
 
-export async function listPickupReservations(): Promise<PickupReservation[]> {
-  const reservations = await pickupReservationQuery(db).orderBy(
-    "pickup_reservations.created_at",
-    "desc",
-  );
+export async function listPickupReservations(filters: {
+  branchId: string;
+}): Promise<PickupReservation[]> {
+  const reservations = await pickupReservationQuery(db)
+    .where("pickup_reservations.branch_id", filters.branchId)
+    .orderBy("pickup_reservations.created_at", "desc");
   return withPickupReservationItems(db, reservations);
 }
 
@@ -125,6 +130,7 @@ export async function activePickupClientExists(
 export async function lockPickupProduct(
   transaction: Knex.Transaction,
   productId: string,
+  branchId: string,
 ): Promise<ReservableProduct | undefined> {
   return transaction("products")
     .select([
@@ -134,7 +140,7 @@ export async function lockPickupProduct(
       "reserved_stock as reservedStock",
       "active",
     ])
-    .where("id", productId)
+    .where({ id: productId, branch_id: branchId })
     .forUpdate()
     .first();
 }
@@ -143,6 +149,7 @@ export async function insertPickupReservation(
   transaction: Knex.Transaction,
   input: PickupReservationInput,
   createdByUserId: string,
+  branchId: string,
   items: Array<{
     productId: string;
     quantity: number;
@@ -163,6 +170,7 @@ export async function insertPickupReservation(
 
   const [created] = await transaction("pickup_reservations")
     .insert({
+      branch_id: branchId,
       client_id: input.clientId,
       created_by_user_id: createdByUserId,
       total_amount: totalAmount,
@@ -186,6 +194,7 @@ export async function insertPickupReservation(
 export async function lockPickupReservation(
   transaction: Knex.Transaction,
   id: string,
+  branchId: string,
 ): Promise<LockedPickupReservation | undefined> {
   const reservation = await transaction("pickup_reservations")
     .select([
@@ -194,7 +203,10 @@ export async function lockPickupReservation(
       "pickup_reservations.total_amount as totalAmount",
       "pickup_reservations.status",
     ])
-    .where("pickup_reservations.id", id)
+    .where({
+      "pickup_reservations.id": id,
+      "pickup_reservations.branch_id": branchId,
+    })
     .forUpdate("pickup_reservations")
     .first();
 
@@ -219,9 +231,15 @@ export async function lockPickupReservation(
 export async function getPickupReservationById(
   id: string,
   database: Knex | Knex.Transaction = db,
+  filters?: { branchId?: string | null },
 ): Promise<PickupReservation | undefined> {
   const reservation = await pickupReservationQuery(database)
     .where("pickup_reservations.id", id)
+    .modify((query) => {
+      if (filters?.branchId) {
+        query.where("pickup_reservations.branch_id", filters.branchId);
+      }
+    })
     .first();
 
   if (!reservation) {
@@ -310,6 +328,7 @@ async function findPickupReservation(
 function pickupReservationQuery(database: Knex | Knex.Transaction) {
   return database("pickup_reservations")
     .join("clients", "clients.id", "pickup_reservations.client_id")
+    .leftJoin("branches", "branches.id", "pickup_reservations.branch_id")
     .join(
       { created_users: "users" },
       "created_users.id",

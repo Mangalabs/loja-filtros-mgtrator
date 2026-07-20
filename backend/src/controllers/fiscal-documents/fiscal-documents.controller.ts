@@ -316,8 +316,9 @@ export async function issueSaleFiscalDocument(
   saleId: string,
   issuedByUserId: string,
   documentType: FiscalDocumentType,
+  branchId: string,
 ) {
-  const sale = await getSaleById(saleId);
+  const sale = await getSaleById(saleId, db, { branchId });
 
   if (!sale) {
     throw new AppError("Venda informada nao encontrada.", 404);
@@ -341,8 +342,11 @@ export async function issueShippingOrderFiscalDocument(
   shippingOrderId: string,
   issuedByUserId: string,
   documentType: FiscalDocumentType,
+  branchId: string,
 ) {
-  const shippingOrder = await getShippingOrderById(shippingOrderId);
+  const shippingOrder = await getShippingOrderById(shippingOrderId, db, {
+    branchId,
+  });
 
   if (!shippingOrder) {
     throw new AppError("Pedido para envio nao encontrado.", 404);
@@ -366,8 +370,13 @@ export async function issuePickupReservationFiscalDocument(
   pickupReservationId: string,
   issuedByUserId: string,
   documentType: FiscalDocumentType,
+  branchId: string,
 ) {
-  const pickupReservation = await getPickupReservationById(pickupReservationId);
+  const pickupReservation = await getPickupReservationById(
+    pickupReservationId,
+    db,
+    { branchId },
+  );
 
   if (!pickupReservation) {
     throw new AppError("Reserva para retirada nao encontrada.", 404);

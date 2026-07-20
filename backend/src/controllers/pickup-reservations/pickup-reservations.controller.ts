@@ -17,17 +17,18 @@ import {
 } from "../../models/pickup-reservations/pickup-reservations.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
-export async function indexPickupReservations() {
+export async function indexPickupReservations(filters: { branchId: string }) {
   return {
     code: 200,
     status: "success",
-    data: await listPickupReservations(),
+    data: await listPickupReservations(filters),
   };
 }
 
 export async function storePickupReservation(
   input: PickupReservationInput,
   createdByUserId: string,
+  branchId: string,
 ) {
   const reservation = await db.transaction(async (transaction) => {
     if (!(await activePickupClientExists(transaction, input.clientId))) {
@@ -44,7 +45,11 @@ export async function storePickupReservation(
     }> = [];
 
     for (const [index, item] of input.items.entries()) {
-      const product = await lockPickupProduct(transaction, item.productId);
+      const product = await lockPickupProduct(
+        transaction,
+        item.productId,
+        branchId,
+      );
 
       if (!product || !product.active) {
         throw new AppError(
@@ -85,6 +90,7 @@ export async function storePickupReservation(
       transaction,
       input,
       createdByUserId,
+      branchId,
       reservationItems,
       totalAmount,
     );
@@ -101,9 +107,14 @@ export async function cancelOpenPickupReservation(
   id: string,
   reason: string,
   cancelledByUserId: string,
+  branchId: string,
 ) {
   const reservation = await db.transaction(async (transaction) => {
-    const currentReservation = await lockPickupReservation(transaction, id);
+    const currentReservation = await lockPickupReservation(
+      transaction,
+      id,
+      branchId,
+    );
 
     if (!currentReservation) {
       throw new AppError("Reserva para retirada nao encontrada.", 404);
@@ -123,7 +134,11 @@ export async function cancelOpenPickupReservation(
     const reservedItems = aggregatePickupItems(currentReservation.items);
 
     for (const item of reservedItems) {
-      const product = await lockPickupProduct(transaction, item.productId);
+      const product = await lockPickupProduct(
+        transaction,
+        item.productId,
+        branchId,
+      );
 
       if (!product || Number(product.reservedStock) < item.quantity) {
         throw new AppError(
@@ -161,7 +176,11 @@ export async function completeReservedPickup(
   } = {},
 ) {
   const reservation = await db.transaction(async (transaction) => {
-    const currentReservation = await lockPickupReservation(transaction, id);
+    const currentReservation = await lockPickupReservation(
+      transaction,
+      id,
+      branchId,
+    );
 
     if (!currentReservation) {
       throw new AppError("Reserva para retirada nao encontrada.", 404);
@@ -194,7 +213,11 @@ export async function completeReservedPickup(
     const reservedItems = aggregatePickupItems(currentReservation.items);
 
     for (const item of reservedItems) {
-      const product = await lockPickupProduct(transaction, item.productId);
+      const product = await lockPickupProduct(
+        transaction,
+        item.productId,
+        branchId,
+      );
 
       if (
         !product ||

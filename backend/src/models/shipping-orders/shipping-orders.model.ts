@@ -12,6 +12,8 @@ export type ShippingOrderInput = {
 export type ShippingOrder = {
   id: string;
   quoteId: string | null;
+  branchId: string | null;
+  branchName: string | null;
   clientId: string;
   clientName: string;
   clientPhone: string | null;
@@ -58,6 +60,8 @@ export type ReservedProduct = {
 const shippingOrderColumns = [
   "shipping_orders.id",
   "shipping_orders.quote_id as quoteId",
+  "shipping_orders.branch_id as branchId",
+  "branches.name as branchName",
   "shipping_orders.client_id as clientId",
   "clients.name as clientName",
   "clients.phone as clientPhone",
@@ -115,11 +119,12 @@ type LockedShippingOrder = {
   items: LockedShippingOrderItem[];
 };
 
-export async function listShippingOrders(): Promise<ShippingOrder[]> {
-  const orders = await shippingOrderQuery(db).orderBy(
-    "shipping_orders.created_at",
-    "desc",
-  );
+export async function listShippingOrders(filters: {
+  branchId: string;
+}): Promise<ShippingOrder[]> {
+  const orders = await shippingOrderQuery(db)
+    .where("shipping_orders.branch_id", filters.branchId)
+    .orderBy("shipping_orders.created_at", "desc");
   return withShippingOrderItems(db, orders);
 }
 
@@ -138,6 +143,7 @@ export async function activeShippingClientExists(
 export async function lockReservableProduct(
   transaction: Knex.Transaction,
   productId: string,
+  branchId: string,
 ): Promise<ReservedProduct | undefined> {
   return transaction("products")
     .select([
@@ -147,7 +153,7 @@ export async function lockReservableProduct(
       "reserved_stock as reservedStock",
       "active",
     ])
-    .where("id", productId)
+    .where({ id: productId, branch_id: branchId })
     .forUpdate()
     .first();
 }
@@ -156,11 +162,13 @@ export async function insertShippingOrder(
   transaction: Knex.Transaction,
   input: ShippingOrderInput,
   createdByUserId: string,
+  branchId: string,
   unitPrice: number,
   totalAmount: number,
 ): Promise<ShippingOrder> {
   const [created] = await transaction("shipping_orders")
     .insert({
+      branch_id: branchId,
       client_id: input.clientId,
       created_by_user_id: createdByUserId,
       total_amount: totalAmount,
@@ -197,9 +205,15 @@ export async function findShippingOrderByQuoteId(
 export async function getShippingOrderById(
   id: string,
   database: Knex | Knex.Transaction = db,
+  filters?: { branchId?: string | null },
 ): Promise<ShippingOrder | undefined> {
   const order = await shippingOrderQuery(database)
     .where("shipping_orders.id", id)
+    .modify((query) => {
+      if (filters?.branchId) {
+        query.where("shipping_orders.branch_id", filters.branchId);
+      }
+    })
     .first();
 
   if (!order) {
@@ -217,6 +231,7 @@ export async function insertShippingOrderFromQuote(
 ): Promise<ShippingOrder> {
   const [created] = await transaction("shipping_orders")
     .insert({
+      branch_id: quote.branchId,
       quote_id: quote.id,
       client_id: quote.clientId,
       created_by_user_id: createdByUserId,
@@ -242,6 +257,7 @@ export async function insertShippingOrderFromQuote(
 export async function lockShippingOrder(
   transaction: Knex.Transaction,
   id: string,
+  branchId: string,
 ): Promise<LockedShippingOrder | undefined> {
   const order = await transaction("shipping_orders")
     .select([
@@ -253,7 +269,10 @@ export async function lockShippingOrder(
       "shipping_orders.status",
     ])
     .leftJoin("quotes", "quotes.id", "shipping_orders.quote_id")
-    .where("shipping_orders.id", id)
+    .where({
+      "shipping_orders.id": id,
+      "shipping_orders.branch_id": branchId,
+    })
     .forUpdate("shipping_orders")
     .first();
 
@@ -402,6 +421,7 @@ async function findShippingOrder(
 function shippingOrderQuery(database: Knex | Knex.Transaction) {
   return database("shipping_orders")
     .join("clients", "clients.id", "shipping_orders.client_id")
+    .leftJoin("branches", "branches.id", "shipping_orders.branch_id")
     .join(
       { created_users: "users" },
       "created_users.id",

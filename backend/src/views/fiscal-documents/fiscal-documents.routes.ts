@@ -11,6 +11,7 @@ import {
   syncFiscalDocument,
 } from "../../controllers/fiscal-documents/fiscal-documents.controller.js";
 import { requirePermission } from "../../shared/auth/authorization-middleware.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const fiscalDocumentsRoutes = Router();
@@ -119,7 +120,14 @@ fiscalDocumentsRoutes.post(
 
     response
       .status(201)
-      .json(await issueSaleFiscalDocument(id, userId, body.documentType));
+      .json(
+        await issueSaleFiscalDocument(
+          id,
+          userId,
+          body.documentType,
+          requireActiveBranchId(response.locals),
+        ),
+      );
   },
 );
 
@@ -138,6 +146,7 @@ fiscalDocumentsRoutes.post(
           id,
           userId,
           body.documentType,
+          requireActiveBranchId(response.locals),
         ),
       );
   },
@@ -158,6 +167,7 @@ fiscalDocumentsRoutes.post(
           id,
           userId,
           body.documentType,
+          requireActiveBranchId(response.locals),
         ),
       );
   },

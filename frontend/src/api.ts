@@ -552,6 +552,8 @@ export type CashReport = {
 export type ShippingOrder = {
   id: string;
   quoteId: string | null;
+  branchId: string | null;
+  branchName: string | null;
   clientId: string;
   clientName: string;
   clientPhone: string | null;
@@ -587,6 +589,8 @@ export type ShippingOrder = {
 
 export type PickupReservation = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   clientId: string;
   clientName: string;
   clientPhone: string | null;

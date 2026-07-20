@@ -209,6 +209,8 @@ type Sale = {
 type ShippingOrder = {
   id: string;
   quoteId: string | null;
+  branchId: string | null;
+  branchName: string | null;
   clientName: string;
   clientPhone: string | null;
   productName: string;
@@ -238,6 +240,8 @@ type ShippingOrder = {
 
 type PickupReservation = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   clientName: string;
   clientPhone: string | null;
   productName: string;
@@ -6069,6 +6073,108 @@ describe("catalog routes", () => {
     assert.equal(isolatedEntries.body.data?.length, 0);
     assert.equal(defaultMovements.body.data?.length, 2);
     assert.equal(isolatedMovements.body.data?.length, 0);
+  });
+
+  it("keeps shipping orders and pickup reservations scoped to the active branch", async () => {
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Atendimento Isolado",
+        code: "ATENDIMENTO_ISOLADO",
+      },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente atendimento filial" },
+    });
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro atendimento filial",
+        salePrice: 120,
+      },
+    });
+
+    assert.ok(branch.body.data?.id);
+
+    const shippingOrder = await request<ShippingOrder>("/shipping-orders", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 1,
+        allowInsufficientStock: true,
+      },
+    });
+    const pickupReservation = await request<PickupReservation>(
+      "/pickup-reservations",
+      {
+        method: "POST",
+        body: {
+          clientId: client.body.data?.id,
+          items: [{ productId: product.body.data?.id, quantity: 1 }],
+          allowInsufficientStock: true,
+        },
+      },
+    );
+    const blockedShippingOrder = await request("/shipping-orders", {
+      method: "POST",
+      headers: { "x-active-branch-id": branch.body.data.id },
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 1,
+        allowInsufficientStock: true,
+      },
+    });
+    const blockedPickupReservation = await request("/pickup-reservations", {
+      method: "POST",
+      headers: { "x-active-branch-id": branch.body.data.id },
+      body: {
+        clientId: client.body.data?.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+        allowInsufficientStock: true,
+      },
+    });
+    const defaultShippingOrders =
+      await request<ShippingOrder[]>("/shipping-orders");
+    const isolatedShippingOrders = await request<ShippingOrder[]>(
+      "/shipping-orders",
+      {
+        headers: { "x-active-branch-id": branch.body.data.id },
+      },
+    );
+    const defaultPickupReservations =
+      await request<PickupReservation[]>("/pickup-reservations");
+    const isolatedPickupReservations = await request<PickupReservation[]>(
+      "/pickup-reservations",
+      {
+        headers: { "x-active-branch-id": branch.body.data.id },
+      },
+    );
+
+    assert.equal(shippingOrder.status, 201, JSON.stringify(shippingOrder.body));
+    assert.equal(shippingOrder.body.data?.branchName, "Matriz Teste");
+    assert.equal(
+      pickupReservation.status,
+      201,
+      JSON.stringify(pickupReservation.body),
+    );
+    assert.equal(pickupReservation.body.data?.branchName, "Matriz Teste");
+    assert.equal(blockedShippingOrder.status, 422);
+    assert.equal(
+      blockedShippingOrder.body.message,
+      "Produto informado nao disponivel para orcamento.",
+    );
+    assert.equal(blockedPickupReservation.status, 422);
+    assert.equal(
+      blockedPickupReservation.body.message,
+      "Produto informado nao disponivel para reserva.",
+    );
+    assert.equal(defaultShippingOrders.body.data?.length, 1);
+    assert.equal(isolatedShippingOrders.body.data?.length, 0);
+    assert.equal(defaultPickupReservations.body.data?.length, 1);
+    assert.equal(isolatedPickupReservations.body.data?.length, 0);
   });
 
   it("does not update product balance when a stock entry supplier is invalid", async () => {

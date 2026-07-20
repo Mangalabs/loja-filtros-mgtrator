@@ -19,24 +19,29 @@ import {
 } from "../../models/shipping-orders/shipping-orders.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
-export async function indexShippingOrders() {
+export async function indexShippingOrders(filters: { branchId: string }) {
   return {
     code: 200,
     status: "success",
-    data: await listShippingOrders(),
+    data: await listShippingOrders(filters),
   };
 }
 
 export async function storeShippingOrder(
   input: ShippingOrderInput,
   createdByUserId: string,
+  branchId: string,
 ) {
   const order = await db.transaction(async (transaction) => {
     if (!(await activeShippingClientExists(transaction, input.clientId))) {
       throw new AppError("Cliente informado nao disponivel.", 422);
     }
 
-    const product = await lockReservableProduct(transaction, input.productId);
+    const product = await lockReservableProduct(
+      transaction,
+      input.productId,
+      branchId,
+    );
 
     if (!product || !product.active) {
       throw new AppError(
@@ -59,6 +64,7 @@ export async function storeShippingOrder(
       transaction,
       input,
       createdByUserId,
+      branchId,
       unitPrice,
       totalAmount,
     );
@@ -74,10 +80,11 @@ export async function storeShippingOrder(
 export async function approveQuotedShippingOrder(
   id: string,
   approvedByUserId: string,
+  branchId: string,
   allowInsufficientStock = false,
 ) {
   const order = await db.transaction(async (transaction) => {
-    const quotedOrder = await lockShippingOrder(transaction, id);
+    const quotedOrder = await lockShippingOrder(transaction, id, branchId);
 
     if (!quotedOrder) {
       throw new AppError("Orcamento para envio nao encontrado.", 404);
@@ -105,7 +112,11 @@ export async function approveQuotedShippingOrder(
     const reservedItems = aggregateShippingItems(quotedOrder.items);
 
     for (const item of reservedItems) {
-      const product = await lockReservableProduct(transaction, item.productId);
+      const product = await lockReservableProduct(
+        transaction,
+        item.productId,
+        branchId,
+      );
 
       if (!product || !product.active) {
         throw new AppError(
@@ -144,9 +155,10 @@ export async function cancelOpenShippingOrder(
   id: string,
   reason: string,
   cancelledByUserId: string,
+  branchId: string,
 ) {
   const order = await db.transaction(async (transaction) => {
-    const currentOrder = await lockShippingOrder(transaction, id);
+    const currentOrder = await lockShippingOrder(transaction, id, branchId);
 
     if (!currentOrder) {
       throw new AppError("Pedido para envio nao encontrado.", 404);
@@ -170,7 +182,7 @@ export async function cancelOpenShippingOrder(
       currentOrder.status === "SEPARATED"
     ) {
       for (const item of reservedItems) {
-        await lockReservableProduct(transaction, item.productId);
+        await lockReservableProduct(transaction, item.productId, branchId);
       }
     }
 
@@ -194,9 +206,10 @@ export async function cancelOpenShippingOrder(
 export async function confirmShippingOrderSeparation(
   id: string,
   separatedByUserId: string,
+  branchId: string,
 ) {
   const order = await db.transaction(async (transaction) => {
-    const currentOrder = await lockShippingOrder(transaction, id);
+    const currentOrder = await lockShippingOrder(transaction, id, branchId);
 
     if (!currentOrder) {
       throw new AppError("Pedido para envio nao encontrado.", 404);
@@ -243,7 +256,7 @@ export async function completeSeparatedShippingOrder(
   } = {},
 ) {
   const order = await db.transaction(async (transaction) => {
-    const currentOrder = await lockShippingOrder(transaction, id);
+    const currentOrder = await lockShippingOrder(transaction, id, branchId);
 
     if (!currentOrder) {
       throw new AppError("Pedido para envio nao encontrado.", 404);
@@ -274,7 +287,11 @@ export async function completeSeparatedShippingOrder(
     const hasReservation = currentOrder.status !== "QUOTED";
 
     for (const item of reservedItems) {
-      const product = await lockReservableProduct(transaction, item.productId);
+      const product = await lockReservableProduct(
+        transaction,
+        item.productId,
+        branchId,
+      );
 
       if (
         !product ||
