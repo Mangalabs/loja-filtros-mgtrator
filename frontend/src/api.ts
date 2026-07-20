@@ -390,6 +390,8 @@ export type Sale = {
 
 export type FiscalDocument = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
   sourceId: string;
   documentType: "NFE" | "NFCE";

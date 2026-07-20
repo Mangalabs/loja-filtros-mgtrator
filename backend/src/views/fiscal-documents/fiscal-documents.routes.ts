@@ -53,7 +53,13 @@ fiscalDocumentsRoutes.get(
   "/fiscal-documents",
   requirePermission("MANAGE_FISCAL_DOCUMENTS"),
   async (_request, response) => {
-    response.status(200).json(await indexFiscalDocuments());
+    response
+      .status(200)
+      .json(
+        await indexFiscalDocuments({
+          branchId: requireActiveBranchId(response.locals),
+        }),
+      );
   },
 );
 
@@ -82,7 +88,9 @@ fiscalDocumentsRoutes.get(
   async (request, response) => {
     const { id } = fiscalDocumentParamsSchema.parse(request.params);
 
-    response.status(200).json(await showFiscalDocument(id));
+    response
+      .status(200)
+      .json(await showFiscalDocument(id, requireActiveBranchId(response.locals)));
   },
 );
 
@@ -92,7 +100,9 @@ fiscalDocumentsRoutes.patch(
   async (request, response) => {
     const { id } = fiscalDocumentParamsSchema.parse(request.params);
 
-    response.status(200).json(await syncFiscalDocument(id));
+    response
+      .status(200)
+      .json(await syncFiscalDocument(id, requireActiveBranchId(response.locals)));
   },
 );
 
@@ -106,7 +116,14 @@ fiscalDocumentsRoutes.patch(
 
     response
       .status(200)
-      .json(await cancelFiscalDocument(id, body.reason, userId));
+      .json(
+        await cancelFiscalDocument(
+          id,
+          body.reason,
+          userId,
+          requireActiveBranchId(response.locals),
+        ),
+      );
   },
 );
 

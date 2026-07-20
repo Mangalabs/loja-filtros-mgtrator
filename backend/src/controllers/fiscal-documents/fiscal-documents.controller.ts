@@ -21,16 +21,16 @@ import { getShippingOrderById } from "../../models/shipping-orders/shipping-orde
 import { AppError, type AppErrorDetail } from "../../shared/errors/app-error.js";
 import type { FiscalDocumentType } from "../../shared/fiscal/fiscal-types.js";
 
-export async function indexFiscalDocuments() {
+export async function indexFiscalDocuments(filters: { branchId: string }) {
   return {
     code: 200,
     status: "success",
-    data: await listFiscalDocuments(),
+    data: await listFiscalDocuments(filters),
   };
 }
 
-export async function showFiscalDocument(id: string) {
-  const fiscalDocument = await getFiscalDocumentById(id);
+export async function showFiscalDocument(id: string, branchId: string) {
+  const fiscalDocument = await getFiscalDocumentById(id, { branchId });
 
   if (!fiscalDocument) {
     throw new AppError("Documento fiscal nao encontrado.", 404);
@@ -64,8 +64,8 @@ export function mockFiscalDocumentFile(
   return files[extension];
 }
 
-export async function syncFiscalDocument(id: string) {
-  const fiscalDocument = await getFiscalDocumentById(id);
+export async function syncFiscalDocument(id: string, branchId: string) {
+  const fiscalDocument = await getFiscalDocumentById(id, { branchId });
 
   if (!fiscalDocument) {
     throw new AppError("Documento fiscal nao encontrado.", 404);
@@ -204,8 +204,9 @@ export async function cancelFiscalDocument(
   id: string,
   reason: string,
   cancelledByUserId: string,
+  branchId: string,
 ) {
-  const fiscalDocument = await getFiscalDocumentById(id);
+  const fiscalDocument = await getFiscalDocumentById(id, { branchId });
 
   if (!fiscalDocument) {
     throw new AppError("Documento fiscal nao encontrado.", 404);
@@ -329,6 +330,7 @@ export async function issueSaleFiscalDocument(
   }
 
   return issueFiscalDocument({
+    branchId,
     sourceType: "SALE",
     sourceId: sale.id,
     saleId: sale.id,
@@ -357,6 +359,7 @@ export async function issueShippingOrderFiscalDocument(
   }
 
   return issueFiscalDocument({
+    branchId,
     sourceType: "SHIPPING_ORDER",
     sourceId: shippingOrder.id,
     saleId: shippingOrder.saleId,
@@ -387,6 +390,7 @@ export async function issuePickupReservationFiscalDocument(
   }
 
   return issueFiscalDocument({
+    branchId,
     sourceType: "PICKUP_RESERVATION",
     sourceId: pickupReservation.id,
     saleId: pickupReservation.saleId,
@@ -397,6 +401,7 @@ export async function issuePickupReservationFiscalDocument(
 }
 
 type IssueFiscalDocumentInput = {
+  branchId: string;
   sourceType: FiscalDocumentSourceType;
   sourceId: string;
   saleId: string;
@@ -407,7 +412,9 @@ type IssueFiscalDocumentInput = {
 
 async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
   const fiscalDocument = await db.transaction(async (transaction) => {
-    const sale = await getSaleById(input.saleId, transaction);
+    const sale = await getSaleById(input.saleId, transaction, {
+      branchId: input.branchId,
+    });
 
     if (!sale) {
       throw new AppError("Venda informada nao encontrada.", 404);
@@ -461,6 +468,7 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
     const result = await provider.issue(requestPayload);
 
     const fiscalDocumentInput = {
+      branchId: input.branchId,
       sourceType: input.sourceType,
       sourceId: input.sourceId,
       documentType: input.documentType,

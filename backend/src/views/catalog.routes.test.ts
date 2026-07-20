@@ -533,6 +533,8 @@ type CashReport = {
 
 type FiscalDocument = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
   sourceId: string;
   documentType: "NFE" | "NFCE";
@@ -1942,6 +1944,25 @@ describe("catalog routes", () => {
         body: {},
       },
     );
+    const isolatedBranch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Fiscal Isolado",
+        code: "FISCAL_ISOLADO",
+      },
+    });
+    const isolatedFiscalDocuments = await request<FiscalDocument[]>(
+      "/fiscal-documents",
+      {
+        headers: { "x-active-branch-id": isolatedBranch.body.data?.id ?? "" },
+      },
+    );
+    const isolatedFiscalDocument = await request<FiscalDocument>(
+      `/fiscal-documents/${issued.body.data?.id}`,
+      {
+        headers: { "x-active-branch-id": isolatedBranch.body.data?.id ?? "" },
+      },
+    );
     const mockXml = await fetch(
       `${baseUrl}/mock/fiscal-documents/${issued.body.data?.providerReference}.xml`,
       {
@@ -1994,6 +2015,7 @@ describe("catalog routes", () => {
     assert.equal(issued.body.data?.provider, "MOCK");
     assert.equal(issued.body.data?.environment, "HOMOLOGATION");
     assert.equal(issued.body.data?.status, "AUTHORIZED");
+    assert.equal(issued.body.data?.branchName, "Matriz Teste");
     assert.equal(
       issued.body.data?.providerReference,
       `SALE${sale.body.data?.id?.replace(/-/g, "")}`,
@@ -2007,6 +2029,8 @@ describe("catalog routes", () => {
     assert.equal(unsupportedDocumentType.status, 422);
     assert.equal(listed.body.data?.length, 1);
     assert.equal(shown.body.data?.id, issued.body.data?.id);
+    assert.equal(isolatedFiscalDocuments.body.data?.length, 0);
+    assert.equal(isolatedFiscalDocument.status, 404);
     assert.equal(synced.status, 200);
     assert.equal(synced.body.data?.status, "AUTHORIZED");
     assert.equal(synced.body.data?.pdfUrl, issued.body.data?.pdfUrl);
@@ -2131,6 +2155,7 @@ describe("catalog routes", () => {
     const sourceId = randomUUID();
     const [inserted] = await db("fiscal_documents")
       .insert({
+        branch_id: defaultBranchId,
         source_type: "SALE",
         source_id: sourceId,
         document_type: "NFE",
@@ -2164,8 +2189,9 @@ describe("catalog routes", () => {
         inserted.id,
         "Cancelamento em processamento para auditoria fiscal",
         administrator.id,
+        defaultBranchId,
       );
-      const synced = await syncFiscalDocument(inserted.id);
+      const synced = await syncFiscalDocument(inserted.id, defaultBranchId);
 
       assert.equal(processing.code, 200);
       assert.equal(processing.data.status, "PROCESSING");
@@ -2209,6 +2235,7 @@ describe("catalog routes", () => {
     const sourceId = randomUUID();
     const [inserted] = await db("fiscal_documents")
       .insert({
+        branch_id: defaultBranchId,
         source_type: "SALE",
         source_id: sourceId,
         document_type: "NFE",
@@ -2243,8 +2270,9 @@ describe("catalog routes", () => {
         inserted.id,
         "Cancelamento rejeitado pela Focus",
         administrator.id,
+        defaultBranchId,
       );
-      const synced = await syncFiscalDocument(inserted.id);
+      const synced = await syncFiscalDocument(inserted.id, defaultBranchId);
 
       assert.equal(result.code, 200);
       assert.equal(result.data.status, "AUTHORIZED");
@@ -2281,6 +2309,7 @@ describe("catalog routes", () => {
     const sourceId = randomUUID();
     const [inserted] = await db("fiscal_documents")
       .insert({
+        branch_id: defaultBranchId,
         source_type: "SALE",
         source_id: sourceId,
         document_type: "NFE",
@@ -2309,6 +2338,7 @@ describe("catalog routes", () => {
         inserted.id,
         "Nova tentativa de cancelamento aceita pela Focus",
         administrator.id,
+        defaultBranchId,
       );
 
       assert.equal(result.code, 200);
@@ -2342,6 +2372,7 @@ describe("catalog routes", () => {
     const sourceId = randomUUID();
     const [inserted] = await db("fiscal_documents")
       .insert({
+        branch_id: defaultBranchId,
         source_type: "SALE",
         source_id: sourceId,
         document_type: "NFE",
@@ -2375,8 +2406,9 @@ describe("catalog routes", () => {
         inserted.id,
         "Cancelamento pendente que sera rejeitado pela Focus",
         administrator.id,
+        defaultBranchId,
       );
-      const synced = await syncFiscalDocument(inserted.id);
+      const synced = await syncFiscalDocument(inserted.id, defaultBranchId);
 
       assert.equal(processing.code, 200);
       assert.equal(processing.data.status, "PROCESSING");

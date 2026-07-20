@@ -20,6 +20,8 @@ export type FiscalDocumentStatus =
 
 export type FiscalDocument = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   sourceType: FiscalDocumentSourceType;
   sourceId: string;
   documentType: FiscalDocumentType;
@@ -47,6 +49,7 @@ export type FiscalDocument = {
 };
 
 export type FiscalDocumentInput = {
+  branchId: string;
   sourceType: FiscalDocumentSourceType;
   sourceId: string;
   documentType: FiscalDocumentType;
@@ -81,6 +84,8 @@ export type FiscalDocumentUpdateInput = {
 
 const fiscalDocumentColumns = [
   "fiscal_documents.id",
+  "fiscal_documents.branch_id as branchId",
+  "branches.name as branchName",
   "fiscal_documents.source_type as sourceType",
   "fiscal_documents.source_id as sourceId",
   "fiscal_documents.document_type as documentType",
@@ -107,17 +112,26 @@ const fiscalDocumentColumns = [
   "fiscal_documents.updated_at as updatedAt",
 ];
 
-export async function listFiscalDocuments(): Promise<FiscalDocument[]> {
-  return fiscalDocumentQuery(db).orderBy(
-    "fiscal_documents.created_at",
-    "desc",
-  );
+export async function listFiscalDocuments(filters: {
+  branchId: string;
+}): Promise<FiscalDocument[]> {
+  return fiscalDocumentQuery(db)
+    .where("fiscal_documents.branch_id", filters.branchId)
+    .orderBy("fiscal_documents.created_at", "desc");
 }
 
 export async function getFiscalDocumentById(
   id: string,
+  filters?: { branchId?: string | null },
 ): Promise<FiscalDocument | undefined> {
-  return fiscalDocumentQuery(db).where("fiscal_documents.id", id).first();
+  return fiscalDocumentQuery(db)
+    .where("fiscal_documents.id", id)
+    .modify((query) => {
+      if (filters?.branchId) {
+        query.where("fiscal_documents.branch_id", filters.branchId);
+      }
+    })
+    .first();
 }
 
 export async function findFiscalDocumentBySource(
@@ -173,6 +187,7 @@ export async function insertFiscalDocument(
 ): Promise<FiscalDocument> {
   const [created] = await transaction("fiscal_documents")
     .insert({
+      branch_id: input.branchId,
       source_type: input.sourceType,
       source_id: input.sourceId,
       document_type: input.documentType,
@@ -213,6 +228,7 @@ export async function replaceFiscalDocumentIssue(
     .where("id", id)
     .update({
       provider: input.provider,
+      branch_id: input.branchId,
       environment: input.environment,
       status: input.status,
       access_key: input.accessKey,
@@ -280,6 +296,7 @@ export async function updateFiscalDocumentStatus(
 
 function fiscalDocumentQuery(database: Knex | Knex.Transaction) {
   return database("fiscal_documents")
+    .leftJoin("branches", "branches.id", "fiscal_documents.branch_id")
     .join(
       "users as issued_users",
       "issued_users.id",
