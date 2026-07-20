@@ -71,6 +71,18 @@ npm run stock:import-csv -- --file ../caminho/estoque.csv --created-by-email adm
 O primeiro comando apenas simula e gera relatorio. O segundo grava no banco.
 Nao execute `--commit` antes de revisar rejeicoes e duplicidades.
 
+No CSV exportado pelo sistema atual, o importador:
+
+- ignora a linha inicial de titulo/metadados do relatorio;
+- ignora o rodape de totais;
+- aceita `Cód. interno`, `Nome`, `Unidade`, `Custo unit.`, `Valor venda` e `NCM`;
+- trata `------` como valor vazio;
+- normaliza unidades antigas para o padrao do sistema novo:
+  - `BD` -> `UN`;
+  - `PC` -> `UN`;
+  - `JG` -> `KIT`;
+  - `PAR` -> `CJ`.
+
 ## Testes manuais apos deploy
 
 Executar com usuario administrador:

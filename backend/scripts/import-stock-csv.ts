@@ -46,6 +46,7 @@ type ImportSummary = {
   mode: "commit" | "dry-run";
   file: string;
   expectedFields: string[];
+  unitMappings: Record<string, string>;
   totals: {
     rows: number;
     accepted: number;
@@ -67,6 +68,12 @@ const expectedFields = [
   "Venda",
   "NCM",
 ];
+const unitMappings: Record<string, string> = {
+  BD: "UN",
+  JG: "KIT",
+  PAR: "CJ",
+  PC: "UN",
+};
 
 const fieldAliases: Record<keyof Omit<StockImportRow, "rowNumber">, string[]> =
   {
@@ -82,6 +89,7 @@ const fieldAliases: Record<keyof Omit<StockImportRow, "rowNumber">, string[]> =
     internalCode: [
       "codigo interno",
       "código interno",
+      "cod. interno",
       "codigo",
       "código",
       "cod interno",
@@ -91,6 +99,7 @@ const fieldAliases: Record<keyof Omit<StockImportRow, "rowNumber">, string[]> =
     barcode: [
       "codigo de barras",
       "código de barras",
+      "cod. barra",
       "cod barras",
       "ean",
       "barcode",
@@ -102,6 +111,9 @@ const fieldAliases: Record<keyof Omit<StockImportRow, "rowNumber">, string[]> =
     location: ["locacao", "locação", "localizacao", "localização", "location"],
     costPrice: [
       "custo",
+      "custo unit.",
+      "custo unitario",
+      "custo unitário",
       "valor custo",
       "preco custo",
       "preço custo",
@@ -127,7 +139,12 @@ const fieldAliases: Record<keyof Omit<StockImportRow, "rowNumber">, string[]> =
       "quantidade",
       "current_stock",
     ],
-    minimumStock: ["estoque minimo", "estoque mínimo", "minimum_stock"],
+    minimumStock: [
+      "estoque minimo",
+      "estoque mínimo",
+      "estoque min.",
+      "minimum_stock",
+    ],
     ncm: ["ncm"],
     cest: ["cest"],
     cfop: ["cfop"],
@@ -191,6 +208,7 @@ async function importStockCsv(options: ImportOptions): Promise<ImportSummary> {
     mode: options.commit ? "commit" : "dry-run",
     file: filePath,
     expectedFields,
+    unitMappings,
     totals: {
       rows: parsedRows.length,
       accepted: rowsToImport.length,
@@ -416,7 +434,8 @@ function normalizeRows(rows: CsvRow[], options: ImportOptions) {
 
 function normalizeRow(row: CsvRow, rowNumber: number, options: ImportOptions) {
   const name = text(row, "name");
-  const unit = (text(row, "unit") ?? "UN").toUpperCase();
+  const rawUnit = (text(row, "unit") ?? "UN").toUpperCase();
+  const unit = unitMappings[rawUnit] ?? rawUnit;
   const costPrice = requiredNumber(row, "costPrice");
   const salePrice = requiredNumber(row, "salePrice");
   const currentStock = optionalNumber(row, "currentStock") ?? 0;
@@ -468,7 +487,7 @@ function text(row: CsvRow, field: keyof typeof fieldAliases) {
     .map((alias) => row[normalizeHeader(alias)])
     .find((value) => value?.trim());
 
-  return value?.trim() || null;
+  return nullableText(value);
 }
 
 function requiredNumber(row: CsvRow, field: keyof typeof fieldAliases) {
@@ -522,7 +541,9 @@ function invalidProfitMarginReason(value: number | null) {
 
 function parseCsv(content: string): CsvRow[] {
   const rows = parseCsvRows(content);
-  const [headers = [], ...dataRows] = rows;
+  const headerRowIndex = findHeaderRowIndex(rows);
+  const headers = rows[headerRowIndex] ?? [];
+  const dataRows = rows.slice(headerRowIndex + 1);
   const normalizedHeaders = headers.map(normalizeHeader);
 
   return dataRows
@@ -535,7 +556,21 @@ function parseCsv(content: string): CsvRow[] {
         }),
         {},
       ),
+    )
+    .filter((row) => !isReportFooterRow(row));
+}
+
+function findHeaderRowIndex(rows: string[][]) {
+  const headerRowIndex = rows.findIndex((row) => {
+    const normalizedHeaders = new Set(row.map(normalizeHeader));
+    return ["name", "internalCode", "costPrice", "salePrice"].every((field) =>
+      fieldAliases[field as keyof typeof fieldAliases].some((alias) =>
+        normalizedHeaders.has(normalizeHeader(alias)),
+      ),
     );
+  });
+
+  return headerRowIndex >= 0 ? headerRowIndex : 0;
 }
 
 function parseCsvRows(content: string) {
@@ -594,6 +629,27 @@ function normalizeHeader(header: string) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ");
+}
+
+function nullableText(value: string | undefined) {
+  const trimmed = value?.trim();
+  const emptyValues = new Set(["", "-", "--", "---", "------"]);
+
+  return trimmed && !emptyValues.has(trimmed) ? trimmed : null;
+}
+
+function isReportFooterRow(row: CsvRow) {
+  const internalCode = normalizeHeader(row[normalizeHeader("cod. interno")] ?? "");
+  const name = row[normalizeHeader("nome")]?.trim() ?? "";
+  const footerMarkers = new Set([
+    "totais",
+    "quantidade:",
+    "custo total:",
+    "valores de venda",
+    "total valor venda:",
+  ]);
+
+  return !name && footerMarkers.has(internalCode);
 }
 
 async function readCsvFile(filePath: string) {
