@@ -69,6 +69,17 @@ Observacao: a primeira tentativa de testes backend falhou porque o Postgres loca
    - produto com custo e preco;
    - produto com dados fiscais completos.
 
+Comandos do importador:
+
+```bash
+cd backend
+npm run stock:import-csv -- --file ../caminho/estoque.csv --report ../tmp/importacao-estoque-dry-run.json
+npm run stock:import-csv -- --file ../caminho/estoque.csv --created-by-email admin@empresa.com --report ../tmp/importacao-estoque-final.json --commit
+```
+
+O primeiro comando apenas simula e gera relatorio. O segundo grava no banco.
+Nao execute `--commit` antes de revisar rejeicoes e duplicidades.
+
 ## Testes manuais apos deploy
 
 Executar com usuario administrador:
