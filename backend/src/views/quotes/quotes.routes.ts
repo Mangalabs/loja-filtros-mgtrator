@@ -9,6 +9,7 @@ import {
   storeQuote,
   updateDraftQuote,
 } from "../../controllers/quotes/quotes.controller.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const quotesRoutes = Router();
@@ -83,12 +84,19 @@ const cancelQuoteSchema = z.object({
 });
 
 quotesRoutes.get("/quotes", async (_request, response) => {
-  response.status(200).json(await indexQuotes());
+  response.status(200).json(
+    await indexQuotes({
+      branchId: requireActiveBranchId(response.locals),
+    }),
+  );
 });
 
 quotesRoutes.get("/quotes/:id/pdf", async (request, response) => {
   const { id } = quoteParamsSchema.parse(request.params);
-  const result = await showQuotePdf(id);
+  const result = await showQuotePdf(
+    id,
+    requireActiveBranchId(response.locals),
+  );
 
   response
     .status(200)
@@ -100,28 +108,40 @@ quotesRoutes.get("/quotes/:id/pdf", async (request, response) => {
 quotesRoutes.get("/quotes/:id", async (request, response) => {
   const { id } = quoteParamsSchema.parse(request.params);
 
-  response.status(200).json(await showQuote(id));
+  response.status(200).json(
+    await showQuote(id, requireActiveBranchId(response.locals)),
+  );
 });
 
 quotesRoutes.post("/quotes", async (request, response) => {
   const body = validateBody(request, createQuoteSchema);
   const userId = response.locals.authenticatedUser.id as string;
 
-  response.status(201).json(await storeQuote(body, userId));
+  response
+    .status(201)
+    .json(await storeQuote(body, userId, requireActiveBranchId(response.locals)));
 });
 
 quotesRoutes.put("/quotes/:id", async (request, response) => {
   const { id } = quoteParamsSchema.parse(request.params);
   const body = validateBody(request, createQuoteSchema);
 
-  response.status(200).json(await updateDraftQuote(id, body));
+  response.status(200).json(
+    await updateDraftQuote(id, body, requireActiveBranchId(response.locals)),
+  );
 });
 
 quotesRoutes.post("/quotes/:id/shipping-order", async (request, response) => {
   const { id } = quoteParamsSchema.parse(request.params);
   const userId = response.locals.authenticatedUser.id as string;
 
-  response.status(201).json(await createShippingOrderFromQuote(id, userId));
+  response.status(201).json(
+    await createShippingOrderFromQuote(
+      id,
+      userId,
+      requireActiveBranchId(response.locals),
+    ),
+  );
 });
 
 quotesRoutes.patch("/quotes/:id/cancel", async (request, response) => {
@@ -129,5 +149,12 @@ quotesRoutes.patch("/quotes/:id/cancel", async (request, response) => {
   const body = validateBody(request, cancelQuoteSchema);
   const userId = response.locals.authenticatedUser.id as string;
 
-  response.status(200).json(await cancelDraftQuote(id, body.reason, userId));
+  response.status(200).json(
+    await cancelDraftQuote(
+      id,
+      body.reason,
+      userId,
+      requireActiveBranchId(response.locals),
+    ),
+  );
 });

@@ -617,6 +617,8 @@ export type PickupReservation = {
 
 export type Quote = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   clientId: string;
   clientName: string;
   clientPhone: string | null;

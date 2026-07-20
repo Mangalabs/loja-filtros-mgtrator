@@ -40,6 +40,8 @@ export type QuoteItem = {
 
 export type Quote = {
   id: string
+  branchId: string | null
+  branchName: string | null
   clientId: string
   clientName: string
   clientPhone: string | null
@@ -95,6 +97,8 @@ type LockedQuote = {
 
 const quoteColumns = [
   'quotes.id',
+  'quotes.branch_id as branchId',
+  'branches.name as branchName',
   'quotes.client_id as clientId',
   'clients.name as clientName',
   'clients.phone as clientPhone',
@@ -144,16 +148,26 @@ const quoteItemColumns = [
   'quote_items.position',
 ]
 
-export async function listQuotes(): Promise<Quote[]> {
-  const quoteRows = await quoteQuery(db).orderBy('quotes.created_at', 'desc')
+export async function listQuotes(filters: { branchId: string }): Promise<Quote[]> {
+  const quoteRows = await quoteQuery(db)
+    .where('quotes.branch_id', filters.branchId)
+    .orderBy('quotes.created_at', 'desc')
   return withQuoteItems(db, quoteRows)
 }
 
 export async function getQuoteById(
   id: string,
   database: Knex | Knex.Transaction = db,
+  filters?: { branchId?: string | null },
 ): Promise<Quote | undefined> {
-  const quote = await quoteQuery(database).where('quotes.id', id).first()
+  const quote = await quoteQuery(database)
+    .where('quotes.id', id)
+    .modify((query) => {
+      if (filters?.branchId) {
+        query.where('quotes.branch_id', filters.branchId)
+      }
+    })
+    .first()
 
   if (!quote) {
     return undefined
@@ -190,17 +204,20 @@ export async function activeQuotePaymentMethodExists(
 export async function listActiveQuoteProducts(
   transaction: Knex.Transaction,
   productIds: string[],
+  branchId: string,
 ): Promise<QuoteProduct[]> {
   return transaction('products')
     .select(['id', 'name', 'description', 'sale_price as salePrice', 'active'])
     .whereIn('id', productIds)
     .andWhere('active', true)
+    .andWhere('branch_id', branchId)
 }
 
 export async function insertQuote(
   transaction: Knex.Transaction,
   input: QuoteInput,
   createdByUserId: string,
+  branchId: string,
   items: Array<{
     productId: string
     description: string
@@ -221,6 +238,7 @@ export async function insertQuote(
       client_id: input.clientId,
       payment_method_id: input.paymentMethodId,
       created_by_user_id: createdByUserId,
+      branch_id: branchId,
       status: 'DRAFT',
       show_brand: input.showBrand ?? true,
       subtotal_amount: subtotalAmount,
@@ -321,10 +339,11 @@ export async function updateQuote(
 export async function lockQuoteForCancellation(
   transaction: Knex.Transaction,
   id: string,
+  branchId: string,
 ): Promise<LockedQuote | undefined> {
   return transaction('quotes')
     .select(['id', 'status'])
-    .where('id', id)
+    .where({ id, branch_id: branchId })
     .forUpdate()
     .first()
 }
@@ -354,6 +373,7 @@ export async function cancelQuote(
 
 function quoteQuery(database: Knex | Knex.Transaction) {
   return database('quotes')
+    .leftJoin('branches', 'branches.id', 'quotes.branch_id')
     .join('clients', 'clients.id', 'quotes.client_id')
     .join(
       { created_users: 'users' },

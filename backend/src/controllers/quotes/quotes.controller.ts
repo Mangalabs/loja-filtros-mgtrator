@@ -18,16 +18,16 @@ import {
 } from "../../models/shipping-orders/shipping-orders.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
-export async function indexQuotes() {
+export async function indexQuotes(filters: { branchId: string }) {
   return {
     code: 200,
     status: "success",
-    data: await listQuotes(),
+    data: await listQuotes(filters),
   };
 }
 
-export async function showQuote(id: string) {
-  const quote = await getQuoteById(id);
+export async function showQuote(id: string, branchId: string) {
+  const quote = await getQuoteById(id, db, { branchId });
 
   if (!quote) {
     throw new AppError("Orcamento nao encontrado.", 404);
@@ -40,8 +40,8 @@ export async function showQuote(id: string) {
   };
 }
 
-export async function showQuotePdf(id: string) {
-  const quote = await getQuoteById(id);
+export async function showQuotePdf(id: string, branchId: string) {
+  const quote = await getQuoteById(id, db, { branchId });
 
   if (!quote) {
     throw new AppError("Orcamento nao encontrado.", 404);
@@ -53,7 +53,11 @@ export async function showQuotePdf(id: string) {
   };
 }
 
-export async function storeQuote(input: QuoteInput, createdByUserId: string) {
+export async function storeQuote(
+  input: QuoteInput,
+  createdByUserId: string,
+  branchId: string,
+) {
   const quote = await db.transaction(async (transaction) => {
     const {
       discountAmount,
@@ -62,12 +66,13 @@ export async function storeQuote(input: QuoteInput, createdByUserId: string) {
       subtotalAmount,
       totalAmount,
     } =
-      await prepareQuoteInput(transaction, input);
+      await prepareQuoteInput(transaction, input, branchId);
 
     return insertQuote(
       transaction,
       input,
       createdByUserId,
+      branchId,
       quoteItems,
       subtotalAmount,
       discountPercentage,
@@ -83,9 +88,13 @@ export async function storeQuote(input: QuoteInput, createdByUserId: string) {
   };
 }
 
-export async function updateDraftQuote(id: string, input: QuoteInput) {
+export async function updateDraftQuote(
+  id: string,
+  input: QuoteInput,
+  branchId: string,
+) {
   const quote = await db.transaction(async (transaction) => {
-    const currentQuote = await getQuoteById(id, transaction);
+    const currentQuote = await getQuoteById(id, transaction, { branchId });
 
     if (!currentQuote) {
       throw new AppError("Orcamento nao encontrado.", 404);
@@ -111,7 +120,7 @@ export async function updateDraftQuote(id: string, input: QuoteInput) {
       subtotalAmount,
       totalAmount,
     } =
-      await prepareQuoteInput(transaction, input);
+      await prepareQuoteInput(transaction, input, branchId);
 
     return updateQuote(
       transaction,
@@ -135,9 +144,10 @@ export async function updateDraftQuote(id: string, input: QuoteInput) {
 export async function createShippingOrderFromQuote(
   id: string,
   createdByUserId: string,
+  branchId: string,
 ) {
   const order = await db.transaction(async (transaction) => {
-    const quote = await getQuoteById(id, transaction);
+    const quote = await getQuoteById(id, transaction, { branchId });
 
     if (!quote) {
       throw new AppError("Orcamento nao encontrado.", 404);
@@ -180,9 +190,14 @@ export async function cancelDraftQuote(
   id: string,
   reason: string,
   cancelledByUserId: string,
+  branchId: string,
 ) {
   const quote = await db.transaction(async (transaction) => {
-    const currentQuote = await lockQuoteForCancellation(transaction, id);
+    const currentQuote = await lockQuoteForCancellation(
+      transaction,
+      id,
+      branchId,
+    );
 
     if (!currentQuote) {
       throw new AppError("Orcamento nao encontrado.", 404);
@@ -214,6 +229,7 @@ export async function cancelDraftQuote(
 async function prepareQuoteInput(
   transaction: Parameters<typeof activeQuoteClientExists>[0],
   input: QuoteInput,
+  branchId: string,
 ) {
   if (!(await activeQuoteClientExists(transaction, input.clientId))) {
     throw new AppError("Cliente informado nao disponivel.", 422);
@@ -226,7 +242,11 @@ async function prepareQuoteInput(
   }
 
   const productIds = [...new Set(input.items.map((item) => item.productId))];
-  const products = await listActiveQuoteProducts(transaction, productIds);
+  const products = await listActiveQuoteProducts(
+    transaction,
+    productIds,
+    branchId,
+  );
 
   if (products.length !== productIds.length) {
     throw new AppError(
