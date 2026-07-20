@@ -181,7 +181,7 @@ Relatorios posteriores:
 - O fluxo principal sera venda de balcao.
 - Reservas/pre-vendas serao consideradas no fluxo.
 - Entrada de mercadoria sera manual e tambem por XML.
-- Todos os usuarios poderao nascer com permissao total, mas o sistema tera estrutura para controle de permissoes.
+- Funcionarios devem ter login individual, filial vinculada, permissoes explicitas e operacoes rastreaveis pelo usuario autenticado.
 - Relatorios gerenciais entram desde as primeiras fases.
 - Busca por aplicacao de veiculo ou maquina e uma boa ideia, mas nao e essencial para a primeira entrega.
 - O backend sera construido em TypeScript com Node.js.
@@ -257,6 +257,7 @@ Relatorios posteriores:
 ### Backend
 
 - Login/autenticacao com usuario inicial.
+- Filiais, funcionarios, permissoes administrativas por usuario, troca obrigatoria de senha temporaria e auditoria de eventos de autenticacao.
 - Produtos, fabricantes, fornecedores e clientes.
 - Estoque atual, entrada manual, ajuste manual, historico e reposicao.
 - Formas de pagamento.
@@ -285,6 +286,7 @@ Relatorios posteriores:
 - Sidebar, shell, paginas financeiras e fiscais refatoradas.
 - Tela central de NF-e com fila, documentos emitidos e paginacao.
 - Checklist visual antes de liberar emissao fiscal em producao.
+- Administracao de filiais e funcionarios com switches MUI para permissoes sensiveis, status de senha e historico de acessos.
 - Ainda existem telas grandes a refatorar, principalmente vendas e orcamentos.
 - Ainda nao ha testes frontend automatizados.
 
@@ -310,12 +312,22 @@ Estado: parcialmente entregue.
 
 - Venda de balcao, reserva, envio, baixa de estoque e cancelamentos principais existem.
 - Caixa ja possui abertura, fechamento, divergencia, sangria, suprimento e conferencia por forma de pagamento.
-- Base backend de devolucao operacional de item entregue, com retorno ao estoque e historico.
-- Falta estorno financeiro detalhado e exposicao da devolucao por item no frontend.
+- Devolucao operacional de item entregue para venda de balcao e vendas concluidas via envio/retirada, com retorno ao estoque e historico.
+- Historico de vendas permite registrar devolucao por item quando nao houver NF-e ativa bloqueando a operacao.
+- Caixa considera devolucoes no total liquido e no resumo por forma de pagamento.
+- Devolucoes registram base financeira do estorno: valor, forma de pagamento, data e referencia opcional.
+- Tela de devolucao permite informar valor, forma, data e referencia do estorno.
+- Historico de vendas mostra os estornos ja registrados por item devolvido.
+- Historico de vendas mostra valor liquido quando houver estornos, mantendo original e estornado visiveis.
 - Desconto direto em venda de balcao entregue no backend e no frontend.
 - Orcamentos podem ser editados enquanto estiverem em rascunho.
-- Orcamentos possuem desconto direto geral e desconto direto por item.
+- Orcamentos possuem desconto percentual geral e desconto percentual por item.
+- Orcamentos destacam a forma de pagamento na tela e no PDF comercial.
+- Historico de vendas permite baixar comprovante comercial sem valor fiscal para vendas concluidas.
+- Pedidos para envio podem ser concluidos como venda em um passo, sem exigir separacao manual na tela.
 - Venda, pedido para envio e reserva para retirada exigem confirmacao extra para seguir sem estoque suficiente.
+- Orcamentos, vendas, cupons e documentos fiscais possuem datas de fatura e vencimento.
+- Produtos possuem configuracao comercial de margem base para sugerir preco de venda a partir do custo, mantendo o preco editavel.
 
 ### Fase 4 - Fiscal
 
@@ -323,7 +335,9 @@ Estado: avancada em homologacao para NF-e.
 
 - NF-e Focus funcionando em homologacao para venda de balcao, pedido para envio e reserva para retirada.
 - Configuracao fiscal da loja ja existe em tela/tabela.
+- Fila fiscal direciona pendencias para configuracao fiscal, cliente ou produto correspondente.
 - Producao exige confirmacao textual e checklist visual antes de liberar emissao.
+- Payload Focus reflete fatura e duplicata quando a venda possuir vencimento.
 - NFC-e segue fora do escopo por enquanto.
 
 ### Fase 5 - Relatorios
@@ -343,7 +357,23 @@ Estado: inicial entregue.
 
 ## Rumo Recomendado
 
-### 1. Fechar o ciclo fiscal MVP
+### 1. Compras e estoque
+
+- Entrada por XML de NF-e de compra.
+- Vincular itens do XML a produtos.
+- Abrir revisao da importacao com formulario pre-preenchido antes de qualquer entrada no estoque.
+- Confirmar manualmente o produto correto por item, pois codigos podem se repetir entre fabricantes diferentes.
+- Atualizar custo e estoque a partir da compra.
+- Historico formal de compras registradas por fornecedor e custo por produto.
+
+### 2. Relatorios
+
+- Vendas por periodo, produto, cliente e forma de pagamento.
+- Estoque baixo, giro e produtos sem movimentacao.
+- Caixa por periodo.
+- Margem, lucro e curva ABC.
+
+### 3. Fechar o ciclo comercial/fiscal MVP
 
 - Atualizar documentacao conforme os testes manuais e tecnicos avancarem.
 - Melhorar a tela de detalhes da NF-e e a leitura de rejeicoes.
@@ -351,23 +381,16 @@ Estado: inicial entregue.
 - Validar NF-e com descontos em venda de balcao e em venda originada de orcamento.
 - Manter producao bloqueada ate checklist fiscal final ser cumprido.
 
-### 2. Completar PDV/Caixa
+### 4. Ajustes de experiencia
+
+- Compactar acoes de tabelas em menu MUI nas listas com muitas opcoes.
+- Manter formularios de acao destrutiva ou detalhada ocultos ate o usuario escolher a acao.
+- Garantir botao de fechar/cancelar em formularios abertos dentro de linhas.
+- Tratar os demais pontos de UX como acabamento apos as funcoes prioritarias.
+
+### 5. Completar PDV/Caixa
 
 - Estorno financeiro detalhado de itens devolvidos.
-- Expor devolucao por item na tela de vendas.
-
-### 3. Compras
-
-- Entrada por XML de NF-e de compra.
-- Vincular itens do XML a produtos.
-- Atualizar custo e estoque a partir da compra.
-
-### 4. Relatorios
-
-- Vendas por periodo e produto.
-- Estoque atual e estoque baixo.
-- Caixa por periodo.
-- Margem, lucro e curva ABC em fase posterior.
 
 ## Observacoes Sobre Modelagem
 

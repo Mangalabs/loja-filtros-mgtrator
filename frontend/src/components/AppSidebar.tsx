@@ -8,25 +8,37 @@ import {
   Filter,
   List as ListIcon,
   PackagePlus,
+  Percent,
   Send,
   ShoppingCart,
+  ReceiptText,
   SlidersHorizontal,
   Tags,
   Truck,
+  Building2,
+  Users,
   UserRound,
 } from "lucide-react";
-import { navSectionViews, type NavSectionKey, type View } from "../navigation";
+import type { AuthUser } from "../api";
+import {
+  canAccessView,
+  navSectionViews,
+  type NavSectionKey,
+  type View,
+} from "../navigation";
 import { frontendPalette } from "../theme";
 import { NavButton, NavSection } from "./shell";
 
 export function AppSidebar({
   openSections,
+  user,
   view,
   onNewProduct,
   onSelectView,
   onToggleSection,
 }: {
   openSections: Record<NavSectionKey, boolean>;
+  user: AuthUser;
   view: View;
   onNewProduct: () => void;
   onSelectView: (view: View) => void;
@@ -36,9 +48,13 @@ export function AppSidebar({
     return navSectionViews[section].includes(view);
   }
 
+  function canAccess(targetView: View) {
+    return canAccessView(user, targetView);
+  }
+
   return (
     <aside
-      className="sticky top-0 flex h-screen min-h-0 flex-col overflow-y-auto px-4 py-5 text-white lg:rounded-r-3xl"
+      className="app-sidebar-scrollbar sticky top-0 flex h-screen min-h-0 min-w-0 flex-col overflow-y-auto overflow-x-hidden px-4 py-5 text-white lg:rounded-r-3xl"
       style={{
         background: `linear-gradient(180deg, ${frontendPalette.primaryNavy} 0%, #17264d 100%)`,
       }}
@@ -55,7 +71,10 @@ export function AppSidebar({
         </div>
       </div>
 
-      <nav className="grid gap-2" aria-label="Navegacao principal">
+      <nav
+        className="grid min-w-0 max-w-full gap-2 overflow-x-hidden"
+        aria-label="Navegacao principal"
+      >
         <NavSection
           active={isSectionActive("products")}
           icon={<PackagePlus size={17} />}
@@ -77,6 +96,15 @@ export function AppSidebar({
           >
             Novo produto
           </NavButton>
+          {canAccess("commercial-settings") ? (
+            <NavButton
+              active={view === "commercial-settings"}
+              icon={<Percent size={18} />}
+              onClick={() => onSelectView("commercial-settings")}
+            >
+              Configuracao comercial
+            </NavButton>
+          ) : null}
         </NavSection>
 
         <NavSection
@@ -116,13 +144,24 @@ export function AppSidebar({
           >
             Entrada manual
           </NavButton>
-          <NavButton
-            active={view === "stock-adjustments"}
-            icon={<SlidersHorizontal size={18} />}
-            onClick={() => onSelectView("stock-adjustments")}
-          >
-            Ajuste manual
-          </NavButton>
+          {canAccess("purchase-invoices") ? (
+            <NavButton
+              active={view === "purchase-invoices"}
+              icon={<FileText size={18} />}
+              onClick={() => onSelectView("purchase-invoices")}
+            >
+              Importar XML
+            </NavButton>
+          ) : null}
+          {canAccess("stock-adjustments") ? (
+            <NavButton
+              active={view === "stock-adjustments"}
+              icon={<SlidersHorizontal size={18} />}
+              onClick={() => onSelectView("stock-adjustments")}
+            >
+              Ajuste manual
+            </NavButton>
+          ) : null}
           <NavButton
             active={view === "low-stock"}
             icon={<AlertTriangle size={18} />}
@@ -155,67 +194,81 @@ export function AppSidebar({
           </NavButton>
         </NavSection>
 
-        <NavSection
-          active={isSectionActive("finance")}
-          icon={<CreditCard size={17} />}
-          open={openSections.finance}
-          title="Financeiro"
-          onToggle={() => onToggleSection("finance")}
-        >
-          <NavButton
-            active={view === "payment-methods"}
-            icon={<CreditCard size={18} />}
-            onClick={() => onSelectView("payment-methods")}
+        {["payment-methods", "fiscal-settings", "fiscal-documents"].some(
+          (targetView) => canAccess(targetView as View),
+        ) ? (
+          <NavSection
+            active={isSectionActive("finance")}
+            icon={<CreditCard size={17} />}
+            open={openSections.finance}
+            title="Financeiro"
+            onToggle={() => onToggleSection("finance")}
           >
-            Formas de pagamento
-          </NavButton>
-          <NavButton
-            active={view === "fiscal-settings"}
-            icon={<SlidersHorizontal size={18} />}
-            onClick={() => onSelectView("fiscal-settings")}
-          >
-            Configuracao fiscal
-          </NavButton>
-          <NavButton
-            active={view === "fiscal-documents"}
-            icon={<FileText size={18} />}
-            onClick={() => onSelectView("fiscal-documents")}
-          >
-            Notas fiscais
-          </NavButton>
-        </NavSection>
+            {canAccess("payment-methods") ? (
+              <NavButton
+                active={view === "payment-methods"}
+                icon={<CreditCard size={18} />}
+                onClick={() => onSelectView("payment-methods")}
+              >
+                Formas de pagamento
+              </NavButton>
+            ) : null}
+            {canAccess("fiscal-settings") ? (
+              <NavButton
+                active={view === "fiscal-settings"}
+                icon={<SlidersHorizontal size={18} />}
+                onClick={() => onSelectView("fiscal-settings")}
+              >
+                Configuracao fiscal
+              </NavButton>
+            ) : null}
+            {canAccess("fiscal-documents") ? (
+              <NavButton
+                active={view === "fiscal-documents"}
+                icon={<FileText size={18} />}
+                onClick={() => onSelectView("fiscal-documents")}
+              >
+                Notas fiscais
+              </NavButton>
+            ) : null}
+          </NavSection>
+        ) : null}
 
-        <NavSection
-          active={isSectionActive("cash")}
-          icon={<Banknote size={17} />}
-          open={openSections.cash}
-          title="Caixa"
-          onToggle={() => onToggleSection("cash")}
-        >
-          <NavButton
-            active={view === "cash-register"}
-            icon={<Banknote size={18} />}
-            onClick={() => onSelectView("cash-register")}
+        {canAccess("cash-register") ? (
+          <NavSection
+            active={isSectionActive("cash")}
+            icon={<Banknote size={17} />}
+            open={openSections.cash}
+            title="Caixa"
+            onToggle={() => onToggleSection("cash")}
           >
-            Abertura
-          </NavButton>
-        </NavSection>
+            <NavButton
+              active={view === "cash-register"}
+              icon={<Banknote size={18} />}
+              onClick={() => onSelectView("cash-register")}
+            >
+              Abertura
+            </NavButton>
+          </NavSection>
+        ) : null}
 
-        <NavSection
-          active={isSectionActive("reports")}
-          icon={<SlidersHorizontal size={17} />}
-          open={openSections.reports}
-          title="Relatorios"
-          onToggle={() => onToggleSection("reports")}
-        >
-          <NavButton
-            active={view === "reports"}
-            icon={<SlidersHorizontal size={18} />}
-            onClick={() => onSelectView("reports")}
+        {canAccess("reports") ? (
+          <NavSection
+            active={isSectionActive("reports")}
+            icon={<SlidersHorizontal size={17} />}
+            open={openSections.reports}
+            title="Relatorios"
+            onToggle={() => onToggleSection("reports")}
           >
-            Gerencial
-          </NavButton>
-        </NavSection>
+            <NavButton
+              active={view === "reports"}
+              icon={<SlidersHorizontal size={18} />}
+              onClick={() => onSelectView("reports")}
+            >
+              Gerencial
+            </NavButton>
+          </NavSection>
+        ) : null}
 
         <NavSection
           active={isSectionActive("sales")}
@@ -239,6 +292,13 @@ export function AppSidebar({
             Balcao
           </NavButton>
           <NavButton
+            active={view === "sales-history"}
+            icon={<ReceiptText size={18} />}
+            onClick={() => onSelectView("sales-history")}
+          >
+            Historico
+          </NavButton>
+          <NavButton
             active={view === "shipping-orders"}
             icon={<Send size={18} />}
             onClick={() => onSelectView("shipping-orders")}
@@ -253,6 +313,31 @@ export function AppSidebar({
             Retirada
           </NavButton>
         </NavSection>
+
+        {user.role === "ADMIN" ? (
+          <NavSection
+            active={isSectionActive("administration")}
+            icon={<Users size={17} />}
+            open={openSections.administration}
+            title="Administracao"
+            onToggle={() => onToggleSection("administration")}
+          >
+            <NavButton
+              active={view === "branches"}
+              icon={<Building2 size={18} />}
+              onClick={() => onSelectView("branches")}
+            >
+              Filiais
+            </NavButton>
+            <NavButton
+              active={view === "employees"}
+              icon={<Users size={18} />}
+              onClick={() => onSelectView("employees")}
+            >
+              Funcionarios
+            </NavButton>
+          </NavSection>
+        ) : null}
       </nav>
     </aside>
   );

@@ -2,9 +2,9 @@ import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
-import { List as ListIcon, Plus } from 'lucide-react'
+import { CreditCard, List as ListIcon, Plus } from 'lucide-react'
 import { FormEvent, useState } from 'react'
-import type { Client, Product, Quote } from '../../api'
+import type { Client, PaymentMethod, Product, Quote } from '../../api'
 import { apiUrl } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
 import {
@@ -23,6 +23,8 @@ import {
   SecondaryButton,
   StatusChip,
   TableActionButton,
+  TableActionsMenu,
+  type TableActionsMenuAction,
 } from '../../components/ui'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/format'
@@ -32,26 +34,30 @@ type QuoteDraftItem = {
   description: string
   quantity: string
   unitPrice: string
-  discountAmount: string
+  discountPercentage: string
 }
 
 export type QuoteDraftInput = {
   clientId: string
+  paymentMethodId: string
+  billingIssueDate?: string | null
+  billingDueDate?: string | null
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
-  discountAmount?: number
+  discountPercentage?: number
   items: Array<{
     productId: string
     description?: string | null
     quantity: number
     unitPrice?: number | null
-    discountAmount?: number
+    discountPercentage?: number
   }>
 }
 
 export function QuotesPage({
   clients,
+  paymentMethods,
   products,
   quotes,
   onSubmit,
@@ -60,6 +66,7 @@ export function QuotesPage({
   onCreateShippingOrder,
 }: {
   clients: Client[]
+  paymentMethods: PaymentMethod[]
   products: Product[]
   quotes: Quote[]
   onSubmit: (input: QuoteDraftInput) => Promise<boolean>
@@ -69,23 +76,37 @@ export function QuotesPage({
 }) {
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
   const [clientId, setClientId] = useState('')
+  const [paymentMethodId, setPaymentMethodId] = useState('')
+  const [billingIssueDate, setBillingIssueDate] = useState('')
+  const [billingDueDate, setBillingDueDate] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
   const [showBrand, setShowBrand] = useState(true)
-  const [discountAmount, setDiscountAmount] = useState('')
+  const [discountPercentage, setDiscountPercentage] = useState('')
   const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
   const { pagination, visibleItems } = usePaginatedRows<Quote>(quotes)
   const activeProducts = products.filter((product) => product.active)
+  const activePaymentMethods = paymentMethods.filter(
+    (paymentMethod) => paymentMethod.active,
+  )
+  const selectedPaymentMethod = paymentMethods.find(
+    (paymentMethod) => paymentMethod.id === paymentMethodId,
+  )
   const isEditing = Boolean(editingQuoteId)
   const quoteSubtotal = items.reduce((sum, item) => {
     return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0)
   }, 0)
-  const itemDiscountTotal = items.reduce((sum, item) => {
-    return sum + Number(item.discountAmount || 0)
-  }, 0)
-  const generalDiscount = Number(discountAmount || 0)
+  const itemDiscountTotal = items.reduce(
+    (sum, item) => sum + quoteItemDiscountAmount(item),
+    0,
+  )
+  const totalBeforeGeneralDiscount = quoteSubtotal - itemDiscountTotal
+  const generalDiscount = percentageAmount(
+    totalBeforeGeneralDiscount,
+    Number(discountPercentage || 0),
+  )
   const quoteTotal = Math.max(
-    quoteSubtotal - itemDiscountTotal - generalDiscount,
+    totalBeforeGeneralDiscount - generalDiscount,
     0,
   )
 
@@ -124,10 +145,13 @@ export function QuotesPage({
   function resetQuoteForm() {
     setEditingQuoteId(null)
     setClientId('')
+    setPaymentMethodId('')
+    setBillingIssueDate('')
+    setBillingDueDate('')
     setValidUntil('')
     setNotes('')
     setShowBrand(true)
-    setDiscountAmount('')
+    setDiscountPercentage('')
     setItems([emptyQuoteItem()])
   }
 
@@ -136,16 +160,19 @@ export function QuotesPage({
 
     const input = {
       clientId,
+      paymentMethodId,
+      billingIssueDate: billingIssueDate || null,
+      billingDueDate: billingDueDate || null,
       validUntil: validUntil || null,
       notes: notes.trim() || null,
       showBrand,
-      discountAmount: generalDiscount,
+      discountPercentage: Number(discountPercentage || 0),
       items: items.map((item) => ({
         productId: item.productId,
         description: item.description.trim() || null,
         quantity: Number(item.quantity),
         unitPrice: item.unitPrice === '' ? null : Number(item.unitPrice),
-        discountAmount: Number(item.discountAmount || 0),
+        discountPercentage: Number(item.discountPercentage || 0),
       })),
     }
     const saved = editingQuoteId
@@ -160,17 +187,20 @@ export function QuotesPage({
   function editQuote(quote: Quote) {
     setEditingQuoteId(quote.id)
     setClientId(quote.clientId)
+    setPaymentMethodId(quote.paymentMethodId ?? '')
+    setBillingIssueDate(quote.billingIssueDate?.slice(0, 10) ?? '')
+    setBillingDueDate(quote.billingDueDate?.slice(0, 10) ?? '')
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
     setNotes(quote.notes ?? '')
     setShowBrand(quote.showBrand)
-    setDiscountAmount(quote.discountAmount)
+    setDiscountPercentage(quote.discountPercentage)
     setItems(
       quote.items.map((item) => ({
         productId: item.productId,
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        discountAmount: item.discountAmount,
+        discountPercentage: item.discountPercentage,
       })),
     )
   }
@@ -206,6 +236,43 @@ export function QuotesPage({
               </MenuItem>
             ))}
         </TextField>
+        <TextField
+          label='Forma de pagamento'
+          select
+          size='medium'
+          value={paymentMethodId || ''}
+          onChange={(event) => setPaymentMethodId(event.target.value)}
+          required>
+          <MenuItem value='' disabled>
+            Forma de pagamento
+          </MenuItem>
+          {activePaymentMethods.map((paymentMethod) => (
+            <MenuItem key={paymentMethod.id} value={paymentMethod.id}>
+              {paymentMethod.name}
+            </MenuItem>
+          ))}
+        </TextField>
+        <QuotePaymentHighlight
+          paymentMethodName={selectedPaymentMethod?.name ?? null}
+        />
+        <FormRow>
+          <TextField
+            label='Data da fatura'
+            size='medium'
+            type='date'
+            value={billingIssueDate}
+            onChange={(event) => setBillingIssueDate(event.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            label='Vencimento'
+            size='medium'
+            type='date'
+            value={billingDueDate}
+            onChange={(event) => setBillingDueDate(event.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+        </FormRow>
         <FormRow>
           <TextField
             label='Validade'
@@ -224,12 +291,12 @@ export function QuotesPage({
         </FormRow>
         <FormRow>
           <TextField
-            label='Desconto geral'
-            value={discountAmount}
+            label='Desconto geral (%)'
+            value={discountPercentage}
             type='number'
             size='medium'
-            onChange={(event) => setDiscountAmount(event.target.value)}
-            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+            onChange={(event) => setDiscountPercentage(event.target.value)}
+            slotProps={{ htmlInput: { min: '0', max: '100', step: '0.01' } }}
           />
           <TextField
             disabled
@@ -239,7 +306,8 @@ export function QuotesPage({
           />
         </FormRow>
         <InlineNote>
-          Desconto nos itens: {formatCurrency(itemDiscountTotal)}
+          Desconto nos itens: {formatCurrency(itemDiscountTotal)} | Desconto
+          geral: {formatCurrency(generalDiscount)}
         </InlineNote>
         <TextField
           label='Observacoes do orcamento'
@@ -319,14 +387,15 @@ export function QuotesPage({
                 />
               </FormRow>
               <TextField
-                label='Desconto do item'
-                value={item.discountAmount}
+                label='Desconto do item (%)'
+                value={item.discountPercentage}
                 type='number'
                 size='medium'
                 onChange={(event) =>
-                  updateItem(index, { discountAmount: event.target.value })
+                  updateItem(index, { discountPercentage: event.target.value })
                 }
-                slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+                helperText={`Valor: ${formatCurrency(quoteItemDiscountAmount(item))}`}
+                slotProps={{ htmlInput: { min: '0', max: '100', step: '0.01' } }}
               />
             </FormCard>
           ))}
@@ -372,12 +441,37 @@ export function QuotesPage({
               render: (quote) => quote.createdByUserName,
             },
             {
+              header: 'Pagamento',
+              render: (quote) => (
+                <QuotePaymentHighlight
+                  compact
+                  paymentMethodName={quote.paymentMethodName}
+                />
+              ),
+            },
+            {
               header: 'Itens',
               render: (quote) => (
                 <>
                   {quote.items.length} item(ns)
                   <InlineNote>
                     {quote.items.map((item) => item.description).join(', ')}
+                  </InlineNote>
+                </>
+              ),
+            },
+            {
+              header: 'Fatura',
+              render: (quote) => (
+                <>
+                  {quote.billingIssueDate
+                    ? formatDate(quote.billingIssueDate)
+                    : '-'}
+                  <InlineNote>
+                    Venc.{' '}
+                    {quote.billingDueDate
+                      ? formatDate(quote.billingDueDate)
+                      : '-'}
                   </InlineNote>
                 </>
               ),
@@ -399,6 +493,9 @@ export function QuotesPage({
                     <InlineNote>
                       Subtotal {formatCurrency(quote.subtotalAmount)} | Desc.{' '}
                       {formatCurrency(totalQuoteDiscount(quote))}
+                      {Number(quote.discountPercentage) > 0
+                        ? ` (${quote.discountPercentage}% geral)`
+                        : ''}
                     </InlineNote>
                   ) : null}
                 </>
@@ -427,6 +524,35 @@ export function QuotesPage({
         />
       </PagePanel>
     </section>
+  )
+}
+
+function QuotePaymentHighlight({
+  compact,
+  paymentMethodName,
+}: {
+  compact?: boolean
+  paymentMethodName: string | null
+}) {
+  const label = paymentMethodName ?? 'Nao informada'
+
+  return (
+    <div
+      className={
+        compact
+          ? 'inline-flex min-w-36 items-center gap-2 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] px-3 py-2 text-[#203466]'
+          : 'flex items-center gap-3 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] p-3 text-[#203466]'
+      }>
+      <span className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#203466] text-white'>
+        <CreditCard size={16} />
+      </span>
+      <span className='min-w-0'>
+        <span className='block text-xs font-bold uppercase text-[#7c6a36]'>
+          Pagamento
+        </span>
+        <strong className='block truncate text-sm'>{label}</strong>
+      </span>
+    </div>
   )
 }
 
@@ -466,14 +592,20 @@ function QuoteActions({
   onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void
   onCreateShippingOrder: (quote: Quote) => void
 }) {
+  const [showCancellationForm, setShowCancellationForm] = useState(false)
+  const actions = quoteActions({
+    onCancelQuote: () => setShowCancellationForm(true),
+    onCreateShippingOrder: () => onCreateShippingOrder(quote),
+    onEditQuote: () => onEditQuote(quote),
+    quote,
+  })
+
   if (quote.shippingOrderId) {
     return (
       <ActionStack>
-        <ActionGroup>
-          <TableActionButton href={quotePdfHref(quote)}>
-            Baixar PDF
-          </TableActionButton>
-        </ActionGroup>
+        <div className='flex justify-end'>
+          <TableActionsMenu actions={actions} />
+        </div>
         <InlineNote>Pedido para envio criado</InlineNote>
       </ActionStack>
     )
@@ -482,11 +614,9 @@ function QuoteActions({
   if (quote.status !== 'DRAFT') {
     return (
       <ActionStack>
-        <ActionGroup>
-          <TableActionButton href={quotePdfHref(quote)}>
-            Baixar PDF
-          </TableActionButton>
-        </ActionGroup>
+        <div className='flex justify-end'>
+          <TableActionsMenu actions={actions} />
+        </div>
         <InlineNote>Orcamento cancelado</InlineNote>
       </ActionStack>
     )
@@ -494,35 +624,70 @@ function QuoteActions({
 
   return (
     <ActionStack>
-      <ActionGroup>
-        <TableActionButton href={quotePdfHref(quote)}>
-          Baixar PDF
-        </TableActionButton>
-        <TableActionButton type='button' onClick={() => onEditQuote(quote)}>
-          Editar
-        </TableActionButton>
-        <TableActionButton
-          type='button'
-          onClick={() => onCreateShippingOrder(quote)}>
-          Enviar p/ envio
-        </TableActionButton>
-      </ActionGroup>
-      <form
-        className='grid gap-2'
-        onSubmit={(event) => onCancelQuote(event, quote)}>
-        <TextField
-          label='Motivo do cancelamento'
-          name='quoteCancellationReason'
-          size='small'
-          slotProps={{ htmlInput: { maxLength: 500 } }}
-          required
-        />
-        <ActionGroup>
-          <TableActionButton type='submit'>Cancelar</TableActionButton>
-        </ActionGroup>
-      </form>
+      <div className='flex justify-end'>
+        <TableActionsMenu actions={actions} />
+      </div>
+      {showCancellationForm ? (
+        <form
+          className='grid w-full max-w-72 gap-2'
+          onSubmit={(event) => onCancelQuote(event, quote)}>
+          <TextField
+            label='Motivo do cancelamento'
+            name='quoteCancellationReason'
+            size='small'
+            slotProps={{ htmlInput: { maxLength: 500 } }}
+            required
+          />
+          <div className='flex flex-wrap gap-2'>
+            <TableActionButton type='submit'>Cancelar</TableActionButton>
+            <TableActionButton
+              type='button'
+              onClick={() => setShowCancellationForm(false)}>
+              Fechar
+            </TableActionButton>
+          </div>
+        </form>
+      ) : null}
     </ActionStack>
   )
+}
+
+function quoteActions({
+  onCancelQuote,
+  onCreateShippingOrder,
+  onEditQuote,
+  quote,
+}: {
+  onCancelQuote: () => void
+  onCreateShippingOrder: () => void
+  onEditQuote: () => void
+  quote: Quote
+}) {
+  const actions: TableActionsMenuAction[] = [
+    {
+      href: quotePdfHref(quote),
+      label: 'Baixar PDF',
+    },
+  ]
+
+  quote.status === 'DRAFT' &&
+    !quote.shippingOrderId &&
+    actions.push(
+      {
+        label: 'Editar',
+        onSelect: onEditQuote,
+      },
+      {
+        label: 'Enviar p/ envio',
+        onSelect: onCreateShippingOrder,
+      },
+      {
+        label: 'Cancelar orcamento',
+        onSelect: onCancelQuote,
+      },
+    )
+
+  return actions
 }
 
 function quotePdfHref(quote: Quote) {
@@ -614,8 +779,19 @@ function emptyQuoteItem(): QuoteDraftItem {
     description: '',
     quantity: '1',
     unitPrice: '',
-    discountAmount: '',
+    discountPercentage: '',
   }
+}
+
+function quoteItemDiscountAmount(item: QuoteDraftItem) {
+  return percentageAmount(
+    Number(item.quantity || 0) * Number(item.unitPrice || 0),
+    Number(item.discountPercentage || 0),
+  )
+}
+
+function percentageAmount(baseAmount: number, percentage: number) {
+  return Number(((baseAmount * percentage) / 100).toFixed(2))
 }
 
 function totalQuoteDiscount(quote: Quote) {

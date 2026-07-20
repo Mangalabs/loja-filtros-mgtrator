@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   changeClientStatus,
   indexClients,
+  lookupClientCompany,
   replaceClient,
   storeClient,
 } from "../../controllers/clients/clients.controller.js";
@@ -43,6 +44,10 @@ const clientParamsSchema = z.object({
   id: z.uuid(),
 });
 
+const cnpjParamsSchema = z.object({
+  cnpj: z.string().trim().min(1).max(32),
+});
+
 const updateClientStatusSchema = z.object({
   active: z.boolean(),
 });
@@ -54,6 +59,12 @@ clientsRoutes.get("/clients", async (request, response) => {
   });
 
   response.status(200).json(result);
+});
+
+clientsRoutes.get("/clients/cnpj/:cnpj", async (request, response) => {
+  const { cnpj } = cnpjParamsSchema.parse(request.params);
+
+  response.status(200).json(await lookupClientCompany(cnpj));
 });
 
 clientsRoutes.post("/clients", async (request, response) => {

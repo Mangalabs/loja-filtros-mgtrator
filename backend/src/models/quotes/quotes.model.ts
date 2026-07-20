@@ -6,15 +6,18 @@ export type QuoteItemInput = {
   description?: string | null
   quantity: number
   unitPrice?: number | null
-  discountAmount?: number
+  discountPercentage?: number
 }
 
 export type QuoteInput = {
   clientId: string
+  paymentMethodId: string
+  billingIssueDate?: string | null
+  billingDueDate?: string | null
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
-  discountAmount?: number
+  discountPercentage?: number
   items: QuoteItemInput[]
 }
 
@@ -29,6 +32,7 @@ export type QuoteItem = {
   description: string
   quantity: string
   unitPrice: string
+  discountPercentage: string
   discountAmount: string
   totalAmount: string
   position: number
@@ -41,11 +45,16 @@ export type Quote = {
   clientPhone: string | null
   clientDocument: string | null
   clientEmail: string | null
+  paymentMethodId: string | null
+  paymentMethodName: string | null
   status: 'DRAFT' | 'CANCELLED'
   showBrand: boolean
   subtotalAmount: string
+  discountPercentage: string
   discountAmount: string
   totalAmount: string
+  billingIssueDate: string | null
+  billingDueDate: string | null
   validUntil: string | null
   notes: string | null
   cancelledByUserName: string | null
@@ -91,11 +100,16 @@ const quoteColumns = [
   'clients.phone as clientPhone',
   'clients.document as clientDocument',
   'clients.email as clientEmail',
+  'payment_methods.id as paymentMethodId',
+  'payment_methods.name as paymentMethodName',
   'quotes.status',
   'quotes.show_brand as showBrand',
   'quotes.subtotal_amount as subtotalAmount',
+  'quotes.discount_percentage as discountPercentage',
   'quotes.discount_amount as discountAmount',
   'quotes.total_amount as totalAmount',
+  'quotes.billing_issue_date as billingIssueDate',
+  'quotes.billing_due_date as billingDueDate',
   'quotes.valid_until as validUntil',
   'quotes.notes',
   'cancelled_users.name as cancelledByUserName',
@@ -124,6 +138,7 @@ const quoteItemColumns = [
   'quote_items.description',
   'quote_items.quantity',
   'quote_items.unit_price as unitPrice',
+  'quote_items.discount_percentage as discountPercentage',
   'quote_items.discount_amount as discountAmount',
   'quote_items.total_amount as totalAmount',
   'quote_items.position',
@@ -160,6 +175,18 @@ export async function activeQuoteClientExists(
   return Boolean(client)
 }
 
+export async function activeQuotePaymentMethodExists(
+  transaction: Knex.Transaction,
+  paymentMethodId: string,
+): Promise<boolean> {
+  const paymentMethod = await transaction('payment_methods')
+    .select('id')
+    .where({ id: paymentMethodId, active: true })
+    .first()
+
+  return Boolean(paymentMethod)
+}
+
 export async function listActiveQuoteProducts(
   transaction: Knex.Transaction,
   productIds: string[],
@@ -179,23 +206,29 @@ export async function insertQuote(
     description: string
     quantity: number
     unitPrice: number
+    discountPercentage: number
     discountAmount: number
     totalAmount: number
     position: number
   }>,
   subtotalAmount: number,
+  discountPercentage: number,
   discountAmount: number,
   totalAmount: number,
 ): Promise<Quote> {
   const [created] = await transaction('quotes')
     .insert({
       client_id: input.clientId,
+      payment_method_id: input.paymentMethodId,
       created_by_user_id: createdByUserId,
       status: 'DRAFT',
       show_brand: input.showBrand ?? true,
       subtotal_amount: subtotalAmount,
+      discount_percentage: discountPercentage,
       discount_amount: discountAmount,
       total_amount: totalAmount,
+      billing_issue_date: input.billingIssueDate,
+      billing_due_date: input.billingDueDate,
       valid_until: input.validUntil,
       notes: input.notes,
     })
@@ -208,6 +241,7 @@ export async function insertQuote(
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unitPrice,
+      discount_percentage: item.discountPercentage,
       discount_amount: item.discountAmount,
       total_amount: item.totalAmount,
       position: item.position,
@@ -235,20 +269,26 @@ export async function updateQuote(
     description: string
     quantity: number
     unitPrice: number
+    discountPercentage: number
     discountAmount: number
     totalAmount: number
     position: number
   }>,
   subtotalAmount: number,
+  discountPercentage: number,
   discountAmount: number,
   totalAmount: number,
 ): Promise<Quote> {
   await transaction('quotes').where('id', id).update({
     client_id: input.clientId,
+    payment_method_id: input.paymentMethodId,
     show_brand: input.showBrand ?? true,
     subtotal_amount: subtotalAmount,
+    discount_percentage: discountPercentage,
     discount_amount: discountAmount,
     total_amount: totalAmount,
+    billing_issue_date: input.billingIssueDate,
+    billing_due_date: input.billingDueDate,
     valid_until: input.validUntil,
     notes: input.notes,
     updated_at: transaction.fn.now(),
@@ -262,6 +302,7 @@ export async function updateQuote(
       description: item.description,
       quantity: item.quantity,
       unit_price: item.unitPrice,
+      discount_percentage: item.discountPercentage,
       discount_amount: item.discountAmount,
       total_amount: item.totalAmount,
       position: item.position,
@@ -318,6 +359,11 @@ function quoteQuery(database: Knex | Knex.Transaction) {
       { created_users: 'users' },
       'created_users.id',
       'quotes.created_by_user_id',
+    )
+    .leftJoin(
+      'payment_methods',
+      'payment_methods.id',
+      'quotes.payment_method_id',
     )
     .leftJoin(
       { cancelled_users: 'users' },

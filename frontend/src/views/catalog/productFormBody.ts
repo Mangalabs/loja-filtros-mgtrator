@@ -10,6 +10,7 @@ export function productFormBody(form: FormData) {
     location: nullableFormValue(form, "location"),
     costPrice: Number(form.get("costPrice") || 0),
     salePrice: Number(form.get("salePrice") || 0),
+    profitMarginPercentage: Number(form.get("profitMarginPercentage") || 0),
     minimumStock: Number(form.get("minimumStock") || 0),
     ncm: nullableFormValue(form, "ncm"),
     cest: nullableFormValue(form, "cest"),

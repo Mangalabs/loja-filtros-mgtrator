@@ -10,6 +10,7 @@ import {
   showFiscalDocument,
   syncFiscalDocument,
 } from "../../controllers/fiscal-documents/fiscal-documents.controller.js";
+import { requirePermission } from "../../shared/auth/authorization-middleware.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const fiscalDocumentsRoutes = Router();
@@ -49,6 +50,7 @@ const mockFiscalDocumentFileParamsSchema = z.object({
 
 fiscalDocumentsRoutes.get(
   "/fiscal-documents",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
   async (_request, response) => {
     response.status(200).json(await indexFiscalDocuments());
   },
@@ -75,6 +77,7 @@ fiscalDocumentsRoutes.get(
 
 fiscalDocumentsRoutes.get(
   "/fiscal-documents/:id",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
   async (request, response) => {
     const { id } = fiscalDocumentParamsSchema.parse(request.params);
 
@@ -84,6 +87,7 @@ fiscalDocumentsRoutes.get(
 
 fiscalDocumentsRoutes.patch(
   "/fiscal-documents/:id/sync",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
   async (request, response) => {
     const { id } = fiscalDocumentParamsSchema.parse(request.params);
 
@@ -93,6 +97,7 @@ fiscalDocumentsRoutes.patch(
 
 fiscalDocumentsRoutes.patch(
   "/fiscal-documents/:id/cancel",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
   async (request, response) => {
     const { id } = fiscalDocumentParamsSchema.parse(request.params);
     const body = validateBody(request, cancelFiscalDocumentSchema);
@@ -106,6 +111,7 @@ fiscalDocumentsRoutes.patch(
 
 fiscalDocumentsRoutes.post(
   "/sales/:id/fiscal-documents",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
   async (request, response) => {
     const { id } = saleParamsSchema.parse(request.params);
     const body = validateBody(request, issueFiscalDocumentSchema);
@@ -119,6 +125,7 @@ fiscalDocumentsRoutes.post(
 
 fiscalDocumentsRoutes.post(
   "/shipping-orders/:id/fiscal-documents",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
   async (request, response) => {
     const { id } = shippingOrderParamsSchema.parse(request.params);
     const body = validateBody(request, issueFiscalDocumentSchema);
@@ -138,6 +145,7 @@ fiscalDocumentsRoutes.post(
 
 fiscalDocumentsRoutes.post(
   "/pickup-reservations/:id/fiscal-documents",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
   async (request, response) => {
     const { id } = pickupReservationParamsSchema.parse(request.params);
     const body = validateBody(request, issueFiscalDocumentSchema);

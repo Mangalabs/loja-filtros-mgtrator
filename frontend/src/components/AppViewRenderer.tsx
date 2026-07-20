@@ -1,6 +1,9 @@
+import Alert from "@mui/material/Alert";
 import type {
   CashRegisterSession,
+  CashReport,
   Client,
+  CommercialSettings,
   AuthUser,
   NamedEntity,
   FiscalDocument,
@@ -8,18 +11,28 @@ import type {
   PaymentMethod,
   PickupReservation,
   Product,
+  PurchaseInvoice,
+  PurchaseReport,
   Quote,
   ReportsOverview,
   Sale,
+  SalesReport,
   ShippingOrder,
   StockAdjustment,
   StockEntry,
   StockMovement,
+  StockReport,
   Supplier,
 } from "../api";
 import type { ReactNode } from "react";
-import type { LoadState, View } from "../navigation";
+import { canAccessView, type LoadState, type View } from "../navigation";
+import { PageHeader, PagePanel } from "./layout";
 import type { useCatalogActions } from "../views/catalog/useCatalogActions";
+import {
+  BranchesPage,
+  EmployeesPage,
+  type RequestConfirmation,
+} from "../views/administration/AdministrationPages";
 import {
   ClientsPage,
   NamedEntityPage,
@@ -27,8 +40,12 @@ import {
   ProductsPage,
   SuppliersPage,
 } from "../views/catalog/CatalogPages";
+import { CommercialSettingsPage } from "../views/catalog/CommercialSettingsPage";
 import { CashRegisterPage } from "../views/finance/CashRegisterPage";
-import { FiscalDocumentsPage } from "../views/finance/FiscalDocumentsPage";
+import {
+  FiscalDocumentsPage,
+  type FiscalPendencyTarget,
+} from "../views/finance/FiscalDocumentsPage";
 import { FiscalSettingsPage } from "../views/finance/FiscalSettingsPage";
 import { PaymentMethodsPage } from "../views/finance/PaymentMethodsPage";
 import type { useFinanceActions } from "../views/finance/useFinanceActions";
@@ -40,6 +57,7 @@ import {
   SalesPage,
   ShippingOrdersPage,
 } from "../views/sales/SalesPages";
+import { SalesHistoryPage } from "../views/sales/SalesHistoryPage";
 import type { useSalesActions } from "../views/sales/useSalesActions";
 import {
   LowStockPage,
@@ -47,13 +65,16 @@ import {
   StockEntriesPage,
   StockMovementsPage,
 } from "../views/stock/StockPages";
+import { PurchaseInvoicesPage } from "../views/stock/PurchaseInvoicesPage";
 import type { useStockActions } from "../views/stock/useStockActions";
 
 type AppViewRendererProps = {
   brands: NamedEntity[];
   cashRegister: CashRegisterSession | null;
+  cashReport: CashReport | null;
   catalogActions: ReturnType<typeof useCatalogActions>;
   clients: Client[];
+  commercialSettings: CommercialSettings | null;
   financeActions: ReturnType<typeof useFinanceActions>;
   filteredProducts: Product[];
   fiscalDocuments: FiscalDocument[];
@@ -62,10 +83,13 @@ type AppViewRendererProps = {
   paymentMethods: PaymentMethod[];
   pickupReservations: PickupReservation[];
   products: Product[];
+  purchaseInvoices: PurchaseInvoice[];
+  purchaseReport: PurchaseReport | null;
   quoteActions: ReturnType<typeof useQuoteActions>;
   quotes: Quote[];
   reportsOverview: ReportsOverview | null;
   sales: Sale[];
+  salesReport: SalesReport | null;
   salesActions: ReturnType<typeof useSalesActions>;
   search: string;
   selectedClient?: Client;
@@ -76,21 +100,43 @@ type AppViewRendererProps = {
   stockAdjustments: StockAdjustment[];
   stockEntries: StockEntry[];
   stockMovements: StockMovement[];
+  stockReport: StockReport | null;
   suppliers: Supplier[];
   user: AuthUser;
   view: View;
   onCancelClient: () => void;
   onCancelProductEdit: () => void;
   onOpenQuotes: () => void;
+  onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
+  onLoadSalesReport: (filters?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }) => Promise<boolean>;
+  onLoadCashReport: (filters?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }) => Promise<boolean>;
+  onLoadStockReport: (filters?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }) => Promise<boolean>;
+  onLoadPurchaseReport: (filters?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }) => Promise<boolean>;
+  onSelectView: (view: View) => void;
   onSearchChange: (value: string) => void;
   onSelectClient: (client: Client | undefined) => void;
+  requestConfirmation: RequestConfirmation;
 };
 
 export function AppViewRenderer({
   brands,
   cashRegister,
+  cashReport,
   catalogActions,
   clients,
+  commercialSettings,
   financeActions,
   filteredProducts,
   fiscalDocuments,
@@ -99,10 +145,13 @@ export function AppViewRenderer({
   paymentMethods,
   pickupReservations,
   products,
+  purchaseInvoices,
+  purchaseReport,
   quoteActions,
   quotes,
   reportsOverview,
   sales,
+  salesReport,
   salesActions,
   search,
   selectedClient,
@@ -113,15 +162,37 @@ export function AppViewRenderer({
   stockAdjustments,
   stockEntries,
   stockMovements,
+  stockReport,
   suppliers,
   user,
   view,
   onCancelClient,
   onCancelProductEdit,
+  onLoadSalesReport,
+  onLoadCashReport,
+  onLoadPurchaseReport,
+  onLoadStockReport,
   onOpenQuotes,
+  onResolveFiscalPendency,
+  onSelectView,
   onSearchChange,
   onSelectClient,
+  requestConfirmation,
 }: AppViewRendererProps) {
+  if (!canAccessView(user, view)) {
+    return (
+      <PagePanel>
+        <PageHeader
+          description="Solicite ao administrador a liberacao desta permissao para o seu usuario."
+          title="Acesso nao permitido"
+        />
+        <Alert severity="warning" variant="outlined">
+          Seu usuario nao possui permissao para acessar esta tela.
+        </Alert>
+      </PagePanel>
+    );
+  }
+
   const viewRenderers: Record<View, ReactNode> = {
     products: (
         <ProductsPage
@@ -138,6 +209,7 @@ export function AppViewRenderer({
     "new-product": (
         <ProductForm
           brands={brands}
+          commercialSettings={commercialSettings}
           onSubmit={catalogActions.createProduct}
           submitLabel="Cadastrar produto"
         />
@@ -146,18 +218,38 @@ export function AppViewRenderer({
         <ProductForm
           key={selectedProduct.id}
           brands={brands}
+          commercialSettings={commercialSettings}
           product={selectedProduct}
           onSubmit={catalogActions.updateProduct}
           onCancel={onCancelProductEdit}
           submitLabel="Salvar alteracoes"
         />
       ) : null,
+    "commercial-settings": (
+        <CommercialSettingsPage
+          settings={commercialSettings}
+          onSubmit={catalogActions.saveCommercialSettings}
+        />
+      ),
     "stock-entries": (
         <StockEntriesPage
           entries={stockEntries}
           products={products}
           suppliers={suppliers}
           onSubmit={stockActions.createStockEntry}
+        />
+      ),
+    "purchase-invoices": (
+        <PurchaseInvoicesPage
+          invoices={purchaseInvoices}
+          products={products}
+          suppliers={suppliers}
+          onCreateProductFromItem={stockActions.createProductFromPurchaseItem}
+          onParseXml={stockActions.parsePurchaseInvoiceXml}
+          onPostInvoice={(invoice) =>
+            void stockActions.postPurchaseInvoice(invoice)
+          }
+          onSaveReview={stockActions.savePurchaseInvoiceReview}
         />
       ),
     "stock-adjustments": (
@@ -201,6 +293,7 @@ export function AppViewRenderer({
           onIssuePickupReservationFiscalDocument={(reservation) =>
             void salesActions.issuePickupReservationFiscalDocument(reservation)
           }
+          onResolveFiscalPendency={onResolveFiscalPendency}
           onSyncFiscalDocument={(fiscalDocument) =>
             void financeActions.syncFiscalDocument(fiscalDocument)
           }
@@ -218,10 +311,23 @@ export function AppViewRenderer({
           onCreateMovement={financeActions.createCashRegisterMovement}
         />
       ),
-    reports: <ReportsPage overview={reportsOverview} />,
+    reports: (
+      <ReportsPage
+        cashReport={cashReport}
+        overview={reportsOverview}
+        purchaseReport={purchaseReport}
+        salesReport={salesReport}
+        onLoadCashReport={onLoadCashReport}
+        onLoadSalesReport={onLoadSalesReport}
+        onLoadPurchaseReport={onLoadPurchaseReport}
+        stockReport={stockReport}
+        onLoadStockReport={onLoadStockReport}
+      />
+    ),
     quotes: (
         <QuotesPage
           clients={clients}
+          paymentMethods={paymentMethods}
           products={products}
           quotes={quotes}
           onSubmit={quoteActions.createQuote}
@@ -238,10 +344,28 @@ export function AppViewRenderer({
         <SalesPage
           cashRegister={cashRegister}
           clients={clients}
+          fiscalDocuments={fiscalDocuments}
           paymentMethods={paymentMethods}
+          pickupReservations={pickupReservations}
           products={products}
           sales={sales}
+          shippingOrders={shippingOrders}
+          onReturnItem={(event, sale) =>
+            void salesActions.returnSaleItem(event, sale)
+          }
           onSubmit={salesActions.createSale}
+        />
+      ),
+    "sales-history": (
+        <SalesHistoryPage
+          fiscalDocuments={fiscalDocuments}
+          paymentMethods={paymentMethods}
+          pickupReservations={pickupReservations}
+          sales={sales}
+          shippingOrders={shippingOrders}
+          onReturnItem={(event, sale) =>
+            void salesActions.returnSaleItem(event, sale)
+          }
         />
       ),
     "shipping-orders": (
@@ -291,6 +415,7 @@ export function AppViewRenderer({
           clients={clients}
           selectedClient={selectedClient}
           onSubmit={catalogActions.saveClient}
+          onLookupCompany={catalogActions.lookupClientCompany}
           onEdit={onSelectClient}
           onCancel={onCancelClient}
           onChangeStatus={(client) =>
@@ -304,6 +429,8 @@ export function AppViewRenderer({
           onSubmit={catalogActions.createSupplier}
         />
       ),
+    branches: <BranchesPage />,
+    employees: <EmployeesPage requestConfirmation={requestConfirmation} />,
   };
 
   return <>{viewRenderers[view]}</>;

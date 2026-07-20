@@ -2,6 +2,7 @@ import { db } from "../../database/knex.js";
 import { generateQuotePdf } from "../../integrations/pdf/quote-pdf.js";
 import {
   activeQuoteClientExists,
+  activeQuotePaymentMethodExists,
   cancelQuote,
   getQuoteById,
   insertQuote,
@@ -54,7 +55,13 @@ export async function showQuotePdf(id: string) {
 
 export async function storeQuote(input: QuoteInput, createdByUserId: string) {
   const quote = await db.transaction(async (transaction) => {
-    const { discountAmount, quoteItems, subtotalAmount, totalAmount } =
+    const {
+      discountAmount,
+      discountPercentage,
+      quoteItems,
+      subtotalAmount,
+      totalAmount,
+    } =
       await prepareQuoteInput(transaction, input);
 
     return insertQuote(
@@ -63,6 +70,7 @@ export async function storeQuote(input: QuoteInput, createdByUserId: string) {
       createdByUserId,
       quoteItems,
       subtotalAmount,
+      discountPercentage,
       discountAmount,
       totalAmount,
     );
@@ -96,7 +104,13 @@ export async function updateDraftQuote(id: string, input: QuoteInput) {
       );
     }
 
-    const { discountAmount, quoteItems, subtotalAmount, totalAmount } =
+    const {
+      discountAmount,
+      discountPercentage,
+      quoteItems,
+      subtotalAmount,
+      totalAmount,
+    } =
       await prepareQuoteInput(transaction, input);
 
     return updateQuote(
@@ -105,6 +119,7 @@ export async function updateDraftQuote(id: string, input: QuoteInput) {
       input,
       quoteItems,
       subtotalAmount,
+      discountPercentage,
       discountAmount,
       totalAmount,
     );
@@ -204,6 +219,12 @@ async function prepareQuoteInput(
     throw new AppError("Cliente informado nao disponivel.", 422);
   }
 
+  if (
+    !(await activeQuotePaymentMethodExists(transaction, input.paymentMethodId))
+  ) {
+    throw new AppError("Forma de pagamento informada nao disponivel.", 422);
+  }
+
   const productIds = [...new Set(input.items.map((item) => item.productId))];
   const products = await listActiveQuoteProducts(transaction, productIds);
 
@@ -225,20 +246,20 @@ async function prepareQuoteInput(
 
     const unitPrice = item.unitPrice ?? Number(product.salePrice);
     const itemSubtotalAmount = Number((unitPrice * item.quantity).toFixed(2));
-    const discountAmount = Number((item.discountAmount ?? 0).toFixed(2));
-
-    if (discountAmount > itemSubtotalAmount) {
-      throw new AppError(
-        "Desconto do item nao pode ser maior que o subtotal do item.",
-        422,
-      );
-    }
+    const discountPercentage = Number(
+      (item.discountPercentage ?? 0).toFixed(2),
+    );
+    const discountAmount = percentageAmount(
+      itemSubtotalAmount,
+      discountPercentage,
+    );
 
     return {
       productId: item.productId,
       description: item.description?.trim() || product.description || product.name,
       quantity: item.quantity,
       unitPrice,
+      discountPercentage,
       discountAmount,
       position: index + 1,
       totalAmount: Number((itemSubtotalAmount - discountAmount).toFixed(2)),
@@ -252,21 +273,30 @@ async function prepareQuoteInput(
       )
       .toFixed(2),
   );
-  const discountAmount = Number((input.discountAmount ?? 0).toFixed(2));
   const totalBeforeGeneralDiscount = Number(
     quoteItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
   );
-
-  if (discountAmount > totalBeforeGeneralDiscount) {
-    throw new AppError(
-      "Desconto geral nao pode ser maior que o total do orcamento.",
-      422,
-    );
-  }
+  const discountPercentage = Number(
+    (input.discountPercentage ?? 0).toFixed(2),
+  );
+  const discountAmount = percentageAmount(
+    totalBeforeGeneralDiscount,
+    discountPercentage,
+  );
 
   const totalAmount = Number(
     (totalBeforeGeneralDiscount - discountAmount).toFixed(2),
   );
 
-  return { discountAmount, quoteItems, subtotalAmount, totalAmount };
+  return {
+    discountAmount,
+    discountPercentage,
+    quoteItems,
+    subtotalAmount,
+    totalAmount,
+  };
+}
+
+function percentageAmount(baseAmount: number, percentage: number) {
+  return Number(((baseAmount * percentage) / 100).toFixed(2));
 }

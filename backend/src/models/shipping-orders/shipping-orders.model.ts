@@ -109,6 +109,8 @@ type LockedShippingOrder = {
   id: string;
   clientId: string;
   totalAmount: string;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   status: ShippingOrder["status"];
   items: LockedShippingOrderItem[];
 };
@@ -246,8 +248,11 @@ export async function lockShippingOrder(
       "shipping_orders.id",
       "shipping_orders.client_id as clientId",
       "shipping_orders.total_amount as totalAmount",
+      "quotes.billing_issue_date as billingIssueDate",
+      "quotes.billing_due_date as billingDueDate",
       "shipping_orders.status",
     ])
+    .leftJoin("quotes", "quotes.id", "shipping_orders.quote_id")
     .where("shipping_orders.id", id)
     .forUpdate("shipping_orders")
     .first();
@@ -359,8 +364,18 @@ export async function completeShippingOrder(
   completedByUserId: string,
 ): Promise<ShippingOrder> {
   await transaction("shipping_orders").where("id", id).update({
+    approved_by_user_id: transaction.raw(
+      "coalesce(approved_by_user_id, ?)",
+      [completedByUserId],
+    ),
+    approved_at: transaction.raw("coalesce(approved_at, CURRENT_TIMESTAMP)"),
     status: "COMPLETED",
     sale_id: saleId,
+    separated_by_user_id: transaction.raw(
+      "coalesce(separated_by_user_id, ?)",
+      [completedByUserId],
+    ),
+    separated_at: transaction.raw("coalesce(separated_at, CURRENT_TIMESTAMP)"),
     completed_by_user_id: completedByUserId,
     completed_at: transaction.fn.now(),
   });

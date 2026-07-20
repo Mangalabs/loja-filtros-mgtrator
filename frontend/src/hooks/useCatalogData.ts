@@ -2,26 +2,34 @@ import { useEffect, useMemo, useState } from "react";
 import {
   apiGet,
   type ApiResult,
+  type AuthUser,
+  type CashReport,
   type CashRegisterSession,
   type Client,
+  type CommercialSettings,
   type FiscalDocument,
   type FiscalSettings,
   type NamedEntity,
   type PaymentMethod,
   type PickupReservation,
   type Product,
+  type PurchaseReport,
+  type PurchaseInvoice,
   type Quote,
   type ReportsOverview,
   type Sale,
+  type SalesReport,
   type ShippingOrder,
+  type StockReport,
   type StockAdjustment,
   type StockEntry,
   type StockMovement,
   type Supplier,
 } from "../api";
 import type { LoadState } from "../navigation";
+import { canAccessView } from "../navigation";
 
-export function useCatalogData() {
+export function useCatalogData(user: AuthUser) {
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -31,6 +39,9 @@ export function useCatalogData() {
     [],
   );
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [purchaseInvoices, setPurchaseInvoices] = useState<PurchaseInvoice[]>(
+    [],
+  );
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [cashRegister, setCashRegister] = useState<CashRegisterSession | null>(
@@ -38,12 +49,20 @@ export function useCatalogData() {
   );
   const [reportsOverview, setReportsOverview] =
     useState<ReportsOverview | null>(null);
+  const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
+  const [stockReport, setStockReport] = useState<StockReport | null>(null);
+  const [purchaseReport, setPurchaseReport] = useState<PurchaseReport | null>(
+    null,
+  );
+  const [cashReport, setCashReport] = useState<CashReport | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [fiscalDocuments, setFiscalDocuments] = useState<FiscalDocument[]>([]);
   const [fiscalSettings, setFiscalSettings] = useState<FiscalSettings | null>(
     null,
   );
+  const [commercialSettings, setCommercialSettings] =
+    useState<CommercialSettings | null>(null);
   const [shippingOrders, setShippingOrders] = useState<ShippingOrder[]>([]);
   const [pickupReservations, setPickupReservations] = useState<
     PickupReservation[]
@@ -65,14 +84,20 @@ export function useCatalogData() {
         stockEntriesResult,
         stockAdjustmentsResult,
         stockMovementsResult,
+        purchaseInvoicesResult,
         lowStockResult,
         paymentMethodsResult,
         cashRegisterResult,
         reportsOverviewResult,
+        salesReportResult,
+        stockReportResult,
+        purchaseReportResult,
+        cashReportResult,
         quotesResult,
         salesResult,
         fiscalDocumentsResult,
         fiscalSettingsResult,
+        commercialSettingsResult,
         shippingOrdersResult,
         pickupReservationsResult,
       ] = await Promise.all([
@@ -81,16 +106,38 @@ export function useCatalogData() {
         apiGet<ApiResult<Client[]>>("/clients"),
         apiGet<ApiResult<Supplier[]>>("/suppliers"),
         apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
-        apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments"),
+        canAccessView(user, "stock-adjustments")
+          ? apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments")
+          : emptyResult<StockAdjustment[]>([]),
         apiGet<ApiResult<StockMovement[]>>("/stock-movements"),
+        canAccessView(user, "purchase-invoices")
+          ? fetchPurchaseInvoices()
+          : emptyResult<PurchaseInvoice[]>([]),
         apiGet<ApiResult<Product[]>>("/products/low-stock"),
         apiGet<ApiResult<PaymentMethod[]>>("/payment-methods"),
         apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
         apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+        canAccessView(user, "reports")
+          ? apiGet<ApiResult<SalesReport>>("/reports/sales")
+          : emptyResult<SalesReport | null>(null),
+        canAccessView(user, "reports")
+          ? apiGet<ApiResult<StockReport>>("/reports/stock")
+          : emptyResult<StockReport | null>(null),
+        canAccessView(user, "reports")
+          ? apiGet<ApiResult<PurchaseReport>>("/reports/purchases")
+          : emptyResult<PurchaseReport | null>(null),
+        canAccessView(user, "reports")
+          ? apiGet<ApiResult<CashReport>>("/reports/cash")
+          : emptyResult<CashReport | null>(null),
         apiGet<ApiResult<Quote[]>>("/quotes"),
         apiGet<ApiResult<Sale[]>>("/sales"),
-        apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents"),
-        apiGet<ApiResult<FiscalSettings>>("/fiscal-settings"),
+        canAccessView(user, "fiscal-documents")
+          ? apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents")
+          : emptyResult<FiscalDocument[]>([]),
+        canAccessView(user, "fiscal-settings")
+          ? apiGet<ApiResult<FiscalSettings>>("/fiscal-settings")
+          : emptyResult<FiscalSettings | null>(null),
+        fetchCommercialSettings(),
         apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
         apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
       ]);
@@ -102,14 +149,20 @@ export function useCatalogData() {
       setStockEntries(stockEntriesResult.data);
       setStockAdjustments(stockAdjustmentsResult.data);
       setStockMovements(stockMovementsResult.data);
+      setPurchaseInvoices(purchaseInvoicesResult.data);
       setLowStockProducts(lowStockResult.data);
       setPaymentMethods(paymentMethodsResult.data);
       setCashRegister(cashRegisterResult.data);
       setReportsOverview(reportsOverviewResult.data);
+      setSalesReport(salesReportResult.data);
+      setStockReport(stockReportResult.data);
+      setPurchaseReport(purchaseReportResult.data);
+      setCashReport(cashReportResult.data);
       setQuotes(quotesResult.data);
       setSales(salesResult.data);
       setFiscalDocuments(fiscalDocumentsResult.data);
       setFiscalSettings(fiscalSettingsResult.data);
+      setCommercialSettings(commercialSettingsResult);
       setShippingOrders(shippingOrdersResult.data);
       setPickupReservations(pickupReservationsResult.data);
       setState("ready");
@@ -119,9 +172,81 @@ export function useCatalogData() {
     }
   }
 
+  async function loadSalesReport(filters: SalesReportFilters = {}) {
+    setMessage("");
+
+    try {
+      const result = await apiGet<ApiResult<SalesReport>>(
+        salesReportPath(filters),
+      );
+
+      setSalesReport(result.data);
+      setState("ready");
+      return true;
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+      return false;
+    }
+  }
+
+  async function loadStockReport(filters: ReportPeriodFilters = {}) {
+    setMessage("");
+
+    try {
+      const result = await apiGet<ApiResult<StockReport>>(
+        reportPath("/reports/stock", filters),
+      );
+
+      setStockReport(result.data);
+      setState("ready");
+      return true;
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+      return false;
+    }
+  }
+
+  async function loadPurchaseReport(filters: ReportPeriodFilters = {}) {
+    setMessage("");
+
+    try {
+      const result = await apiGet<ApiResult<PurchaseReport>>(
+        reportPath("/reports/purchases", filters),
+      );
+
+      setPurchaseReport(result.data);
+      setState("ready");
+      return true;
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+      return false;
+    }
+  }
+
+  async function loadCashReport(filters: ReportPeriodFilters = {}) {
+    setMessage("");
+
+    try {
+      const result = await apiGet<ApiResult<CashReport>>(
+        reportPath("/reports/cash", filters),
+      );
+
+      setCashReport(result.data);
+      setState("ready");
+      return true;
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+      return false;
+    }
+  }
+
   useEffect(() => {
     void loadCatalog();
-  }, []);
+  }, [user.id]);
 
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -161,20 +286,29 @@ export function useCatalogData() {
   return {
     brands,
     cashRegister,
+    cashReport,
     clients,
+    commercialSettings,
     filteredProducts,
     fiscalDocuments,
     fiscalSettings,
     loadCatalog,
+    loadCashReport,
     lowStockProducts,
+    loadPurchaseReport,
+    loadStockReport,
     message,
     paymentMethods,
     pickupReservations,
     products,
+    purchaseReport,
+    purchaseInvoices,
     quotes,
     reportsOverview,
     runAction,
     sales,
+    salesReport,
+    loadSalesReport,
     search,
     setMessage,
     setSearch,
@@ -183,8 +317,36 @@ export function useCatalogData() {
     stockAdjustments,
     stockEntries,
     stockMovements,
+    stockReport,
     suppliers,
   };
+}
+
+type SalesReportFilters = ReportPeriodFilters;
+
+type ReportPeriodFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+function salesReportPath(filters: SalesReportFilters) {
+  return reportPath("/reports/sales", filters);
+}
+
+function reportPath(path: string, filters: ReportPeriodFilters) {
+  const params = new URLSearchParams();
+
+  if (filters.dateFrom) {
+    params.set("dateFrom", filters.dateFrom);
+  }
+
+  if (filters.dateTo) {
+    params.set("dateTo", filters.dateTo);
+  }
+
+  const query = params.toString();
+
+  return query ? `${path}?${query}` : path;
 }
 
 async function fetchProductCatalog() {
@@ -204,4 +366,46 @@ async function fetchProductCatalog() {
   }
 
   return products;
+}
+
+async function fetchCommercialSettings() {
+  try {
+    const result = await apiGet<ApiResult<CommercialSettings>>(
+      "/commercial-settings",
+    );
+
+    return result.data;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Route not found")) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function fetchPurchaseInvoices() {
+  try {
+    const result = await apiGet<ApiResult<PurchaseInvoice[]>>(
+      "/purchase-invoices",
+    );
+
+    return result;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Route not found")) {
+      return { code: 200, status: "success", data: [] } as ApiResult<
+        PurchaseInvoice[]
+      >;
+    }
+
+    throw error;
+  }
+}
+
+function emptyResult<T>(data: T): Promise<ApiResult<T>> {
+  return Promise.resolve({
+    code: 200,
+    status: "success",
+    data,
+  });
 }

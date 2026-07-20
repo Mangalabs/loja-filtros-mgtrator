@@ -4,6 +4,7 @@ import {
   cancelCounterSale,
   indexSales,
   returnCounterSaleItem,
+  showSaleReceiptPdf,
   storeSale,
 } from "../../controllers/sales/sales.controller.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
@@ -19,6 +20,14 @@ const createSaleSchema = z
     productId: z.uuid().optional(),
     quantity: z.coerce.number().positive().optional(),
     paymentMethodId: z.uuid(),
+    billingIssueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    billingDueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
     discountAmount: z.coerce.number().min(0).optional(),
     allowInsufficientStock: z.boolean().optional(),
     clientId: z
@@ -49,10 +58,27 @@ const createSaleSchema = z
         path: ["items"],
       });
     }
+
+    const hasValidBillingDates =
+      !value.billingIssueDate ||
+      !value.billingDueDate ||
+      value.billingDueDate >= value.billingIssueDate;
+
+    if (hasValidBillingDates) {
+      return;
+    }
+
+    context.addIssue({
+      code: "custom",
+      message: "Vencimento nao pode ser anterior a data da fatura.",
+      path: ["billingDueDate"],
+    });
   })
   .transform((value) => ({
     paymentMethodId: value.paymentMethodId,
     clientId: value.clientId,
+    billingIssueDate: value.billingIssueDate,
+    billingDueDate: value.billingDueDate,
     discountAmount: value.discountAmount ?? 0,
     allowInsufficientStock: value.allowInsufficientStock ?? false,
     items: value.items ?? [
@@ -74,11 +100,32 @@ const returnSaleItemSchema = z
     saleItemId: z.uuid(),
     quantity: z.coerce.number().positive(),
     reason: z.string().trim().min(1).max(500),
+    refundAmount: z.coerce.number().min(0).optional(),
+    refundPaymentMethodId: z.uuid().optional(),
+    refundedAt: z
+      .union([z.iso.datetime(), z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    refundReference: z
+      .union([z.string().trim().min(1).max(120), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
   })
   .strict();
 
 salesRoutes.get("/sales", async (_request, response) => {
   response.status(200).json(await indexSales());
+});
+
+salesRoutes.get("/sales/:id/receipt", async (request, response) => {
+  const { id } = saleParamsSchema.parse(request.params);
+  const result = await showSaleReceiptPdf(id);
+
+  response
+    .status(200)
+    .type("application/pdf")
+    .attachment(result.filename)
+    .send(result.pdf);
 });
 
 salesRoutes.post("/sales", async (request, response) => {
@@ -110,6 +157,12 @@ salesRoutes.post("/sales/:id/returns", async (request, response) => {
         body.quantity,
         body.reason,
         userId,
+        {
+          refundAmount: body.refundAmount,
+          refundPaymentMethodId: body.refundPaymentMethodId,
+          refundedAt: body.refundedAt,
+          refundReference: body.refundReference,
+        },
       ),
     );
 });

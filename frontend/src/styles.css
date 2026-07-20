@@ -22,6 +22,31 @@ body {
   overflow-x: hidden;
 }
 
+.app-sidebar-scrollbar {
+  scrollbar-color: rgba(216, 183, 105, 0.72) rgba(255, 255, 255, 0.08);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.app-sidebar-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.app-sidebar-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.app-sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(216, 183, 105, 0.72);
+  border: 2px solid rgba(32, 52, 102, 0.92);
+  border-radius: 999px;
+}
+
+.app-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #d8b769;
+}
+
 button,
 input,
 select,

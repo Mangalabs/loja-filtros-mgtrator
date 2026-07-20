@@ -16,6 +16,15 @@ export const quotesRoutes = Router();
 const createQuoteSchema = z
   .object({
     clientId: z.uuid(),
+    paymentMethodId: z.uuid(),
+    billingIssueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    billingDueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
     validUntil: z
       .union([z.iso.date(), z.literal(""), z.null()])
       .transform((value) => value || null)
@@ -25,7 +34,7 @@ const createQuoteSchema = z
       .transform((value) => value || null)
       .optional(),
     showBrand: z.boolean().optional(),
-    discountAmount: z.coerce.number().min(0).optional(),
+    discountPercentage: z.coerce.number().min(0).max(100).optional(),
     items: z
       .array(
         z
@@ -41,13 +50,29 @@ const createQuoteSchema = z
               .optional(),
             quantity: z.coerce.number().positive(),
             unitPrice: z.coerce.number().min(0).nullable().optional(),
-            discountAmount: z.coerce.number().min(0).optional(),
+            discountPercentage: z.coerce.number().min(0).max(100).optional(),
           })
           .strict(),
       )
       .min(1),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const hasValidBillingDates =
+      !value.billingIssueDate ||
+      !value.billingDueDate ||
+      value.billingDueDate >= value.billingIssueDate;
+
+    if (hasValidBillingDates) {
+      return;
+    }
+
+    context.addIssue({
+      code: "custom",
+      message: "Vencimento nao pode ser anterior a data da fatura.",
+      path: ["billingDueDate"],
+    });
+  });
 
 const quoteParamsSchema = z.object({
   id: z.uuid(),

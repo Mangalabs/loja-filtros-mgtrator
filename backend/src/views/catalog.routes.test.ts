@@ -12,6 +12,8 @@ import {
 import { db } from "../database/knex.js";
 import type { FiscalIssueRequest } from "../integrations/fiscal/fiscal-provider.js";
 import { FocusFiscalProvider } from "../integrations/fiscal/providers/focus-fiscal-provider.js";
+import { saleReceiptPdfHtml } from "../integrations/pdf/templates/sale-receipt-pdf-template.js";
+import type { Sale as ModelSale } from "../models/sales/sales.model.js";
 
 type ApiResponse<T = unknown> = {
   code: number;
@@ -42,6 +44,7 @@ type Product = {
   location: string | null;
   costPrice: string;
   salePrice: string;
+  profitMarginPercentage: string | null;
   minimumStock: string;
   currentStock: string;
   reservedStock: string;
@@ -91,6 +94,72 @@ type StockMovement = {
   notes: string | null;
 };
 
+type PurchaseInvoice = {
+  id: string;
+  supplierId: string | null;
+  supplierName: string;
+  supplierDocument: string | null;
+  transporterName: string | null;
+  transporterDocument: string | null;
+  createdByUserName: string;
+  accessKey: string;
+  number: string | null;
+  series: string | null;
+  issueDate: string | null;
+  totalAmount: string;
+  status: "IMPORTED" | "POSTED" | "CANCELLED";
+  installments: Array<{
+    id: string;
+    position: number;
+    number: string | null;
+    dueDate: string | null;
+    value: string;
+  }>;
+  items: Array<{
+    id: string;
+    productId: string | null;
+    productName: string | null;
+    position: number;
+    supplierProductCode: string | null;
+    description: string;
+    ncm: string | null;
+    cfop: string | null;
+    unit: string | null;
+    quantity: string;
+    unitCost: string;
+    totalAmount: string;
+  }>;
+};
+
+type ParsedPurchaseInvoice = {
+  accessKey: string;
+  installments: Array<{
+    dueDate: string | null;
+    number: string | null;
+    value: number;
+  }>;
+  issueDate: string | null;
+  items: Array<{
+    cfop: string | null;
+    description: string;
+    ncm: string | null;
+    position: number;
+    quantity: number;
+    supplierProductCode: string | null;
+    totalAmount: number;
+    unit: string | null;
+    unitCost: number;
+  }>;
+  number: string | null;
+  series: string | null;
+  supplierDocument: string | null;
+  supplierName: string;
+  totalAmount: number;
+  transporterDocument: string | null;
+  transporterName: string | null;
+  xmlContent: string;
+};
+
 type Sale = {
   id: string;
   productId: string;
@@ -100,6 +169,8 @@ type Sale = {
   subtotalAmount: string;
   discountAmount: string;
   totalAmount: string;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   items: Array<{
     id: string;
     productId: string;
@@ -108,6 +179,20 @@ type Sale = {
     unitPrice: string;
     discountAmount: string;
     totalAmount: string;
+    returnedQuantity: string;
+    returnableQuantity: string;
+    returns: Array<{
+      id: string;
+      quantity: string;
+      reason: string;
+      refundAmount: string;
+      refundPaymentMethodId: string;
+      refundPaymentMethodName: string;
+      refundedAt: string;
+      refundReference: string | null;
+      createdByUserName: string;
+      createdAt: string;
+    }>;
     position: number;
   }>;
   clientName: string | null;
@@ -178,11 +263,16 @@ type Quote = {
   id: string;
   clientName: string;
   clientPhone: string | null;
+  paymentMethodId: string | null;
+  paymentMethodName: string | null;
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
   subtotalAmount: string;
+  discountPercentage: string;
   discountAmount: string;
   totalAmount: string;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   validUntil: string | null;
   notes: string | null;
   cancelledByUserName: string | null;
@@ -204,6 +294,7 @@ type Quote = {
     description: string;
     quantity: string;
     unitPrice: string;
+    discountPercentage: string;
     discountAmount: string;
     totalAmount: string;
     position: number;
@@ -241,7 +332,19 @@ type User = {
   name: string;
   email: string;
   phone: string | null;
-  role: "ADMIN";
+  role: "ADMIN" | "EMPLOYEE";
+  branchId: string | null;
+  branchName: string | null;
+  active: boolean;
+  permissions: string[];
+  lastLoginAt?: string | null;
+  mustChangePassword: boolean;
+};
+
+type Branch = {
+  id: string;
+  name: string;
+  code: string | null;
   active: boolean;
 };
 
@@ -297,6 +400,129 @@ type ReportsOverview = {
   } | null;
 };
 
+type SalesReport = {
+  summary: {
+    salesCount: number;
+    itemsQuantity: string;
+    grossAmount: string;
+    discountAmount: string;
+    netAmount: string;
+  };
+  byProduct: Array<{
+    productId: string;
+    productName: string;
+    quantity: string;
+    totalAmount: string;
+  }>;
+  byClient: Array<{
+    clientId: string | null;
+    clientName: string;
+    salesCount: number;
+    totalAmount: string;
+  }>;
+  byPaymentMethod: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    totalAmount: string;
+  }>;
+};
+
+type StockReport = {
+  summary: {
+    activeProductsCount: number;
+    lowStockProductsCount: number;
+    productsWithoutMovementCount: number;
+    soldQuantity: string;
+  };
+  lowStockProducts: Array<{
+    productId: string;
+    productName: string;
+    currentStock: string;
+    reservedStock: string;
+    availableStock: string;
+    minimumStock: string;
+  }>;
+  productsWithoutMovement: Array<{
+    productId: string;
+    productName: string;
+    currentStock: string;
+    minimumStock: string;
+  }>;
+  turnoverProducts: Array<{
+    productId: string;
+    productName: string;
+    soldQuantity: string;
+    lastSaleAt: string | null;
+  }>;
+};
+
+type PurchaseReport = {
+  summary: {
+    entriesCount: number;
+    totalQuantity: string;
+    totalAmount: string;
+    manualAmount: string;
+    xmlAmount: string;
+  };
+  bySource: Array<{
+    source: "MANUAL" | "XML";
+    entriesCount: number;
+    totalQuantity: string;
+    totalAmount: string;
+  }>;
+  bySupplier: Array<{
+    supplierId: string;
+    supplierName: string;
+    entriesCount: number;
+    totalAmount: string;
+  }>;
+  byProduct: Array<{
+    productId: string;
+    productName: string;
+    quantity: string;
+    totalAmount: string;
+  }>;
+};
+
+type CashReport = {
+  summary: {
+    sessionsCount: number;
+    openSessionsCount: number;
+    closedSessionsCount: number;
+    openingAmount: string;
+    grossSalesAmount: string;
+    refundAmount: string;
+    netSalesAmount: string;
+    supplyAmount: string;
+    withdrawalAmount: string;
+    expectedClosingAmount: string;
+    closingAmount: string;
+    closedDifferenceAmount: string;
+  };
+  byPaymentMethod: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    grossAmount: string;
+    refundAmount: string;
+    netAmount: string;
+  }>;
+  sessions: Array<{
+    id: string;
+    openedByUserName: string;
+    closedByUserName: string | null;
+    status: "OPEN" | "CLOSED";
+    openedAt: string;
+    closedAt: string | null;
+    openingBalance: string;
+    salesAmount: string;
+    supplyAmount: string;
+    withdrawalAmount: string;
+    expectedClosingBalance: string;
+    closingBalance: string | null;
+    difference: string | null;
+  }>;
+};
+
 type FiscalDocument = {
   id: string;
   sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
@@ -328,6 +554,13 @@ type FiscalSettings = {
   updatedAt: string;
 };
 
+type CommercialSettings = {
+  id: string;
+  defaultProfitMarginPercentage: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 let server: Server;
 let baseUrl: string;
 let authCookie: string;
@@ -348,7 +581,9 @@ before(async () => {
     directory: "./database/migrations",
     extension: "cjs",
   });
+  await db("auth_events").del();
   await db("users").del();
+  await db("branches").del();
 
   server = await new Promise<Server>((resolve) => {
     const appServer = createApp().listen(0, "127.0.0.1", () => {
@@ -378,7 +613,7 @@ beforeEach(async () => {
   env.fiscal.provider = "mock";
 
   await db.raw(
-    "truncate table fiscal_settings, fiscal_documents, cash_register_sessions, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
+    "truncate table auth_events, commercial_settings, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
   await db("payment_methods").update({ active: true });
 });
@@ -442,15 +677,129 @@ describe("catalog routes", () => {
         password: "senha-segura-456",
       },
     });
-    const created = await request<User>("/users", {
+    const blockedAdminCreation = await request("/users", {
       method: "POST",
       body: {
         name: "Segundo usuario",
         email: "segundo@example.com",
         phone: "85911110000",
+        role: "ADMIN",
+        branchId: randomUUID(),
         password: "senha-segura-789",
       },
     });
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Norte",
+        code: "NORTE",
+      },
+    });
+    const employee = await request<User>("/users", {
+      method: "POST",
+      body: {
+        name: "Funcionario filial",
+        email: "funcionario@example.com",
+        phone: "85922220000",
+        branchId: branch.body.data?.id,
+        permissions: ["VIEW_REPORTS"],
+        password: "senha-segura-456",
+      },
+    });
+    await request("/auth/logout", { method: "POST" });
+    const employeeLogin = await request<User>("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "funcionario@example.com",
+        password: "senha-segura-456",
+      },
+    });
+    const changedEmployeePassword = await request<User>("/auth/password", {
+      method: "POST",
+      cookie: employeeLogin.cookie,
+      body: {
+        currentPassword: "senha-segura-456",
+        newPassword: "senha-alterada-456",
+      },
+    });
+    const employeeCreate = await request("/users", {
+      method: "POST",
+      cookie: changedEmployeePassword.cookie,
+      body: {
+        name: "Criado por funcionario",
+        email: "bloqueado@example.com",
+        role: "EMPLOYEE",
+        branchId: branch.body.data?.id,
+        password: "senha-segura-321",
+      },
+    });
+    const employeeBranches = await request("/branches", {
+      cookie: changedEmployeePassword.cookie,
+    });
+    const employeeUsers = await request("/users", {
+      cookie: changedEmployeePassword.cookie,
+    });
+    const employeeAuthEvents = await request("/auth-events", {
+      cookie: changedEmployeePassword.cookie,
+    });
+    const employeeReports = await request("/reports/sales", {
+      cookie: changedEmployeePassword.cookie,
+    });
+    const employeeCash = await request("/cash-register/open", {
+      method: "POST",
+      cookie: changedEmployeePassword.cookie,
+      body: {
+        openingBalance: 0,
+      },
+    });
+    await request("/auth/logout", { method: "POST" });
+    await request("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "admin@example.com",
+        password: "senha-segura-123",
+      },
+    });
+    const updatedEmployee = await request<User>(
+      `/users/${employee.body.data?.id}`,
+      {
+        method: "PUT",
+        body: {
+          name: "Funcionario atualizado",
+          email: "funcionario@example.com",
+          phone: "85933330000",
+          branchId: branch.body.data?.id,
+          permissions: ["MANAGE_CASH_REGISTER"],
+          password: "nova-senha-segura-456",
+        },
+      },
+    );
+    const passwordResetEmployee = await request<User>(
+      `/users/${employee.body.data?.id}/password-reset`,
+      {
+        method: "POST",
+        body: {
+          password: "senha-redefinida-456",
+        },
+      },
+    );
+    const deactivatedEmployee = await request<User>(
+      `/users/${employee.body.data?.id}/status`,
+      {
+        method: "PATCH",
+        body: {
+          active: false,
+        },
+      },
+    );
+    const users = await request<User[]>("/users");
+    const listedAuthEvents = await request("/auth-events");
+    const filteredAuthEvents = await request<{
+      items: Array<{ email: string; eventType: string }>;
+      pagination: { total: number };
+    }>("/auth-events?eventType=LOGIN_SUCCESS&email=funcionario");
     const unauthenticatedCreate = await request("/users", {
       method: "POST",
       authenticated: false,
@@ -461,9 +810,23 @@ describe("catalog routes", () => {
       },
     });
     const logout = await request("/auth/logout", { method: "POST" });
+    const deactivatedEmployeeLogin = await request<User>("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "funcionario@example.com",
+        password: "nova-senha-segura-456",
+      },
+    });
     const storedAdministrator = await db("users")
       .where("email", "admin@example.com")
       .first();
+    const authEvents = await db("auth_events")
+      .whereIn("email", ["admin@example.com", "funcionario@example.com"])
+      .select<Array<{ eventType: string; reason: string | null }>>([
+        "event_type as eventType",
+        "reason",
+      ]);
     const loginBody = login.body as ApiResponse<User> & {
       token?: string;
       data?: User & { passwordHash?: string };
@@ -481,15 +844,110 @@ describe("catalog routes", () => {
     assert.match(login.rawCookie ?? "", /SameSite=Strict/);
     assert.equal(loginBody.token, undefined);
     assert.equal(loginBody.data?.passwordHash, undefined);
+    assert.equal(typeof loginBody.data?.lastLoginAt, "string");
     assert.notEqual(storedAdministrator?.password_hash, "senha-segura-123");
     assert.match(storedAdministrator?.password_hash ?? "", /^scrypt\$/);
     assert.equal(repeatedSetup.status, 403);
-    assert.equal(created.status, 201);
-    assert.equal(created.body.data?.role, "ADMIN");
-    assert.equal(created.body.data?.phone, "85911110000");
+    assert.equal(blockedAdminCreation.status, 422);
+    assert.equal(branch.status, 201);
+    assert.equal(employee.status, 201);
+    assert.equal(employee.body.data?.role, "EMPLOYEE");
+    assert.equal(employee.body.data?.branchId, branch.body.data?.id);
+    assert.equal(employee.body.data?.branchName, "Filial Norte");
+    assert.deepEqual(employee.body.data?.permissions, ["VIEW_REPORTS"]);
+    assert.equal(employee.body.data?.mustChangePassword, true);
+    assert.equal(employeeLogin.status, 200);
+    assert.equal(employeeLogin.body.data?.role, "EMPLOYEE");
+    assert.equal(employeeLogin.body.data?.branchName, "Filial Norte");
+    assert.equal(employeeLogin.body.data?.mustChangePassword, true);
+    assert.equal(typeof employeeLogin.body.data?.lastLoginAt, "string");
+    assert.equal(changedEmployeePassword.status, 200);
+    assert.equal(changedEmployeePassword.body.data?.mustChangePassword, false);
+    assert.equal(employeeCreate.status, 403);
+    assert.equal(
+      employeeCreate.body.message,
+      "Acesso permitido apenas para administradores.",
+    );
+    assert.equal(employeeBranches.status, 403);
+    assert.equal(employeeUsers.status, 403);
+    assert.equal(employeeAuthEvents.status, 403);
+    assert.equal(employeeReports.status, 200);
+    assert.equal(employeeCash.status, 403);
+    assert.equal(updatedEmployee.status, 200);
+    assert.equal(updatedEmployee.body.data?.name, "Funcionario atualizado");
+    assert.equal(updatedEmployee.body.data?.phone, "85933330000");
+    assert.equal(updatedEmployee.body.data?.mustChangePassword, true);
+    assert.deepEqual(updatedEmployee.body.data?.permissions, [
+      "MANAGE_CASH_REGISTER",
+    ]);
+    assert.equal(passwordResetEmployee.status, 200);
+    assert.equal(passwordResetEmployee.body.data?.mustChangePassword, true);
+    assert.equal(deactivatedEmployee.status, 200);
+    assert.equal(deactivatedEmployee.body.data?.active, false);
+    assert.equal(users.status, 200);
+    assert.equal(listedAuthEvents.status, 200);
+    assert.equal(filteredAuthEvents.status, 200);
+    assert.ok(
+      Array.isArray(
+        (
+          listedAuthEvents.body.data as {
+            items?: unknown[];
+          }
+        )?.items,
+      ),
+    );
+    assert.ok((filteredAuthEvents.body.data?.pagination.total ?? 0) >= 1);
+    assert.ok(
+      filteredAuthEvents.body.data?.items.every(
+        (event) =>
+          event.email === "funcionario@example.com" &&
+          event.eventType === "LOGIN_SUCCESS",
+      ),
+    );
+    assert.equal(users.body.data?.length, 2);
+    assert.ok(
+      users.body.data?.some(
+        (user) =>
+          user.email === "funcionario@example.com" &&
+          typeof user.lastLoginAt === "string",
+      ),
+    );
+    assert.deepEqual(
+      users.body.data?.map((user) => user.email),
+      ["admin@example.com", "funcionario@example.com"],
+    );
     assert.equal(unauthenticatedCreate.status, 401);
     assert.equal(logout.status, 200);
     assert.equal(logout.cookie, "auth_token=");
+    assert.equal(deactivatedEmployeeLogin.status, 401);
+    assert.ok(
+      authEvents.some(
+        (event) =>
+          event.eventType === "LOGIN_FAILURE" &&
+          event.reason === "INVALID_PASSWORD",
+      ),
+    );
+    assert.ok(
+      authEvents.some((event) => event.eventType === "LOGIN_SUCCESS"),
+    );
+    assert.ok(authEvents.some((event) => event.eventType === "LOGOUT"));
+    assert.ok(
+      authEvents.some((event) => event.eventType === "PASSWORD_CHANGED"),
+    );
+    assert.ok(
+      authEvents.some((event) => event.eventType === "PASSWORD_RESET"),
+    );
+    assert.ok(
+      authEvents.some((event) => event.eventType === "EMPLOYEE_CREATED"),
+    );
+    assert.ok(
+      authEvents.some((event) => event.eventType === "EMPLOYEE_UPDATED"),
+    );
+    assert.ok(
+      authEvents.some(
+        (event) => event.eventType === "EMPLOYEE_STATUS_CHANGED",
+      ),
+    );
   });
 
   it("shows and updates fiscal settings with production guard", async () => {
@@ -594,6 +1052,31 @@ describe("catalog routes", () => {
     assert.equal(production.status, 200);
     assert.equal(production.body.data?.environment, "PRODUCTION");
     assert.equal(production.body.data?.allowProduction, true);
+  });
+
+  it("shows and updates commercial settings", async () => {
+    const current = await request<CommercialSettings>("/commercial-settings");
+    const invalid = await request("/commercial-settings", {
+      method: "PUT",
+      body: { defaultProfitMarginPercentage: 1001 },
+    });
+    const updated = await request<CommercialSettings>("/commercial-settings", {
+      method: "PUT",
+      body: { defaultProfitMarginPercentage: 50 },
+    });
+    const listedAfterUpdate =
+      await request<CommercialSettings>("/commercial-settings");
+
+    assert.equal(current.status, 200);
+    assert.equal(current.body.data?.defaultProfitMarginPercentage, "0.00");
+    assert.equal(invalid.status, 422);
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data?.defaultProfitMarginPercentage, "50.00");
+    assert.equal(listedAfterUpdate.body.data?.id, updated.body.data?.id);
+    assert.equal(
+      listedAfterUpdate.body.data?.defaultProfitMarginPercentage,
+      "50.00",
+    );
   });
 
   it("opens one cash register session for the authenticated user", async () => {
@@ -828,6 +1311,16 @@ describe("catalog routes", () => {
         discountAmount: 90,
       },
     });
+    const invalidBillingDates = await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+        billingIssueDate: "2026-07-10",
+        billingDueDate: "2026-07-09",
+      },
+    });
     const created = await request<Sale>("/sales", {
       method: "POST",
       body: {
@@ -835,6 +1328,8 @@ describe("catalog routes", () => {
         paymentMethodId: pix?.id,
         quantity: 2,
         discountAmount: 15,
+        billingIssueDate: "2026-07-10",
+        billingDueDate: "2026-07-20",
       },
     });
     const cash = await request<CashRegisterSession | null>(
@@ -846,10 +1341,17 @@ describe("catalog routes", () => {
       excessiveDiscount.body.message,
       "Desconto nao pode ser maior que o subtotal da venda.",
     );
+    assert.equal(invalidBillingDates.status, 422);
+    assert.equal(
+      invalidBillingDates.body.errors?.[0]?.message,
+      "Vencimento nao pode ser anterior a data da fatura.",
+    );
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.subtotalAmount, "80.00");
     assert.equal(created.body.data?.discountAmount, "15.00");
     assert.equal(created.body.data?.totalAmount, "65.00");
+    assert.ok(created.body.data?.billingIssueDate?.startsWith("2026-07-10"));
+    assert.ok(created.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.equal(cash.body.data?.salesTotal, "65.00");
     assert.equal(cash.body.data?.paymentSummary[0]?.amount, "65.00");
   });
@@ -921,12 +1423,18 @@ describe("catalog routes", () => {
     );
     const cashBeforeCancellation =
       await request<CashRegisterSession | null>("/cash-register/current");
+    const receipt = await requestRaw(
+      `/sales/${created.body.data?.id}/receipt`,
+    );
     const cancelled = await request<Sale>(
       `/sales/${created.body.data?.id}/cancel`,
       {
         method: "PATCH",
         body: { reason: "Cliente desistiu da compra de balcao" },
       },
+    );
+    const cancelledReceipt = await requestRaw(
+      `/sales/${created.body.data?.id}/receipt`,
     );
     const fiscalDocumentForCancelledSale = await request(
       `/sales/${created.body.data?.id}/fiscal-documents`,
@@ -980,8 +1488,12 @@ describe("catalog routes", () => {
     assert.equal(updatedProduct.body.data?.currentStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
     assert.equal(cashBeforeCancellation.body.data?.salesTotal, "59.80");
+    assert.equal(receipt.status, 200);
+    assert.equal(receipt.contentType, "application/pdf");
+    assert.equal(receipt.body.subarray(0, 4).toString(), "%PDF");
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(cancelledReceipt.status, 409);
     assert.equal(
       cancelled.body.data?.cancelledByUserName,
       "Administrador de teste",
@@ -1065,22 +1577,215 @@ describe("catalog routes", () => {
     const updatedProduct = await request<Product>(
       `/products/${product.body.data?.id}`,
     );
+    const cashAfterReturn = await request<CashRegisterSession | null>(
+      "/cash-register/current",
+    );
     const movements = await request<StockMovement[]>("/stock-movements");
     const returnMovement = movements.body.data?.find(
       (movement) => movement.type === "SALE_RETURN",
     );
+    const returnRecord = await db("sale_item_returns")
+      .where("sale_id", created.body.data?.id)
+      .first();
+    const listedAfterReturn = await request<Sale[]>("/sales");
+    const listedReturnedSale = listedAfterReturn.body.data?.find(
+      (sale) => sale.id === created.body.data?.id,
+    );
+    const listedReturn = listedReturnedSale?.items[0]?.returns[0];
 
     assert.equal(returned.status, 200);
     assert.equal(returned.body.data?.status, "COMPLETED");
+    assert.equal(returned.body.data?.items[0]?.returnedQuantity, "1.000");
+    assert.equal(returned.body.data?.items[0]?.returnableQuantity, "2.000");
     assert.equal(excessiveReturn.status, 422);
     assert.equal(
       excessiveReturn.body.message,
       "Quantidade de devolucao maior que quantidade disponivel do item.",
     );
     assert.equal(updatedProduct.body.data?.currentStock, "3.000");
+    assert.equal(cashAfterReturn.body.data?.salesTotal, "100.00");
+    assert.equal(cashAfterReturn.body.data?.expectedClosingBalance, "100.00");
+    assert.equal(cashAfterReturn.body.data?.paymentSummary[0]?.amount, "100.00");
+    assert.equal(returnRecord?.refund_amount, "50.00");
+    assert.equal(returnRecord?.refund_payment_method_id, pix?.id);
+    assert.ok(returnRecord?.refunded_at);
+    assert.equal(listedReturn?.refundAmount, "50.00");
+    assert.equal(listedReturn?.refundPaymentMethodName, "PIX");
+    assert.equal(listedReturn?.reason, "Cliente devolveu uma unidade");
     assert.equal(returnMovement?.quantity, "1.000");
     assert.equal(returnMovement?.notes, "Cliente devolveu uma unidade");
     assert.equal(returnMovement?.createdByUserName, "Administrador de teste");
+  });
+
+  it("includes return refunds in sale receipt html", () => {
+    const sale = {
+      id: "sale-receipt-return",
+      productId: "product-1",
+      productName: "Filtro teste",
+      quantity: "2.000",
+      unitPrice: "50.00",
+      subtotalAmount: "100.00",
+      discountAmount: "0.00",
+      totalAmount: "100.00",
+      billingIssueDate: "2026-07-09",
+      billingDueDate: "2026-07-20",
+      clientId: null,
+      clientPersonType: null,
+      clientName: "Cliente teste",
+      clientDocument: null,
+      clientEmail: null,
+      clientPhone: null,
+      clientStateRegistration: null,
+      clientStateRegistrationIndicator: null,
+      clientAddressStreet: null,
+      clientAddressNumber: null,
+      clientAddressComplement: null,
+      clientAddressDistrict: null,
+      clientAddressCity: null,
+      clientAddressState: null,
+      clientAddressZipCode: null,
+      paymentMethodName: "PIX",
+      createdByUserName: "Operador teste",
+      createdAt: new Date("2026-07-09T12:00:00.000Z"),
+      cancelledByUserName: null,
+      cancelledAt: null,
+      cancellationReason: null,
+      status: "COMPLETED",
+      items: [
+        {
+          id: "sale-item-1",
+          productId: "product-1",
+          productInternalCode: "FILTRO-1",
+          productName: "Filtro teste",
+          productCfop: null,
+          productIcmsCst: null,
+          productNcm: null,
+          productPisCst: null,
+          productCofinsCst: null,
+          productOrigin: null,
+          productUnit: "UN",
+          quantity: "2.000",
+          unitPrice: "50.00",
+          discountAmount: "0.00",
+          totalAmount: "100.00",
+          returnedQuantity: "1.000",
+          returnableQuantity: "1.000",
+          position: 1,
+          returns: [
+            {
+              id: "return-1",
+              quantity: "1.000",
+              reason: "Cliente devolveu uma unidade",
+              refundAmount: "50.00",
+              refundPaymentMethodId: "payment-1",
+              refundPaymentMethodName: "PIX",
+              refundedAt: new Date("2026-07-09T14:30:00.000Z"),
+              refundReference: "NSU123",
+              createdByUserName: "Operador teste",
+              createdAt: new Date("2026-07-09T14:31:00.000Z"),
+            },
+          ],
+        },
+      ],
+    } satisfies ModelSale;
+
+    const html = saleReceiptPdfHtml(sale, {
+      address: "Rua teste",
+      city: "Cidade teste",
+      document: "Documento sem valor fiscal",
+      email: "teste@example.com",
+      name: "Loja teste",
+      phone: "63999999999",
+    });
+
+    assert.match(html, /Devolucoes e estornos/);
+    assert.match(html, /Cliente devolveu uma unidade/);
+    assert.match(html, /NSU123/);
+    assert.match(html, /Estornos/);
+    assert.match(html, /Total liquido/);
+    assert.match(html, /R\$\s*50,00/);
+  });
+
+  it("returns an item from a completed shipping sale to stock", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro envio devolucao", salePrice: 70 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente devolucao envio",
+      },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 4,
+        reason: "Saldo para devolucao por envio",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+    const order = await request<ShippingOrder>("/shipping-orders", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        productId: product.body.data?.id,
+        quantity: 2,
+      },
+    });
+    const completed = await request<ShippingOrder>(
+      `/shipping-orders/${order.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: pix?.id },
+      },
+    );
+    const sales = await request<Sale[]>("/sales");
+    const linkedSale = sales.body.data?.find(
+      (sale) => sale.id === completed.body.data?.saleId,
+    );
+    const returned = await request<Sale>(
+      `/sales/${linkedSale?.id}/returns`,
+      {
+        method: "POST",
+        body: {
+          saleItemId: linkedSale?.items[0]?.id,
+          quantity: 1,
+          reason: "Cliente devolveu item enviado",
+          refundAmount: 70,
+          refundPaymentMethodId: pix?.id,
+          refundedAt: "2026-07-09T10:00:00.000Z",
+          refundReference: "NSU-SMOKE-DEVOLUCAO",
+        },
+      },
+    );
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+    const returnRecord = await db("sale_item_returns")
+      .where("sale_id", linkedSale?.id)
+      .first();
+
+    assert.equal(returned.status, 200);
+    assert.equal(returned.body.data?.items[0]?.returnedQuantity, "1.000");
+    assert.equal(returned.body.data?.items[0]?.returnableQuantity, "1.000");
+    assert.equal(updatedProduct.body.data?.currentStock, "3.000");
+    assert.equal(returnRecord?.refund_amount, "70.00");
+    assert.equal(returnRecord?.refund_payment_method_id, pix?.id);
+    assert.equal(returnRecord?.refund_reference, "NSU-SMOKE-DEVOLUCAO");
   });
 
   it("issues a mock fiscal document for a completed sale", async () => {
@@ -2471,6 +3176,8 @@ describe("catalog routes", () => {
 
     requestPayload.sale.totalAmount = "140.00";
     requestPayload.sale.discountAmount = "10.00";
+    requestPayload.sale.billingIssueDate = "2026-07-10";
+    requestPayload.sale.billingDueDate = "2026-07-25";
     requestPayload.sale.items[0].quantity = "2.000";
     requestPayload.sale.items[0].unitPrice = "40.00";
     requestPayload.sale.items[0].discountAmount = "5.00";
@@ -2521,6 +3228,17 @@ describe("catalog routes", () => {
       assert.equal(payload.valor_produtos, 155);
       assert.equal(payload.valor_desconto, 15);
       assert.equal(payload.valor_total, 140);
+      assert.equal(payload.numero_fatura, "salefocusprovidertest");
+      assert.equal(payload.valor_original_fatura, 155);
+      assert.equal(payload.valor_desconto_fatura, 15);
+      assert.equal(payload.valor_liquido_fatura, 140);
+      assert.deepEqual(payload.duplicatas, [
+        {
+          numero: "001",
+          data_vencimento: "2026-07-25",
+          valor: 140,
+        },
+      ]);
       assert.equal(items[0]?.valor_bruto, 80);
       assert.equal(items[0]?.valor_desconto, 5);
       assert.equal(items[1]?.valor_bruto, 75);
@@ -2827,6 +3545,312 @@ describe("catalog routes", () => {
       overview.body.data?.openCashRegister?.openedByUserName,
       "Administrador de teste",
     );
+  });
+
+  it("returns sales commercial reports grouped by product, client, and payment method", async () => {
+    const firstProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro relatorio comercial A", salePrice: 40 },
+    });
+    const secondProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro relatorio comercial B", salePrice: 75 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente relatorio comercial" },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const boleto = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "BOLETO",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: firstProduct.body.data?.id,
+        quantity: 5,
+        reason: "Saldo para relatorio comercial",
+      },
+    });
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: secondProduct.body.data?.id,
+        quantity: 5,
+        reason: "Saldo para relatorio comercial",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+    await request("/sales", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        discountAmount: 10,
+        items: [
+          { productId: firstProduct.body.data?.id, quantity: 2 },
+          { productId: secondProduct.body.data?.id, quantity: 1 },
+        ],
+        paymentMethodId: boleto?.id,
+      },
+    });
+
+    const report = await request<SalesReport>("/reports/sales");
+
+    assert.equal(report.status, 200);
+    assert.equal(report.body.data?.summary.salesCount, 1);
+    assert.equal(report.body.data?.summary.itemsQuantity, "3.000");
+    assert.equal(report.body.data?.summary.grossAmount, "155.00");
+    assert.equal(report.body.data?.summary.discountAmount, "10.00");
+    assert.equal(report.body.data?.summary.netAmount, "145.00");
+    assert.equal(report.body.data?.byProduct[0]?.productName, firstProduct.body.data?.name);
+    assert.equal(report.body.data?.byProduct[0]?.totalAmount, "80.00");
+    assert.equal(report.body.data?.byClient[0]?.clientName, client.body.data?.name);
+    assert.equal(report.body.data?.byClient[0]?.salesCount, 1);
+    assert.equal(report.body.data?.byClient[0]?.totalAmount, "145.00");
+    assert.equal(report.body.data?.byPaymentMethod[0]?.paymentMethodName, "Boleto");
+    assert.equal(report.body.data?.byPaymentMethod[0]?.totalAmount, "145.00");
+  });
+
+  it("returns stock reports with low stock, products without movement, and turnover", async () => {
+    const lowStockProduct = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro relatorio estoque baixo",
+        minimumStock: 5,
+        salePrice: 30,
+      },
+    });
+    const soldProduct = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro relatorio giro",
+        minimumStock: 1,
+        salePrice: 50,
+      },
+    });
+    const withoutMovementProduct = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro sem movimentacao",
+        minimumStock: 0,
+        salePrice: 15,
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: lowStockProduct.body.data?.id,
+        quantity: 2,
+        reason: "Saldo baixo para relatorio",
+      },
+    });
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: soldProduct.body.data?.id,
+        quantity: 5,
+        reason: "Saldo para giro",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+    await request("/sales", {
+      method: "POST",
+      body: {
+        items: [{ productId: soldProduct.body.data?.id, quantity: 3 }],
+        paymentMethodId: pix?.id,
+      },
+    });
+
+    const report = await request<StockReport>("/reports/stock");
+
+    assert.equal(report.status, 200);
+    assert.equal(report.body.data?.summary.activeProductsCount, 3);
+    assert.equal(report.body.data?.summary.lowStockProductsCount, 1);
+    assert.equal(report.body.data?.summary.productsWithoutMovementCount, 1);
+    assert.equal(report.body.data?.summary.soldQuantity, "3.000");
+    assert.equal(
+      report.body.data?.lowStockProducts[0]?.productName,
+      lowStockProduct.body.data?.name,
+    );
+    assert.equal(
+      report.body.data?.productsWithoutMovement[0]?.productId,
+      withoutMovementProduct.body.data?.id,
+    );
+    assert.equal(
+      report.body.data?.turnoverProducts[0]?.productId,
+      soldProduct.body.data?.id,
+    );
+    assert.equal(report.body.data?.turnoverProducts[0]?.soldQuantity, "3.000");
+  });
+
+  it("returns purchase spending reports from manual entries and posted XML purchases", async () => {
+    const manualProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro compra manual", salePrice: 70 },
+    });
+    const xmlProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro compra XML", salePrice: 90 },
+    });
+    const manualSupplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor entrada manual" },
+    });
+    const xmlSupplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor XML" },
+    });
+
+    await request("/stock-entries", {
+      method: "POST",
+      body: {
+        productId: manualProduct.body.data?.id,
+        supplierId: manualSupplier.body.data?.id,
+        quantity: 2,
+        unitCost: 30,
+      },
+    });
+
+    const invoice = await request<PurchaseInvoice>("/purchase-invoices", {
+      method: "POST",
+      body: {
+        accessKey: "1".repeat(44),
+        supplierId: xmlSupplier.body.data?.id,
+        supplierName: xmlSupplier.body.data?.name,
+        totalAmount: 80,
+        items: [
+          {
+            description: "Filtro compra XML",
+            position: 1,
+            productId: xmlProduct.body.data?.id,
+            quantity: 4,
+            totalAmount: 80,
+            unitCost: 20,
+          },
+        ],
+      },
+    });
+
+    await request(`/purchase-invoices/${invoice.body.data?.id}/post`, {
+      method: "POST",
+    });
+
+    const report = await request<PurchaseReport>("/reports/purchases");
+
+    assert.equal(report.status, 200);
+    assert.equal(report.body.data?.summary.entriesCount, 2);
+    assert.equal(report.body.data?.summary.totalQuantity, "6.000");
+    assert.equal(report.body.data?.summary.totalAmount, "140.00");
+    assert.equal(report.body.data?.summary.manualAmount, "60.00");
+    assert.equal(report.body.data?.summary.xmlAmount, "80.00");
+    assert.deepEqual(
+      report.body.data?.bySource.map((source) => source.source).sort(),
+      ["MANUAL", "XML"],
+    );
+    assert.equal(
+      report.body.data?.bySupplier.find(
+        (supplier) => supplier.supplierId === xmlSupplier.body.data?.id,
+      )?.totalAmount,
+      "80.00",
+    );
+    assert.equal(
+      report.body.data?.byProduct.find(
+        (product) => product.productId === manualProduct.body.data?.id,
+      )?.quantity,
+      "2.000",
+    );
+  });
+
+  it("returns cash reports with sales, movements, and closing differences", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro relatorio caixa", salePrice: 50 },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 5,
+        reason: "Saldo para relatorio de caixa",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 100 },
+    });
+    await request("/sales", {
+      method: "POST",
+      body: {
+        items: [{ productId: product.body.data?.id, quantity: 2 }],
+        paymentMethodId: pix?.id,
+      },
+    });
+    await request("/cash-register/movements", {
+      method: "POST",
+      body: {
+        type: "SUPPLY",
+        amount: 30,
+        reason: "Suprimento para relatorio",
+      },
+    });
+    await request("/cash-register/movements", {
+      method: "POST",
+      body: {
+        type: "WITHDRAWAL",
+        amount: 10,
+        reason: "Sangria para relatorio",
+      },
+    });
+    await request("/cash-register/close", {
+      method: "PATCH",
+      body: {
+        closingBalance: 221,
+        closingPayments: [{ paymentMethodId: pix?.id, amount: 100 }],
+      },
+    });
+
+    const report = await request<CashReport>("/reports/cash");
+
+    assert.equal(report.status, 200);
+    assert.equal(report.body.data?.summary.sessionsCount, 1);
+    assert.equal(report.body.data?.summary.openSessionsCount, 0);
+    assert.equal(report.body.data?.summary.closedSessionsCount, 1);
+    assert.equal(report.body.data?.summary.openingAmount, "100.00");
+    assert.equal(report.body.data?.summary.grossSalesAmount, "100.00");
+    assert.equal(report.body.data?.summary.netSalesAmount, "100.00");
+    assert.equal(report.body.data?.summary.supplyAmount, "30.00");
+    assert.equal(report.body.data?.summary.withdrawalAmount, "10.00");
+    assert.equal(report.body.data?.summary.expectedClosingAmount, "220.00");
+    assert.equal(report.body.data?.summary.closingAmount, "221.00");
+    assert.equal(report.body.data?.summary.closedDifferenceAmount, "1.00");
+    assert.equal(report.body.data?.byPaymentMethod[0]?.paymentMethodName, "PIX");
+    assert.equal(report.body.data?.byPaymentMethod[0]?.netAmount, "100.00");
+    assert.equal(report.body.data?.sessions[0]?.status, "CLOSED");
+    assert.equal(report.body.data?.sessions[0]?.expectedClosingBalance, "220.00");
+    assert.equal(report.body.data?.sessions[0]?.difference, "1.00");
   });
 
   it("creates a shipping quote and reserves its item after approval", async () => {
@@ -3166,6 +4190,17 @@ describe("catalog routes", () => {
         body: { documentType: "NFE" },
       },
     );
+    const linkedSaleReturnAfterFiscal = await request(
+      `/sales/${sales.body.data?.[0]?.id}/returns`,
+      {
+        method: "POST",
+        body: {
+          saleItemId: sales.body.data?.[0]?.items[0]?.id,
+          quantity: 1,
+          reason: "Tentativa com fiscal ativo",
+        },
+      },
+    );
 
     assert.equal(updatedProduct.body.data?.currentStock, "2.000");
     assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
@@ -3174,6 +4209,11 @@ describe("catalog routes", () => {
     assert.equal(fiscalDocument.status, 201);
     assert.equal(fiscalDocument.body.data?.sourceType, "SHIPPING_ORDER");
     assert.equal(fiscalDocument.body.data?.sourceId, completed.body.data?.id);
+    assert.equal(linkedSaleReturnAfterFiscal.status, 409);
+    assert.equal(
+      linkedSaleReturnAfterFiscal.body.message,
+      "Cancele a NF-e antes de devolver itens desta venda.",
+    );
   });
 
   it("blocks shipping fiscal issue when the linked sale already has an active fiscal document", async () => {
@@ -3298,16 +4338,18 @@ describe("catalog routes", () => {
       },
     });
 
+    const quotePaymentMethod = await activePaymentMethod();
     const quote = await request<Quote>("/quotes", {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
-        discountAmount: 10,
+        paymentMethodId: quotePaymentMethod.id,
+        discountPercentage: 10,
         items: [
           {
             productId: firstProduct.body.data?.id,
             quantity: 2,
-            discountAmount: 5,
+            discountPercentage: 10,
           },
           { productId: secondProduct.body.data?.id, quantity: 1 },
         ],
@@ -3360,19 +4402,19 @@ describe("catalog routes", () => {
 
     assert.equal(completed.status, 200);
     assert.equal(completed.body.data?.status, "COMPLETED");
-    assert.equal(completed.body.data?.totalAmount, "140.00");
+    assert.equal(completed.body.data?.totalAmount, "132.30");
     assert.equal(sales.body.data?.length, 1);
     assert.equal(sales.body.data?.[0]?.items.length, 2);
-    assert.equal(sales.body.data?.[0]?.subtotalAmount, "150.00");
-    assert.equal(sales.body.data?.[0]?.discountAmount, "10.00");
-    assert.equal(sales.body.data?.[0]?.totalAmount, "140.00");
+    assert.equal(sales.body.data?.[0]?.subtotalAmount, "147.00");
+    assert.equal(sales.body.data?.[0]?.discountAmount, "14.70");
+    assert.equal(sales.body.data?.[0]?.totalAmount, "132.30");
     assert.equal(
       sales.body.data?.[0]?.items[0]?.productName,
       "Filtro envio multi A",
     );
     assert.equal(sales.body.data?.[0]?.items[0]?.quantity, "2.000");
-    assert.equal(sales.body.data?.[0]?.items[0]?.discountAmount, "5.00");
-    assert.equal(sales.body.data?.[0]?.items[0]?.totalAmount, "75.00");
+    assert.equal(sales.body.data?.[0]?.items[0]?.discountAmount, "8.00");
+    assert.equal(sales.body.data?.[0]?.items[0]?.totalAmount, "72.00");
     assert.equal(
       sales.body.data?.[0]?.items[1]?.productName,
       "Filtro envio multi B",
@@ -3393,6 +4435,67 @@ describe("catalog routes", () => {
         (movement) => movement.productName === "Filtro envio multi B",
       ),
     );
+  });
+
+  it("completes a quoted shipping order directly as a sale", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro envio direto", salePrice: 90 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente envio direto" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para envio direto",
+      },
+    });
+
+    const quotePaymentMethod = await activePaymentMethod();
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+    const shippingOrder = await request<ShippingOrder>(
+      `/quotes/${quote.body.data?.id}/shipping-order`,
+      {
+        method: "POST",
+        body: {},
+      },
+    );
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const completed = await request<ShippingOrder>(
+      `/shipping-orders/${shippingOrder.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: quotePaymentMethod.id },
+      },
+    );
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+    const sales = await request<Sale[]>("/sales");
+
+    assert.equal(completed.status, 200);
+    assert.equal(completed.body.data?.status, "COMPLETED");
+    assert.ok(completed.body.data?.saleId);
+    assert.equal(updatedProduct.body.data?.currentStock, "1.000");
+    assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
+    assert.equal(sales.body.data?.[0]?.totalAmount, "90.00");
   });
 
   it("creates and cancels a pickup reservation releasing reserved stock", async () => {
@@ -3829,10 +4932,14 @@ describe("catalog routes", () => {
       },
     });
 
+    const quotePaymentMethod = await activePaymentMethod();
     const created = await request<Quote>("/quotes", {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
+        billingIssueDate: "2026-06-10",
+        billingDueDate: "2026-06-25",
         validUntil: "2026-06-30",
         notes: "Retirar condicoes no PDF depois",
         showBrand: false,
@@ -3877,8 +4984,11 @@ describe("catalog routes", () => {
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.status, "DRAFT");
     assert.equal(created.body.data?.clientName, "Cliente orcamento");
+    assert.equal(created.body.data?.paymentMethodName, "PIX");
     assert.equal(created.body.data?.showBrand, false);
     assert.equal(created.body.data?.totalAmount, "170.00");
+    assert.ok(created.body.data?.billingIssueDate?.startsWith("2026-06-10"));
+    assert.ok(created.body.data?.billingDueDate?.startsWith("2026-06-25"));
     assert.ok(created.body.data?.validUntil?.startsWith("2026-06-30"));
     assert.equal(created.body.data?.notes, "Retirar condicoes no PDF depois");
     assert.equal(created.body.data?.items.length, 2);
@@ -3898,11 +5008,21 @@ describe("catalog routes", () => {
     );
     assert.equal(created.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(shown.body.data?.items.length, 2);
+    assert.equal(shown.body.data?.paymentMethodName, "PIX");
     assert.equal(shown.body.data?.showBrand, false);
+    assert.ok(shown.body.data?.billingIssueDate?.startsWith("2026-06-10"));
+    assert.ok(shown.body.data?.billingDueDate?.startsWith("2026-06-25"));
     assert.equal(shown.body.data?.shippingOrderId, null);
     assert.equal(shown.body.data?.shippingOrderStatus, null);
     assert.equal(listed.body.data?.length, 1);
+    assert.equal(listed.body.data?.[0]?.paymentMethodName, "PIX");
     assert.equal(listed.body.data?.[0]?.showBrand, false);
+    assert.ok(
+      listed.body.data?.[0]?.billingIssueDate?.startsWith("2026-06-10"),
+    );
+    assert.ok(
+      listed.body.data?.[0]?.billingDueDate?.startsWith("2026-06-25"),
+    );
     assert.equal(listed.body.data?.[0]?.shippingOrderId, null);
     assert.equal(pdf.status, 200);
     assert.equal(pdf.contentType, "application/pdf");
@@ -3962,10 +5082,13 @@ describe("catalog routes", () => {
       method: "POST",
       body: { personType: "PF", name: "Cliente edita orcamento" },
     });
+    const pix = await activePaymentMethod();
+    const boleto = await activePaymentMethod("BOLETO");
     const created = await request<Quote>("/quotes", {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: pix.id,
         items: [{ productId: firstProduct.body.data?.id, quantity: 1 }],
       },
     });
@@ -3974,16 +5097,19 @@ describe("catalog routes", () => {
       method: "PUT",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: boleto.id,
+        billingIssueDate: "2026-07-01",
+        billingDueDate: "2026-07-20",
         validUntil: "2026-07-15",
         notes: "Orcamento revisado pelo cliente",
         showBrand: false,
-        discountAmount: 10,
+        discountPercentage: 10,
         items: [
           {
             productId: secondProduct.body.data?.id,
             quantity: 2,
             unitPrice: 85,
-            discountAmount: 5,
+            discountPercentage: 5,
           },
         ],
       },
@@ -3999,6 +5125,7 @@ describe("catalog routes", () => {
         method: "PUT",
         body: {
           clientId: client.body.data?.id,
+          paymentMethodId: pix.id,
           items: [{ productId: firstProduct.body.data?.id, quantity: 1 }],
         },
       },
@@ -4006,10 +5133,14 @@ describe("catalog routes", () => {
 
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.id, created.body.data?.id);
+    assert.equal(updated.body.data?.paymentMethodName, "Boleto");
     assert.equal(updated.body.data?.subtotalAmount, "170.00");
-    assert.equal(updated.body.data?.discountAmount, "10.00");
-    assert.equal(updated.body.data?.totalAmount, "155.00");
+    assert.equal(updated.body.data?.discountPercentage, "10.00");
+    assert.equal(updated.body.data?.discountAmount, "16.15");
+    assert.equal(updated.body.data?.totalAmount, "145.35");
     assert.equal(updated.body.data?.showBrand, false);
+    assert.ok(updated.body.data?.billingIssueDate?.startsWith("2026-07-01"));
+    assert.ok(updated.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.ok(updated.body.data?.validUntil?.startsWith("2026-07-15"));
     assert.equal(updated.body.data?.notes, "Orcamento revisado pelo cliente");
     assert.equal(updated.body.data?.items.length, 1);
@@ -4023,9 +5154,12 @@ describe("catalog routes", () => {
     );
     assert.equal(updated.body.data?.items[0]?.quantity, "2.000");
     assert.equal(updated.body.data?.items[0]?.unitPrice, "85.00");
-    assert.equal(updated.body.data?.items[0]?.discountAmount, "5.00");
-    assert.equal(updated.body.data?.items[0]?.totalAmount, "165.00");
-    assert.equal(shown.body.data?.totalAmount, "155.00");
+    assert.equal(updated.body.data?.items[0]?.discountPercentage, "5.00");
+    assert.equal(updated.body.data?.items[0]?.discountAmount, "8.50");
+    assert.equal(updated.body.data?.items[0]?.totalAmount, "161.50");
+    assert.equal(shown.body.data?.totalAmount, "145.35");
+    assert.ok(shown.body.data?.billingIssueDate?.startsWith("2026-07-01"));
+    assert.ok(shown.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.equal(shown.body.data?.items.length, 1);
     assert.equal(updateAfterShippingOrder.status, 409);
     assert.equal(
@@ -4043,10 +5177,12 @@ describe("catalog routes", () => {
       method: "POST",
       body: { personType: "PF", name: "Cliente cancela orcamento" },
     });
+    const quotePaymentMethod = await activePaymentMethod();
     const draft = await request<Quote>("/quotes", {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
         items: [{ productId: product.body.data?.id, quantity: 1 }],
       },
     });
@@ -4054,6 +5190,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
         items: [{ productId: product.body.data?.id, quantity: 1 }],
       },
     });
@@ -4137,10 +5274,12 @@ describe("catalog routes", () => {
       body: { active: false },
     });
 
+    const quotePaymentMethod = await activePaymentMethod();
     const withoutItems = await request("/quotes", {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
         items: [],
       },
     });
@@ -4148,12 +5287,28 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+    const invalidBillingDates = await request("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: quotePaymentMethod.id,
+        billingIssueDate: "2026-07-10",
+        billingDueDate: "2026-07-09",
         items: [{ productId: product.body.data?.id, quantity: 1 }],
       },
     });
 
     assert.equal(withoutItems.status, 422);
     assert.equal(withoutItems.body.errors?.[0]?.field, "items");
+    assert.equal(invalidBillingDates.status, 422);
+    assert.equal(
+      invalidBillingDates.body.errors?.[0]?.message,
+      "Vencimento nao pode ser anterior a data da fatura.",
+    );
     assert.equal(inactiveProduct.status, 422);
     assert.equal(
       inactiveProduct.body.message,
@@ -4491,6 +5646,58 @@ describe("catalog routes", () => {
     );
   });
 
+  it("looks up company fiscal data by CNPJ", async () => {
+    const originalFetch = globalThis.fetch;
+
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+
+      if (url.startsWith("https://brasilapi.com.br/api/cnpj/v1/")) {
+        return new Response(
+          JSON.stringify({
+            bairro: "CENTRO",
+            cep: "77800000",
+            cnpj: "12345678000190",
+            complemento: "SALA 10",
+            ddd_telefone_1: "63999990000",
+            email: "fiscal@cliente.com.br",
+            logradouro: "AVENIDA COMERCIAL",
+            municipio: "ARAGUAINA",
+            numero: "100",
+            razao_social: "CLIENTE TESTE LTDA",
+            uf: "TO",
+          }),
+          { status: 200 },
+        );
+      }
+
+      return originalFetch(input, init);
+    }) as typeof fetch;
+
+    try {
+      const lookup = await request<Client>(
+        `/clients/cnpj/${encodeURIComponent("12.345.678/0001-90")}`,
+      );
+
+      assert.equal(lookup.status, 200);
+      assert.equal(lookup.body.data?.personType, "PJ");
+      assert.equal(lookup.body.data?.name, "CLIENTE TESTE LTDA");
+      assert.equal(lookup.body.data?.document, "12345678000190");
+      assert.equal(lookup.body.data?.email, "fiscal@cliente.com.br");
+      assert.equal(lookup.body.data?.phone, "63999990000");
+      assert.equal(lookup.body.data?.stateRegistrationIndicator, "9");
+      assert.equal(lookup.body.data?.addressStreet, "AVENIDA COMERCIAL");
+      assert.equal(lookup.body.data?.addressNumber, "100");
+      assert.equal(lookup.body.data?.addressComplement, "SALA 10");
+      assert.equal(lookup.body.data?.addressDistrict, "CENTRO");
+      assert.equal(lookup.body.data?.addressCity, "ARAGUAINA");
+      assert.equal(lookup.body.data?.addressState, "TO");
+      assert.equal(lookup.body.data?.addressZipCode, "77800000");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("creates, lists, shows, updates, and deactivates products", async () => {
     const brand = await request<NamedEntity>("/brands", {
       method: "POST",
@@ -4513,6 +5720,7 @@ describe("catalog routes", () => {
         location: "Corredor A - Prateleira 2",
         costPrice: 18.5,
         salePrice: 29.9,
+        profitMarginPercentage: 61.62,
         minimumStock: 3,
         ncm: "84212300",
         cest: "0100100",
@@ -4534,6 +5742,7 @@ describe("catalog routes", () => {
         body: {
           name: "Filtro Wega FAP4040 Atualizado",
           salePrice: 31.9,
+          profitMarginPercentage: 72.43,
           location: "",
         },
       },
@@ -4555,6 +5764,7 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.currentStock, "0.000");
     assert.equal(created.body.data?.reservedStock, "0.000");
     assert.equal(created.body.data?.availableStock, "0.000");
+    assert.equal(created.body.data?.profitMarginPercentage, "61.62");
     assert.equal(created.body.data?.ncm, "84212300");
     assert.equal(created.body.data?.cest, "0100100");
     assert.equal(created.body.data?.cfop, "5102");
@@ -4576,6 +5786,7 @@ describe("catalog routes", () => {
     );
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.name, "Filtro Wega FAP4040 Atualizado");
+    assert.equal(updated.body.data?.profitMarginPercentage, "72.43");
     assert.equal(updated.body.data?.location, null);
     assert.equal(deactivated.status, 200);
     assert.equal(deactivated.body.data?.active, false);
@@ -4729,6 +5940,353 @@ describe("catalog routes", () => {
     assert.equal(entries.body.data?.length, 0);
   });
 
+  it("parses a purchase invoice XML preview", async () => {
+    const accessKey = "2".repeat(44);
+    const parsed = await request<ParsedPurchaseInvoice>(
+      "/purchase-invoices/parse-xml",
+      {
+        method: "POST",
+        body: { xmlContent: purchaseInvoiceXml(accessKey) },
+      },
+    );
+    const invalid = await request("/purchase-invoices/parse-xml", {
+      method: "POST",
+      body: { xmlContent: "<NFe><infNFe></infNFe></NFe>" },
+    });
+
+    assert.equal(parsed.status, 200);
+    assert.equal(parsed.body.data?.accessKey, accessKey);
+    assert.equal(parsed.body.data?.supplierName, "FORNECEDOR XML LTDA");
+    assert.equal(parsed.body.data?.supplierDocument, "12345678000199");
+    assert.equal(parsed.body.data?.number, "321");
+    assert.equal(parsed.body.data?.series, "1");
+    assert.equal(parsed.body.data?.issueDate, "2026-07-13");
+    assert.equal(parsed.body.data?.totalAmount, 84.5);
+    assert.equal(parsed.body.data?.transporterName, "TRANSPORTADORA XML LTDA");
+    assert.equal(parsed.body.data?.transporterDocument, "99887766000155");
+    assert.equal(parsed.body.data?.installments.length, 2);
+    assert.equal(parsed.body.data?.installments[0]?.number, "001");
+    assert.equal(parsed.body.data?.installments[0]?.dueDate, "2026-08-13");
+    assert.equal(parsed.body.data?.installments[0]?.value, 42.25);
+    assert.equal(parsed.body.data?.items.length, 2);
+    assert.equal(parsed.body.data?.items[0]?.position, 1);
+    assert.equal(parsed.body.data?.items[0]?.supplierProductCode, "FX-1");
+    assert.equal(parsed.body.data?.items[0]?.description, "Filtro & oleo");
+    assert.equal(parsed.body.data?.items[0]?.quantity, 2);
+    assert.equal(parsed.body.data?.items[0]?.unitCost, 21.25);
+    assert.equal(parsed.body.data?.items[1]?.position, 2);
+    assert.equal(invalid.status, 422);
+    assert.equal(
+      invalid.body.message,
+      "XML de compra sem chave de acesso valida.",
+    );
+  });
+
+  it("imports a purchase invoice directly from XML without posting stock", async () => {
+    const accessKey = "3".repeat(44);
+
+    const created = await request<PurchaseInvoice>(
+      "/purchase-invoices/import-xml",
+      {
+        method: "POST",
+        body: { xmlContent: purchaseInvoiceXml(accessKey) },
+      },
+    );
+    const duplicated = await request("/purchase-invoices/import-xml", {
+      method: "POST",
+      body: { xmlContent: purchaseInvoiceXml(accessKey) },
+    });
+    const listed = await request<PurchaseInvoice[]>("/purchase-invoices");
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.accessKey, accessKey);
+    assert.equal(created.body.data?.supplierName, "FORNECEDOR XML LTDA");
+    assert.equal(
+      created.body.data?.createdByUserName,
+      "Administrador de teste",
+    );
+    assert.equal(created.body.data?.totalAmount, "84.50");
+    assert.equal(created.body.data?.transporterName, "TRANSPORTADORA XML LTDA");
+    assert.equal(created.body.data?.installments.length, 2);
+    assert.equal(created.body.data?.installments[1]?.value, "42.25");
+    assert.equal(created.body.data?.items.length, 2);
+    assert.equal(created.body.data?.items[0]?.productId, null);
+    assert.equal(created.body.data?.items[0]?.description, "Filtro & oleo");
+    assert.equal(created.body.data?.items[1]?.totalAmount, "42.00");
+    assert.equal(duplicated.status, 409);
+    assert.equal(listed.body.data?.length, 1);
+  });
+
+  it("reviews an imported purchase invoice before posting stock", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro correto do XML", costPrice: 30 },
+    });
+    const accessKey = "4".repeat(44);
+    const imported = await request<PurchaseInvoice>(
+      "/purchase-invoices/import-xml",
+      {
+        method: "POST",
+        body: { xmlContent: purchaseInvoiceXml(accessKey) },
+      },
+    );
+
+    const reviewed = await request<PurchaseInvoice>(
+      `/purchase-invoices/${imported.body.data?.id}`,
+      {
+        method: "PUT",
+        body: {
+          issueDate: "2026-07-13",
+          number: "321",
+          series: "1",
+          supplierDocument: "12345678000199",
+          supplierName: "FORNECEDOR XML LTDA",
+          totalAmount: 84.5,
+          transporterDocument: "11222333000144",
+          transporterName: "TRANSPORTADORA REVISADA LTDA",
+          installments: [
+            {
+              dueDate: "2026-08-13",
+              number: "001",
+              value: 50,
+            },
+            {
+              dueDate: "2026-09-13",
+              number: "002",
+              value: 34.5,
+            },
+          ],
+          items: [
+            {
+              cfop: "5102",
+              description: "Filtro revisado",
+              ncm: "84212300",
+              position: 1,
+              productId: product.body.data?.id,
+              quantity: 2,
+              supplierProductCode: "FX-1",
+              totalAmount: 42.5,
+              unit: "UN",
+              unitCost: 21.25,
+            },
+            {
+              cfop: "5102",
+              description: "Filtro combustivel",
+              ncm: "84212300",
+              position: 2,
+              quantity: 1,
+              supplierProductCode: "FX-2",
+              totalAmount: 42,
+              unit: "UN",
+              unitCost: 42,
+            },
+          ],
+        },
+      },
+    );
+    const listed = await request<PurchaseInvoice[]>("/purchase-invoices");
+    const unchangedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(reviewed.status, 200);
+    assert.equal(reviewed.body.data?.status, "IMPORTED");
+    assert.equal(reviewed.body.data?.accessKey, accessKey);
+    assert.equal(
+      reviewed.body.data?.transporterName,
+      "TRANSPORTADORA REVISADA LTDA",
+    );
+    assert.equal(reviewed.body.data?.installments.length, 2);
+    assert.equal(reviewed.body.data?.installments[0]?.value, "50.00");
+    assert.equal(reviewed.body.data?.items.length, 2);
+    assert.equal(
+      reviewed.body.data?.items[0]?.productName,
+      "Filtro correto do XML",
+    );
+    assert.equal(reviewed.body.data?.items[0]?.description, "Filtro revisado");
+    assert.equal(reviewed.body.data?.items[1]?.productId, null);
+    assert.equal(
+      listed.body.data?.[0]?.items[0]?.productId,
+      product.body.data?.id,
+    );
+    assert.equal(
+      listed.body.data?.[0]?.installments[1]?.dueDate,
+      "2026-09-13",
+    );
+    assert.equal(unchangedProduct.body.data?.currentStock, "0.000");
+    assert.equal(unchangedProduct.body.data?.costPrice, "30.00");
+  });
+
+  it("posts a reviewed purchase invoice to stock", async () => {
+    const supplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor para XML" },
+    });
+    const firstProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro XML estoque A", costPrice: 10 },
+    });
+    const secondProduct = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro XML estoque B", costPrice: 15 },
+    });
+    const imported = await request<PurchaseInvoice>(
+      "/purchase-invoices/import-xml",
+      {
+        method: "POST",
+        body: { xmlContent: purchaseInvoiceXml("5".repeat(44)) },
+      },
+    );
+    const reviewed = await request<PurchaseInvoice>(
+      `/purchase-invoices/${imported.body.data?.id}`,
+      {
+        method: "PUT",
+        body: {
+          issueDate: "2026-07-13",
+          number: "321",
+          series: "1",
+          supplierDocument: "12345678000199",
+          supplierId: supplier.body.data?.id,
+          supplierName: "FORNECEDOR XML LTDA",
+          totalAmount: 84.5,
+          items: [
+            {
+              cfop: "5102",
+              description: "Filtro XML estoque A",
+              ncm: "84212300",
+              position: 1,
+              productId: firstProduct.body.data?.id,
+              quantity: 2,
+              supplierProductCode: "FX-1",
+              totalAmount: 42.5,
+              unit: "UN",
+              unitCost: 21.25,
+            },
+            {
+              cfop: "5102",
+              description: "Filtro XML estoque B",
+              ncm: "84212300",
+              position: 2,
+              productId: secondProduct.body.data?.id,
+              quantity: 1,
+              supplierProductCode: "FX-2",
+              totalAmount: 42,
+              unit: "UN",
+              unitCost: 42,
+            },
+          ],
+        },
+      },
+    );
+
+    const posted = await request<PurchaseInvoice>(
+      `/purchase-invoices/${reviewed.body.data?.id}/post`,
+      { method: "POST" },
+    );
+    const firstUpdatedProduct = await request<Product>(
+      `/products/${firstProduct.body.data?.id}`,
+    );
+    const secondUpdatedProduct = await request<Product>(
+      `/products/${secondProduct.body.data?.id}`,
+    );
+    const entries = await request<StockEntry[]>("/stock-entries");
+    const repost = await request(
+      `/purchase-invoices/${reviewed.body.data?.id}/post`,
+      { method: "POST" },
+    );
+
+    assert.equal(posted.status, 200);
+    assert.equal(posted.body.data?.status, "POSTED");
+    assert.equal(firstUpdatedProduct.body.data?.currentStock, "2.000");
+    assert.equal(firstUpdatedProduct.body.data?.costPrice, "21.25");
+    assert.equal(secondUpdatedProduct.body.data?.currentStock, "1.000");
+    assert.equal(secondUpdatedProduct.body.data?.costPrice, "42.00");
+    assert.equal(entries.body.data?.length, 2);
+    assert.equal(entries.body.data?.[0]?.supplierName, "Fornecedor para XML");
+    assert.equal(repost.status, 409);
+  });
+
+  it("imports a structured purchase invoice without posting stock", async () => {
+    const supplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor XML" },
+    });
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro XML", costPrice: 20 },
+    });
+    const accessKey = "1".repeat(44);
+
+    const created = await request<PurchaseInvoice>("/purchase-invoices", {
+      method: "POST",
+      body: {
+        accessKey,
+        issueDate: "2026-07-13",
+        number: "123",
+        series: "1",
+        supplierDocument: "12345678000199",
+        supplierId: supplier.body.data?.id,
+        supplierName: "Fornecedor XML",
+        totalAmount: 42.5,
+        xmlContent: "<nfe>teste</nfe>",
+        items: [
+          {
+            cfop: "5102",
+            description: "Filtro vindo do XML",
+            ncm: "84212300",
+            position: 1,
+            productId: product.body.data?.id,
+            quantity: 2,
+            supplierProductCode: "FX-1",
+            totalAmount: 42.5,
+            unit: "UN",
+            unitCost: 21.25,
+          },
+        ],
+      },
+    });
+    const duplicated = await request("/purchase-invoices", {
+      method: "POST",
+      body: {
+        accessKey,
+        supplierName: "Fornecedor XML",
+        totalAmount: 42.5,
+        items: [
+          {
+            description: "Filtro vindo do XML",
+            position: 1,
+            quantity: 2,
+            totalAmount: 42.5,
+            unitCost: 21.25,
+          },
+        ],
+      },
+    });
+    const listed = await request<PurchaseInvoice[]>("/purchase-invoices");
+    const unchangedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.accessKey, accessKey);
+    assert.equal(created.body.data?.status, "IMPORTED");
+    assert.equal(created.body.data?.supplierName, "Fornecedor XML");
+    assert.equal(
+      created.body.data?.createdByUserName,
+      "Administrador de teste",
+    );
+    assert.equal(created.body.data?.totalAmount, "42.50");
+    assert.equal(created.body.data?.items[0]?.productName, "Filtro XML");
+    assert.equal(created.body.data?.items[0]?.quantity, "2.000");
+    assert.equal(created.body.data?.items[0]?.unitCost, "21.25");
+    assert.equal(duplicated.status, 409);
+    assert.equal(listed.status, 200);
+    assert.equal(listed.body.data?.length, 1);
+    assert.equal(listed.body.data?.[0]?.items.length, 1);
+    assert.equal(unchangedProduct.body.data?.currentStock, "0.000");
+    assert.equal(unchangedProduct.body.data?.costPrice, "20.00");
+  });
+
   it("records a stock adjustment and changes current product balance", async () => {
     const supplier = await request<NamedEntity>("/suppliers", {
       method: "POST",
@@ -4865,6 +6423,73 @@ describe("catalog routes", () => {
   });
 });
 
+function purchaseInvoiceXml(accessKey: string) {
+  return `
+    <nfeProc>
+      <NFe>
+        <infNFe Id="NFe${accessKey}">
+          <ide>
+            <serie>1</serie>
+            <nNF>321</nNF>
+            <dhEmi>2026-07-13T08:30:00-03:00</dhEmi>
+          </ide>
+          <emit>
+            <CNPJ>12345678000199</CNPJ>
+            <xNome>FORNECEDOR XML LTDA</xNome>
+          </emit>
+          <det nItem="1">
+            <prod>
+              <cProd>FX-1</cProd>
+              <xProd>Filtro &amp; oleo</xProd>
+              <NCM>84212300</NCM>
+              <CFOP>5102</CFOP>
+              <uCom>UN</uCom>
+              <qCom>2.0000</qCom>
+              <vUnCom>21.2500</vUnCom>
+              <vProd>42.50</vProd>
+            </prod>
+          </det>
+          <det nItem="2">
+            <prod>
+              <cProd>FX-2</cProd>
+              <xProd>Filtro combustivel</xProd>
+              <NCM>84212300</NCM>
+              <CFOP>5102</CFOP>
+              <uCom>UN</uCom>
+              <qCom>1.0000</qCom>
+              <vUnCom>42.0000</vUnCom>
+              <vProd>42.00</vProd>
+            </prod>
+          </det>
+          <total>
+            <ICMSTot>
+              <vNF>84.50</vNF>
+            </ICMSTot>
+          </total>
+          <transp>
+            <transporta>
+              <CNPJ>99887766000155</CNPJ>
+              <xNome>TRANSPORTADORA XML LTDA</xNome>
+            </transporta>
+          </transp>
+          <cobr>
+            <dup>
+              <nDup>001</nDup>
+              <dVenc>2026-08-13</dVenc>
+              <vDup>42.25</vDup>
+            </dup>
+            <dup>
+              <nDup>002</nDup>
+              <dVenc>2026-09-13</dVenc>
+              <vDup>42.25</vDup>
+            </dup>
+          </cobr>
+        </infNFe>
+      </NFe>
+    </nfeProc>
+  `;
+}
+
 function focusIssueRequest(): FiscalIssueRequest {
   return {
     reference: "SALEfocusprovidertest",
@@ -4890,6 +6515,8 @@ function focusIssueRequest(): FiscalIssueRequest {
       paymentMethodName: "PIX",
       totalAmount: "35.00",
       discountAmount: "0.00",
+      billingIssueDate: null,
+      billingDueDate: null,
       items: [
         {
           productId: "productfocusprovidertest",
@@ -4924,12 +6551,26 @@ function focusBasicAuth(token: string) {
   return `Basic ${Buffer.from(`${token}:`).toString("base64")}`;
 }
 
+async function activePaymentMethod(code = "PIX") {
+  const paymentMethods = await request<PaymentMethod[]>(
+    "/payment-methods?active=true",
+  );
+  const paymentMethod = paymentMethods.body.data?.find(
+    (currentPaymentMethod) => currentPaymentMethod.code === code,
+  );
+
+  assert.ok(paymentMethod);
+
+  return paymentMethod;
+}
+
 async function request<T = unknown>(
   path: string,
   options: {
     method?: string;
     body?: unknown;
     authenticated?: boolean;
+    cookie?: string;
   } = {},
 ) {
   const headers: Record<string, string> = {};
@@ -4938,7 +6579,11 @@ async function request<T = unknown>(
     headers["content-type"] = "application/json";
   }
 
-  if (options.authenticated !== false && authCookie) {
+  if (options.cookie) {
+    headers.cookie = options.cookie;
+  }
+
+  if (!options.cookie && options.authenticated !== false && authCookie) {
     headers.cookie = authCookie;
   }
 

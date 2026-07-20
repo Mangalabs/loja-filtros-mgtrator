@@ -14,9 +14,11 @@ export type FiscalRequest = {
   sourceId: string
   sourceLabel: string
   pendingLabel: string
+  clientId: string | null
   clientName: string
   totalAmount: string
   operatorName: string
+  productIds: string[]
   readinessIssues: string[]
   sale?: Sale
   shippingOrder?: ShippingOrder
@@ -183,9 +185,11 @@ const fiscalRequestFactories: Array<
         sourceId: sale.id,
         sourceLabel: 'Balcao',
         pendingLabel: 'Pendente',
+        clientId: sale.clientId,
         clientName: sale.clientName ?? 'Nao identificado',
         totalAmount: sale.totalAmount,
         operatorName: sale.createdByUserName,
+        productIds: sale.items.map((item) => item.productId),
         readinessIssues: sourceFiscalReadinessIssues({
           client: findClient(input.clients, sale.clientId),
           fiscalSettings: input.fiscalSettings,
@@ -204,9 +208,11 @@ const fiscalRequestFactories: Array<
         sourceId: order.id,
         sourceLabel: 'Envio',
         pendingLabel: 'Pendente',
+        clientId: order.clientId,
         clientName: order.clientName,
         totalAmount: order.totalAmount,
         operatorName: order.completedByUserName ?? order.createdByUserName,
+        productIds: order.items.map((item) => item.productId),
         readinessIssues: sourceFiscalReadinessIssues({
           client: findClient(clients, order.clientId),
           fiscalSettings,
@@ -234,10 +240,12 @@ const fiscalRequestFactories: Array<
         sourceId: reservation.id,
         sourceLabel: 'Retirada',
         pendingLabel: 'Pendente',
+        clientId: reservation.clientId,
         clientName: reservation.clientName,
         totalAmount: reservation.totalAmount,
         operatorName:
           reservation.completedByUserName ?? reservation.createdByUserName,
+        productIds: reservation.items.map((item) => item.productId),
         readinessIssues: sourceFiscalReadinessIssues({
           client: findClient(clients, reservation.clientId),
           fiscalSettings,

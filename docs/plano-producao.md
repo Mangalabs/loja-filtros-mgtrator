@@ -280,18 +280,34 @@ Nao expor:
 3. Subir banco.
 4. Testar conexao direta local com banco.
 5. Atualizar `.env` do backend.
-6. Rodar migrations.
-7. Subir backend.
-8. Testar `/`, `/health` e `/health/database`.
-9. Instalar/validar Chromium.
-10. Configurar Puppeteer.
-11. Testar PDF de orcamento.
-12. Testar fluxo operacional minimo.
-13. Testar Focus em homologacao.
-14. Revisar logs.
-15. Decidir se o ambiente fica liberado para uso assistido.
+6. Rodar migrations antes de publicar ou reiniciar o backend.
+7. Confirmar que todas as migrations terminaram com sucesso.
+8. Publicar ou reiniciar o backend somente depois da confirmacao das migrations.
+9. Testar `/`, `/health` e `/health/database`.
+10. Instalar/validar Chromium.
+11. Configurar Puppeteer.
+12. Testar PDF de orcamento.
+13. Testar fluxo operacional minimo.
+14. Testar Focus em homologacao.
+15. Revisar logs.
+16. Decidir se o ambiente fica liberado para uso assistido.
 
-## 10. Pontos pendentes apos a primeira subida
+## 10. Politica de versionamento e deploy
+
+- Frontend e backend possuem deploy automatico a partir do repositorio remoto.
+- Concluir uma implementacao nao significa publica-la imediatamente.
+- Os recortes devem continuar separados em commits locais pequenos e atomicos.
+- O push deve ocorrer apenas na janela semanal de deploy definida pelo responsavel
+  pela operacao, evitando interrupcoes durante o uso da loja.
+- Antes do push, revisar quais commits afetam frontend, backend e banco.
+- Quando houver migration nova, ela deve ser aplicada e validada no ambiente de
+  destino antes do deploy automatico do backend.
+- Nao publicar backend que dependa de colunas ou tabelas ainda inexistentes.
+- Depois da migration e do backend, validar health, logs e o fluxo alterado.
+- O frontend pode ser publicado depois que os contratos de API usados por ele
+  estiverem disponiveis no backend.
+
+## 11. Pontos pendentes apos a primeira subida
 
 - Decidir se backend tambem sera containerizado.
 - Decidir se frontend sera servido por Nginx ou outro proxy.

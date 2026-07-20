@@ -1,10 +1,14 @@
+import type { AuthUser, EmployeePermission } from "./api";
+
 export type LoadState = "idle" | "loading" | "ready" | "error";
 
 export type View =
   | "products"
   | "new-product"
   | "edit-product"
+  | "commercial-settings"
   | "stock-entries"
+  | "purchase-invoices"
   | "stock-adjustments"
   | "stock-movements"
   | "low-stock"
@@ -15,11 +19,14 @@ export type View =
   | "reports"
   | "quotes"
   | "sales"
+  | "sales-history"
   | "shipping-orders"
   | "pickup-reservations"
   | "brands"
   | "clients"
-  | "suppliers";
+  | "suppliers"
+  | "branches"
+  | "employees";
 
 export type NavSectionKey =
   | "products"
@@ -29,17 +36,31 @@ export type NavSectionKey =
   | "finance"
   | "cash"
   | "reports"
-  | "sales";
+  | "sales"
+  | "administration";
 
 export const navSectionViews: Record<NavSectionKey, View[]> = {
-  products: ["products", "new-product", "edit-product"],
+  products: ["products", "new-product", "edit-product", "commercial-settings"],
   catalog: ["brands", "clients"],
-  stock: ["stock-entries", "stock-adjustments", "stock-movements", "low-stock"],
+  stock: [
+    "stock-entries",
+    "purchase-invoices",
+    "stock-adjustments",
+    "stock-movements",
+    "low-stock",
+  ],
   suppliers: ["suppliers"],
   finance: ["payment-methods", "fiscal-settings", "fiscal-documents"],
   cash: ["cash-register"],
   reports: ["reports"],
-  sales: ["quotes", "sales", "shipping-orders", "pickup-reservations"],
+  sales: [
+    "quotes",
+    "sales",
+    "sales-history",
+    "shipping-orders",
+    "pickup-reservations",
+  ],
+  administration: ["branches", "employees"],
 };
 
 const initialOpenNavSections: Record<NavSectionKey, boolean> = {
@@ -51,9 +72,65 @@ const initialOpenNavSections: Record<NavSectionKey, boolean> = {
   cash: false,
   reports: false,
   sales: false,
+  administration: false,
 };
 
 export const navSectionsStorageKey = "loja-filtros.nav-sections.v2";
+export const activeViewStorageKey = "loja-filtros.active-view.v1";
+
+const viewValues: View[] = [
+  "products",
+  "new-product",
+  "edit-product",
+  "commercial-settings",
+  "stock-entries",
+  "purchase-invoices",
+  "stock-adjustments",
+  "stock-movements",
+  "low-stock",
+  "payment-methods",
+  "fiscal-settings",
+  "fiscal-documents",
+  "cash-register",
+  "reports",
+  "quotes",
+  "sales",
+  "sales-history",
+  "shipping-orders",
+  "pickup-reservations",
+  "brands",
+  "clients",
+  "suppliers",
+  "branches",
+  "employees",
+];
+
+export const viewPermissionRequirements: Partial<
+  Record<View, EmployeePermission>
+> = {
+  "commercial-settings": "MANAGE_COMMERCIAL_SETTINGS",
+  "purchase-invoices": "IMPORT_PURCHASE_INVOICES",
+  "stock-adjustments": "MANAGE_STOCK_ADJUSTMENTS",
+  "payment-methods": "MANAGE_PAYMENT_METHODS",
+  "fiscal-settings": "MANAGE_FISCAL_SETTINGS",
+  "fiscal-documents": "MANAGE_FISCAL_DOCUMENTS",
+  "cash-register": "MANAGE_CASH_REGISTER",
+  reports: "VIEW_REPORTS",
+};
+
+export function canAccessView(user: AuthUser, view: View) {
+  const requiredPermission = viewPermissionRequirements[view];
+
+  return (
+    user.role === "ADMIN" ||
+    !requiredPermission ||
+    user.permissions.includes(requiredPermission)
+  );
+}
+
+export function isView(value: string | null): value is View {
+  return viewValues.includes(value as View);
+}
 
 export function findActiveNavSection(view: View) {
   return (Object.keys(navSectionViews) as NavSectionKey[]).find((section) =>
@@ -107,10 +184,20 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       title: "Editar produto",
       description: "Atualize os dados cadastrais do produto selecionado.",
     },
+    "commercial-settings": {
+      title: "Configuracao comercial",
+      description:
+        "Defina a margem base para sugestao de preco de venda nos produtos.",
+    },
     "stock-entries": {
       title: "Entrada de mercadoria",
       description:
         "Registre produtos recebidos e atualize o estoque da filial.",
+    },
+    "purchase-invoices": {
+      title: "Importacao XML",
+      description:
+        "Leia XML de compra, revise os itens e confirme os produtos internos.",
     },
     "stock-adjustments": {
       title: "Ajuste de estoque",
@@ -159,6 +246,11 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       description:
         "Registre a venda imediata de um produto com baixa de estoque.",
     },
+    "sales-history": {
+      title: "Historico de vendas",
+      description:
+        "Consulte vendas fechadas, comprovantes e documentos fiscais.",
+    },
     "shipping-orders": {
       title: "Pedidos para envio",
       description:
@@ -181,5 +273,14 @@ export const viewTitles: Record<View, { title: string; description: string }> =
     suppliers: {
       title: "Fornecedores",
       description: "Mantenha fornecedores disponiveis para compras e produtos.",
+    },
+    branches: {
+      title: "Filiais",
+      description: "Cadastre as unidades usadas para organizar os funcionarios.",
+    },
+    employees: {
+      title: "Funcionarios",
+      description:
+        "Crie acessos individuais e vincule cada funcionario a uma filial.",
     },
   };

@@ -11,8 +11,15 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import type { FormEvent } from "react";
-import type { Client, NamedEntity, Product, Supplier } from "../../api";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import type {
+  Client,
+  ClientCompanyLookup,
+  CommercialSettings,
+  NamedEntity,
+  Product,
+  Supplier,
+} from "../../api";
 import {
   ActionGroup,
   FormGrid,
@@ -26,6 +33,7 @@ import {
   SecondaryButton,
   StatusChip,
   TableActionButton,
+  TableActionsMenu,
 } from "../../components/ui";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import { formatCurrency, formatQuantity } from "../../utils/format";
@@ -143,23 +151,25 @@ function ProductTable({
           align: "right",
           header: "Acoes",
           render: (product) => (
-            <div className="flex flex-wrap justify-end gap-2">
-              <TableActionButton
-                icon={<Pencil size={15} />}
-                type="button"
-                onClick={() => onEdit(product)}
-              >
-                Editar
-              </TableActionButton>
-              <TableActionButton
-                icon={
-                  product.active ? <PowerOff size={15} /> : <Power size={15} />
-                }
-                type="button"
-                onClick={() => onChangeStatus(product)}
-              >
-                {product.active ? "Inativar" : "Ativar"}
-              </TableActionButton>
+            <div className="flex justify-end">
+              <TableActionsMenu
+                actions={[
+                  {
+                    icon: <Pencil size={15} />,
+                    label: "Editar",
+                    onSelect: () => onEdit(product),
+                  },
+                  {
+                    icon: product.active ? (
+                      <PowerOff size={15} />
+                    ) : (
+                      <Power size={15} />
+                    ),
+                    label: product.active ? "Inativar" : "Ativar",
+                    onSelect: () => onChangeStatus(product),
+                  },
+                ]}
+              />
             </div>
           ),
         },
@@ -174,17 +184,54 @@ function ProductTable({
 
 export function ProductForm({
   brands,
+  commercialSettings,
   product,
   onSubmit,
   onCancel,
   submitLabel,
 }: {
   brands: NamedEntity[];
+  commercialSettings: CommercialSettings | null;
   product?: Product;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCancel?: () => void;
   submitLabel: string;
 }) {
+  const defaultProfitMarginPercentage = Number(
+    commercialSettings?.defaultProfitMarginPercentage ?? 0,
+  );
+  const [costPrice, setCostPrice] = useState(product?.costPrice ?? "");
+  const [salePrice, setSalePrice] = useState(product?.salePrice ?? "");
+  const [profitMarginPercentage, setProfitMarginPercentage] = useState(
+    product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
+  );
+  const [salePriceTouched, setSalePriceTouched] = useState(
+    Boolean(product?.salePrice),
+  );
+
+  useEffect(() => {
+    setCostPrice(product?.costPrice ?? "");
+    setSalePrice(product?.salePrice ?? "");
+    setProfitMarginPercentage(
+      product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
+    );
+    setSalePriceTouched(Boolean(product?.salePrice));
+  }, [
+    defaultProfitMarginPercentage,
+    product?.costPrice,
+    product?.id,
+    product?.profitMarginPercentage,
+    product?.salePrice,
+  ]);
+
+  useEffect(() => {
+    if (salePriceTouched) {
+      return;
+    }
+
+    setSalePrice(suggestedSalePrice(costPrice, profitMarginPercentage));
+  }, [costPrice, profitMarginPercentage, salePriceTouched]);
+
   return (
     <FormGrid className="max-w-5xl gap-5" onSubmit={onSubmit}>
       <PageHeader
@@ -244,14 +291,34 @@ export function ProductForm({
           label="Custo"
           name="costPrice"
           type="number"
-          defaultValue={product?.costPrice}
+          value={costPrice}
+          onChange={(event) => setCostPrice(event.target.value)}
           slotProps={{ htmlInput: { step: "0.01" } }}
         />
         <TextField
+          helperText={profitMarginHelperText(defaultProfitMarginPercentage)}
+          label="Margem de lucro (%)"
+          name="profitMarginPercentage"
+          type="number"
+          value={profitMarginPercentage}
+          onChange={(event) => {
+            setProfitMarginPercentage(event.target.value);
+            setSalePriceTouched(false);
+          }}
+          slotProps={{ htmlInput: { min: "0", max: "1000", step: "0.01" } }}
+        />
+      </FormRow>
+      <FormRow columns={3}>
+        <TextField
+          helperText={salePriceHelperText(profitMarginPercentage)}
           label="Venda"
           name="salePrice"
           type="number"
-          defaultValue={product?.salePrice}
+          value={salePrice}
+          onChange={(event) => {
+            setSalePrice(event.target.value);
+            setSalePriceTouched(true);
+          }}
           slotProps={{ htmlInput: { step: "0.01" } }}
         />
       </FormRow>
@@ -339,6 +406,31 @@ export function ProductForm({
       </ActionGroup>
     </FormGrid>
   );
+}
+
+function suggestedSalePrice(costPrice: string, profitMarginPercentage: string) {
+  const cost = Number(costPrice);
+  const margin = Number(profitMarginPercentage);
+
+  if (!Number.isFinite(cost) || !Number.isFinite(margin) || cost <= 0) {
+    return "";
+  }
+
+  return (cost * (1 + margin / 100)).toFixed(2);
+}
+
+function salePriceHelperText(profitMarginPercentage: string) {
+  const margin = Number(profitMarginPercentage);
+
+  if (!Number.isFinite(margin) || margin <= 0) {
+    return "Configure uma margem comercial para sugerir o preco automaticamente.";
+  }
+
+  return `Sugestao automatica pela margem de ${margin.toLocaleString("pt-BR")}%`;
+}
+
+function profitMarginHelperText(defaultProfitMarginPercentage: number) {
+  return `Preenchido pela margem padrao de ${defaultProfitMarginPercentage.toLocaleString("pt-BR")}%, mas pode variar por produto.`;
 }
 
 export function NamedEntityPage({
@@ -471,6 +563,7 @@ export function ClientsPage({
   clients,
   selectedClient,
   onSubmit,
+  onLookupCompany,
   onEdit,
   onCancel,
   onChangeStatus,
@@ -478,15 +571,63 @@ export function ClientsPage({
   clients: Client[];
   selectedClient?: Client;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onLookupCompany: (cnpj: string) => Promise<ClientCompanyLookup>;
   onEdit: (client: Client) => void;
   onCancel: () => void;
   onChangeStatus: (client: Client) => void;
 }) {
   const { pagination, visibleItems } = usePaginatedRows<Client>(clients);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [lookupState, setLookupState] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [lookupValues, setLookupValues] = useState<
+    Record<string, string | null>
+  >({});
+
+  async function lookupCompany() {
+    const formElement = formRef.current;
+    const documentInput = formElement?.elements.namedItem(
+      "clientDocument",
+    ) as HTMLInputElement | null;
+    const document = documentInput?.value.trim() ?? "";
+
+    if (!document) {
+      setLookupState("error");
+      return;
+    }
+
+    setLookupState("loading");
+
+    try {
+      setLookupValues(clientLookupValues(await onLookupCompany(document)));
+      setLookupState("success");
+    } catch {
+      setLookupState("error");
+    }
+  }
+
+  function clientFieldValue(
+    name: string,
+    defaultValue: string | null | undefined,
+  ) {
+    return lookupValues[name] ?? defaultValue ?? "";
+  }
+
+  function updateLookupValue(name: string, value: string) {
+    setLookupValues((currentValues) => ({
+      ...currentValues,
+      [name]: value,
+    }));
+  }
 
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(320px,0.75fr)_minmax(0,1.25fr)]">
-      <FormGrid key={selectedClient?.id ?? "new"} onSubmit={onSubmit}>
+      <FormGrid
+        key={selectedClient?.id ?? "new"}
+        ref={formRef}
+        onSubmit={onSubmit}
+      >
         <PageHeader
           icon={<UserRound size={18} />}
           title={selectedClient ? "Editar cliente" : "Novo cliente"}
@@ -505,25 +646,49 @@ export function ClientsPage({
         <TextField
           label="Nome"
           name="clientName"
-          defaultValue={selectedClient?.name}
+          value={clientFieldValue("clientName", selectedClient?.name)}
+          onChange={(event) =>
+            updateLookupValue("clientName", event.target.value)
+          }
           required
         />
         <TextField
           label="CPF/CNPJ"
           name="clientDocument"
-          defaultValue={selectedClient?.document ?? ""}
+          value={clientFieldValue("clientDocument", selectedClient?.document)}
+          onChange={(event) =>
+            updateLookupValue("clientDocument", event.target.value)
+          }
         />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm text-[#5f665f]">
+            {clientLookupStatusLabel[lookupState]}
+          </span>
+          <SecondaryButton
+            type="button"
+            disabled={lookupState === "loading"}
+            onClick={() => void lookupCompany()}
+          >
+            Buscar CNPJ
+          </SecondaryButton>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
             label="Telefone"
             name="clientPhone"
-            defaultValue={selectedClient?.phone ?? ""}
+            value={clientFieldValue("clientPhone", selectedClient?.phone)}
+            onChange={(event) =>
+              updateLookupValue("clientPhone", event.target.value)
+            }
           />
           <TextField
             label="Email"
             name="clientEmail"
             type="email"
-            defaultValue={selectedClient?.email ?? ""}
+            value={clientFieldValue("clientEmail", selectedClient?.email)}
+            onChange={(event) =>
+              updateLookupValue("clientEmail", event.target.value)
+            }
           />
         </div>
         <div className="grid gap-1 border-t border-[#e4e9e5] pt-4">
@@ -534,9 +699,16 @@ export function ClientsPage({
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            defaultValue={selectedClient?.stateRegistration ?? ""}
             label="Inscricao estadual"
             name="clientStateRegistration"
+            value={clientFieldValue(
+              "clientStateRegistration",
+              selectedClient?.stateRegistration,
+            )}
+            helperText="Consultas publicas de CNPJ normalmente nao retornam IE."
+            onChange={(event) =>
+              updateLookupValue("clientStateRegistration", event.target.value)
+            }
           />
           <TextField
             defaultValue={selectedClient?.stateRegistrationIndicator ?? "9"}
@@ -550,44 +722,86 @@ export function ClientsPage({
           </TextField>
         </div>
         <TextField
-          defaultValue={selectedClient?.addressStreet ?? ""}
           label="Logradouro"
           name="clientAddressStreet"
+          value={clientFieldValue(
+            "clientAddressStreet",
+            selectedClient?.addressStreet,
+          )}
+          onChange={(event) =>
+            updateLookupValue("clientAddressStreet", event.target.value)
+          }
         />
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            defaultValue={selectedClient?.addressNumber ?? ""}
             label="Numero"
             name="clientAddressNumber"
+            value={clientFieldValue(
+              "clientAddressNumber",
+              selectedClient?.addressNumber,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressNumber", event.target.value)
+            }
           />
           <TextField
-            defaultValue={selectedClient?.addressComplement ?? ""}
             label="Complemento"
             name="clientAddressComplement"
+            value={clientFieldValue(
+              "clientAddressComplement",
+              selectedClient?.addressComplement,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressComplement", event.target.value)
+            }
           />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            defaultValue={selectedClient?.addressDistrict ?? ""}
             label="Bairro"
             name="clientAddressDistrict"
+            value={clientFieldValue(
+              "clientAddressDistrict",
+              selectedClient?.addressDistrict,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressDistrict", event.target.value)
+            }
           />
           <TextField
-            defaultValue={selectedClient?.addressCity ?? ""}
             label="Cidade"
             name="clientAddressCity"
+            value={clientFieldValue(
+              "clientAddressCity",
+              selectedClient?.addressCity,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressCity", event.target.value)
+            }
           />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            defaultValue={selectedClient?.addressState ?? ""}
             label="UF"
             name="clientAddressState"
+            value={clientFieldValue(
+              "clientAddressState",
+              selectedClient?.addressState,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressState", event.target.value)
+            }
           />
           <TextField
-            defaultValue={selectedClient?.addressZipCode ?? ""}
             label="CEP"
             name="clientAddressZipCode"
+            value={clientFieldValue(
+              "clientAddressZipCode",
+              selectedClient?.addressZipCode,
+            )}
+            onChange={(event) =>
+              updateLookupValue("clientAddressZipCode", event.target.value)
+            }
           />
         </div>
         <div className="mt-1 flex flex-wrap justify-end gap-2">
@@ -651,27 +865,25 @@ export function ClientsPage({
               align: "right",
               header: "Acoes",
               render: (client) => (
-                <div className="flex flex-wrap justify-end gap-2">
-                  <TableActionButton
-                    icon={<Pencil size={14} />}
-                    type="button"
-                    onClick={() => onEdit(client)}
-                  >
-                    Editar
-                  </TableActionButton>
-                  <TableActionButton
-                    icon={
-                      client.active ? (
-                        <PowerOff size={14} />
-                      ) : (
-                        <Power size={14} />
-                      )
-                    }
-                    type="button"
-                    onClick={() => onChangeStatus(client)}
-                  >
-                    {client.active ? "Inativar" : "Ativar"}
-                  </TableActionButton>
+                <div className="flex justify-end">
+                  <TableActionsMenu
+                    actions={[
+                      {
+                        icon: <Pencil size={14} />,
+                        label: "Editar",
+                        onSelect: () => onEdit(client),
+                      },
+                      {
+                        icon: client.active ? (
+                          <PowerOff size={14} />
+                        ) : (
+                          <Power size={14} />
+                        ),
+                        label: client.active ? "Inativar" : "Ativar",
+                        onSelect: () => onChangeStatus(client),
+                      },
+                    ]}
+                  />
                 </div>
               ),
             },
@@ -684,4 +896,31 @@ export function ClientsPage({
       </PagePanel>
     </section>
   );
+}
+
+const clientLookupStatusLabel: Record<
+  "idle" | "loading" | "success" | "error",
+  string
+> = {
+  error: "Informe um CNPJ valido ou tente novamente.",
+  idle: "Preencha o CNPJ e busque os dados fiscais.",
+  loading: "Consultando CNPJ...",
+  success: "Dados encontrados. Revise antes de salvar.",
+};
+
+function clientLookupValues(company: ClientCompanyLookup) {
+  return {
+    clientAddressCity: company.addressCity,
+    clientAddressComplement: company.addressComplement,
+    clientAddressDistrict: company.addressDistrict,
+    clientAddressNumber: company.addressNumber,
+    clientAddressState: company.addressState,
+    clientAddressStreet: company.addressStreet,
+    clientAddressZipCode: company.addressZipCode,
+    clientDocument: company.document,
+    clientEmail: company.email,
+    clientName: company.name,
+    clientPhone: company.phone,
+    clientStateRegistration: company.stateRegistration,
+  };
 }

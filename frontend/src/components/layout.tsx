@@ -5,7 +5,7 @@ import TableCell from '@mui/material/TableCell'
 import TableHead from '@mui/material/TableHead'
 import TablePagination from '@mui/material/TablePagination'
 import TableRow from '@mui/material/TableRow'
-import type { FormEvent, ReactNode } from 'react'
+import { forwardRef, type FormEvent, type ReactNode } from 'react'
 
 type PagePanelProps = {
   children: ReactNode
@@ -100,9 +100,11 @@ export function PagePanel({ children, className, wide }: PagePanelProps) {
   )
 }
 
-export function FormGrid({ children, className, onSubmit }: FormGridProps) {
+export const FormGrid = forwardRef<HTMLFormElement, FormGridProps>(
+  function FormGrid({ children, className, onSubmit }, ref) {
   return (
     <form
+      ref={ref}
       className={classNames(
         'grid content-start gap-5 rounded-xl border border-[#dfe5e1] bg-white p-4 sm:gap-6 sm:p-5',
         className,
@@ -111,7 +113,8 @@ export function FormGrid({ children, className, onSubmit }: FormGridProps) {
       {children}
     </form>
   )
-}
+  },
+)
 
 export function FormRow({
   children,

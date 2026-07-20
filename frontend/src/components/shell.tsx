@@ -28,7 +28,7 @@ export function NavSection({
   onToggle: () => void;
 }) {
   return (
-    <div className="grid gap-1">
+    <div className="grid min-w-0 max-w-full gap-1">
       <ButtonBase
         aria-expanded={open}
         sx={{
@@ -43,6 +43,8 @@ export function NavSection({
           fontWeight: 800,
           justifyContent: "space-between",
           letterSpacing: 0,
+          minWidth: 0,
+          overflow: "hidden",
           px: 1.5,
           py: 1.5,
           textAlign: "left",
@@ -60,7 +62,7 @@ export function NavSection({
         }}
         onClick={onToggle}
       >
-        <span className="flex min-w-0 items-center gap-2.5">
+        <span className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
           <span
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
             style={{
@@ -74,10 +76,12 @@ export function NavSection({
           </span>
           <span className="truncate">{title}</span>
         </span>
-        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        <span className="shrink-0">
+          {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </span>
       </ButtonBase>
       <Collapse in={open} timeout="auto" unmountOnExit>
-        <div className="ml-4 grid gap-1.5 border-l border-white/10 py-1 pl-3">
+        <div className="ml-3 grid min-w-0 max-w-full gap-1.5 border-l border-white/10 py-1 pl-2">
           {children}
         </div>
       </Collapse>
@@ -110,6 +114,8 @@ export function NavButton({
         fontWeight: active ? 800 : 600,
         justifyContent: "flex-start",
         minHeight: 38,
+        minWidth: 0,
+        overflow: "hidden",
         px: 1.5,
         py: 1,
         textAlign: "left",
@@ -143,7 +149,7 @@ export function NavButton({
       >
         {icon}
       </span>
-      <span className="truncate">{children}</span>
+      <span className="min-w-0 flex-1 truncate">{children}</span>
     </ButtonBase>
   );
 }

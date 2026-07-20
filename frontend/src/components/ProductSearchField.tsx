@@ -7,6 +7,7 @@ import { formatQuantity } from "../utils/format";
 import { productDisplayName } from "../utils/productDisplay";
 
 type ProductSearchFieldProps = {
+  defaultValue?: string;
   disabled?: boolean;
   helperText?: string;
   label: string;
@@ -20,6 +21,7 @@ type ProductSearchFieldProps = {
 };
 
 export function ProductSearchField({
+  defaultValue,
   disabled,
   helperText = "Pesquise por nome, codigo, codigo de barras, fabricante ou locacao.",
   label,
@@ -31,7 +33,9 @@ export function ProductSearchField({
   stockLabel,
   value,
 }: ProductSearchFieldProps) {
-  const [internalProductId, setInternalProductId] = useState("");
+  const [internalProductId, setInternalProductId] = useState(
+    defaultValue ?? "",
+  );
   const sortedProducts = useMemo(
     () =>
       [...products].sort((current, next) =>

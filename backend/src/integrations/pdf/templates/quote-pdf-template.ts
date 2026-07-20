@@ -65,7 +65,13 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
               <p><strong>Telefone:</strong> ${escapeHtml(quote.clientPhone ?? "Nao informado")}</p>
               <p><strong>Email:</strong> ${escapeHtml(quote.clientEmail ?? "Nao informado")}</p>
               <p><strong>Emissao:</strong> ${formatDate(quote.createdAt)}</p>
+              <p><strong>Data da fatura:</strong> ${formatOptionalDate(quote.billingIssueDate)}</p>
+              <p><strong>Vencimento:</strong> ${formatOptionalDate(quote.billingDueDate)}</p>
               <p><strong>Validade:</strong> ${quote.validUntil ? formatDate(quote.validUntil) : "Nao informada"}</p>
+            </div>
+            <div class="payment-highlight">
+              <span>Forma de pagamento</span>
+              <strong>${escapeHtml(quote.paymentMethodName ?? "Nao informada")}</strong>
             </div>
           </section>
 
@@ -83,7 +89,6 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
                 <th class="text-right">IPI</th>
                 <th class="text-right">ST</th>
                 <th class="text-right">Total unit.</th>
-                <th class="text-center">Entrega</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -106,7 +111,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
                   <td class="text-right">${formatCurrency(itemDiscountAmount)}</td>
                 </tr>
                 <tr>
-                  <td>Desc. geral:</td>
+                  <td>Desc. geral (${formatPercentage(quote.discountPercentage)}):</td>
                   <td class="text-right">${formatCurrency(quote.discountAmount)}</td>
                 </tr>
                 <tr>
@@ -131,11 +136,6 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
 }
 
 function quoteItemRow(item: QuoteItem, index: number, showBrand: boolean) {
-  const delivery =
-    Number(item.productAvailableStock) >= Number(item.quantity)
-      ? "IMEDIATA"
-      : "NEGATIVO";
-
   return `
     <tr>
       <td class="text-center">${String(index + 1).padStart(2, "0")}</td>
@@ -145,11 +145,10 @@ function quoteItemRow(item: QuoteItem, index: number, showBrand: boolean) {
       ${showBrand ? `<td>${escapeHtml(item.productBrandName ?? "-")}</td>` : ""}
       <td class="text-center">${escapeHtml(item.productNcm ?? "-")}</td>
       <td class="text-right">${formatCurrency(item.unitPrice)}</td>
-      <td class="text-right">${formatCurrency(item.discountAmount)}</td>
+      <td class="text-right">${formatPercentage(item.discountPercentage)} (${formatCurrency(item.discountAmount)})</td>
       <td class="text-right">-</td>
       <td class="text-right">-</td>
       <td class="text-right">${formatCurrency(item.totalAmount)}</td>
-      <td class="text-center delivery-${delivery.toLowerCase()}">${delivery}</td>
     </tr>
   `;
 }
@@ -260,6 +259,26 @@ function quotePdfCss() {
     .notes-box p {
       margin: 0;
     }
+    .payment-highlight {
+      align-items: center;
+      background-color: #fff8e6;
+      border: 1px solid #d8b769;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      padding: 7px 10px;
+    }
+    .payment-highlight span {
+      color: #7c6a36;
+      font-size: 7.4pt;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .payment-highlight strong {
+      color: #1a365d;
+      font-size: 10pt;
+    }
     table {
       border-collapse: collapse;
       width: 100%;
@@ -287,26 +306,17 @@ function quotePdfCss() {
     }
     .items-table th:nth-child(1) { width: 5%; }
     .items-table th:nth-child(2) { width: 6%; }
-    .items-table th:nth-child(3) { width: 13%; }
-    .items-table th:nth-child(4) { width: 18%; }
+    .items-table th:nth-child(3) { width: 14%; }
+    .items-table th:nth-child(4) { width: 22%; }
     .items-table th:nth-child(5) { width: 9%; }
     .items-table th:nth-child(6) { width: 8%; }
-    .items-table th:nth-child(7) { width: 8%; }
-    .items-table th:nth-child(8) { width: 7%; }
+    .items-table th:nth-child(7) { width: 9%; }
+    .items-table th:nth-child(8) { width: 9%; }
     .items-table th:nth-child(9) { width: 5%; }
     .items-table th:nth-child(10) { width: 5%; }
-    .items-table th:nth-child(11) { width: 9%; }
-    .items-table th:nth-child(12) { width: 7%; }
+    .items-table th:nth-child(11) { width: 8%; }
     .items-table tr:nth-child(even) td {
       background-color: #f8fafc;
-    }
-    .delivery-imediata {
-      color: #166534;
-      font-weight: 700;
-    }
-    .delivery-negativo {
-      color: #991b1b;
-      font-weight: 700;
     }
     .summary-row {
       align-items: flex-start;
@@ -364,6 +374,13 @@ function formatCurrency(value: string | number) {
   });
 }
 
+function formatPercentage(value: string | number) {
+  return `${Number(value).toLocaleString("pt-BR", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  })}%`;
+}
+
 function formatQuantity(value: string) {
   return Number(value).toLocaleString("pt-BR", {
     minimumFractionDigits: 0,
@@ -373,4 +390,8 @@ function formatQuantity(value: string) {
 
 function formatDate(value: Date | string) {
   return new Date(value).toLocaleDateString("pt-BR");
+}
+
+function formatOptionalDate(value: Date | string | null) {
+  return value ? formatDate(value) : "Nao informada";
 }

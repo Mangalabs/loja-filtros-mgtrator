@@ -66,6 +66,52 @@ export function useSalesActions({
     });
   }
 
+  async function returnSaleItem(
+    event: FormEvent<HTMLFormElement>,
+    sale: Sale,
+  ) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const saleItemId = String(form.get("saleReturnItemId") ?? "");
+    const quantity = Number(form.get("saleReturnQuantity") ?? 0);
+    const reason = String(form.get("saleReturnReason") ?? "").trim();
+    const refundAmount = formNumberValue(form, "saleReturnRefundAmount");
+    const refundPaymentMethodId = formStringValue(
+      form,
+      "saleReturnRefundPaymentMethodId",
+    );
+    const refundedAt = formDateValue(form, "saleReturnRefundedAt");
+    const refundReference = formStringValue(form, "saleReturnRefundReference");
+    const saleItem = sale.items.find((item) => item.id === saleItemId);
+    const confirmed = await requestConfirmation(
+      `Registrar devolucao de ${formatQuantity(String(quantity))} item(ns) de ${saleItem?.productName ?? "produto"}?`,
+      "Registrar devolucao?",
+      "Registrar",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiPost(`/sales/${sale.id}/returns`, {
+        saleItemId,
+        quantity,
+        reason,
+        ...optionalPayloadField("refundAmount", refundAmount),
+        ...optionalPayloadField(
+          "refundPaymentMethodId",
+          refundPaymentMethodId,
+        ),
+        ...optionalPayloadField("refundedAt", refundedAt),
+        ...optionalPayloadField("refundReference", refundReference),
+      });
+      formElement.reset();
+      await loadCatalog();
+    });
+  }
+
   async function issueShippingOrderFiscalDocument(order: ShippingOrder) {
     const confirmed = await requestConfirmation(
       `Emitir NF-e para o pedido de envio de ${order.clientName} no valor de ${order.totalAmount}?`,
@@ -212,6 +258,8 @@ export function useSalesActions({
     await runAction(async () => {
       await apiPatch(`/shipping-orders/${order.id}/complete`, {
         paymentMethodId: String(form.get("shippingPaymentMethodId") ?? ""),
+        billingIssueDate: formDateValue(form, "shippingBillingIssueDate"),
+        billingDueDate: formDateValue(form, "shippingBillingDueDate"),
         allowInsufficientStock,
       });
       await loadCatalog();
@@ -294,6 +342,8 @@ export function useSalesActions({
     await runAction(async () => {
       await apiPatch(`/pickup-reservations/${reservation.id}/complete`, {
         paymentMethodId: String(form.get("pickupPaymentMethodId") ?? ""),
+        billingIssueDate: formDateValue(form, "pickupBillingIssueDate"),
+        billingDueDate: formDateValue(form, "pickupBillingDueDate"),
         allowInsufficientStock,
       });
       await loadCatalog();
@@ -311,6 +361,7 @@ export function useSalesActions({
     issuePickupReservationFiscalDocument,
     issueSaleFiscalDocument,
     issueShippingOrderFiscalDocument,
+    returnSaleItem,
     separateShippingOrder,
   };
 
@@ -331,6 +382,23 @@ export function useSalesActions({
 
     return confirmed ? true : null;
   }
+}
+
+function formDateValue(form: FormData, field: string) {
+  return String(form.get(field) ?? "") || null;
+}
+
+function formStringValue(form: FormData, field: string) {
+  return String(form.get(field) ?? "").trim() || null;
+}
+
+function formNumberValue(form: FormData, field: string) {
+  const value = String(form.get(field) ?? "");
+  return value ? Number(value) : null;
+}
+
+function optionalPayloadField<T>(field: string, value: T | null) {
+  return value === null ? {} : { [field]: value };
 }
 
 function hasInsufficientStock(

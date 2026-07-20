@@ -1,0 +1,503 @@
+import MenuItem from '@mui/material/MenuItem'
+import TextField from '@mui/material/TextField'
+import { FileText, ReceiptText } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import type {
+  FiscalDocument,
+  PaymentMethod,
+  PickupReservation,
+  Sale,
+  ShippingOrder,
+} from '../../api'
+import { apiUrl } from '../../api'
+import {
+  ActionStack,
+  InlineNote,
+  PageHeader,
+  PagePanel,
+  ResponsiveTable,
+} from '../../components/layout'
+import {
+  StatusChip,
+  TableActionsMenu,
+  type TableActionsMenuAction,
+} from '../../components/ui'
+import { usePaginatedRows } from '../../hooks/usePaginatedRows'
+import {
+  formatCurrency,
+  formatDateTime,
+  formatQuantity,
+} from '../../utils/format'
+import {
+  fiscalDocumentStatusLabel,
+  fiscalDocumentStatusTone,
+} from '../finance/fiscalPresentation'
+import { SaleReturnForm, type SaleReturnHandler } from './SaleReturnForm'
+
+type SalesHistoryOrigin = 'ALL' | 'PICKUP_RESERVATION' | 'SALE' | 'SHIPPING_ORDER'
+type SalesHistoryFiscalFilter =
+  | 'ALL'
+  | 'AUTHORIZED'
+  | 'CANCELLED'
+  | 'MISSING'
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'REJECTED'
+
+type SalesHistoryRow = {
+  id: string
+  sourceId: string
+  sourceType: FiscalDocument['sourceType']
+  originLabel: string
+  clientName: string
+  totalAmount: string
+  refundAmount: number
+  netAmount: number
+  operatorName: string
+  completedAt: string
+  saleId: string | null
+  sale: Sale | null
+  fiscalDocument?: FiscalDocument
+}
+
+export function SalesHistoryPage({
+  fiscalDocuments = [],
+  paymentMethods = [],
+  pickupReservations = [],
+  sales = [],
+  shippingOrders = [],
+  onReturnItem,
+}: {
+  fiscalDocuments: FiscalDocument[]
+  paymentMethods: PaymentMethod[]
+  pickupReservations: PickupReservation[]
+  sales: Sale[]
+  shippingOrders: ShippingOrder[]
+  onReturnItem: SaleReturnHandler
+}) {
+  const [search, setSearch] = useState('')
+  const [origin, setOrigin] = useState<SalesHistoryOrigin>('ALL')
+  const [fiscalStatus, setFiscalStatus] =
+    useState<SalesHistoryFiscalFilter>('ALL')
+  const rows = useMemo(
+    () =>
+      filterSalesHistoryRows(
+        buildSalesHistoryRows({
+          fiscalDocuments,
+          pickupReservations,
+          sales,
+          shippingOrders,
+        }),
+        { fiscalStatus, origin, search },
+      ),
+    [fiscalDocuments, fiscalStatus, origin, pickupReservations, sales, search, shippingOrders],
+  )
+  const { pagination, visibleItems } = usePaginatedRows(rows)
+
+  return (
+    <PagePanel className='min-w-0' wide>
+      <PageHeader
+        description='Consulte vendas fechadas de balcao, envio e retirada.'
+        icon={<ReceiptText size={18} />}
+        title='Historico de vendas fechadas'
+      />
+      <div className='mb-4 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] p-3 text-sm text-[#2c281e]'>
+        <strong className='text-[#203466]'>Comprovante de venda:</strong>{' '}
+        use o botao de comprovante para baixar um resumo comercial da venda
+        concluida. Este arquivo nao substitui NF-e, NFC-e, DANFE ou XML fiscal.
+      </div>
+
+      <div className='mb-4 grid gap-3 md:grid-cols-[minmax(220px,1fr)_190px_190px]'>
+        <TextField
+          label='Buscar'
+          placeholder='Cliente, operador ou codigo'
+          size='small'
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <TextField
+          label='Origem'
+          select
+          size='small'
+          value={origin}
+          onChange={(event) =>
+            setOrigin(event.target.value as SalesHistoryOrigin)
+          }>
+          <MenuItem value='ALL'>Todas</MenuItem>
+          <MenuItem value='SALE'>Balcao</MenuItem>
+          <MenuItem value='SHIPPING_ORDER'>Para envio</MenuItem>
+          <MenuItem value='PICKUP_RESERVATION'>Retirada</MenuItem>
+        </TextField>
+        <TextField
+          label='NF-e'
+          select
+          size='small'
+          value={fiscalStatus}
+          onChange={(event) =>
+            setFiscalStatus(event.target.value as SalesHistoryFiscalFilter)
+          }>
+          <MenuItem value='ALL'>Todas</MenuItem>
+          <MenuItem value='MISSING'>Sem NF-e</MenuItem>
+          <MenuItem value='AUTHORIZED'>Autorizadas</MenuItem>
+          <MenuItem value='CANCELLED'>Canceladas</MenuItem>
+          <MenuItem value='PENDING'>Pendentes</MenuItem>
+          <MenuItem value='PROCESSING'>Processando</MenuItem>
+          <MenuItem value='REJECTED'>Rejeitadas</MenuItem>
+        </TextField>
+      </div>
+
+      <ResponsiveTable
+        columns={[
+          {
+            header: 'Data',
+            render: (row) => formatDateTime(row.completedAt),
+          },
+          {
+            header: 'Origem',
+            render: (row) => (
+              <>
+                <strong>{row.originLabel}</strong>
+                <InlineNote>{row.sourceId}</InlineNote>
+              </>
+            ),
+          },
+          {
+            header: 'Cliente',
+            render: (row) => row.clientName,
+          },
+          {
+            align: 'right',
+            header: 'Total',
+            render: (row) => <SalesHistoryTotal row={row} />,
+          },
+          {
+            header: 'NF-e',
+            render: (row) => <SalesHistoryFiscalStatus row={row} />,
+          },
+          {
+            header: 'Operador',
+            render: (row) => row.operatorName,
+          },
+          {
+            align: 'right',
+            header: 'Acoes',
+            render: (row) => (
+              <SalesHistoryActions
+                paymentMethods={paymentMethods}
+                row={row}
+                onReturnItem={onReturnItem}
+              />
+            ),
+          },
+        ]}
+        emptyMessage='Nenhuma venda fechada encontrada.'
+        getRowId={(row) => row.id}
+        items={visibleItems}
+        pagination={pagination}
+      />
+    </PagePanel>
+  )
+}
+
+function SalesHistoryFiscalStatus({ row }: { row: SalesHistoryRow }) {
+  return row.fiscalDocument ? (
+    <>
+      <StatusChip
+        label={fiscalDocumentStatusLabel(row.fiscalDocument.status)}
+        tone={fiscalDocumentStatusTone(row.fiscalDocument.status)}
+      />
+      <InlineNote>
+        {row.fiscalDocument.number
+          ? `NF-e #${row.fiscalDocument.number}`
+          : 'Sem numero'}
+      </InlineNote>
+    </>
+  ) : (
+    <StatusChip label='Sem NF-e' tone='neutral' />
+  )
+}
+
+function SalesHistoryTotal({ row }: { row: SalesHistoryRow }) {
+  return row.refundAmount > 0 ? (
+    <>
+      <strong>{formatCurrency(row.netAmount)}</strong>
+      <InlineNote>
+        Original {formatCurrency(row.totalAmount)} | Estornos{' '}
+        {formatCurrency(row.refundAmount)}
+      </InlineNote>
+    </>
+  ) : (
+    formatCurrency(row.totalAmount)
+  )
+}
+
+function SalesHistoryActions({
+  paymentMethods,
+  row,
+  onReturnItem,
+}: {
+  paymentMethods: PaymentMethod[]
+  row: SalesHistoryRow
+  onReturnItem: SaleReturnHandler
+}) {
+  const [showReturnForm, setShowReturnForm] = useState(false)
+  const fiscalDocumentBlocksReturn = Boolean(
+    row.fiscalDocument &&
+      returnBlockingFiscalStatuses.includes(row.fiscalDocument.status),
+  )
+  const fiscalLinks = [
+    { label: 'DANFE', url: row.fiscalDocument?.pdfUrl },
+    { label: 'XML', url: row.fiscalDocument?.xmlUrl },
+  ].filter(
+    (link): link is { label: 'DANFE' | 'XML'; url: string } =>
+      Boolean(link.url),
+  )
+  const actions: TableActionsMenuAction[] = [
+    ...fiscalLinks.map((link) => ({
+      href: fiscalDocumentFileHref(link.url),
+      icon: <FileText size={14} />,
+      label: `Baixar ${link.label}`,
+    })),
+  ]
+
+  row.saleId &&
+    actions.unshift({
+      href: apiUrl(`/sales/${row.saleId}/receipt`),
+      icon: <ReceiptText size={14} />,
+      label: 'Baixar comprovante',
+    })
+
+  row.sale &&
+    actions.push({
+      disabled: fiscalDocumentBlocksReturn,
+      label: 'Registrar devolucao',
+      onSelect: () => setShowReturnForm(true),
+    })
+
+  return (
+    <ActionStack>
+      <div className='flex justify-end'>
+        <TableActionsMenu actions={actions} />
+      </div>
+      {showReturnForm && row.sale && !fiscalDocumentBlocksReturn ? (
+        <SaleReturnForm
+          onCancel={() => setShowReturnForm(false)}
+          paymentMethods={paymentMethods}
+          sale={row.sale}
+          onReturnItem={onReturnItem}
+        />
+      ) : null}
+      {row.sale && fiscalDocumentBlocksReturn ? (
+        <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>
+      ) : null}
+      {!row.saleId && fiscalLinks.length === 0 ? (
+        <InlineNote>Sem arquivos</InlineNote>
+      ) : null}
+      {row.sale ? <SaleReturnSummary sale={row.sale} /> : null}
+    </ActionStack>
+  )
+}
+
+function SaleReturnSummary({ sale }: { sale: Sale }) {
+  const returns = saleItems(sale).flatMap((item) =>
+    saleItemReturns(item).map((itemReturn) => ({
+      ...itemReturn,
+      productName: item.productName,
+    })),
+  )
+
+  return returns.length > 0 ? (
+    <div className='grid gap-1 rounded-lg border border-[#e4e9e5] bg-[#fbfcfb] p-2 text-left'>
+      <strong className='text-xs uppercase tracking-wide text-[#203466]'>
+        Estornos registrados
+      </strong>
+      {returns.map((itemReturn) => (
+        <div className='text-xs text-[#2c281e]' key={itemReturn.id}>
+          <strong>{itemReturn.productName}</strong> | Qtd.{' '}
+          {formatQuantity(itemReturn.quantity)} |{' '}
+          {formatCurrency(itemReturn.refundAmount)} via{' '}
+          {itemReturn.refundPaymentMethodName}
+          <InlineNote>
+            {formatDateTime(itemReturn.refundedAt)}
+            {itemReturn.refundReference
+              ? ` | Ref. ${itemReturn.refundReference}`
+              : ''}
+          </InlineNote>
+        </div>
+      ))}
+    </div>
+  ) : null
+}
+
+const returnBlockingFiscalStatuses: FiscalDocument['status'][] = [
+  'AUTHORIZED',
+  'PENDING',
+  'PROCESSING',
+]
+
+function buildSalesHistoryRows({
+  fiscalDocuments,
+  pickupReservations,
+  sales,
+  shippingOrders,
+}: {
+  fiscalDocuments: FiscalDocument[]
+  pickupReservations: PickupReservation[]
+  sales: Sale[]
+  shippingOrders: ShippingOrder[]
+}) {
+  const linkedSaleIds = new Set([
+    ...shippingOrders.flatMap((order) => (order.saleId ? [order.saleId] : [])),
+    ...pickupReservations.flatMap((reservation) =>
+      reservation.saleId ? [reservation.saleId] : [],
+    ),
+  ])
+  const directSaleRows = sales
+    .filter((sale) => sale.status === 'COMPLETED' && !linkedSaleIds.has(sale.id))
+    .map((sale): SalesHistoryRow => ({
+      clientName: sale.clientName ?? 'Nao identificado',
+      completedAt: sale.createdAt,
+      fiscalDocument: findFiscalDocument(fiscalDocuments, 'SALE', sale.id),
+      id: `SALE-${sale.id}`,
+      netAmount: saleNetAmount(sale, sale.totalAmount),
+      operatorName: sale.createdByUserName,
+      originLabel: 'Balcao',
+      refundAmount: saleRefundAmount(sale),
+      sale,
+      saleId: sale.id,
+      sourceId: sale.id,
+      sourceType: 'SALE',
+      totalAmount: sale.totalAmount,
+    }))
+  const shippingRows = shippingOrders
+    .filter((order) => order.status === 'COMPLETED')
+    .map((order): SalesHistoryRow => {
+      const sale = findSale(sales, order.saleId)
+
+      return {
+        clientName: order.clientName,
+        completedAt: order.completedAt ?? order.createdAt,
+        fiscalDocument: findFiscalDocument(
+          fiscalDocuments,
+          'SHIPPING_ORDER',
+          order.id,
+        ),
+        id: `SHIPPING_ORDER-${order.id}`,
+        netAmount: saleNetAmount(sale, order.totalAmount),
+        operatorName: order.completedByUserName ?? order.createdByUserName,
+        originLabel: 'Para envio',
+        refundAmount: saleRefundAmount(sale),
+        sale,
+        saleId: order.saleId,
+        sourceId: order.id,
+        sourceType: 'SHIPPING_ORDER',
+        totalAmount: order.totalAmount,
+      }
+    })
+  const pickupRows = pickupReservations
+    .filter((reservation) => reservation.status === 'COMPLETED')
+    .map((reservation): SalesHistoryRow => {
+      const sale = findSale(sales, reservation.saleId)
+
+      return {
+        clientName: reservation.clientName,
+        completedAt: reservation.completedAt ?? reservation.createdAt,
+        fiscalDocument: findFiscalDocument(
+          fiscalDocuments,
+          'PICKUP_RESERVATION',
+          reservation.id,
+        ),
+        id: `PICKUP_RESERVATION-${reservation.id}`,
+        netAmount: saleNetAmount(sale, reservation.totalAmount),
+        operatorName:
+          reservation.completedByUserName ?? reservation.createdByUserName,
+        originLabel: 'Retirada',
+        refundAmount: saleRefundAmount(sale),
+        sale,
+        saleId: reservation.saleId,
+        sourceId: reservation.id,
+        sourceType: 'PICKUP_RESERVATION',
+        totalAmount: reservation.totalAmount,
+      }
+    })
+
+  return [...directSaleRows, ...shippingRows, ...pickupRows].sort(
+    (current, next) =>
+      new Date(next.completedAt).getTime() -
+      new Date(current.completedAt).getTime(),
+  )
+}
+
+function findSale(sales: Sale[], saleId: string | null) {
+  return saleId ? sales.find((sale) => sale.id === saleId) ?? null : null
+}
+
+function saleRefundAmount(sale: Sale | null) {
+  return (
+    saleItems(sale).reduce(
+      (total, item) =>
+        total +
+        saleItemReturns(item).reduce(
+          (itemTotal, itemReturn) =>
+            itemTotal + Number(itemReturn.refundAmount),
+          0,
+        ),
+      0,
+    )
+  )
+}
+
+function saleItems(sale: Sale | null) {
+  return Array.isArray(sale?.items) ? sale.items : []
+}
+
+function saleItemReturns(item: Sale['items'][number]) {
+  return Array.isArray(item.returns) ? item.returns : []
+}
+
+function saleNetAmount(sale: Sale | null, fallbackTotalAmount: string) {
+  return Math.max(Number(fallbackTotalAmount) - saleRefundAmount(sale), 0)
+}
+
+function filterSalesHistoryRows(
+  rows: SalesHistoryRow[],
+  filters: {
+    fiscalStatus: SalesHistoryFiscalFilter
+    origin: SalesHistoryOrigin
+    search: string
+  },
+) {
+  const normalizedSearch = filters.search.trim().toLowerCase()
+
+  return rows.filter((row) => {
+    const matchesOrigin =
+      filters.origin === 'ALL' || row.sourceType === filters.origin
+    const matchesFiscalStatus =
+      filters.fiscalStatus === 'ALL' ||
+      (filters.fiscalStatus === 'MISSING'
+        ? !row.fiscalDocument
+        : row.fiscalDocument?.status === filters.fiscalStatus)
+    const matchesSearch =
+      !normalizedSearch ||
+      [row.clientName, row.operatorName, row.sourceId, row.originLabel].some(
+        (value) => value.toLowerCase().includes(normalizedSearch),
+      )
+
+    return matchesOrigin && matchesFiscalStatus && matchesSearch
+  })
+}
+
+function findFiscalDocument(
+  fiscalDocuments: FiscalDocument[],
+  sourceType: FiscalDocument['sourceType'],
+  sourceId: string,
+) {
+  return fiscalDocuments.find(
+    (document) =>
+      document.sourceType === sourceType && document.sourceId === sourceId,
+  )
+}
+
+function fiscalDocumentFileHref(url: string) {
+  return url.startsWith('/') ? apiUrl(url) : url
+}

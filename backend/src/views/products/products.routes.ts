@@ -27,6 +27,7 @@ const createProductSchema = z.object({
   location: optionalText(80),
   costPrice: z.coerce.number().min(0).optional(),
   salePrice: z.coerce.number().min(0).optional(),
+  profitMarginPercentage: z.coerce.number().min(0).max(1000).nullable().optional(),
   minimumStock: z.coerce.number().min(0).optional(),
   ncm: optionalText(16),
   cest: optionalText(16),

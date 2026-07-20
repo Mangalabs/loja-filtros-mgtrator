@@ -39,8 +39,19 @@ type FocusNfePayload = {
   valor_total: number;
   valor_produtos: number;
   valor_desconto: number;
+  numero_fatura?: string;
+  valor_original_fatura?: number;
+  valor_desconto_fatura?: number;
+  valor_liquido_fatura?: number;
+  duplicatas?: FocusNfeInstallmentPayload[];
   modalidade_frete: 9;
   items: FocusNfeItemPayload[];
+};
+
+type FocusNfeInstallmentPayload = {
+  numero: string;
+  data_vencimento: string;
+  valor: number;
 };
 
 type FocusNfeItemPayload = {
@@ -242,8 +253,42 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
     valor_total: totalAmount,
     valor_produtos: productAmount,
     valor_desconto: discountAmount,
+    ...focusBillingPayload(request, {
+      discountAmount,
+      productAmount,
+      totalAmount,
+    }),
     modalidade_frete: 9,
     items: request.sale.items.map(focusNfeItemPayload),
+  };
+}
+
+function focusBillingPayload(
+  request: FiscalIssueRequest,
+  amounts: {
+    discountAmount: number;
+    productAmount: number;
+    totalAmount: number;
+  },
+): Partial<FocusNfePayload> {
+  const dueDate = focusDateOnly(request.sale.billingDueDate);
+
+  if (!dueDate) {
+    return {};
+  }
+
+  return {
+    numero_fatura: focusBillingNumber(request.sale.id),
+    valor_original_fatura: amounts.productAmount,
+    valor_desconto_fatura: amounts.discountAmount,
+    valor_liquido_fatura: amounts.totalAmount,
+    duplicatas: [
+      {
+        numero: "001",
+        data_vencimento: dueDate,
+        valor: amounts.totalAmount,
+      },
+    ],
   };
 }
 
@@ -480,6 +525,15 @@ function focusRejectionReason(payload: FocusResponsePayload) {
 
 function focusString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function focusDateOnly(value: string | null) {
+  const date = focusString(value);
+  return date?.slice(0, 10) ?? null;
+}
+
+function focusBillingNumber(saleId: string) {
+  return saleId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 60);
 }
 
 function focusFileUrl(

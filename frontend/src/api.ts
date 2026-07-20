@@ -6,6 +6,22 @@ export type ApiResult<T> = {
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
 
+type UnauthorizedHandler = () => void;
+
+let unauthorizedHandler: UnauthorizedHandler | undefined;
+
+const ignoredUnauthorizedPaths = [
+  "/auth/login",
+  "/auth/logout",
+  "/auth/password",
+  "/auth/session",
+  "/auth/setup",
+];
+
+export function setUnauthorizedHandler(handler?: UnauthorizedHandler) {
+  unauthorizedHandler = handler;
+}
+
 export function apiUrl(path: string) {
   return apiBaseUrl ? `${apiBaseUrl}${path}` : `/api${path}`;
 }
@@ -22,6 +38,7 @@ export type Product = {
   location: string | null;
   costPrice: string;
   salePrice: string;
+  profitMarginPercentage: string | null;
   minimumStock: string;
   currentStock: string;
   reservedStock: string;
@@ -56,6 +73,23 @@ export type Client = NamedEntity & {
   phone: string | null;
   stateRegistration: string | null;
   stateRegistrationIndicator: "1" | "2" | "9" | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  addressDistrict: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressZipCode: string | null;
+};
+
+export type ClientCompanyLookup = {
+  personType: "PJ";
+  name: string;
+  document: string;
+  email: string | null;
+  phone: string | null;
+  stateRegistration: string | null;
+  stateRegistrationIndicator: "9";
   addressStreet: string | null;
   addressNumber: string | null;
   addressComplement: string | null;
@@ -102,6 +136,79 @@ export type StockMovement = {
   createdAt: string;
 };
 
+export type PurchaseInvoiceItemDraft = {
+  cfop: string | null;
+  description: string;
+  ncm: string | null;
+  position: number;
+  productId?: string | null;
+  quantity: number;
+  supplierProductCode: string | null;
+  totalAmount: number;
+  unit: string | null;
+  unitCost: number;
+};
+
+export type PurchaseInvoiceDraft = {
+  accessKey: string;
+  createSupplierFromXml?: boolean;
+  installments?: Array<{
+    dueDate: string | null;
+    number: string | null;
+    value: number;
+  }>;
+  issueDate?: string | null;
+  items: PurchaseInvoiceItemDraft[];
+  number?: string | null;
+  series?: string | null;
+  supplierDocument?: string | null;
+  supplierId?: string | null;
+  supplierName: string;
+  totalAmount: number;
+  transporterDocument?: string | null;
+  transporterName?: string | null;
+  xmlContent?: string | null;
+};
+
+export type PurchaseInvoice = {
+  id: string;
+  supplierId: string | null;
+  supplierName: string;
+  supplierDocument: string | null;
+  transporterName: string | null;
+  transporterDocument: string | null;
+  createdByUserName: string;
+  accessKey: string;
+  number: string | null;
+  series: string | null;
+  issueDate: string | null;
+  totalAmount: string;
+  status: "IMPORTED" | "POSTED" | "CANCELLED";
+  installments: Array<{
+    id: string;
+    position: number;
+    number: string | null;
+    dueDate: string | null;
+    value: string;
+  }>;
+  items: Array<{
+    id: string;
+    productId: string | null;
+    productName: string | null;
+    position: number;
+    supplierProductCode: string | null;
+    description: string;
+    ncm: string | null;
+    cfop: string | null;
+    unit: string | null;
+    quantity: string;
+    unitCost: string;
+    totalAmount: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PaymentMethod = {
   id: string;
   code: string;
@@ -114,7 +221,58 @@ export type AuthUser = {
   name: string;
   email: string;
   phone: string | null;
-  role: "ADMIN";
+  role: "ADMIN" | "EMPLOYEE";
+  branchId: string | null;
+  branchName: string | null;
+  active: boolean;
+  permissions: EmployeePermission[];
+  lastLoginAt?: string | null;
+  mustChangePassword: boolean;
+};
+
+export type AuthEvent = {
+  id: string;
+  userId: string | null;
+  email: string;
+  eventType:
+    | "SETUP_SUCCESS"
+    | "LOGIN_SUCCESS"
+    | "LOGIN_FAILURE"
+    | "LOGOUT"
+    | "PASSWORD_CHANGED"
+    | "PASSWORD_RESET"
+    | "EMPLOYEE_CREATED"
+    | "EMPLOYEE_UPDATED"
+    | "EMPLOYEE_STATUS_CHANGED";
+  ipAddress: string | null;
+  userAgent: string | null;
+  reason: string | null;
+  createdAt: string;
+};
+
+export type AuthEventPage = {
+  items: AuthEvent[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+};
+
+export type EmployeePermission =
+  | "MANAGE_COMMERCIAL_SETTINGS"
+  | "IMPORT_PURCHASE_INVOICES"
+  | "MANAGE_STOCK_ADJUSTMENTS"
+  | "MANAGE_PAYMENT_METHODS"
+  | "MANAGE_FISCAL_SETTINGS"
+  | "MANAGE_FISCAL_DOCUMENTS"
+  | "MANAGE_CASH_REGISTER"
+  | "VIEW_REPORTS";
+
+export type Branch = {
+  id: string;
+  name: string;
+  code: string | null;
   active: boolean;
 };
 
@@ -182,6 +340,8 @@ export type Sale = {
   subtotalAmount: string;
   discountAmount: string;
   totalAmount: string;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   items: Array<{
     id: string;
     productId: string;
@@ -190,6 +350,20 @@ export type Sale = {
     unitPrice: string;
     discountAmount: string;
     totalAmount: string;
+    returnedQuantity: string;
+    returnableQuantity: string;
+    returns: Array<{
+      id: string;
+      quantity: string;
+      reason: string;
+      refundAmount: string;
+      refundPaymentMethodId: string;
+      refundPaymentMethodName: string;
+      refundedAt: string;
+      refundReference: string | null;
+      createdByUserName: string;
+      createdAt: string;
+    }>;
     position: number;
   }>;
   clientId: string | null;
@@ -234,6 +408,136 @@ export type FiscalSettings = {
   allowProduction: boolean;
   createdAt: string;
   updatedAt: string;
+};
+
+export type CommercialSettings = {
+  id: string;
+  defaultProfitMarginPercentage: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SalesReport = {
+  summary: {
+    salesCount: number;
+    itemsQuantity: string;
+    grossAmount: string;
+    discountAmount: string;
+    netAmount: string;
+  };
+  byProduct: Array<{
+    productId: string;
+    productName: string;
+    quantity: string;
+    totalAmount: string;
+  }>;
+  byClient: Array<{
+    clientId: string | null;
+    clientName: string;
+    salesCount: number;
+    totalAmount: string;
+  }>;
+  byPaymentMethod: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    totalAmount: string;
+  }>;
+};
+
+export type StockReport = {
+  summary: {
+    activeProductsCount: number;
+    lowStockProductsCount: number;
+    productsWithoutMovementCount: number;
+    soldQuantity: string;
+  };
+  lowStockProducts: Array<{
+    productId: string;
+    productName: string;
+    currentStock: string;
+    reservedStock: string;
+    availableStock: string;
+    minimumStock: string;
+  }>;
+  productsWithoutMovement: Array<{
+    productId: string;
+    productName: string;
+    currentStock: string;
+    minimumStock: string;
+  }>;
+  turnoverProducts: Array<{
+    productId: string;
+    productName: string;
+    soldQuantity: string;
+    lastSaleAt: string | null;
+  }>;
+};
+
+export type PurchaseReport = {
+  summary: {
+    entriesCount: number;
+    totalQuantity: string;
+    totalAmount: string;
+    manualAmount: string;
+    xmlAmount: string;
+  };
+  bySource: Array<{
+    source: "MANUAL" | "XML";
+    entriesCount: number;
+    totalQuantity: string;
+    totalAmount: string;
+  }>;
+  bySupplier: Array<{
+    supplierId: string;
+    supplierName: string;
+    entriesCount: number;
+    totalAmount: string;
+  }>;
+  byProduct: Array<{
+    productId: string;
+    productName: string;
+    quantity: string;
+    totalAmount: string;
+  }>;
+};
+
+export type CashReport = {
+  summary: {
+    sessionsCount: number;
+    openSessionsCount: number;
+    closedSessionsCount: number;
+    openingAmount: string;
+    grossSalesAmount: string;
+    refundAmount: string;
+    netSalesAmount: string;
+    supplyAmount: string;
+    withdrawalAmount: string;
+    expectedClosingAmount: string;
+    closingAmount: string;
+    closedDifferenceAmount: string;
+  };
+  byPaymentMethod: Array<{
+    paymentMethodId: string;
+    paymentMethodName: string;
+    grossAmount: string;
+    refundAmount: string;
+    netAmount: string;
+  }>;
+  sessions: Array<{
+    id: string;
+    openedByUserName: string;
+    closedByUserName: string | null;
+    status: "OPEN" | "CLOSED";
+    openedAt: string;
+    closedAt: string | null;
+    openingBalance: string;
+    salesAmount: string;
+    supplyAmount: string;
+    withdrawalAmount: string;
+    expectedClosingBalance: string;
+    closingBalance: string | null;
+    difference: string | null;
+  }>;
 };
 
 export type ShippingOrder = {
@@ -309,11 +613,16 @@ export type Quote = {
   clientPhone: string | null;
   clientDocument: string | null;
   clientEmail: string | null;
+  paymentMethodId: string | null;
+  paymentMethodName: string | null;
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
   subtotalAmount: string;
+  discountPercentage: string;
   discountAmount: string;
   totalAmount: string;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   validUntil: string | null;
   notes: string | null;
   cancelledByUserName: string | null;
@@ -343,6 +652,7 @@ export type Quote = {
     description: string;
     quantity: string;
     unitPrice: string;
+    discountPercentage: string;
     discountAmount: string;
     totalAmount: string;
     position: number;
@@ -353,7 +663,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(apiUrl(path), {
     credentials: "include",
   });
-  return parseResponse<T>(response);
+  return parseResponse<T>(response, path);
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
@@ -380,17 +690,32 @@ async function apiWrite<T>(
     body: JSON.stringify(body),
   });
 
-  return parseResponse<T>(response);
+  return parseResponse<T>(response, path);
 }
 
-async function parseResponse<T>(response: Response): Promise<T> {
+async function parseResponse<T>(response: Response, path: string): Promise<T> {
   const payload = await response.json();
 
   if (!response.ok) {
+    notifyUnauthorizedResponse(response, path);
     throw new Error(errorMessage(payload));
   }
 
   return payload;
+}
+
+function notifyUnauthorizedResponse(response: Response, path: string) {
+  const shouldNotify =
+    response.status === 401 &&
+    !ignoredUnauthorizedPaths.some((ignoredPath) =>
+      path.startsWith(ignoredPath),
+    );
+
+  if (!shouldNotify) {
+    return;
+  }
+
+  unauthorizedHandler?.();
 }
 
 function errorMessage(payload: {

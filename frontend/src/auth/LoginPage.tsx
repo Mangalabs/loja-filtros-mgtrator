@@ -5,11 +5,15 @@ import { AppMessage } from "../components/shell";
 import { PrimaryButton } from "../components/ui";
 
 export function LoginPage({
+  authNotice,
   requiresSetup,
+  onClearAuthNotice,
   onLogin,
   onSetup,
 }: {
+  authNotice: string;
   requiresSetup: boolean;
+  onClearAuthNotice: () => void;
   onLogin: (credentials: { email: string; password: string }) => Promise<void>;
   onSetup: (input: {
     name: string;
@@ -31,6 +35,7 @@ export function LoginPage({
 
     setSubmitting(true);
     setMessage("");
+    onClearAuthNotice();
 
     try {
       if (requiresSetup) {
@@ -69,6 +74,13 @@ export function LoginPage({
             ? "Crie o administrador inicial para proteger a operacao."
             : "Informe seus dados para acessar o sistema."}
         </p>
+        {authNotice ? (
+          <AppMessage
+            kind="error"
+            message={authNotice}
+            onClose={onClearAuthNotice}
+          />
+        ) : null}
         {message ? (
           <AppMessage
             kind="error"

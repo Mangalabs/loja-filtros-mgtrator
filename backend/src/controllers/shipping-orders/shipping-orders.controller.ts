@@ -236,6 +236,10 @@ export async function completeSeparatedShippingOrder(
   paymentMethodId: string,
   completedByUserId: string,
   allowInsufficientStock = false,
+  billingDates: {
+    billingIssueDate?: string | null;
+    billingDueDate?: string | null;
+  } = {},
 ) {
   const order = await db.transaction(async (transaction) => {
     const currentOrder = await lockShippingOrder(transaction, id);
@@ -244,11 +248,12 @@ export async function completeSeparatedShippingOrder(
       throw new AppError("Pedido para envio nao encontrado.", 404);
     }
 
-    if (currentOrder.status !== "SEPARATED") {
-      throw new AppError(
-        "Confirme a separacao antes de concluir a venda para envio.",
-        409,
-      );
+    if (currentOrder.status === "CANCELLED") {
+      throw new AppError("Pedido cancelado nao pode ser concluido.", 409);
+    }
+
+    if (currentOrder.status === "COMPLETED") {
+      throw new AppError("Este pedido ja foi concluido como venda.", 409);
     }
 
     const cashRegister = await findOpenCashRegister(transaction);
@@ -265,29 +270,34 @@ export async function completeSeparatedShippingOrder(
     }
 
     const reservedItems = aggregateShippingItems(currentOrder.items);
+    const hasReservation = currentOrder.status !== "QUOTED";
 
     for (const item of reservedItems) {
       const product = await lockReservableProduct(transaction, item.productId);
 
       if (
         !product ||
-        Number(product.reservedStock) < item.quantity ||
+        (hasReservation && Number(product.reservedStock) < item.quantity) ||
         (Number(product.currentStock) < item.quantity &&
           !allowInsufficientStock)
       ) {
         throw new AppError(
-          "Reserva insuficiente para concluir esta venda.",
+          hasReservation
+            ? "Reserva insuficiente para concluir esta venda."
+            : "Estoque insuficiente para concluir esta venda.",
           422,
         );
       }
     }
 
-    for (const item of reservedItems) {
-      await releaseShippingOrderReservation(
-        transaction,
-        item.productId,
-        item.quantity,
-      );
+    if (hasReservation) {
+      for (const item of reservedItems) {
+        await releaseShippingOrderReservation(
+          transaction,
+          item.productId,
+          item.quantity,
+        );
+      }
     }
 
     const saleItems = currentOrder.items.map((item) => ({
@@ -309,6 +319,9 @@ export async function completeSeparatedShippingOrder(
       transaction,
       {
         clientId: currentOrder.clientId,
+        billingIssueDate:
+          billingDates.billingIssueDate ?? currentOrder.billingIssueDate,
+        billingDueDate: billingDates.billingDueDate ?? currentOrder.billingDueDate,
         discountAmount: saleDiscountAmount,
         paymentMethodId,
         items: currentOrder.items.map((item) => ({

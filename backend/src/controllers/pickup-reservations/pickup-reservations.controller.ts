@@ -154,6 +154,10 @@ export async function completeReservedPickup(
   paymentMethodId: string,
   completedByUserId: string,
   allowInsufficientStock = false,
+  billingDates: {
+    billingIssueDate?: string | null;
+    billingDueDate?: string | null;
+  } = {},
 ) {
   const reservation = await db.transaction(async (transaction) => {
     const currentReservation = await lockPickupReservation(transaction, id);
@@ -216,6 +220,8 @@ export async function completeReservedPickup(
       transaction,
       {
         clientId: currentReservation.clientId,
+        billingIssueDate: billingDates.billingIssueDate,
+        billingDueDate: billingDates.billingDueDate,
         discountAmount: 0,
         paymentMethodId,
         items: currentReservation.items.map((item) => ({

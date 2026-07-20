@@ -56,6 +56,16 @@ export const errorHandler: ErrorRequestHandler = (
       });
       return;
     }
+
+    if (["42703", "42P01"].includes(error.code ?? "")) {
+      response.status(500).json({
+        code: 500,
+        status: "error",
+        message:
+          "Estrutura do banco desatualizada. Rode as migrations e reinicie o backend.",
+      });
+      return;
+    }
   }
 
   console.error(error);
@@ -74,6 +84,8 @@ function getUniqueConstraintMessage(constraint?: string) {
     products_barcode_unique_not_empty:
       "Ja existe um produto com esse codigo de barras.",
     users_email_unique: "Ja existe um usuario com esse email.",
+    branches_name_unique: "Ja existe uma filial com esse nome.",
+    branches_code_unique: "Ja existe uma filial com esse codigo.",
     cash_register_sessions_one_open_unique: "Ja existe um caixa aberto.",
   };
 

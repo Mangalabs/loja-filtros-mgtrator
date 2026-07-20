@@ -49,7 +49,10 @@ export function CashRegisterPage({
               label='Saldo inicial'
               value={formatCurrency(session.openingBalance)}
             />
-            <InfoTile label='Vendas' value={formatCurrency(session.salesTotal)} />
+            <InfoTile
+              label='Vendas liquidas'
+              value={formatCurrency(session.salesTotal)}
+            />
             <InfoTile
               label='Suprimentos'
               value={formatCurrency(session.supplyTotal)}
@@ -134,7 +137,7 @@ export function CashRegisterPage({
 
           <FormGrid onSubmit={onClose}>
             <PageHeader
-              description='Informe o total conferido no caixa.'
+              description='Informe o total conferido. Devolucoes ja reduzem o esperado por forma de pagamento.'
               icon={<Banknote size={18} />}
               title='Fechamento'
             />
