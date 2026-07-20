@@ -9,6 +9,7 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
 type UnauthorizedHandler = () => void;
 
 let unauthorizedHandler: UnauthorizedHandler | undefined;
+let activeBranchId: string | undefined;
 
 const ignoredUnauthorizedPaths = [
   "/auth/login",
@@ -20,6 +21,10 @@ const ignoredUnauthorizedPaths = [
 
 export function setUnauthorizedHandler(handler?: UnauthorizedHandler) {
   unauthorizedHandler = handler;
+}
+
+export function setActiveBranchHeader(branchId?: string | null) {
+  activeBranchId = branchId ?? undefined;
 }
 
 export function apiUrl(path: string) {
@@ -664,6 +669,7 @@ export type Quote = {
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(apiUrl(path), {
     credentials: "include",
+    headers: apiHeaders(),
   });
   return parseResponse<T>(response, path);
 }
@@ -688,11 +694,18 @@ async function apiWrite<T>(
   const response = await fetch(apiUrl(path), {
     method,
     credentials: "include",
-    headers: { "content-type": "application/json" },
+    headers: apiHeaders({ "content-type": "application/json" }),
     body: JSON.stringify(body),
   });
 
   return parseResponse<T>(response, path);
+}
+
+function apiHeaders(extraHeaders: HeadersInit = {}) {
+  return {
+    ...extraHeaders,
+    ...(activeBranchId ? { "x-active-branch-id": activeBranchId } : {}),
+  };
 }
 
 async function parseResponse<T>(response: Response, path: string): Promise<T> {

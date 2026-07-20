@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { AuthUser, Client, Product } from "../api";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useConfirmation } from "../hooks/useConfirmation";
@@ -34,12 +34,16 @@ export function AuthenticatedApp({
   onLogout: () => void;
 }) {
   const [view, setViewState] = useState<View>(() => readInitialView(user));
+  const [activeBranchId, setActiveBranchId] = useState<string>(() =>
+    readInitialBranchId(user),
+  );
   const [selectedProduct, setSelectedProduct] = useState<Product>();
   const [selectedClient, setSelectedClient] = useState<Client>();
   const { closeConfirmation, confirmation, requestConfirmation } =
     useConfirmation();
   const {
     brands,
+    branches,
     cashRegister,
     cashReport,
     clients,
@@ -74,8 +78,12 @@ export function AuthenticatedApp({
     stockMovements,
     stockReport,
     suppliers,
-  } = useCatalogData(user);
+  } = useCatalogData(user, activeBranchId);
   const { openNavSections, toggleNavSection } = useNavigationState();
+  const activeBranch = useMemo(() => {
+    return branches.find((branch) => branch.id === activeBranchId) ?? null;
+  }, [activeBranchId, branches]);
+
   const setView = useCallback((nextView: View) => {
     setViewState(nextView);
     storeActiveView(nextView);
@@ -164,6 +172,9 @@ export function AuthenticatedApp({
           activeDescription={activeTitle.description}
           activeTitle={activeTitle.title}
           brandCount={brands.length}
+          activeBranchId={activeBranchId}
+          activeBranchName={activeBranch?.name ?? null}
+          branches={branches}
           cashRegister={cashRegister}
           lowStockCount={lowStockProducts.length}
           productCount={products.length}
@@ -173,6 +184,10 @@ export function AuthenticatedApp({
           onChangePassword={onChangePassword}
           onLogout={onLogout}
           onRefresh={() => void loadCatalog()}
+          onSelectBranch={(branchId) => {
+            storeActiveBranchId(branchId);
+            setActiveBranchId(branchId);
+          }}
           onSelectView={setView}
         />
 
@@ -261,10 +276,38 @@ function readInitialView(user: AuthUser): View {
   return canAccessView(user, storedView) ? storedView : "products";
 }
 
+function readInitialBranchId(user: AuthUser) {
+  if (user.role === "EMPLOYEE") {
+    return user.branchId ?? "";
+  }
+
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return window.localStorage.getItem(activeBranchStorageKey) ?? "";
+}
+
 function storeActiveView(view: View) {
   if (typeof window === "undefined" || view === "edit-product") {
     return;
   }
 
   window.localStorage.setItem(activeViewStorageKey, view);
+}
+
+const activeBranchStorageKey = "loja-filtros:active-branch";
+
+function storeActiveBranchId(branchId: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const actions = {
+    clear: () => window.localStorage.removeItem(activeBranchStorageKey),
+    save: () => window.localStorage.setItem(activeBranchStorageKey, branchId),
+  };
+
+  const action = branchId ? actions.save : actions.clear;
+  action();
 }

@@ -31,8 +31,10 @@ export async function storeProduct(input: ProductCreateInput) {
   };
 }
 
-export async function indexLowStockProducts() {
-  const products = await listLowStockProducts();
+export async function indexLowStockProducts(filters: {
+  branchId?: string | null;
+}) {
+  const products = await listLowStockProducts(filters);
 
   return {
     code: 200,

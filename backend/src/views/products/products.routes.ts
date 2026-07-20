@@ -69,6 +69,7 @@ productsRoutes.get("/products", async (request, response) => {
     page,
     limit,
     active,
+    branchId: response.locals.activeBranch?.branchId ?? null,
     search: parseStringFilter(request.query.search),
   });
 
@@ -76,7 +77,9 @@ productsRoutes.get("/products", async (request, response) => {
 });
 
 productsRoutes.get("/products/low-stock", async (_request, response) => {
-  const result = await indexLowStockProducts();
+  const result = await indexLowStockProducts({
+    branchId: response.locals.activeBranch?.branchId ?? null,
+  });
 
   response.status(200).json(result);
 });
@@ -90,7 +93,10 @@ productsRoutes.get("/products/:id", async (request, response) => {
 
 productsRoutes.post("/products", async (request, response) => {
   const body = validateBody(request, createProductSchema);
-  const result = await storeProduct(body);
+  const result = await storeProduct({
+    ...body,
+    branchId: response.locals.activeBranch?.branchId ?? null,
+  });
 
   response.status(201).json(result);
 });

@@ -3,6 +3,7 @@ import { db } from "../../database/knex.js";
 export type ProductListFilters = {
   search?: string;
   active?: boolean;
+  branchId?: string | null;
   page: number;
   limit: number;
 };
@@ -88,6 +89,10 @@ export async function listProducts(
       if (typeof filters.active === "boolean") {
         query.where("products.active", filters.active);
       }
+
+      if (filters.branchId) {
+        query.where("products.branch_id", filters.branchId);
+      }
     })
     .orderBy("products.name", "asc")
     .limit(filters.limit)
@@ -96,13 +101,20 @@ export async function listProducts(
   return rows;
 }
 
-export async function listLowStockProducts(): Promise<ProductListItem[]> {
+export async function listLowStockProducts(filters: {
+  branchId?: string | null;
+}): Promise<ProductListItem[]> {
   return db("products")
     .leftJoin("branches", "branches.id", "products.branch_id")
     .leftJoin("brands", "brands.id", "products.brand_id")
     .leftJoin("product_groups", "product_groups.id", "products.group_id")
     .select(productListColumns())
     .where("products.active", true)
+    .modify((query) => {
+      if (filters.branchId) {
+        query.where("products.branch_id", filters.branchId);
+      }
+    })
     .andWhere("products.minimum_stock", ">", 0)
     .andWhereRaw(
       "products.current_stock - products.reserved_stock <= products.minimum_stock",

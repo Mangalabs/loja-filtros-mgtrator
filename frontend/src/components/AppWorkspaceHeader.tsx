@@ -1,6 +1,10 @@
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import FormControl from "@mui/material/FormControl";
 import IconButton from "@mui/material/IconButton";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
 import Tooltip from "@mui/material/Tooltip";
 import { useState } from "react";
 import {
@@ -14,7 +18,7 @@ import {
   Tags,
   Truck,
 } from "lucide-react";
-import type { AuthUser, CashRegisterSession } from "../api";
+import type { AuthUser, Branch, CashRegisterSession } from "../api";
 import { PasswordChangeForm } from "../auth/PasswordChangeForm";
 import type { View } from "../navigation";
 import { frontendPalette } from "../theme";
@@ -23,8 +27,11 @@ import { SecondaryButton } from "./ui";
 
 export function AppWorkspaceHeader({
   activeDescription,
+  activeBranchId,
+  activeBranchName,
   activeTitle,
   brandCount,
+  branches,
   cashRegister,
   lowStockCount,
   productCount,
@@ -32,13 +39,17 @@ export function AppWorkspaceHeader({
   user,
   view,
   onChangePassword,
+  onSelectBranch,
   onLogout,
   onRefresh,
   onSelectView,
 }: {
   activeDescription: string;
+  activeBranchId: string;
+  activeBranchName: string | null;
   activeTitle: string;
   brandCount: number;
+  branches: Branch[];
   cashRegister: CashRegisterSession | null;
   lowStockCount: number;
   productCount: number;
@@ -49,6 +60,7 @@ export function AppWorkspaceHeader({
     currentPassword: string;
     newPassword: string;
   }) => Promise<void>;
+  onSelectBranch: (branchId: string) => void;
   onLogout: () => void;
   onRefresh: () => void;
   onSelectView: (view: View) => void;
@@ -79,6 +91,29 @@ export function AppWorkspaceHeader({
           >
             Caixa {cashStatus}
           </Button>
+
+          {user.role === "ADMIN" ? (
+            <FormControl
+              className="min-w-[190px] bg-white"
+              size="small"
+              variant="outlined"
+            >
+              <InputLabel id="active-branch-label">Filial ativa</InputLabel>
+              <Select
+                label="Filial ativa"
+                labelId="active-branch-label"
+                value={activeBranchId}
+                onChange={(event) => onSelectBranch(event.target.value)}
+              >
+                <MenuItem value="">Todas as filiais</MenuItem>
+                {branches.map((branch) => (
+                  <MenuItem key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : null}
 
           <button
             className="flex min-w-0 cursor-pointer items-center gap-2 rounded-2xl border border-[#dfe5e1] bg-[#f7f7f4] px-3 py-2 text-left hover:border-[#8a9f9d]"
@@ -124,7 +159,7 @@ export function AppWorkspaceHeader({
               <ProfileItem label="Email" value={user.email} />
               <ProfileItem
                 label="Filial"
-                value={user.branchName ?? "Sem filial vinculada"}
+                value={activeBranchName ?? user.branchName ?? "Todas as filiais"}
               />
               <ProfileItem
                 label="Perfil"

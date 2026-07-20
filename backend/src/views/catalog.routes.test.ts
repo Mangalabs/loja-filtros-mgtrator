@@ -37,6 +37,8 @@ type Product = {
   name: string;
   internalCode: string | null;
   barcode: string | null;
+  branchId: string | null;
+  branchName: string | null;
   brandId: string | null;
   brandName: string | null;
   groupName: string | null;
@@ -5792,6 +5794,49 @@ describe("catalog routes", () => {
     assert.equal(deactivated.body.data?.active, false);
   });
 
+  it("filters products by active admin branch context", async () => {
+    const norte = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Estoque Norte",
+        code: "ESTOQUE_NORTE",
+      },
+    });
+    const sul = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Estoque Sul",
+        code: "ESTOQUE_SUL",
+      },
+    });
+
+    assert.ok(norte.body.data?.id);
+    assert.ok(sul.body.data?.id);
+
+    const northProduct = await request<Product>("/products", {
+      method: "POST",
+      headers: { "x-active-branch-id": norte.body.data.id },
+      body: { name: "Filtro Norte" },
+    });
+    const southProduct = await request<Product>("/products", {
+      method: "POST",
+      headers: { "x-active-branch-id": sul.body.data.id },
+      body: { name: "Filtro Sul" },
+    });
+    const allProducts = await request<Product[]>("/products");
+    const northProducts = await request<Product[]>("/products", {
+      headers: { "x-active-branch-id": norte.body.data.id },
+    });
+
+    assert.equal(northProduct.status, 201);
+    assert.equal(northProduct.body.data?.branchName, "Filial Estoque Norte");
+    assert.equal(southProduct.status, 201);
+    assert.equal(southProduct.body.data?.branchName, "Filial Estoque Sul");
+    assert.equal(allProducts.body.data?.length, 2);
+    assert.equal(northProducts.body.data?.length, 1);
+    assert.equal(northProducts.body.data?.[0]?.name, "Filtro Norte");
+  });
+
   it("returns conflict when creating products with duplicated barcode", async () => {
     await request("/products", {
       method: "POST",
@@ -6571,9 +6616,12 @@ async function request<T = unknown>(
     body?: unknown;
     authenticated?: boolean;
     cookie?: string;
+    headers?: Record<string, string>;
   } = {},
 ) {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    ...options.headers,
+  };
 
   if (options.body) {
     headers["content-type"] = "application/json";

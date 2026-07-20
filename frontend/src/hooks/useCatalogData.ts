@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   apiGet,
+  setActiveBranchHeader,
   type ApiResult,
   type AuthUser,
+  type Branch,
   type CashReport,
   type CashRegisterSession,
   type Client,
@@ -29,8 +31,9 @@ import {
 import type { LoadState } from "../navigation";
 import { canAccessView } from "../navigation";
 
-export function useCatalogData(user: AuthUser) {
+export function useCatalogData(user: AuthUser, activeBranchId: string) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -78,6 +81,7 @@ export function useCatalogData(user: AuthUser) {
     try {
       const [
         productsResult,
+        branchesResult,
         brandsResult,
         clientsResult,
         suppliersResult,
@@ -102,6 +106,9 @@ export function useCatalogData(user: AuthUser) {
         pickupReservationsResult,
       ] = await Promise.all([
         fetchProductCatalog(),
+        canAccessView(user, "employees")
+          ? apiGet<ApiResult<Branch[]>>("/branches")
+          : emptyResult<Branch[]>([]),
         apiGet<ApiResult<NamedEntity[]>>("/brands"),
         apiGet<ApiResult<Client[]>>("/clients"),
         apiGet<ApiResult<Supplier[]>>("/suppliers"),
@@ -143,6 +150,7 @@ export function useCatalogData(user: AuthUser) {
       ]);
 
       setProducts(productsResult);
+      setBranches(branchesResult.data);
       setBrands(brandsResult.data);
       setClients(clientsResult.data);
       setSuppliers(suppliersResult.data);
@@ -245,8 +253,9 @@ export function useCatalogData(user: AuthUser) {
   }
 
   useEffect(() => {
+    setActiveBranchHeader(activeBranchId);
     void loadCatalog();
-  }, [user.id]);
+  }, [activeBranchId, user.id]);
 
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -285,6 +294,7 @@ export function useCatalogData(user: AuthUser) {
 
   return {
     brands,
+    branches,
     cashRegister,
     cashReport,
     clients,
