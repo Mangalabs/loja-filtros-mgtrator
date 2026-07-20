@@ -45,6 +45,7 @@ type ImportRejection = {
 type ImportSummary = {
   mode: "commit" | "dry-run";
   file: string;
+  expectedFields: string[];
   totals: {
     rows: number;
     accepted: number;
@@ -58,10 +59,26 @@ type ImportSummary = {
 };
 
 const defaultSupplierName = "Importacao inicial de estoque";
+const expectedFields = [
+  "Nome do produto",
+  "Codigo interno",
+  "Unidade",
+  "Custo",
+  "Venda",
+  "NCM",
+];
 
 const fieldAliases: Record<keyof Omit<StockImportRow, "rowNumber">, string[]> =
   {
-    name: ["produto", "nome", "descricao", "descrição", "title", "name"],
+    name: [
+      "nome do produto",
+      "produto",
+      "nome",
+      "descricao",
+      "descrição",
+      "title",
+      "name",
+    ],
     internalCode: [
       "codigo interno",
       "código interno",
@@ -173,6 +190,7 @@ async function importStockCsv(options: ImportOptions): Promise<ImportSummary> {
   const summary: ImportSummary = {
     mode: options.commit ? "commit" : "dry-run",
     file: filePath,
+    expectedFields,
     totals: {
       rows: parsedRows.length,
       accepted: rowsToImport.length,
@@ -401,7 +419,7 @@ function normalizeRow(row: CsvRow, rowNumber: number, options: ImportOptions) {
   const unit = (text(row, "unit") ?? "UN").toUpperCase();
   const costPrice = requiredNumber(row, "costPrice");
   const salePrice = requiredNumber(row, "salePrice");
-  const currentStock = requiredNumber(row, "currentStock");
+  const currentStock = optionalNumber(row, "currentStock") ?? 0;
   const minimumStock = optionalNumber(row, "minimumStock") ?? 0;
   const profitMarginPercentage = optionalNumber(row, "profitMarginPercentage");
 
@@ -410,7 +428,6 @@ function normalizeRow(row: CsvRow, rowNumber: number, options: ImportOptions) {
     invalidUnitReason(unit) ??
     requiredNumberReason("Custo", costPrice) ??
     requiredNumberReason("Venda", salePrice) ??
-    requiredNumberReason("Estoque atual", currentStock) ??
     requiredNumberReason("Estoque minimo", minimumStock) ??
     invalidProfitMarginReason(profitMarginPercentage);
 

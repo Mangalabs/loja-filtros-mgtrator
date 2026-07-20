@@ -47,27 +47,18 @@ Observacao: a primeira tentativa de testes backend falhou porque o Postgres loca
 1. Validar o CSV recebido do sistema antigo antes de rodar o script:
    - nome do produto;
    - codigo interno;
-   - codigo de barras;
-   - fabricante;
-   - fornecedor, se existir;
    - unidade;
    - custo;
    - preco de venda;
-   - estoque atual;
-   - estoque minimo;
-   - locacao;
-   - NCM/CEST/origem/CFOP/CSTs quando existirem.
+   - NCM.
 2. Nao assumir que `internal_code` e unico.
-3. Tratar codigo de barras duplicado antes da importacao, pois o sistema exige unicidade quando informado.
-4. Criar fabricantes e fornecedores ausentes antes ou durante a importacao.
-5. Gerar relatorio de itens rejeitados pelo script.
-6. Rodar primeiro em ambiente local ou banco clonado.
-7. Conferir amostra manual de produtos importados:
+3. Gerar relatorio de itens rejeitados pelo script.
+4. Rodar primeiro em ambiente local ou banco clonado.
+5. Conferir amostra manual de produtos importados:
    - produto com codigo repetido e fabricante diferente;
-   - produto sem codigo de barras;
-   - produto com estoque zero;
+   - produto sem codigo interno;
    - produto com custo e preco;
-   - produto com dados fiscais completos.
+   - produto com NCM.
 
 Comandos do importador:
 
