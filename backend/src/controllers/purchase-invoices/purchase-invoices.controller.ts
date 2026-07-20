@@ -91,7 +91,11 @@ export async function updatePurchaseInvoice(
   };
 }
 
-export async function postPurchaseInvoice(id: string, createdByUserId: string) {
+export async function postPurchaseInvoice(
+  id: string,
+  createdByUserId: string,
+  branchId: string,
+) {
   const invoice = await db.transaction(async (transaction) => {
     const purchaseInvoice = await findPurchaseInvoiceForPosting(
       transaction,
@@ -133,8 +137,8 @@ export async function postPurchaseInvoice(id: string, createdByUserId: string) {
         notes: `Entrada por XML NF-e ${purchaseInvoice.number ?? purchaseInvoice.accessKey}`,
       };
 
-      if (!(await lockProduct(transaction, productId))) {
-        throw new AppError("Produto informado nao encontrado.", 422);
+      if (!(await lockProduct(transaction, productId, branchId))) {
+        throw new AppError("Produto informado nao pertence a filial ativa.", 422);
       }
 
       await insertStockEntry(transaction, input, createdByUserId);

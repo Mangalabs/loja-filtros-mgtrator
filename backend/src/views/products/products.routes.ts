@@ -13,6 +13,7 @@ import {
   parseBooleanFilter,
   parseStringFilter,
 } from "../../shared/http/query-params.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const productsRoutes = Router();
@@ -69,7 +70,7 @@ productsRoutes.get("/products", async (request, response) => {
     page,
     limit,
     active,
-    branchId: requireActiveBranchId(response),
+    branchId: requireActiveBranchId(response.locals),
     search: parseStringFilter(request.query.search),
   });
 
@@ -78,7 +79,7 @@ productsRoutes.get("/products", async (request, response) => {
 
 productsRoutes.get("/products/low-stock", async (_request, response) => {
   const result = await indexLowStockProducts({
-    branchId: requireActiveBranchId(response),
+    branchId: requireActiveBranchId(response.locals),
   });
 
   response.status(200).json(result);
@@ -95,7 +96,7 @@ productsRoutes.post("/products", async (request, response) => {
   const body = validateBody(request, createProductSchema);
   const result = await storeProduct({
     ...body,
-    branchId: requireActiveBranchId(response),
+    branchId: requireActiveBranchId(response.locals),
   });
 
   response.status(201).json(result);
@@ -129,16 +130,4 @@ function optionalUuid() {
     .union([z.uuid(), z.literal(""), z.null()])
     .transform((value) => value || null)
     .optional();
-}
-
-function requireActiveBranchId(response: {
-  locals: { activeBranch?: { branchId?: string | null } };
-}) {
-  const branchId = response.locals.activeBranch?.branchId;
-
-  if (!branchId) {
-    throw new AppError("Selecione uma filial ativa para operar produtos.", 400);
-  }
-
-  return branchId;
 }

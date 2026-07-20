@@ -8,6 +8,7 @@ import {
   storePurchaseInvoice,
   updatePurchaseInvoice,
 } from "../../controllers/purchase-invoices/purchase-invoices.controller.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { requirePermission } from "../../shared/auth/authorization-middleware.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
@@ -169,7 +170,11 @@ purchaseInvoicesRoutes.post(
   async (request, response) => {
     const { id } = purchaseInvoiceParamsSchema.parse(request.params);
     const userId = response.locals.authenticatedUser.id as string;
-    const result = await postPurchaseInvoice(id, userId);
+    const result = await postPurchaseInvoice(
+      id,
+      userId,
+      requireActiveBranchId(response.locals),
+    );
 
     response.status(200).json(result);
   },

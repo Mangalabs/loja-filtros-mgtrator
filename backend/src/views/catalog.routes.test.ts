@@ -584,6 +584,9 @@ before(async () => {
     directory: "./database/migrations",
     extension: "cjs",
   });
+  await db.raw(
+    "truncate table auth_events, commercial_settings, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
+  );
   await db("auth_events").del();
   await db("users").del();
   await db("branches").del();
@@ -5849,7 +5852,7 @@ describe("catalog routes", () => {
     assert.equal(missingBranch.status, 400);
     assert.equal(
       missingBranch.body.message,
-      "Selecione uma filial ativa para operar produtos.",
+      "Selecione uma filial ativa para operar.",
     );
     assert.equal(northProducts.body.data?.length, 1);
     assert.equal(northProducts.body.data?.[0]?.name, "Filtro Norte");
@@ -5975,6 +5978,95 @@ describe("catalog routes", () => {
     assert.equal(updatedProduct.body.data?.currentStock, "12.500");
     assert.equal(updatedProduct.body.data?.costPrice, "14.90");
     assert.equal(productSupplier?.last_cost_price, "14.90");
+  });
+
+  it("keeps stock entries and adjustments scoped to the active branch", async () => {
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Estoque Isolado",
+        code: "ESTOQUE_ISOLADO",
+      },
+    });
+    const supplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor filial ativa" },
+    });
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro filial padrao" },
+    });
+
+    assert.ok(branch.body.data?.id);
+
+    const blockedEntry = await request("/stock-entries", {
+      method: "POST",
+      headers: { "x-active-branch-id": branch.body.data.id },
+      body: {
+        productId: product.body.data?.id,
+        supplierId: supplier.body.data?.id,
+        quantity: 3,
+        unitCost: 9,
+      },
+    });
+    const createdEntry = await request<StockEntry>("/stock-entries", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        supplierId: supplier.body.data?.id,
+        quantity: 5,
+        unitCost: 12,
+      },
+    });
+    const blockedAdjustment = await request("/stock-adjustments", {
+      method: "POST",
+      headers: { "x-active-branch-id": branch.body.data.id },
+      body: {
+        productId: product.body.data?.id,
+        quantity: 1,
+        reason: "Ajuste em filial incorreta",
+      },
+    });
+    const createdAdjustment = await request<StockAdjustment>(
+      "/stock-adjustments",
+      {
+        method: "POST",
+        body: {
+          productId: product.body.data?.id,
+          quantity: 1,
+          reason: "Ajuste em filial correta",
+        },
+      },
+    );
+    const defaultEntries = await request<StockEntry[]>("/stock-entries");
+    const isolatedEntries = await request<StockEntry[]>("/stock-entries", {
+      headers: { "x-active-branch-id": branch.body.data.id },
+    });
+    const defaultMovements =
+      await request<StockMovement[]>("/stock-movements");
+    const isolatedMovements = await request<StockMovement[]>(
+      "/stock-movements",
+      {
+        headers: { "x-active-branch-id": branch.body.data.id },
+      },
+    );
+
+    assert.equal(blockedEntry.status, 422);
+    assert.equal(
+      blockedEntry.body.message,
+      "Produto informado nao pertence a filial ativa.",
+    );
+    assert.equal(createdEntry.status, 201);
+    assert.equal(blockedAdjustment.status, 422);
+    assert.equal(
+      blockedAdjustment.body.message,
+      "Produto informado nao pertence a filial ativa.",
+    );
+    assert.equal(createdAdjustment.status, 201);
+    assert.equal(defaultEntries.body.data?.length, 1);
+    assert.equal(isolatedEntries.body.data?.length, 0);
+    assert.equal(defaultMovements.body.data?.length, 2);
+    assert.equal(isolatedMovements.body.data?.length, 0);
   });
 
   it("does not update product balance when a stock entry supplier is invalid", async () => {

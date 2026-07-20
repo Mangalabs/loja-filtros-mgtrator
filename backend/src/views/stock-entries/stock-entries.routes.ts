@@ -4,6 +4,7 @@ import {
   indexStockEntries,
   storeStockEntry,
 } from "../../controllers/stock-entries/stock-entries.controller.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const stockEntriesRoutes = Router();
@@ -20,7 +21,9 @@ const createStockEntrySchema = z.object({
 });
 
 stockEntriesRoutes.get("/stock-entries", async (_request, response) => {
-  const result = await indexStockEntries();
+  const result = await indexStockEntries({
+    branchId: requireActiveBranchId(response.locals),
+  });
 
   response.status(200).json(result);
 });
@@ -28,7 +31,11 @@ stockEntriesRoutes.get("/stock-entries", async (_request, response) => {
 stockEntriesRoutes.post("/stock-entries", async (request, response) => {
   const body = validateBody(request, createStockEntrySchema);
   const userId = response.locals.authenticatedUser.id as string;
-  const result = await storeStockEntry(body, userId);
+  const result = await storeStockEntry(
+    body,
+    userId,
+    requireActiveBranchId(response.locals),
+  );
 
   response.status(201).json(result);
 });

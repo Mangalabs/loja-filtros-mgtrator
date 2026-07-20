@@ -23,12 +23,15 @@ export type StockEntry = {
   createdAt: Date
 }
 
-export async function listStockEntries(): Promise<StockEntry[]> {
+export async function listStockEntries(filters: {
+  branchId: string
+}): Promise<StockEntry[]> {
   return db('stock_movements')
     .join('products', 'products.id', 'stock_movements.product_id')
     .join('suppliers', 'suppliers.id', 'stock_movements.supplier_id')
     .leftJoin('users', 'users.id', 'stock_movements.created_by_user_id')
     .where('stock_movements.type', 'ENTRY')
+    .andWhere('products.branch_id', filters.branchId)
     .select([
       'stock_movements.id',
       'stock_movements.product_id as productId',
@@ -47,10 +50,12 @@ export async function listStockEntries(): Promise<StockEntry[]> {
 export async function lockProduct(
   transaction: Knex.Transaction,
   productId: string,
+  branchId: string,
 ): Promise<boolean> {
   const product = await transaction('products')
     .select('id')
     .where('id', productId)
+    .andWhere('branch_id', branchId)
     .forUpdate()
     .first()
 

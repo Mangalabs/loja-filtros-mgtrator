@@ -8,8 +8,8 @@ import {
 } from "../../models/stock-adjustments/stock-adjustments.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
-export async function indexStockAdjustments() {
-  const adjustments = await listStockAdjustments();
+export async function indexStockAdjustments(filters: { branchId: string }) {
+  const adjustments = await listStockAdjustments(filters);
 
   return {
     code: 200,
@@ -21,12 +21,17 @@ export async function indexStockAdjustments() {
 export async function storeStockAdjustment(
   input: StockAdjustmentInput,
   createdByUserId: string,
+  branchId: string,
 ) {
   const adjustment = await db.transaction(async (transaction) => {
-    const product = await lockProductStock(transaction, input.productId);
+    const product = await lockProductStock(
+      transaction,
+      input.productId,
+      branchId,
+    );
 
     if (!product) {
-      throw new AppError("Produto informado nao encontrado.", 422);
+      throw new AppError("Produto informado nao pertence a filial ativa.", 422);
     }
 
     if (Number(product.currentStock) + input.quantity < 0) {

@@ -10,6 +10,18 @@ export type ActiveBranchContext = {
   branchName: string | null;
 };
 
+export function requireActiveBranchId(locals: {
+  activeBranch?: ActiveBranchContext;
+}) {
+  const branchId = locals.activeBranch?.branchId;
+
+  if (!branchId) {
+    throw new AppError("Selecione uma filial ativa para operar.", 400);
+  }
+
+  return branchId;
+}
+
 export const resolveActiveBranchContext: RequestHandler = async (
   request,
   response,

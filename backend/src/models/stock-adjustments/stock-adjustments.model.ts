@@ -23,11 +23,14 @@ export type LockedProductStock = {
   reservedStock: string
 }
 
-export async function listStockAdjustments(): Promise<StockAdjustment[]> {
+export async function listStockAdjustments(filters: {
+  branchId: string
+}): Promise<StockAdjustment[]> {
   return db('stock_movements')
     .join('products', 'products.id', 'stock_movements.product_id')
     .leftJoin('users', 'users.id', 'stock_movements.created_by_user_id')
     .where('stock_movements.type', 'ADJUSTMENT')
+    .andWhere('products.branch_id', filters.branchId)
     .select([
       'stock_movements.id',
       'stock_movements.product_id as productId',
@@ -43,6 +46,7 @@ export async function listStockAdjustments(): Promise<StockAdjustment[]> {
 export async function lockProductStock(
   transaction: Knex.Transaction,
   productId: string,
+  branchId: string,
 ): Promise<LockedProductStock | undefined> {
   return transaction('products')
     .select([
@@ -51,6 +55,7 @@ export async function lockProductStock(
       'reserved_stock as reservedStock',
     ])
     .where('id', productId)
+    .andWhere('branch_id', branchId)
     .forUpdate()
     .first()
 }

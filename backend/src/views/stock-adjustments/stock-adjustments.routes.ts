@@ -4,6 +4,7 @@ import {
   indexStockAdjustments,
   storeStockAdjustment,
 } from "../../controllers/stock-adjustments/stock-adjustments.controller.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { requirePermission } from "../../shared/auth/authorization-middleware.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
@@ -21,7 +22,9 @@ stockAdjustmentsRoutes.get(
   "/stock-adjustments",
   requirePermission("MANAGE_STOCK_ADJUSTMENTS"),
   async (_request, response) => {
-    const result = await indexStockAdjustments();
+    const result = await indexStockAdjustments({
+      branchId: requireActiveBranchId(response.locals),
+    });
 
     response.status(200).json(result);
   },
@@ -33,7 +36,11 @@ stockAdjustmentsRoutes.post(
   async (request, response) => {
     const body = validateBody(request, createStockAdjustmentSchema);
     const userId = response.locals.authenticatedUser.id as string;
-    const result = await storeStockAdjustment(body, userId);
+    const result = await storeStockAdjustment(
+      body,
+      userId,
+      requireActiveBranchId(response.locals),
+    );
 
     response.status(201).json(result);
   },

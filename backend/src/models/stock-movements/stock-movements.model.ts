@@ -14,7 +14,9 @@ export type StockMovement = {
   createdAt: Date;
 };
 
-export async function listStockMovements(): Promise<StockMovement[]> {
+export async function listStockMovements(filters: {
+  branchId: string;
+}): Promise<StockMovement[]> {
   return db("stock_movements")
     .join("products", "products.id", "stock_movements.product_id")
     .leftJoin("suppliers", "suppliers.id", "stock_movements.supplier_id")
@@ -32,6 +34,7 @@ export async function listStockMovements(): Promise<StockMovement[]> {
       "stock_movements.notes",
       "stock_movements.created_at as createdAt",
     ])
+    .where("products.branch_id", filters.branchId)
     .orderBy("stock_movements.created_at", "desc")
     .orderBy("stock_movements.id", "desc");
 }
