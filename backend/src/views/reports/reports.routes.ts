@@ -8,6 +8,7 @@ import {
   showStockReport,
 } from "../../controllers/reports/reports.controller.js";
 import { requirePermission } from "../../shared/auth/authorization-middleware.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 
 export const reportsRoutes = Router();
 
@@ -17,7 +18,13 @@ const salesReportQuerySchema = z.object({
 });
 
 reportsRoutes.get("/reports/overview", async (_request, response) => {
-  response.status(200).json(await showReportsOverview());
+  response
+    .status(200)
+    .json(
+      await showReportsOverview({
+        branchId: requireActiveBranchId(response.locals),
+      }),
+    );
 });
 
 reportsRoutes.get(
@@ -26,7 +33,14 @@ reportsRoutes.get(
   async (request, response) => {
     const query = salesReportQuerySchema.parse(request.query);
 
-    response.status(200).json(await showSalesReport(query));
+    response
+      .status(200)
+      .json(
+        await showSalesReport({
+          ...query,
+          branchId: requireActiveBranchId(response.locals),
+        }),
+      );
   },
 );
 
@@ -36,7 +50,14 @@ reportsRoutes.get(
   async (request, response) => {
     const query = salesReportQuerySchema.parse(request.query);
 
-    response.status(200).json(await showStockReport(query));
+    response
+      .status(200)
+      .json(
+        await showStockReport({
+          ...query,
+          branchId: requireActiveBranchId(response.locals),
+        }),
+      );
   },
 );
 
@@ -46,7 +67,14 @@ reportsRoutes.get(
   async (request, response) => {
     const query = salesReportQuerySchema.parse(request.query);
 
-    response.status(200).json(await showPurchaseReport(query));
+    response
+      .status(200)
+      .json(
+        await showPurchaseReport({
+          ...query,
+          branchId: requireActiveBranchId(response.locals),
+        }),
+      );
   },
 );
 
@@ -56,6 +84,13 @@ reportsRoutes.get(
   async (request, response) => {
     const query = salesReportQuerySchema.parse(request.query);
 
-    response.status(200).json(await showCashReport(query));
+    response
+      .status(200)
+      .json(
+        await showCashReport({
+          ...query,
+          branchId: requireActiveBranchId(response.locals),
+        }),
+      );
   },
 );

@@ -15,6 +15,7 @@ export type ReportsOverview = {
 };
 
 export type SalesReportFilters = {
+  branchId: string;
   dateFrom?: string;
   dateTo?: string;
 };
@@ -47,16 +48,19 @@ export type SalesReport = {
 };
 
 export type StockReportFilters = {
+  branchId: string;
   dateFrom?: string;
   dateTo?: string;
 };
 
 export type PurchaseReportFilters = {
+  branchId: string;
   dateFrom?: string;
   dateTo?: string;
 };
 
 export type CashReportFilters = {
+  branchId: string;
   dateFrom?: string;
   dateTo?: string;
 };
@@ -284,7 +288,9 @@ type CashReportPaymentMethodRow = {
 
 type CashReportSessionRow = CashReport["sessions"][number];
 
-export async function getReportsOverview(): Promise<ReportsOverview> {
+export async function getReportsOverview(filters: {
+  branchId: string;
+}): Promise<ReportsOverview> {
   const [
     salesSummary,
     lowStockProducts,
@@ -293,6 +299,7 @@ export async function getReportsOverview(): Promise<ReportsOverview> {
     openCashRegister,
   ] = await Promise.all([
     db("sales")
+      .where("branch_id", filters.branchId)
       .where("status", "COMPLETED")
       .select<SalesSummaryRow[]>([
         db.raw("count(*)::text as count"),
@@ -302,15 +309,18 @@ export async function getReportsOverview(): Promise<ReportsOverview> {
       ])
       .first(),
     db("products")
+      .where("branch_id", filters.branchId)
       .where("active", true)
       .whereRaw("current_stock <= minimum_stock")
       .count<CountRow[]>("id as count")
       .first(),
     db("shipping_orders")
+      .where("branch_id", filters.branchId)
       .whereIn("status", ["QUOTED", "APPROVED", "SEPARATED"])
       .count<CountRow[]>("id as count")
       .first(),
     db("pickup_reservations")
+      .where("branch_id", filters.branchId)
       .where("status", "RESERVED")
       .count<CountRow[]>("id as count")
       .first(),
@@ -319,6 +329,7 @@ export async function getReportsOverview(): Promise<ReportsOverview> {
       .select<
         CashRegisterRow[]
       >(["cash_register_sessions.id", "users.name as openedByUserName", "cash_register_sessions.opened_at as openedAt"])
+      .where("cash_register_sessions.branch_id", filters.branchId)
       .where("cash_register_sessions.status", "OPEN")
       .first(),
   ]);
@@ -440,11 +451,14 @@ export async function getStockReport(
     stockSummary,
   ] = await Promise.all([
     db("products")
+      .where("branch_id", filters.branchId)
       .where("active", true)
       .count<CountRow[]>("id as count")
       .first(),
-    lowStockProductsQuery().count<CountRow[]>("products.id as count").first(),
-    lowStockProductsQuery()
+    lowStockProductsQuery(filters)
+      .count<CountRow[]>("products.id as count")
+      .first(),
+    lowStockProductsQuery(filters)
       .select<LowStockProductRow[]>([
         "products.id as productId",
         "products.name as productName",
@@ -458,10 +472,10 @@ export async function getStockReport(
       .orderByRaw("products.current_stock - products.reserved_stock asc")
       .orderBy("products.name", "asc")
       .limit(20),
-    productsWithoutMovementQuery()
+    productsWithoutMovementQuery(filters)
       .count<CountRow[]>("products.id as count")
       .first(),
-    productsWithoutMovementQuery()
+    productsWithoutMovementQuery(filters)
       .select<ProductWithoutMovementRow[]>([
         "products.id as productId",
         "products.name as productName",
@@ -567,7 +581,6 @@ export async function getPurchaseReport(
       )
       .limit(20),
     purchaseReportBaseQuery(filters)
-      .join("products", "products.id", "stock_movements.product_id")
       .select<PurchaseByProductRow[]>([
         "products.id as productId",
         "products.name as productName",
@@ -689,8 +702,9 @@ export async function getCashReport(
   };
 }
 
-function lowStockProductsQuery() {
+function lowStockProductsQuery(filters: StockReportFilters) {
   return db("products")
+    .where("products.branch_id", filters.branchId)
     .where("products.active", true)
     .where("products.minimum_stock", ">", 0)
     .whereRaw(
@@ -698,9 +712,10 @@ function lowStockProductsQuery() {
     );
 }
 
-function productsWithoutMovementQuery() {
+function productsWithoutMovementQuery(filters: StockReportFilters) {
   return db("products")
     .leftJoin("stock_movements", "stock_movements.product_id", "products.id")
+    .where("products.branch_id", filters.branchId)
     .where("products.active", true)
     .whereNull("stock_movements.id");
 }
@@ -709,6 +724,7 @@ function salesReportBaseQuery(filters: SalesReportFilters) {
   return db("sales")
     .join("sale_items", "sale_items.sale_id", "sales.id")
     .where("sales.status", "COMPLETED")
+    .where("sales.branch_id", filters.branchId)
     .modify((query) => {
       if (filters.dateFrom) {
         query.where("sales.created_at", ">=", filters.dateFrom);
@@ -727,6 +743,7 @@ function salesReportBaseQuery(filters: SalesReportFilters) {
 function salesReportSalesQuery(filters: SalesReportFilters) {
   return db("sales")
     .where("sales.status", "COMPLETED")
+    .where("sales.branch_id", filters.branchId)
     .modify((query) => {
       if (filters.dateFrom) {
         query.where("sales.created_at", ">=", filters.dateFrom);
@@ -753,6 +770,7 @@ function stockTurnoverQuery(filters: StockReportFilters) {
   return db("stock_movements")
     .join("products", "products.id", "stock_movements.product_id")
     .where("products.active", true)
+    .where("products.branch_id", filters.branchId)
     .where("stock_movements.type", "SALE")
     .modify((query) => {
       if (filters.dateFrom) {
@@ -771,7 +789,9 @@ function stockTurnoverQuery(filters: StockReportFilters) {
 
 function purchaseReportBaseQuery(filters: PurchaseReportFilters) {
   return db("stock_movements")
+    .join("products", "products.id", "stock_movements.product_id")
     .where("stock_movements.type", "ENTRY")
+    .where("products.branch_id", filters.branchId)
     .modify((query) => {
       if (filters.dateFrom) {
         query.where("stock_movements.created_at", ">=", filters.dateFrom);
@@ -792,9 +812,11 @@ function purchaseSourceSql() {
 }
 
 function cashRegisterSessionsQuery(filters: CashReportFilters) {
-  return db("cash_register_sessions").modify((query) => {
-    applyCashReportFilters(query, filters);
-  });
+  return db("cash_register_sessions")
+    .where("cash_register_sessions.branch_id", filters.branchId)
+    .modify((query) => {
+      applyCashReportFilters(query, filters);
+    });
 }
 
 function cashReportGrossSalesQuery(filters: CashReportFilters) {
@@ -805,6 +827,7 @@ function cashReportGrossSalesQuery(filters: CashReportFilters) {
       "cash_register_sessions.id",
       "sales.cash_register_session_id",
     )
+    .where("cash_register_sessions.branch_id", filters.branchId)
     .where("sales.status", "COMPLETED")
     .modify((query) => {
       applyCashReportFilters(query, filters);
@@ -824,6 +847,7 @@ function cashReportRefundsQuery(filters: CashReportFilters) {
       "cash_register_sessions.id",
       "sales.cash_register_session_id",
     )
+    .where("cash_register_sessions.branch_id", filters.branchId)
     .where("sales.status", "COMPLETED")
     .modify((query) => {
       applyCashReportFilters(query, filters);
@@ -846,6 +870,7 @@ function cashReportMovementsQuery(
       "cash_register_sessions.id",
       "cash_register_movements.cash_register_session_id",
     )
+    .where("cash_register_sessions.branch_id", filters.branchId)
     .where("cash_register_movements.type", movementType)
     .modify((query) => {
       applyCashReportFilters(query, filters);
@@ -877,6 +902,7 @@ function cashReportGrossSalesByPaymentMethodQuery(filters: CashReportFilters) {
       "cash_register_sessions.id",
       "sales.cash_register_session_id",
     )
+    .where("cash_register_sessions.branch_id", filters.branchId)
     .join(
       "payment_methods",
       "payment_methods.id",
@@ -904,6 +930,7 @@ function cashReportRefundsByPaymentMethodQuery(filters: CashReportFilters) {
       "cash_register_sessions.id",
       "sales.cash_register_session_id",
     )
+    .where("cash_register_sessions.branch_id", filters.branchId)
     .join(
       "payment_methods",
       "payment_methods.id",

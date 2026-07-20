@@ -10,11 +10,11 @@ import {
   type StockReportFilters,
 } from "../../models/reports/reports.model.js";
 
-export async function showReportsOverview() {
+export async function showReportsOverview(filters: { branchId: string }) {
   return {
     code: 200,
     status: "success",
-    data: await getReportsOverview(),
+    data: await getReportsOverview(filters),
   };
 }
 

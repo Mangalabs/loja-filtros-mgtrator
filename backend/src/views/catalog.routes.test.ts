@@ -3627,6 +3627,79 @@ describe("catalog routes", () => {
     );
   });
 
+  it("keeps management reports scoped to the active branch", async () => {
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Relatorio Isolado",
+        code: "RELATORIO_ISOLADO",
+      },
+    });
+    const supplier = await request<NamedEntity>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor relatorio filial" },
+    });
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro relatorio filial",
+        salePrice: 25,
+        minimumStock: 10,
+      },
+    });
+    const paymentMethod = await activePaymentMethod();
+
+    assert.ok(branch.body.data?.id);
+
+    await request("/stock-entries", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        supplierId: supplier.body.data?.id,
+        quantity: 2,
+        unitCost: 10,
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 50 },
+    });
+    await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        quantity: 1,
+      },
+    });
+
+    const isolatedHeaders = { "x-active-branch-id": branch.body.data.id };
+    const isolatedOverview = await request<ReportsOverview>("/reports/overview", {
+      headers: isolatedHeaders,
+    });
+    const isolatedSales = await request<SalesReport>("/reports/sales", {
+      headers: isolatedHeaders,
+    });
+    const isolatedStock = await request<StockReport>("/reports/stock", {
+      headers: isolatedHeaders,
+    });
+    const isolatedPurchases = await request<PurchaseReport>("/reports/purchases", {
+      headers: isolatedHeaders,
+    });
+    const isolatedCash = await request<CashReport>("/reports/cash", {
+      headers: isolatedHeaders,
+    });
+
+    assert.equal(isolatedOverview.status, 200);
+    assert.equal(isolatedOverview.body.data?.salesCount, 0);
+    assert.equal(isolatedOverview.body.data?.lowStockProductsCount, 0);
+    assert.equal(isolatedOverview.body.data?.openCashRegister, null);
+    assert.equal(isolatedSales.body.data?.summary.salesCount, 0);
+    assert.equal(isolatedStock.body.data?.summary.activeProductsCount, 0);
+    assert.equal(isolatedPurchases.body.data?.summary.entriesCount, 0);
+    assert.equal(isolatedCash.body.data?.summary.sessionsCount, 0);
+  });
+
   it("returns sales commercial reports grouped by product, client, and payment method", async () => {
     const firstProduct = await request<Product>("/products", {
       method: "POST",
