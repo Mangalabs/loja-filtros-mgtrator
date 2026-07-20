@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AuthUser, Client, Product } from "../api";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useConfirmation } from "../hooks/useConfirmation";
@@ -83,6 +83,22 @@ export function AuthenticatedApp({
   const activeBranch = useMemo(() => {
     return branches.find((branch) => branch.id === activeBranchId) ?? null;
   }, [activeBranchId, branches]);
+  const fallbackBranchId = user.role === "ADMIN" ? branches[0]?.id : undefined;
+
+  useEffect(() => {
+    const branchSelectionIsValid =
+      user.role === "EMPLOYEE" ||
+      branches.length === 0 ||
+      branches.some((branch) => branch.id === activeBranchId);
+
+    if (branchSelectionIsValid) {
+      return;
+    }
+
+    const nextBranchId = fallbackBranchId ?? "";
+    storeActiveBranchId(nextBranchId);
+    setActiveBranchId(nextBranchId);
+  }, [activeBranchId, branches, fallbackBranchId, user.role]);
 
   const setView = useCallback((nextView: View) => {
     setViewState(nextView);

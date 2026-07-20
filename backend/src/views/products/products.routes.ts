@@ -69,7 +69,7 @@ productsRoutes.get("/products", async (request, response) => {
     page,
     limit,
     active,
-    branchId: response.locals.activeBranch?.branchId ?? null,
+    branchId: requireActiveBranchId(response),
     search: parseStringFilter(request.query.search),
   });
 
@@ -78,7 +78,7 @@ productsRoutes.get("/products", async (request, response) => {
 
 productsRoutes.get("/products/low-stock", async (_request, response) => {
   const result = await indexLowStockProducts({
-    branchId: response.locals.activeBranch?.branchId ?? null,
+    branchId: requireActiveBranchId(response),
   });
 
   response.status(200).json(result);
@@ -95,7 +95,7 @@ productsRoutes.post("/products", async (request, response) => {
   const body = validateBody(request, createProductSchema);
   const result = await storeProduct({
     ...body,
-    branchId: response.locals.activeBranch?.branchId ?? null,
+    branchId: requireActiveBranchId(response),
   });
 
   response.status(201).json(result);
@@ -129,4 +129,16 @@ function optionalUuid() {
     .union([z.uuid(), z.literal(""), z.null()])
     .transform((value) => value || null)
     .optional();
+}
+
+function requireActiveBranchId(response: {
+  locals: { activeBranch?: { branchId?: string | null } };
+}) {
+  const branchId = response.locals.activeBranch?.branchId;
+
+  if (!branchId) {
+    throw new AppError("Selecione uma filial ativa para operar produtos.", 400);
+  }
+
+  return branchId;
 }

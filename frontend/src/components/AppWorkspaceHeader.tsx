@@ -69,7 +69,7 @@ export function AppWorkspaceHeader({
   const [profileOpen, setProfileOpen] = useState(false);
   const [branchMenuAnchor, setBranchMenuAnchor] =
     useState<HTMLElement | null>(null);
-  const branchLabel = activeBranchName ?? "Todas as filiais";
+  const branchLabel = activeBranchName ?? "Selecione uma filial";
 
   function closeBranchMenu() {
     setBranchMenuAnchor(null);
@@ -130,12 +130,6 @@ export function AppWorkspaceHeader({
                 open={Boolean(branchMenuAnchor)}
                 onClose={closeBranchMenu}
               >
-                <MenuItem
-                  selected={!activeBranchId}
-                  onClick={() => selectBranch("")}
-                >
-                  Todas as filiais
-                </MenuItem>
                 {branches.map((branch) => (
                   <MenuItem
                     key={branch.id}
@@ -145,6 +139,9 @@ export function AppWorkspaceHeader({
                     {branch.name}
                   </MenuItem>
                 ))}
+                {branches.length === 0 ? (
+                  <MenuItem disabled>Nenhuma filial cadastrada</MenuItem>
+                ) : null}
               </Menu>
             </>
           ) : null}
@@ -193,7 +190,11 @@ export function AppWorkspaceHeader({
               <ProfileItem label="Email" value={user.email} />
               <ProfileItem
                 label="Filial"
-                value={activeBranchName ?? user.branchName ?? "Todas as filiais"}
+                value={
+                  activeBranchName ??
+                  user.branchName ??
+                  "Nenhuma filial selecionada"
+                }
               />
               <ProfileItem
                 label="Perfil"

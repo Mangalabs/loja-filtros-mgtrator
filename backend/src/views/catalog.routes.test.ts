@@ -566,6 +566,7 @@ type CommercialSettings = {
 let server: Server;
 let baseUrl: string;
 let authCookie: string;
+let defaultBranchId: string;
 
 before(async () => {
   const database = await db.raw<{ rows: Array<{ name: string }> }>(
@@ -609,6 +610,17 @@ before(async () => {
   assert.equal(setup.status, 201);
   assert.ok(setup.cookie);
   authCookie = setup.cookie!;
+
+  const defaultBranch = await request<Branch>("/branches", {
+    method: "POST",
+    body: {
+      name: "Matriz Teste",
+      code: "MATRIZ_TESTE",
+    },
+  });
+
+  assert.ok(defaultBranch.body.data?.id);
+  defaultBranchId = defaultBranch.body.data.id;
 });
 
 beforeEach(async () => {
@@ -5823,7 +5835,9 @@ describe("catalog routes", () => {
       headers: { "x-active-branch-id": sul.body.data.id },
       body: { name: "Filtro Sul" },
     });
-    const allProducts = await request<Product[]>("/products");
+    const missingBranch = await request<Product[]>("/products", {
+      headers: { "x-active-branch-id": "" },
+    });
     const northProducts = await request<Product[]>("/products", {
       headers: { "x-active-branch-id": norte.body.data.id },
     });
@@ -5832,7 +5846,11 @@ describe("catalog routes", () => {
     assert.equal(northProduct.body.data?.branchName, "Filial Estoque Norte");
     assert.equal(southProduct.status, 201);
     assert.equal(southProduct.body.data?.branchName, "Filial Estoque Sul");
-    assert.equal(allProducts.body.data?.length, 2);
+    assert.equal(missingBranch.status, 400);
+    assert.equal(
+      missingBranch.body.message,
+      "Selecione uma filial ativa para operar produtos.",
+    );
     assert.equal(northProducts.body.data?.length, 1);
     assert.equal(northProducts.body.data?.[0]?.name, "Filtro Norte");
   });
@@ -6620,6 +6638,7 @@ async function request<T = unknown>(
   } = {},
 ) {
   const headers: Record<string, string> = {
+    ...(defaultBranchId ? { "x-active-branch-id": defaultBranchId } : {}),
     ...options.headers,
   };
 
