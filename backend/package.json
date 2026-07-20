@@ -12,6 +12,7 @@
     "test": "NODE_ENV=test node --import tsx --test src/views/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "stock:import-csv": "tsx scripts/import-stock-csv.ts",
+    "users:create-root-admin": "tsx scripts/create-root-admin.ts",
     "db:make": "knex migrate:make --knexfile knexfile.cjs",
     "db:migrate": "knex migrate:latest --knexfile knexfile.cjs",
     "db:rollback": "knex migrate:rollback --knexfile knexfile.cjs"
