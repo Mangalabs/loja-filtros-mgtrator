@@ -180,10 +180,11 @@ export async function getQuoteById(
 export async function activeQuoteClientExists(
   transaction: Knex.Transaction,
   clientId: string,
+  branchId: string,
 ): Promise<boolean> {
   const client = await transaction('clients')
     .select('id')
-    .where({ id: clientId, active: true })
+    .where({ id: clientId, branch_id: branchId, active: true })
     .first()
 
   return Boolean(client)

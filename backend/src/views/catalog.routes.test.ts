@@ -316,6 +316,8 @@ type PaymentMethod = {
 
 type Client = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   personType: "PF" | "PJ" | "ES";
   name: string;
   document: string | null;
@@ -5907,6 +5909,8 @@ describe("catalog routes", () => {
     const active = await request<Client[]>("/clients?active=true");
 
     assert.equal(created.status, 201);
+    assert.equal(created.body.data?.branchId, defaultBranchId);
+    assert.equal(created.body.data?.branchName, "Matriz Teste");
     assert.equal(created.body.data?.personType, "PF");
     assert.equal(listed.status, 200);
     assert.equal(listed.body.data?.length, 1);
@@ -5923,6 +5927,74 @@ describe("catalog routes", () => {
     assert.equal(deactivated.body.data?.active, false);
     assert.equal(updated.body.data?.active, false);
     assert.equal(active.body.data?.length, 0);
+  });
+
+  it("keeps clients scoped to the active branch", async () => {
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Clientes Isolada",
+        code: "CLIENTES",
+      },
+    });
+    assert.ok(branch.body.data?.id);
+
+    const defaultClient = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente Matriz",
+        document: "11122233344",
+      },
+    });
+    const isolatedClient = await request<Client>("/clients", {
+      method: "POST",
+      headers: { "x-active-branch-id": branch.body.data.id },
+      body: {
+        personType: "PF",
+        name: "Cliente Filial",
+        document: "55566677788",
+      },
+    });
+    const defaultList = await request<Client[]>("/clients");
+    const isolatedList = await request<Client[]>("/clients", {
+      headers: { "x-active-branch-id": branch.body.data.id },
+    });
+    const blockedUpdate = await request(
+      `/clients/${defaultClient.body.data?.id}`,
+      {
+        method: "PUT",
+        headers: { "x-active-branch-id": branch.body.data.id },
+        body: {
+          personType: "PF",
+          name: "Cliente Matriz Alterado",
+          document: "11122233344",
+        },
+      },
+    );
+    const blockedStatus = await request(
+      `/clients/${defaultClient.body.data?.id}/status`,
+      {
+        method: "PATCH",
+        headers: { "x-active-branch-id": branch.body.data.id },
+        body: { active: false },
+      },
+    );
+
+    assert.equal(defaultClient.status, 201);
+    assert.equal(defaultClient.body.data?.branchId, defaultBranchId);
+    assert.equal(isolatedClient.status, 201);
+    assert.equal(isolatedClient.body.data?.branchId, branch.body.data.id);
+    assert.deepEqual(
+      defaultList.body.data?.map((client) => client.name),
+      ["Cliente Matriz"],
+    );
+    assert.deepEqual(
+      isolatedList.body.data?.map((client) => client.name),
+      ["Cliente Filial"],
+    );
+    assert.equal(blockedUpdate.status, 404);
+    assert.equal(blockedStatus.status, 404);
   });
 
   it("returns validation details for invalid client person type", async () => {
@@ -6356,6 +6428,11 @@ describe("catalog routes", () => {
       method: "POST",
       body: { personType: "PF", name: "Cliente atendimento filial" },
     });
+    const isolatedClient = await request<Client>("/clients", {
+      method: "POST",
+      headers: { "x-active-branch-id": branch.body.data?.id ?? "" },
+      body: { personType: "PF", name: "Cliente atendimento isolado" },
+    });
     const product = await request<Product>("/products", {
       method: "POST",
       body: {
@@ -6390,7 +6467,7 @@ describe("catalog routes", () => {
       method: "POST",
       headers: { "x-active-branch-id": branch.body.data.id },
       body: {
-        clientId: client.body.data?.id,
+        clientId: isolatedClient.body.data?.id,
         productId: product.body.data?.id,
         quantity: 1,
         allowInsufficientStock: true,
@@ -6400,7 +6477,7 @@ describe("catalog routes", () => {
       method: "POST",
       headers: { "x-active-branch-id": branch.body.data.id },
       body: {
-        clientId: client.body.data?.id,
+        clientId: isolatedClient.body.data?.id,
         items: [{ productId: product.body.data?.id, quantity: 1 }],
         allowInsufficientStock: true,
       },

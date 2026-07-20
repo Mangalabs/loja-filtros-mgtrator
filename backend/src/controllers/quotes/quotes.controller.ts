@@ -231,7 +231,7 @@ async function prepareQuoteInput(
   input: QuoteInput,
   branchId: string,
 ) {
-  if (!(await activeQuoteClientExists(transaction, input.clientId))) {
+  if (!(await activeQuoteClientExists(transaction, input.clientId, branchId))) {
     throw new AppError("Cliente informado nao disponivel.", 422);
   }
 

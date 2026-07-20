@@ -118,10 +118,11 @@ export async function listPickupReservations(filters: {
 export async function activePickupClientExists(
   transaction: Knex.Transaction,
   clientId: string,
+  branchId: string,
 ): Promise<boolean> {
   const client = await transaction("clients")
     .select("id")
-    .where({ id: clientId, active: true })
+    .where({ id: clientId, branch_id: branchId, active: true })
     .first();
 
   return Boolean(client);

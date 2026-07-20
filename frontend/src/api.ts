@@ -74,6 +74,8 @@ export type Supplier = NamedEntity & {
 };
 
 export type Client = NamedEntity & {
+  branchId: string | null;
+  branchName: string | null;
   personType: "PF" | "PJ" | "ES";
   document: string | null;
   email: string | null;

@@ -19,8 +19,11 @@ export async function indexClients(filters: ClientListFilters) {
   };
 }
 
-export async function storeClient(input: ClientInput) {
-  const client = await createClient(input);
+export async function storeClient(
+  input: Omit<ClientInput, "branchId">,
+  branchId: string,
+) {
+  const client = await createClient({ ...input, branchId });
 
   return {
     code: 201,
@@ -37,8 +40,12 @@ export async function lookupClientCompany(cnpj: string) {
   };
 }
 
-export async function replaceClient(id: string, input: ClientInput) {
-  const client = await updateClient(id, input);
+export async function replaceClient(
+  id: string,
+  input: Omit<ClientInput, "branchId">,
+  branchId: string,
+) {
+  const client = await updateClient(id, branchId, { ...input, branchId });
 
   if (!client) {
     throw new AppError("Client not found", 404);
@@ -51,8 +58,12 @@ export async function replaceClient(id: string, input: ClientInput) {
   };
 }
 
-export async function changeClientStatus(id: string, active: boolean) {
-  const client = await updateClientStatus(id, active);
+export async function changeClientStatus(
+  id: string,
+  branchId: string,
+  active: boolean,
+) {
+  const client = await updateClientStatus(id, branchId, active);
 
   if (!client) {
     throw new AppError("Client not found", 404);

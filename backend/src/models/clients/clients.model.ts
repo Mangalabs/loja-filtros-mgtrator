@@ -1,12 +1,15 @@
 import { db } from "../../database/knex.js";
 
 export type ClientListFilters = {
+  branchId: string;
   search?: string;
   active?: boolean;
 };
 
 export type Client = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   personType: "PF" | "PJ" | "ES";
   name: string;
   document: string | null;
@@ -25,6 +28,7 @@ export type Client = {
 };
 
 export type ClientInput = {
+  branchId: string;
   personType: Client["personType"];
   name: string;
   document?: string | null;
@@ -42,85 +46,90 @@ export type ClientInput = {
 };
 
 const clientColumns = [
-  "id",
-  "person_type as personType",
-  "name",
-  "document",
-  "email",
-  "phone",
-  "state_registration as stateRegistration",
-  "state_registration_indicator as stateRegistrationIndicator",
-  "address_street as addressStreet",
-  "address_number as addressNumber",
-  "address_complement as addressComplement",
-  "address_district as addressDistrict",
-  "address_city as addressCity",
-  "address_state as addressState",
-  "address_zip_code as addressZipCode",
-  "active",
+  "clients.id",
+  "clients.branch_id as branchId",
+  "branches.name as branchName",
+  "clients.person_type as personType",
+  "clients.name",
+  "clients.document",
+  "clients.email",
+  "clients.phone",
+  "clients.state_registration as stateRegistration",
+  "clients.state_registration_indicator as stateRegistrationIndicator",
+  "clients.address_street as addressStreet",
+  "clients.address_number as addressNumber",
+  "clients.address_complement as addressComplement",
+  "clients.address_district as addressDistrict",
+  "clients.address_city as addressCity",
+  "clients.address_state as addressState",
+  "clients.address_zip_code as addressZipCode",
+  "clients.active",
 ];
 
 export async function listClients(
   filters: ClientListFilters,
 ): Promise<Client[]> {
-  return db("clients")
-    .select(clientColumns)
+  return clientsQuery()
+    .where("clients.branch_id", filters.branchId)
     .modify((query) => {
       if (filters.search) {
         query.where((builder) => {
           builder
-            .whereILike("name", `%${filters.search}%`)
-            .orWhereILike("document", `%${filters.search}%`);
+            .whereILike("clients.name", `%${filters.search}%`)
+            .orWhereILike("clients.document", `%${filters.search}%`);
         });
       }
 
       if (typeof filters.active === "boolean") {
-        query.where("active", filters.active);
+        query.where("clients.active", filters.active);
       }
     })
-    .orderBy("name", "asc");
+    .orderBy("clients.name", "asc");
 }
 
 export async function createClient(input: ClientInput): Promise<Client> {
-  const [client] = await db("clients")
+  const [created] = await db("clients")
     .insert(toDatabaseInput(input))
-    .returning(clientColumns);
+    .returning("id");
 
-  return client;
+  return findClientById(created.id);
 }
 
 export async function updateClient(
   id: string,
+  branchId: string,
   input: ClientInput,
 ): Promise<Client | undefined> {
-  const [client] = await db("clients")
-    .where("id", id)
+  const [updated] = await db("clients")
+    .where({ id, branch_id: branchId })
     .update({
       ...toDatabaseInput(input),
       updated_at: db.fn.now(),
     })
-    .returning(clientColumns);
+    .returning("id");
 
-  return client;
+  return updated ? findClientById(updated.id) : undefined;
 }
 
 export async function updateClientStatus(
   id: string,
+  branchId: string,
   active: boolean,
 ): Promise<Client | undefined> {
-  const [client] = await db("clients")
-    .where("id", id)
+  const [updated] = await db("clients")
+    .where({ id, branch_id: branchId })
     .update({
       active,
       updated_at: db.fn.now(),
     })
-    .returning(clientColumns);
+    .returning("id");
 
-  return client;
+  return updated ? findClientById(updated.id) : undefined;
 }
 
 function toDatabaseInput(input: ClientInput) {
   return {
+    branch_id: input.branchId,
     person_type: input.personType,
     name: input.name,
     document: input.document,
@@ -136,4 +145,20 @@ function toDatabaseInput(input: ClientInput) {
     address_state: input.addressState,
     address_zip_code: input.addressZipCode,
   };
+}
+
+function clientsQuery() {
+  return db("clients")
+    .leftJoin("branches", "branches.id", "clients.branch_id")
+    .select<Client[]>(clientColumns);
+}
+
+async function findClientById(id: string): Promise<Client> {
+  const client = await clientsQuery().where("clients.id", id).first();
+
+  if (!client) {
+    throw new Error("Client was not found after persistence");
+  }
+
+  return client;
 }

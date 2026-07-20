@@ -11,6 +11,7 @@ import {
   parseBooleanFilter,
   parseStringFilter,
 } from "../../shared/http/query-params.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const clientsRoutes = Router();
@@ -54,6 +55,7 @@ const updateClientStatusSchema = z.object({
 
 clientsRoutes.get("/clients", async (request, response) => {
   const result = await indexClients({
+    branchId: requireActiveBranchId(response.locals),
     active: parseBooleanFilter(request.query.active),
     search: parseStringFilter(request.query.search),
   });
@@ -69,7 +71,7 @@ clientsRoutes.get("/clients/cnpj/:cnpj", async (request, response) => {
 
 clientsRoutes.post("/clients", async (request, response) => {
   const body = validateBody(request, clientSchema);
-  const result = await storeClient(body);
+  const result = await storeClient(body, requireActiveBranchId(response.locals));
 
   response.status(201).json(result);
 });
@@ -77,7 +79,11 @@ clientsRoutes.post("/clients", async (request, response) => {
 clientsRoutes.put("/clients/:id", async (request, response) => {
   const { id } = clientParamsSchema.parse(request.params);
   const body = validateBody(request, clientSchema);
-  const result = await replaceClient(id, body);
+  const result = await replaceClient(
+    id,
+    body,
+    requireActiveBranchId(response.locals),
+  );
 
   response.status(200).json(result);
 });
@@ -85,7 +91,11 @@ clientsRoutes.put("/clients/:id", async (request, response) => {
 clientsRoutes.patch("/clients/:id/status", async (request, response) => {
   const { id } = clientParamsSchema.parse(request.params);
   const body = validateBody(request, updateClientStatusSchema);
-  const result = await changeClientStatus(id, body.active);
+  const result = await changeClientStatus(
+    id,
+    requireActiveBranchId(response.locals),
+    body.active,
+  );
 
   response.status(200).json(result);
 });

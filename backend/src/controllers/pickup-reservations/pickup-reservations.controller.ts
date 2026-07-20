@@ -31,7 +31,9 @@ export async function storePickupReservation(
   branchId: string,
 ) {
   const reservation = await db.transaction(async (transaction) => {
-    if (!(await activePickupClientExists(transaction, input.clientId))) {
+    if (
+      !(await activePickupClientExists(transaction, input.clientId, branchId))
+    ) {
       throw new AppError("Cliente informado nao disponivel.", 422);
     }
 

@@ -33,7 +33,9 @@ export async function storeShippingOrder(
   branchId: string,
 ) {
   const order = await db.transaction(async (transaction) => {
-    if (!(await activeShippingClientExists(transaction, input.clientId))) {
+    if (
+      !(await activeShippingClientExists(transaction, input.clientId, branchId))
+    ) {
       throw new AppError("Cliente informado nao disponivel.", 422);
     }
 

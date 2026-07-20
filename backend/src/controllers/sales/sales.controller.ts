@@ -110,7 +110,7 @@ export async function storeSale(
 
     if (
       input.clientId &&
-      !(await activeClientExists(transaction, input.clientId))
+      !(await activeClientExists(transaction, input.clientId, branchId))
     ) {
       throw new AppError("Cliente informado nao disponivel.", 422);
     }
