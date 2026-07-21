@@ -258,6 +258,7 @@ Relatorios posteriores:
 
 - Login/autenticacao com usuario inicial.
 - Filiais, funcionarios, permissoes administrativas por usuario, troca obrigatoria de senha temporaria e auditoria de eventos de autenticacao.
+- Filiais com dados comerciais e fiscais proprios para uso em orcamentos, comprovantes e NF-e.
 - Produtos, fabricantes, fornecedores e clientes.
 - Estoque atual, entrada manual, ajuste manual, historico e reposicao.
 - Formas de pagamento.
@@ -276,8 +277,9 @@ Relatorios posteriores:
   - correcao de status real vindo da Focus;
   - bloqueios para evitar duplicidade entre venda operacional, envio e retirada.
 - Configuracao fiscal central da loja com trava explicita para producao.
+- Configuracao fiscal sincronizada com o CNPJ da filial ativa.
 - Relatorios gerenciais iniciais.
-- Ultima validacao backend registrada nesta revisao: `npm test` com 66 testes passando.
+- Ultima validacao backend registrada nesta revisao: `npm test` com 91 testes passando.
 
 ### Frontend
 
@@ -335,6 +337,8 @@ Estado: avancada em homologacao para NF-e.
 
 - NF-e Focus funcionando em homologacao para venda de balcao, pedido para envio e reserva para retirada.
 - Configuracao fiscal da loja ja existe em tela/tabela.
+- Cada filial possui perfil fiscal proprio, e o payload Focus usa o CNPJ da filial ativa.
+- O uso do CNPJ da filial ativa no payload Focus possui teste automatizado com chamada externa mockada.
 - Fila fiscal direciona pendencias para configuracao fiscal, cliente ou produto correspondente.
 - Producao exige confirmacao textual e checklist visual antes de liberar emissao.
 - Payload Focus reflete fatura e duplicata quando a venda possuir vencimento.

@@ -163,6 +163,9 @@ Data de abertura: 2026-06-09.
 - Reemissao apos rejeicao foi coberta em teste para mock e Focus.
 - Configuracao fiscal operacional da loja ja existe no sistema.
 - Trava implementada: producao exige confirmacao textual `EMITIR EM PRODUCAO` na UI/API, checklist visual e segue bloqueada se `allow_production` estiver desligado.
+- Filiais possuem dados fiscais proprios, e o payload Focus deve usar sempre o CNPJ da filial ativa.
+- O uso do CNPJ da filial ativa no payload Focus esta coberto por teste automatizado com chamada externa mockada.
+- Se o trial/plano Focus estiver inativo, a validacao real de autorizacao fica bloqueada; nesse cenario, usar testes mockados ate o plano/token estar ativo novamente.
 - Ponto ainda aberto: executar checklist manual final antes de qualquer emissao real em producao.
 
 ### Campos fiscais adicionais podem surgir
