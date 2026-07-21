@@ -183,7 +183,14 @@ export function TableActionsMenu({
             href={action.href}
             key={action.label}
             onClick={() => selectAction(action)}
-            sx={{ gap: 1 }}>
+            sx={{
+              alignItems: 'center',
+              display: 'flex',
+              gap: 1,
+              justifyContent: 'flex-start',
+              textAlign: 'left',
+              width: '100%',
+            }}>
             {action.icon ? (
               <ListItemIcon sx={{ color: frontendPalette.primaryNavy }}>
                 {action.icon}

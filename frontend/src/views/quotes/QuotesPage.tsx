@@ -506,6 +506,7 @@ export function QuotesPage({
               render: (quote) => <QuoteStatusSummary quote={quote} />,
             },
             {
+              align: 'right',
               header: 'Acoes',
               render: (quote) => (
                 <QuoteActions
@@ -602,8 +603,8 @@ function QuoteActions({
 
   if (quote.shippingOrderId) {
     return (
-      <ActionStack>
-        <div className='flex justify-end'>
+      <ActionStack className='ml-auto w-fit justify-items-end'>
+        <div className='inline-flex justify-end'>
           <TableActionsMenu actions={actions} />
         </div>
         <InlineNote>Pedido para envio criado</InlineNote>
@@ -613,8 +614,8 @@ function QuoteActions({
 
   if (quote.status !== 'DRAFT') {
     return (
-      <ActionStack>
-        <div className='flex justify-end'>
+      <ActionStack className='ml-auto w-fit justify-items-end'>
+        <div className='inline-flex justify-end'>
           <TableActionsMenu actions={actions} />
         </div>
         <InlineNote>Orcamento cancelado</InlineNote>
@@ -623,8 +624,8 @@ function QuoteActions({
   }
 
   return (
-    <ActionStack>
-      <div className='flex justify-end'>
+    <ActionStack className='ml-auto w-fit justify-items-end'>
+      <div className='inline-flex justify-end'>
         <TableActionsMenu actions={actions} />
       </div>
       {showCancellationForm ? (
