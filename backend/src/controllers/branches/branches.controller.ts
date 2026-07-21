@@ -21,6 +21,7 @@ export async function indexBranches() {
 }
 
 export async function storeBranch(input: BranchCreateInput) {
+  ensureBranchDocument(input.document);
   const branch = await createBranch(input);
   await saveBranchFiscalBootstrap(branch.id, input.document);
 
@@ -32,6 +33,7 @@ export async function storeBranch(input: BranchCreateInput) {
 }
 
 export async function replaceBranch(id: string, input: BranchUpdateInput) {
+  ensureBranchDocument(input.document);
   const branch = await updateBranch(id, input);
 
   if (!branch) {
@@ -45,6 +47,16 @@ export async function replaceBranch(id: string, input: BranchUpdateInput) {
     status: "success",
     data: branch,
   };
+}
+
+function ensureBranchDocument(document?: string | null) {
+  const companyCnpj = document?.replace(/\D/g, "") || null;
+
+  if (!companyCnpj || companyCnpj.length === 14) {
+    return;
+  }
+
+  throw new AppError("CNPJ da filial deve ter 14 digitos.", 422);
 }
 
 async function saveBranchFiscalBootstrap(

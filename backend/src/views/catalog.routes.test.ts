@@ -361,6 +361,19 @@ type Branch = {
   id: string;
   name: string;
   code: string | null;
+  legalName: string | null;
+  tradeName: string | null;
+  document: string | null;
+  stateRegistration: string | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  addressDistrict: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressZipCode: string | null;
+  phone: string | null;
+  email: string | null;
   active: boolean;
 };
 
@@ -1138,6 +1151,76 @@ describe("catalog routes", () => {
     assert.equal(isolatedUpdated.status, 200);
     assert.equal(isolatedUpdated.body.data?.branchName, "Filial Fiscal Isolada");
     assert.equal(defaultCurrent.body.data?.companyCnpj, "12345678000190");
+  });
+
+  it("uses the branch company document as fiscal CNPJ", async () => {
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Fiscal CNPJ Proprio",
+        code: "FISCAL_CNPJ",
+        legalName: "Filial Fiscal CNPJ Proprio LTDA",
+        tradeName: "Filial Fiscal",
+        document: "98.765.432/0001-10",
+        stateRegistration: "123456789",
+        addressStreet: "Rua da Filial",
+        addressNumber: "10",
+        addressDistrict: "Centro",
+        addressCity: "Sao Luis",
+        addressState: "MA",
+        addressZipCode: "65000000",
+      },
+    });
+    assert.ok(branch.body.data?.id);
+
+    const current = await request<FiscalSettings>("/fiscal-settings", {
+      headers: { "x-active-branch-id": branch.body.data.id },
+    });
+    const invalidBranch = await request(`/branches/${branch.body.data.id}`, {
+      method: "PUT",
+      body: {
+        name: "Filial Fiscal CNPJ Proprio",
+        code: "FISCAL_CNPJ",
+        document: "123",
+      },
+    });
+    const updatedBranch = await request<Branch>(
+      `/branches/${branch.body.data.id}`,
+      {
+        method: "PUT",
+        body: {
+          name: "Filial Fiscal CNPJ Proprio",
+          code: "FISCAL_CNPJ",
+          legalName: "Filial Fiscal CNPJ Proprio LTDA",
+          tradeName: "Filial Fiscal",
+          document: "98.765.432/0002-00",
+          stateRegistration: "987654321",
+          addressStreet: "Rua da Filial",
+          addressNumber: "20",
+          addressDistrict: "Centro",
+          addressCity: "Sao Luis",
+          addressState: "MA",
+          addressZipCode: "65000000",
+        },
+      },
+    );
+    const updatedCurrent = await request<FiscalSettings>("/fiscal-settings", {
+      headers: { "x-active-branch-id": branch.body.data.id },
+    });
+
+    assert.equal(branch.status, 201);
+    assert.equal(branch.body.data?.document, "98.765.432/0001-10");
+    assert.equal(current.status, 200);
+    assert.equal(current.body.data?.companyCnpj, "98765432000110");
+    assert.equal(invalidBranch.status, 422);
+    assert.equal(
+      invalidBranch.body.message,
+      "CNPJ da filial deve ter 14 digitos.",
+    );
+    assert.equal(updatedBranch.status, 200);
+    assert.equal(updatedBranch.body.data?.document, "98.765.432/0002-00");
+    assert.equal(updatedCurrent.status, 200);
+    assert.equal(updatedCurrent.body.data?.companyCnpj, "98765432000200");
   });
 
   it("shows and updates commercial settings", async () => {
