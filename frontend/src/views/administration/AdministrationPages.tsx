@@ -40,31 +40,133 @@ import { useAdministrationData } from "./useAdministrationData";
 
 export function BranchesPage() {
   const administration = useAdministrationData();
+  const selectedBranch = administration.selectedBranch;
   const { pagination, visibleItems } = usePaginatedRows(
     administration.branches,
   );
 
   return (
     <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(300px,0.7fr)_minmax(0,1.3fr)]">
-      <FormGrid onSubmit={administration.createBranch}>
+      <FormGrid
+        key={selectedBranch?.id ?? "new-branch"}
+        onSubmit={administration.saveBranch}
+      >
         <PageHeader
-          description="A filial identifica a unidade onde o funcionario trabalha."
-          icon={<Building2 size={18} />}
-          title="Nova filial"
+          description="Esses dados identificam a unidade nos documentos comerciais e preparam a filial para a NF-e."
+          icon={
+            selectedBranch ? <Pencil size={18} /> : <Building2 size={18} />
+          }
+          title={selectedBranch ? "Editar filial" : "Nova filial"}
         />
-        <TextField label="Nome da filial" name="name" required />
+        <FormRow>
+          <TextField
+            defaultValue={selectedBranch?.name ?? ""}
+            label="Nome da filial"
+            name="name"
+            required
+          />
+          <TextField
+            defaultValue={selectedBranch?.code ?? ""}
+            helperText="Identificador curto, como 1, 2, CENTRO ou NORTE."
+            label="Codigo"
+            name="code"
+          />
+        </FormRow>
+        <FormRow>
+          <TextField
+            defaultValue={selectedBranch?.tradeName ?? ""}
+            label="Nome fantasia"
+            name="tradeName"
+          />
+          <TextField
+            defaultValue={selectedBranch?.legalName ?? ""}
+            label="Razao social"
+            name="legalName"
+          />
+        </FormRow>
+        <FormRow>
+          <TextField
+            defaultValue={selectedBranch?.document ?? ""}
+            label="CNPJ"
+            name="document"
+          />
+          <TextField
+            defaultValue={selectedBranch?.stateRegistration ?? ""}
+            label="Inscricao estadual"
+            name="stateRegistration"
+          />
+        </FormRow>
+        <FormRow>
+          <TextField
+            defaultValue={selectedBranch?.addressStreet ?? ""}
+            label="Logradouro"
+            name="addressStreet"
+          />
+          <TextField
+            defaultValue={selectedBranch?.addressNumber ?? ""}
+            label="Numero"
+            name="addressNumber"
+          />
+        </FormRow>
+        <FormRow>
+          <TextField
+            defaultValue={selectedBranch?.addressComplement ?? ""}
+            label="Complemento"
+            name="addressComplement"
+          />
+          <TextField
+            defaultValue={selectedBranch?.addressDistrict ?? ""}
+            label="Bairro"
+            name="addressDistrict"
+          />
+        </FormRow>
+        <FormRow>
+          <TextField
+            defaultValue={selectedBranch?.addressCity ?? ""}
+            label="Cidade"
+            name="addressCity"
+          />
+          <TextField
+            defaultValue={selectedBranch?.addressState ?? ""}
+            label="UF"
+            name="addressState"
+          />
+        </FormRow>
+        <FormRow>
+          <TextField
+            defaultValue={selectedBranch?.addressZipCode ?? ""}
+            label="CEP"
+            name="addressZipCode"
+          />
+          <TextField
+            defaultValue={selectedBranch?.phone ?? ""}
+            label="Telefone"
+            name="phone"
+          />
+        </FormRow>
         <TextField
-          helperText="Identificador curto opcional, como CENTRO ou NORTE."
-          label="Codigo"
-          name="code"
+          defaultValue={selectedBranch?.email ?? ""}
+          label="Email"
+          name="email"
         />
-        <PrimaryButton
-          disabled={administration.state === "loading"}
-          icon={<Plus size={17} />}
-          type="submit"
-        >
-          Cadastrar filial
-        </PrimaryButton>
+        <ActionGroup>
+          <PrimaryButton
+            disabled={administration.state === "loading"}
+            icon={selectedBranch ? <Pencil size={17} /> : <Plus size={17} />}
+            type="submit"
+          >
+            {selectedBranch ? "Atualizar filial" : "Cadastrar filial"}
+          </PrimaryButton>
+          {selectedBranch ? (
+            <SecondaryButton
+              icon={<X size={17} />}
+              type="button"
+              onClick={administration.clearSelectedBranch}
+            >
+              Cancelar
+            </SecondaryButton>
+          ) : null}
+        </ActionGroup>
         <AdministrationMessage administration={administration} />
       </FormGrid>
 
@@ -85,11 +187,36 @@ export function BranchesPage() {
               render: (branch: Branch) => branch.code ?? "-",
             },
             {
+              header: "CNPJ",
+              render: (branch: Branch) => branch.document ?? "-",
+            },
+            {
+              header: "Cidade",
+              render: (branch: Branch) =>
+                [branch.addressCity, branch.addressState]
+                  .filter(Boolean)
+                  .join("/") || "-",
+            },
+            {
               header: "Status",
               render: (branch: Branch) => (
                 <StatusChip
                   label={branch.active ? "Ativa" : "Inativa"}
                   tone={branch.active ? "success" : "neutral"}
+                />
+              ),
+            },
+            {
+              header: "Acoes",
+              render: (branch: Branch) => (
+                <TableActionsMenu
+                  actions={[
+                    {
+                      icon: <Pencil size={16} />,
+                      label: "Editar filial",
+                      onSelect: () => administration.selectBranch(branch),
+                    },
+                  ]}
                 />
               ),
             },

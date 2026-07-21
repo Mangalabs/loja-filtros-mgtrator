@@ -286,6 +286,19 @@ export type Branch = {
   id: string;
   name: string;
   code: string | null;
+  legalName: string | null;
+  tradeName: string | null;
+  document: string | null;
+  stateRegistration: string | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  addressDistrict: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressZipCode: string | null;
+  phone: string | null;
+  email: string | null;
   active: boolean;
 };
 

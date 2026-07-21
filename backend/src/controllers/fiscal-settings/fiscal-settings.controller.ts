@@ -1,4 +1,5 @@
 import { env } from "../../config/env.js";
+import { findBranchById } from "../../models/branches/branches.model.js";
 import {
   getFiscalSettings,
   upsertFiscalSettings,
@@ -47,16 +48,40 @@ export async function replaceFiscalSettings(
 
 export async function currentFiscalSettings(branchId: string) {
   const settings = await getFiscalSettings({ branchId });
+  const branch = await findBranchById(branchId);
+  const branchCompanyCnpj = fiscalDigits(branch?.document ?? null);
+
+  if (
+    settings &&
+    branchCompanyCnpj &&
+    settings.companyCnpj !== branchCompanyCnpj
+  ) {
+    return upsertFiscalSettings(branchId, {
+      provider: settings.provider,
+      environment: settings.environment,
+      companyCnpj: branchCompanyCnpj,
+      allowProduction: settings.allowProduction,
+    });
+  }
+
+  if (settings?.companyCnpj) {
+    return settings;
+  }
 
   if (settings) {
-    return settings;
+    return upsertFiscalSettings(branchId, {
+      provider: settings.provider,
+      environment: settings.environment,
+      companyCnpj: branchCompanyCnpj,
+      allowProduction: settings.allowProduction,
+    });
   }
 
   return upsertFiscalSettings(branchId, {
     provider:
       env.fiscal.provider.toUpperCase() as FiscalSettingsInput["provider"],
     environment: env.fiscal.environment,
-    companyCnpj: fiscalDigits(env.fiscal.focus.companyCnpj),
+    companyCnpj: branchCompanyCnpj ?? fiscalDigits(env.fiscal.focus.companyCnpj),
     allowProduction: false,
   });
 }

@@ -1,5 +1,6 @@
 import { db } from "../../database/knex.js";
 import { generateSaleReceiptPdf } from "../../integrations/pdf/sale-receipt-pdf.js";
+import { findBranchById } from "../../models/branches/branches.model.js";
 import {
   activeClientExists,
   activePaymentMethodExists,
@@ -44,8 +45,12 @@ export async function showSaleReceiptPdf(id: string, branchId: string) {
 
   return {
     filename: `comprovante-venda-${sale.id}.pdf`,
-    pdf: await generateSaleReceiptPdf(sale),
+    pdf: await generateSaleReceiptPdf(sale, await pdfStoreProfile(sale.branchId)),
   };
+}
+
+async function pdfStoreProfile(branchId: string | null) {
+  return branchId ? findBranchById(branchId) : null;
 }
 
 export async function storeSale(

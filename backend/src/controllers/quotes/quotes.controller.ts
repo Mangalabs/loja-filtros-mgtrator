@@ -1,5 +1,6 @@
 import { db } from "../../database/knex.js";
 import { generateQuotePdf } from "../../integrations/pdf/quote-pdf.js";
+import { findBranchById } from "../../models/branches/branches.model.js";
 import {
   activeQuoteClientExists,
   activeQuotePaymentMethodExists,
@@ -49,8 +50,12 @@ export async function showQuotePdf(id: string, branchId: string) {
 
   return {
     filename: `orcamento-${quote.id}.pdf`,
-    pdf: await generateQuotePdf(quote),
+    pdf: await generateQuotePdf(quote, await pdfStoreProfile(quote.branchId)),
   };
+}
+
+async function pdfStoreProfile(branchId: string | null) {
+  return branchId ? findBranchById(branchId) : null;
 }
 
 export async function storeQuote(

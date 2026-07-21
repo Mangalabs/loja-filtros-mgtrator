@@ -37,6 +37,7 @@ export function useAdministrationData() {
     useState<AuthUser>();
   const [state, setState] = useState<AdministrationState>("loading");
   const [message, setMessage] = useState("");
+  const [selectedBranch, setSelectedBranch] = useState<Branch>();
 
   const loadAdministration = useCallback(async () => {
     setState("loading");
@@ -70,18 +71,40 @@ export function useAdministrationData() {
     void loadAdministration();
   }, [loadAdministration]);
 
-  async function createBranch(event: FormEvent<HTMLFormElement>) {
+  async function saveBranch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
+    const input = {
+      name: data.get("name"),
+      code: data.get("code"),
+      legalName: data.get("legalName"),
+      tradeName: data.get("tradeName"),
+      document: data.get("document"),
+      stateRegistration: data.get("stateRegistration"),
+      addressStreet: data.get("addressStreet"),
+      addressNumber: data.get("addressNumber"),
+      addressComplement: data.get("addressComplement"),
+      addressDistrict: data.get("addressDistrict"),
+      addressCity: data.get("addressCity"),
+      addressState: data.get("addressState"),
+      addressZipCode: data.get("addressZipCode"),
+      phone: data.get("phone"),
+      email: data.get("email"),
+    };
+    const saveRequest = selectedBranch
+      ? () => apiPut<ApiResult<Branch>>(`/branches/${selectedBranch.id}`, input)
+      : () => apiPost<ApiResult<Branch>>("/branches", input);
 
     await runAction(async () => {
-      await apiPost<ApiResult<Branch>>("/branches", {
-        name: data.get("name"),
-        code: data.get("code"),
-      });
+      await saveRequest();
       form.reset();
-      setMessage("Filial cadastrada com sucesso.");
+      setSelectedBranch(undefined);
+      setMessage(
+        selectedBranch
+          ? "Filial atualizada com sucesso."
+          : "Filial cadastrada com sucesso.",
+      );
     });
   }
 
@@ -209,15 +232,18 @@ export function useAdministrationData() {
     changeEmployeeStatus,
     clearAuthEventFilters,
     clearSelectedEmployee: () => setSelectedEmployee(undefined),
+    clearSelectedBranch: () => setSelectedBranch(undefined),
     clearSelectedPasswordResetEmployee: () =>
       setSelectedPasswordResetEmployee(undefined),
-    createBranch,
     message,
     resetEmployeePassword,
+    saveBranch,
     saveEmployee,
+    selectedBranch,
     selectedEmployee,
     selectedPasswordResetEmployee,
     selectEmployee: setSelectedEmployee,
+    selectBranch: setSelectedBranch,
     selectPasswordResetEmployee: setSelectedPasswordResetEmployee,
     setMessage,
     state,
