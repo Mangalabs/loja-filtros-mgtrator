@@ -54,8 +54,14 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
           </header>
 
           <section class="quote-number">
-            <span>Numero do orcamento</span>
-            <strong>#${escapeHtml(quote.id)}</strong>
+            <div>
+              <span>Numero do orcamento</span>
+              <strong>#${escapeHtml(quote.id)}</strong>
+            </div>
+            <div>
+              <span>Filial</span>
+              <strong>${escapeHtml(quote.branchName ?? "Nao informada")}</strong>
+            </div>
           </section>
 
           <section class="buyer-box">
@@ -171,7 +177,7 @@ function quotePdfCss() {
     }
     .page {
       min-height: 100%;
-      padding-bottom: 20px;
+      padding: 8mm 8mm 20px;
       position: relative;
     }
     .text-right { text-align: right; }
@@ -181,7 +187,7 @@ function quotePdfCss() {
       border-bottom: 1px solid #d8b769;
       display: grid;
       gap: 12px;
-      grid-template-columns: 42mm 1fr 1fr;
+      grid-template-columns: 42mm minmax(0, 1fr) minmax(0, 76mm);
       margin-bottom: 10px;
       padding-bottom: 8px;
     }
@@ -205,6 +211,10 @@ function quotePdfCss() {
       font-size: 18pt;
       margin: 0 0 5px;
     }
+    .seller-box,
+    .store-address {
+      min-width: 0;
+    }
     .seller-box p,
     .store-address span {
       color: #475569;
@@ -213,6 +223,10 @@ function quotePdfCss() {
     }
     .store-address {
       color: #475569;
+      display: grid;
+      gap: 2px;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
       text-align: right;
     }
     .store-address strong {
@@ -230,6 +244,14 @@ function quotePdfCss() {
       justify-content: space-between;
       margin-bottom: 10px;
       padding: 8px 10px;
+    }
+    .quote-number div {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+    .quote-number div:last-child {
+      text-align: right;
     }
     .quote-number span {
       color: #64748b;
@@ -353,10 +375,10 @@ function quotePdfCss() {
       bottom: 0;
       color: #94a3b8;
       font-size: 7pt;
-      left: 0;
+      left: 8mm;
       padding-top: 5px;
       position: fixed;
-      right: 0;
+      right: 8mm;
       text-align: center;
     }
   `;

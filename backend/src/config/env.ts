@@ -126,7 +126,7 @@ export const env = {
     allowedOrigins: listEnv(process.env.CORS_ORIGIN),
   },
   quotePdfStore: {
-    name: envOrDefault(process.env.QUOTE_PDF_STORE_NAME, "Filtros MG"),
+    name: envOrDefault(process.env.QUOTE_PDF_STORE_NAME, "MG Trator Peças"),
     address: envOrDefault(
       process.env.QUOTE_PDF_STORE_ADDRESS,
       "Endereco da loja a configurar",
