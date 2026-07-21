@@ -27,11 +27,11 @@ export function pdfStoreWithLogo(
 ): QuotePdfStore {
   return {
     ...env.quotePdfStore,
-    name:
+    name: storeDisplayName(
       profile?.tradeName ??
       profile?.legalName ??
-      legacyStoreNames[env.quotePdfStore.name] ??
       env.quotePdfStore.name,
+    ),
     address: branchAddress(profile) ?? env.quotePdfStore.address,
     city: branchCity(profile) ?? env.quotePdfStore.city,
     document: branchDocument(profile) ?? env.quotePdfStore.document,
@@ -42,6 +42,10 @@ export function pdfStoreWithLogo(
       'image/png',
     ),
   }
+}
+
+function storeDisplayName(name: string) {
+  return legacyStoreNames[name] ?? name
 }
 
 function branchAddress(profile?: PdfStoreProfile | null) {

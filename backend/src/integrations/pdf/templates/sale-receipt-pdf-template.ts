@@ -219,6 +219,8 @@ function saleReceiptCss() {
     .header span,
     footer {
       color: #64748b;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .title-box {
       align-items: center;

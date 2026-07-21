@@ -176,9 +176,10 @@ function quotePdfCss() {
       padding: 0;
     }
     .page {
-      min-height: 100%;
+      min-height: 210mm;
       padding: 8mm 8mm 20px;
       position: relative;
+      width: 100%;
     }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
@@ -187,7 +188,7 @@ function quotePdfCss() {
       border-bottom: 1px solid #d8b769;
       display: grid;
       gap: 12px;
-      grid-template-columns: 42mm minmax(0, 1fr) minmax(0, 76mm);
+      grid-template-columns: 38mm minmax(0, 1fr) minmax(0, 70mm);
       margin-bottom: 10px;
       padding-bottom: 8px;
     }
@@ -226,8 +227,17 @@ function quotePdfCss() {
       display: grid;
       gap: 2px;
       line-height: 1.2;
+      max-width: 100%;
+      min-width: 0;
       overflow-wrap: anywhere;
       text-align: right;
+    }
+    .seller-box p,
+    .store-address span,
+    .store-address strong {
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .store-address strong {
       color: #1a365d;
@@ -319,12 +329,14 @@ function quotePdfCss() {
       font-weight: 700;
       padding: 5px 4px;
       text-transform: uppercase;
+      word-break: break-word;
     }
     td {
       border-bottom: 1px solid #e2e8f0;
       font-size: 7.6pt;
       padding: 5px 4px;
       vertical-align: top;
+      word-break: break-word;
     }
     .items-table {
       margin-bottom: 10px;
