@@ -32,6 +32,7 @@ RUN npm ci --omit=dev \
   && npm cache clean --force
 
 COPY knexfile.cjs ./
+COPY assets ./assets
 COPY database ./database
 COPY --from=build /app/dist ./dist
 

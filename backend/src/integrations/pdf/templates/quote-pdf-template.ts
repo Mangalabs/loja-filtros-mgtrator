@@ -7,6 +7,7 @@ export type QuotePdfStore = {
   document: string;
   phone: string | null;
   email: string | null;
+  logoDataUri?: string | null;
 };
 
 export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
@@ -33,7 +34,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
         <div class="page">
           <header class="header">
             <div class="logo-area">
-              <span>Filtros MG</span>
+              ${store.logoDataUri ? `<img src="${escapeHtml(store.logoDataUri)}" alt="${escapeHtml(store.name)}" />` : `<span>${escapeHtml(store.name)}</span>`}
             </div>
 
             <section class="seller-box">
@@ -177,7 +178,7 @@ function quotePdfCss() {
     .text-center { text-align: center; }
     .header {
       align-items: stretch;
-      border-bottom: 2px solid #1a365d;
+      border-bottom: 1px solid #d8b769;
       display: grid;
       gap: 12px;
       grid-template-columns: 42mm 1fr 1fr;
@@ -186,15 +187,18 @@ function quotePdfCss() {
     }
     .logo-area {
       align-items: center;
-      background-color: #f1f5f9;
-      border: 1px dashed #cbd5e1;
-      color: #64748b;
       display: flex;
       font-size: 10pt;
       font-weight: 700;
       justify-content: center;
       min-height: 24mm;
       text-transform: uppercase;
+    }
+    .logo-area img {
+      display: block;
+      max-height: 22mm;
+      max-width: 39mm;
+      object-fit: contain;
     }
     .seller-box h1 {
       color: #1a365d;

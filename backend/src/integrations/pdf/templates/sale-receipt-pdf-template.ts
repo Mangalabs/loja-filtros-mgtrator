@@ -27,7 +27,9 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
       <body>
         <main class="receipt">
           <header class="header">
-            <strong>${escapeHtml(store.name)}</strong>
+            <div class="logo-area">
+              ${store.logoDataUri ? `<img src="${escapeHtml(store.logoDataUri)}" alt="${escapeHtml(store.name)}" />` : `<strong>${escapeHtml(store.name)}</strong>`}
+            </div>
             <span>${escapeHtml(store.address)}</span>
             <span>${escapeHtml(store.city)}</span>
             <span>${escapeHtml(store.document)}</span>
@@ -187,18 +189,29 @@ function saleReceiptCss() {
       margin: 0;
     }
     .receipt {
-      border: 1px solid #dbe4ee;
       min-height: 100%;
       padding: 18px;
     }
     .header {
-      border-bottom: 2px solid #203466;
+      border-bottom: 1px solid #d8b769;
       display: grid;
       gap: 2px;
       padding-bottom: 10px;
       text-align: center;
     }
-    .header strong {
+    .logo-area {
+      align-items: center;
+      display: flex;
+      justify-content: center;
+      min-height: 18mm;
+    }
+    .logo-area img {
+      display: block;
+      max-height: 17mm;
+      max-width: 42mm;
+      object-fit: contain;
+    }
+    .logo-area strong {
       color: #203466;
       font-size: 15pt;
       text-transform: uppercase;
