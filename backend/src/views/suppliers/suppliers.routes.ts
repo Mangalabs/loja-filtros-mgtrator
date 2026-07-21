@@ -8,6 +8,7 @@ import {
   parseBooleanFilter,
   parseStringFilter,
 } from "../../shared/http/query-params.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const suppliersRoutes = Router();
@@ -26,6 +27,7 @@ function optionalText(max: number) {
 
 suppliersRoutes.get("/suppliers", async (request, response) => {
   const result = await indexSuppliers({
+    branchId: requireActiveBranchId(response.locals),
     active: parseBooleanFilter(request.query.active),
     search: parseStringFilter(request.query.search),
   });
@@ -35,7 +37,10 @@ suppliersRoutes.get("/suppliers", async (request, response) => {
 
 suppliersRoutes.post("/suppliers", async (request, response) => {
   const body = validateBody(request, createSupplierSchema);
-  const result = await storeSupplier(body);
+  const result = await storeSupplier(
+    body,
+    requireActiveBranchId(response.locals),
+  );
 
   response.status(201).json(result);
 });

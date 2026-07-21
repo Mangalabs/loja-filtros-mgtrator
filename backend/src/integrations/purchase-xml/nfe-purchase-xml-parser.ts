@@ -1,10 +1,12 @@
 import { AppError } from "../../shared/errors/app-error.js";
 import type {
-  PurchaseInvoiceInput,
+  PurchaseInvoiceDraftInput,
   PurchaseInvoiceItemInput,
 } from "../../models/purchase-invoices/purchase-invoices.model.js";
 
-export function parseNfePurchaseXml(xmlContent: string): PurchaseInvoiceInput {
+export function parseNfePurchaseXml(
+  xmlContent: string,
+): PurchaseInvoiceDraftInput {
   const normalizedXml = xmlContent.trim();
 
   if (!normalizedXml) {

@@ -111,7 +111,9 @@ purchaseInvoicesRoutes.get(
   "/purchase-invoices",
   requirePermission("IMPORT_PURCHASE_INVOICES"),
   async (_request, response) => {
-    const result = await indexPurchaseInvoices();
+    const result = await indexPurchaseInvoices({
+      branchId: requireActiveBranchId(response.locals),
+    });
 
     response.status(200).json(result);
   },
@@ -134,7 +136,11 @@ purchaseInvoicesRoutes.post(
   async (request, response) => {
     const body = validateBody(request, parsePurchaseInvoiceXmlSchema);
     const userId = response.locals.authenticatedUser.id as string;
-    const result = await importPurchaseInvoiceXml(body.xmlContent, userId);
+    const result = await importPurchaseInvoiceXml(
+      body.xmlContent,
+      userId,
+      requireActiveBranchId(response.locals),
+    );
 
     response.status(201).json(result);
   },
@@ -146,7 +152,11 @@ purchaseInvoicesRoutes.post(
   async (request, response) => {
     const body = validateBody(request, createPurchaseInvoiceSchema);
     const userId = response.locals.authenticatedUser.id as string;
-    const result = await storePurchaseInvoice(body, userId);
+    const result = await storePurchaseInvoice(
+      body,
+      userId,
+      requireActiveBranchId(response.locals),
+    );
 
     response.status(201).json(result);
   },
@@ -158,7 +168,11 @@ purchaseInvoicesRoutes.put(
   async (request, response) => {
     const { id } = purchaseInvoiceParamsSchema.parse(request.params);
     const body = validateBody(request, updatePurchaseInvoiceSchema);
-    const result = await updatePurchaseInvoice(id, body);
+    const result = await updatePurchaseInvoice(
+      id,
+      body,
+      requireActiveBranchId(response.locals),
+    );
 
     response.status(200).json(result);
   },

@@ -8,6 +8,7 @@ import {
   markPurchaseInvoiceAsPosted,
   productsExist,
   supplierExists,
+  type PurchaseInvoiceDraftInput,
   type PurchaseInvoiceInput,
   type PurchaseInvoiceUpdateInput,
   updatePurchaseInvoiceReview,
@@ -20,8 +21,8 @@ import {
 } from "../../models/stock-entries/stock-entries.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
-export async function indexPurchaseInvoices() {
-  const invoices = await listPurchaseInvoices();
+export async function indexPurchaseInvoices(filters: { branchId: string }) {
+  const invoices = await listPurchaseInvoices(filters);
 
   return {
     code: 200,
@@ -41,16 +42,22 @@ export function parsePurchaseInvoiceXml(xmlContent: string) {
 export async function importPurchaseInvoiceXml(
   xmlContent: string,
   createdByUserId: string,
+  branchId: string,
 ) {
-  return storePurchaseInvoice(parseNfePurchaseXml(xmlContent), createdByUserId);
+  return storePurchaseInvoice(
+    parseNfePurchaseXml(xmlContent),
+    createdByUserId,
+    branchId,
+  );
 }
 
 export async function updatePurchaseInvoice(
   id: string,
   input: PurchaseInvoiceUpdateInput,
+  branchId: string,
 ) {
   const invoice = await db.transaction(async (transaction) => {
-    const status = await findPurchaseInvoiceStatus(transaction, id);
+    const status = await findPurchaseInvoiceStatus(transaction, id, branchId);
 
     if (!status) {
       throw new AppError("Compra importada nao encontrada.", 404);
@@ -65,7 +72,7 @@ export async function updatePurchaseInvoice(
 
     if (
       input.supplierId &&
-      !(await supplierExists(transaction, input.supplierId))
+      !(await supplierExists(transaction, input.supplierId, branchId))
     ) {
       throw new AppError("Fornecedor informado nao encontrado.", 422);
     }
@@ -74,14 +81,14 @@ export async function updatePurchaseInvoice(
       item.productId ? [item.productId] : [],
     );
 
-    if (!(await productsExist(transaction, productIds))) {
+    if (!(await productsExist(transaction, productIds, branchId))) {
       throw new AppError(
         "Um ou mais produtos vinculados nao foram encontrados.",
         422,
       );
     }
 
-    return updatePurchaseInvoiceReview(transaction, id, input);
+    return updatePurchaseInvoiceReview(transaction, id, branchId, input);
   });
 
   return {
@@ -100,6 +107,7 @@ export async function postPurchaseInvoice(
     const purchaseInvoice = await findPurchaseInvoiceForPosting(
       transaction,
       id,
+      branchId,
     );
 
     if (!purchaseInvoice) {
@@ -146,7 +154,7 @@ export async function postPurchaseInvoice(
       await saveLastSupplierCost(transaction, input);
     }
 
-    return markPurchaseInvoiceAsPosted(transaction, id);
+    return markPurchaseInvoiceAsPosted(transaction, id, branchId);
   });
 
   return {
@@ -157,13 +165,14 @@ export async function postPurchaseInvoice(
 }
 
 export async function storePurchaseInvoice(
-  input: PurchaseInvoiceInput,
+  input: PurchaseInvoiceDraftInput,
   createdByUserId: string,
+  branchId: string,
 ) {
   const invoice = await db.transaction(async (transaction) => {
     if (
       input.supplierId &&
-      !(await supplierExists(transaction, input.supplierId))
+      !(await supplierExists(transaction, input.supplierId, branchId))
     ) {
       throw new AppError("Fornecedor informado nao encontrado.", 422);
     }
@@ -172,14 +181,18 @@ export async function storePurchaseInvoice(
       item.productId ? [item.productId] : [],
     );
 
-    if (!(await productsExist(transaction, productIds))) {
+    if (!(await productsExist(transaction, productIds, branchId))) {
       throw new AppError(
         "Um ou mais produtos vinculados nao foram encontrados.",
         422,
       );
     }
 
-    return insertPurchaseInvoice(transaction, input, createdByUserId);
+    return insertPurchaseInvoice(
+      transaction,
+      { ...input, branchId },
+      createdByUserId,
+    );
   });
 
   return {

@@ -32,6 +32,14 @@ type NamedEntity = {
   active: boolean;
 };
 
+type Supplier = NamedEntity & {
+  branchId: string | null;
+  branchName: string | null;
+  document: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
 type Product = {
   id: string;
   name: string;
@@ -5801,7 +5809,7 @@ describe("catalog routes", () => {
   });
 
   it("creates and lists suppliers", async () => {
-    const created = await request<NamedEntity>("/suppliers", {
+    const created = await request<Supplier>("/suppliers", {
       method: "POST",
       body: {
         name: "Distribuidora Central",
@@ -5811,12 +5819,58 @@ describe("catalog routes", () => {
       },
     });
 
-    const listed = await request<NamedEntity[]>("/suppliers?search=Central");
+    const listed = await request<Supplier[]>("/suppliers?search=Central");
 
     assert.equal(created.status, 201);
+    assert.equal(created.body.data?.branchId, defaultBranchId);
+    assert.equal(created.body.data?.branchName, "Matriz Teste");
     assert.equal(created.body.data?.name, "Distribuidora Central");
     assert.equal(listed.status, 200);
     assert.equal(listed.body.data?.length, 1);
+  });
+
+  it("keeps suppliers scoped to the active branch", async () => {
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Fornecedores Isolada",
+        code: "FORNECEDORES",
+      },
+    });
+    assert.ok(branch.body.data?.id);
+
+    const defaultSupplier = await request<Supplier>("/suppliers", {
+      method: "POST",
+      body: {
+        name: "Fornecedor Matriz",
+        document: "11111111000111",
+      },
+    });
+    const isolatedSupplier = await request<Supplier>("/suppliers", {
+      method: "POST",
+      headers: { "x-active-branch-id": branch.body.data.id },
+      body: {
+        name: "Fornecedor Filial",
+        document: "22222222000122",
+      },
+    });
+    const defaultList = await request<Supplier[]>("/suppliers");
+    const isolatedList = await request<Supplier[]>("/suppliers", {
+      headers: { "x-active-branch-id": branch.body.data.id },
+    });
+
+    assert.equal(defaultSupplier.status, 201);
+    assert.equal(defaultSupplier.body.data?.branchId, defaultBranchId);
+    assert.equal(isolatedSupplier.status, 201);
+    assert.equal(isolatedSupplier.body.data?.branchId, branch.body.data.id);
+    assert.deepEqual(
+      defaultList.body.data?.map((supplier) => supplier.name),
+      ["Fornecedor Matriz"],
+    );
+    assert.deepEqual(
+      isolatedList.body.data?.map((supplier) => supplier.name),
+      ["Fornecedor Filial"],
+    );
   });
 
   it("returns validation details for invalid supplier payload", async () => {

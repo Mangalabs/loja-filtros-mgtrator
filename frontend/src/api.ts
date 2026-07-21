@@ -68,6 +68,8 @@ export type NamedEntity = {
 };
 
 export type Supplier = NamedEntity & {
+  branchId: string | null;
+  branchName: string | null;
   document: string | null;
   email: string | null;
   phone: string | null;
@@ -181,6 +183,8 @@ export type PurchaseInvoiceDraft = {
 
 export type PurchaseInvoice = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   supplierId: string | null;
   supplierName: string;
   supplierDocument: string | null;

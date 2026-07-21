@@ -3,6 +3,7 @@ import { db } from "../../database/knex.js";
 
 export type PurchaseInvoiceInput = {
   accessKey: string;
+  branchId: string;
   installments?: PurchaseInvoiceInstallmentPreview[];
   issueDate?: string | null;
   items: PurchaseInvoiceItemInput[];
@@ -23,8 +24,10 @@ export type PurchaseInvoiceInstallmentPreview = {
   value: number;
 };
 
+export type PurchaseInvoiceDraftInput = Omit<PurchaseInvoiceInput, "branchId">;
+
 export type PurchaseInvoiceUpdateInput = Omit<
-  PurchaseInvoiceInput,
+  PurchaseInvoiceDraftInput,
   "accessKey" | "xmlContent"
 >;
 
@@ -43,6 +46,8 @@ export type PurchaseInvoiceItemInput = {
 
 export type PurchaseInvoice = {
   id: string;
+  branchId: string | null;
+  branchName: string | null;
   supplierId: string | null;
   supplierName: string;
   supplierDocument: string | null;
@@ -96,6 +101,8 @@ type PurchaseInvoiceInstallmentRow = PurchaseInvoiceInstallment & {
 
 const purchaseInvoiceColumns = [
   "purchase_invoices.id",
+  "purchase_invoices.branch_id as branchId",
+  "branches.name as branchName",
   "purchase_invoices.supplier_id as supplierId",
   "purchase_invoices.supplier_name as supplierName",
   "purchase_invoices.supplier_document as supplierDocument",
@@ -112,10 +119,14 @@ const purchaseInvoiceColumns = [
   "purchase_invoices.updated_at as updatedAt",
 ];
 
-export async function listPurchaseInvoices(): Promise<PurchaseInvoice[]> {
+export async function listPurchaseInvoices(filters: {
+  branchId: string;
+}): Promise<PurchaseInvoice[]> {
   const invoices = await db("purchase_invoices")
+    .leftJoin("branches", "branches.id", "purchase_invoices.branch_id")
     .join("users", "users.id", "purchase_invoices.created_by_user_id")
     .select<PurchaseInvoiceRow[]>(purchaseInvoiceColumns)
+    .where("purchase_invoices.branch_id", filters.branchId)
     .orderBy("purchase_invoices.created_at", "desc")
     .orderBy("purchase_invoices.id", "desc");
 
@@ -125,10 +136,12 @@ export async function listPurchaseInvoices(): Promise<PurchaseInvoice[]> {
 export async function supplierExists(
   transaction: Knex.Transaction,
   supplierId: string,
+  branchId: string,
 ): Promise<boolean> {
   const supplier = await transaction("suppliers")
     .select("id")
     .where("id", supplierId)
+    .andWhere("branch_id", branchId)
     .first();
 
   return Boolean(supplier);
@@ -137,6 +150,7 @@ export async function supplierExists(
 export async function productsExist(
   transaction: Knex.Transaction,
   productIds: string[],
+  branchId: string,
 ): Promise<boolean> {
   if (productIds.length === 0) {
     return true;
@@ -144,6 +158,7 @@ export async function productsExist(
 
   const products = await transaction("products")
     .select("id")
+    .where("branch_id", branchId)
     .whereIn("id", productIds);
 
   return products.length === new Set(productIds).size;
@@ -157,6 +172,7 @@ export async function insertPurchaseInvoice(
   const [created] = await transaction("purchase_invoices")
     .insert({
       access_key: input.accessKey,
+      branch_id: input.branchId,
       created_by_user_id: createdByUserId,
       issue_date: input.issueDate,
       number: input.number,
@@ -188,7 +204,11 @@ export async function insertPurchaseInvoice(
   );
   await replacePurchaseInvoiceInstallments(transaction, created.id, input);
 
-  const invoice = await findPurchaseInvoiceById(transaction, created.id);
+  const invoice = await findPurchaseInvoiceById(
+    transaction,
+    created.id,
+    input.branchId,
+  );
 
   if (!invoice) {
     throw new Error("Purchase invoice was not found after creation");
@@ -200,10 +220,12 @@ export async function insertPurchaseInvoice(
 export async function findPurchaseInvoiceStatus(
   transaction: Knex.Transaction,
   id: string,
+  branchId: string,
 ): Promise<PurchaseInvoice["status"] | undefined> {
   const invoice = await transaction("purchase_invoices")
     .select<{ status: PurchaseInvoice["status"] }>("status")
     .where("id", id)
+    .andWhere("branch_id", branchId)
     .forUpdate()
     .first();
 
@@ -213,11 +235,14 @@ export async function findPurchaseInvoiceStatus(
 export async function findPurchaseInvoiceForPosting(
   transaction: Knex.Transaction,
   id: string,
+  branchId: string,
 ): Promise<PurchaseInvoice | undefined> {
   const invoice = await transaction("purchase_invoices")
+    .join("branches", "branches.id", "purchase_invoices.branch_id")
     .join("users", "users.id", "purchase_invoices.created_by_user_id")
     .select<PurchaseInvoiceRow[]>(purchaseInvoiceColumns)
     .where("purchase_invoices.id", id)
+    .andWhere("purchase_invoices.branch_id", branchId)
     .forUpdate()
     .first();
 
@@ -232,13 +257,16 @@ export async function findPurchaseInvoiceForPosting(
 export async function markPurchaseInvoiceAsPosted(
   transaction: Knex.Transaction,
   id: string,
+  branchId: string,
 ): Promise<PurchaseInvoice> {
-  await transaction("purchase_invoices").where("id", id).update({
-    status: "POSTED",
-    updated_at: transaction.fn.now(),
-  });
+  await transaction("purchase_invoices")
+    .where({ id, branch_id: branchId })
+    .update({
+      status: "POSTED",
+      updated_at: transaction.fn.now(),
+    });
 
-  const invoice = await findPurchaseInvoiceById(transaction, id);
+  const invoice = await findPurchaseInvoiceById(transaction, id, branchId);
 
   if (!invoice) {
     throw new Error("Purchase invoice was not found after posting");
@@ -250,20 +278,23 @@ export async function markPurchaseInvoiceAsPosted(
 export async function updatePurchaseInvoiceReview(
   transaction: Knex.Transaction,
   id: string,
+  branchId: string,
   input: PurchaseInvoiceUpdateInput,
 ): Promise<PurchaseInvoice> {
-  await transaction("purchase_invoices").where("id", id).update({
-    issue_date: input.issueDate,
-    number: input.number,
-    series: input.series,
-    supplier_document: input.supplierDocument,
-    supplier_id: input.supplierId,
-    supplier_name: input.supplierName,
-    total_amount: input.totalAmount,
-    transporter_document: input.transporterDocument,
-    transporter_name: input.transporterName,
-    updated_at: transaction.fn.now(),
-  });
+  await transaction("purchase_invoices")
+    .where({ id, branch_id: branchId })
+    .update({
+      issue_date: input.issueDate,
+      number: input.number,
+      series: input.series,
+      supplier_document: input.supplierDocument,
+      supplier_id: input.supplierId,
+      supplier_name: input.supplierName,
+      total_amount: input.totalAmount,
+      transporter_document: input.transporterDocument,
+      transporter_name: input.transporterName,
+      updated_at: transaction.fn.now(),
+    });
 
   await transaction("purchase_invoice_items")
     .where("purchase_invoice_id", id)
@@ -285,7 +316,7 @@ export async function updatePurchaseInvoiceReview(
   );
   await replacePurchaseInvoiceInstallments(transaction, id, input);
 
-  const invoice = await findPurchaseInvoiceById(transaction, id);
+  const invoice = await findPurchaseInvoiceById(transaction, id, branchId);
 
   if (!invoice) {
     throw new Error("Purchase invoice was not found after review update");
@@ -297,11 +328,14 @@ export async function updatePurchaseInvoiceReview(
 async function findPurchaseInvoiceById(
   transaction: Knex.Transaction,
   id: string,
+  branchId: string,
 ): Promise<PurchaseInvoice | undefined> {
   const invoice = await transaction("purchase_invoices")
+    .leftJoin("branches", "branches.id", "purchase_invoices.branch_id")
     .join("users", "users.id", "purchase_invoices.created_by_user_id")
     .select<PurchaseInvoiceRow[]>(purchaseInvoiceColumns)
     .where("purchase_invoices.id", id)
+    .andWhere("purchase_invoices.branch_id", branchId)
     .first();
 
   if (!invoice) {

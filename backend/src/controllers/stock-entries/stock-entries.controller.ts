@@ -30,7 +30,7 @@ export async function storeStockEntry(
       throw new AppError("Produto informado nao pertence a filial ativa.", 422);
     }
 
-    if (!(await supplierExists(transaction, input.supplierId))) {
+    if (!(await supplierExists(transaction, input.supplierId, branchId))) {
       throw new AppError("Fornecedor informado nao encontrado.", 422);
     }
 

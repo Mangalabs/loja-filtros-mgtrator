@@ -65,10 +65,12 @@ export async function lockProduct(
 export async function supplierExists(
   transaction: Knex.Transaction,
   supplierId: string,
+  branchId: string,
 ): Promise<boolean> {
   const supplier = await transaction('suppliers')
     .select('id')
     .where('id', supplierId)
+    .andWhere('branch_id', branchId)
     .first()
 
   return Boolean(supplier)

@@ -15,8 +15,11 @@ export async function indexSuppliers(filters: SupplierListFilters) {
   };
 }
 
-export async function storeSupplier(input: SupplierCreateInput) {
-  const supplier = await createSupplier(input);
+export async function storeSupplier(
+  input: Omit<SupplierCreateInput, "branchId">,
+  branchId: string,
+) {
+  const supplier = await createSupplier({ ...input, branchId });
 
   return {
     code: 201,
