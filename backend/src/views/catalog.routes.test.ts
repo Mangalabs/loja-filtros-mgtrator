@@ -3011,6 +3011,147 @@ describe("catalog routes", () => {
     }
   });
 
+  it("issues Focus fiscal document using the active branch CNPJ", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusHomologationToken =
+      env.fiscal.focus.tokens.HOMOLOGATION;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.tokens.HOMOLOGATION = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12.345.678/0001-99";
+
+    const branch = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Emissao Focus",
+        code: "FOCUS_BRANCH",
+        document: "98.765.432/0001-10",
+        addressCity: "Sao Luis",
+        addressState: "MA",
+      },
+    });
+    const activeBranchHeaders = {
+      "x-active-branch-id": branch.body.data?.id ?? "",
+    };
+    const product = await request<Product>("/products", {
+      method: "POST",
+      headers: activeBranchHeaders,
+      body: {
+        name: "Filtro NF-e filial",
+        salePrice: 35,
+        ncm: "84212300",
+        cfop: "5102",
+        icmsCst: "102",
+        pisCst: "49",
+        cofinsCst: "49",
+        origin: "0",
+      },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      headers: activeBranchHeaders,
+      body: {
+        personType: "PF",
+        name: "Cliente NF-e filial",
+        document: "12345678901",
+        stateRegistrationIndicator: "9",
+        addressStreet: "Rua Fiscal",
+        addressNumber: "123",
+        addressDistrict: "Centro",
+        addressCity: "Sao Luis",
+        addressState: "MA",
+        addressZipCode: "65000000",
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+      { headers: activeBranchHeaders },
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      headers: activeBranchHeaders,
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para emissao Focus por filial",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      headers: activeBranchHeaders,
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      headers: activeBranchHeaders,
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix?.id,
+        quantity: 1,
+      },
+    });
+
+    globalThis.fetch = (async (input, init) => {
+      if (String(input).startsWith(baseUrl)) {
+        return originalFetch(input, init);
+      }
+
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocusbranch",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      const fiscalDocument = await request<FiscalDocument>(
+        `/sales/${sale.body.data?.id}/fiscal-documents`,
+        {
+          method: "POST",
+          headers: activeBranchHeaders,
+          body: { documentType: "NFE" },
+        },
+      );
+
+      assert.equal(
+        fiscalDocument.status,
+        201,
+        JSON.stringify(fiscalDocument.body),
+      );
+      assert.equal(fiscalDocument.body.data?.branchId, branch.body.data?.id);
+      assert.ok(submittedPayload);
+      assert.equal(
+        (submittedPayload as Record<string, unknown>).cnpj_emitente,
+        "98765432000110",
+      );
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.tokens.HOMOLOGATION =
+        originalFocusHomologationToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("rejects invalid store CNPJ before calling Focus", async () => {
     const originalFocusToken = env.fiscal.focus.token;
     const originalFocusHomologationToken =
