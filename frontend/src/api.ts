@@ -708,6 +708,23 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return apiWrite<T>(path, "PATCH", body);
 }
 
+export async function downloadApiFile(path: string, filename: string) {
+  const response = await fetch(apiUrl(path), {
+    credentials: "include",
+    headers: apiHeaders(),
+  });
+  const file = await parseFileResponse(response, path);
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function apiWrite<T>(
   path: string,
   method: "POST" | "PUT" | "PATCH",
@@ -739,6 +756,19 @@ async function parseResponse<T>(response: Response, path: string): Promise<T> {
   }
 
   return payload;
+}
+
+async function parseFileResponse(
+  response: Response,
+  path: string,
+): Promise<Blob> {
+  if (response.ok) {
+    return response.blob();
+  }
+
+  const payload = await response.json();
+  notifyUnauthorizedResponse(response, path);
+  throw new Error(errorMessage(payload));
 }
 
 function notifyUnauthorizedResponse(response: Response, path: string) {

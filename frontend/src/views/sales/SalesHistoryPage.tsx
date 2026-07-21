@@ -9,7 +9,7 @@ import type {
   Sale,
   ShippingOrder,
 } from '../../api'
-import { apiUrl } from '../../api'
+import { apiUrl, downloadApiFile } from '../../api'
 import {
   ActionStack,
   InlineNote,
@@ -262,9 +262,13 @@ function SalesHistoryActions({
 
   row.saleId &&
     actions.unshift({
-      href: apiUrl(`/sales/${row.saleId}/receipt`),
       icon: <ReceiptText size={14} />,
       label: 'Baixar comprovante',
+      onSelect: () =>
+        void downloadApiFile(
+          `/sales/${row.saleId}/receipt`,
+          `comprovante-${row.saleId}.pdf`,
+        ),
     })
 
   row.sale &&

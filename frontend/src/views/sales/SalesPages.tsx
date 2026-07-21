@@ -13,7 +13,7 @@ import type {
   Sale,
   ShippingOrder,
 } from '../../api'
-import { apiUrl } from '../../api'
+import { apiUrl, downloadApiFile } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
 import {
   ActionGroup,
@@ -379,8 +379,11 @@ export function SalesPage({
   )
 }
 
-function saleReceiptHref(sale: Sale) {
-  return apiUrl(`/sales/${sale.id}/receipt`)
+function downloadSaleReceipt(sale: Sale) {
+  return downloadApiFile(
+    `/sales/${sale.id}/receipt`,
+    `comprovante-${sale.id}.pdf`,
+  )
 }
 
 function SaleActions({
@@ -397,8 +400,8 @@ function SaleActions({
   const [showReturnForm, setShowReturnForm] = useState(false)
   const actions: TableActionsMenuAction[] = [
     {
-      href: saleReceiptHref(sale),
       label: 'Baixar comprovante',
+      onSelect: () => void downloadSaleReceipt(sale),
     },
     {
       disabled: fiscalDocumentBlocksReturn,

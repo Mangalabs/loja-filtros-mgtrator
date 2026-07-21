@@ -5,7 +5,7 @@ import TextField from '@mui/material/TextField'
 import { CreditCard, List as ListIcon, Plus } from 'lucide-react'
 import { FormEvent, useState } from 'react'
 import type { Client, PaymentMethod, Product, Quote } from '../../api'
-import { apiUrl } from '../../api'
+import { downloadApiFile } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
 import {
   ActionGroup,
@@ -665,8 +665,8 @@ function quoteActions({
 }) {
   const actions: TableActionsMenuAction[] = [
     {
-      href: quotePdfHref(quote),
       label: 'Baixar PDF',
+      onSelect: () => void downloadQuotePdf(quote),
     },
   ]
 
@@ -690,8 +690,8 @@ function quoteActions({
   return actions
 }
 
-function quotePdfHref(quote: Quote) {
-  return apiUrl(`/quotes/${quote.id}/pdf`)
+function downloadQuotePdf(quote: Quote) {
+  return downloadApiFile(`/quotes/${quote.id}/pdf`, `orcamento-${quote.id}.pdf`)
 }
 
 const quoteShippingStatusLabels: Record<
