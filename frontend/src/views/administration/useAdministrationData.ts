@@ -9,6 +9,7 @@ import {
   type AuthEventPage,
   type AuthUser,
   type Branch,
+  type ClientCompanyLookup,
 } from "../../api";
 
 type AdministrationState = "loading" | "ready" | "error";
@@ -106,6 +107,14 @@ export function useAdministrationData() {
           : "Filial cadastrada com sucesso.",
       );
     });
+  }
+
+  async function lookupBranchCompany(cnpj: string) {
+    const result = await apiGet<ApiResult<ClientCompanyLookup>>(
+      `/clients/cnpj/${encodeURIComponent(cnpj)}`,
+    );
+
+    return result.data;
   }
 
   async function saveEmployee(event: FormEvent<HTMLFormElement>) {
@@ -236,6 +245,7 @@ export function useAdministrationData() {
     clearSelectedPasswordResetEmployee: () =>
       setSelectedPasswordResetEmployee(undefined),
     message,
+    lookupBranchCompany,
     resetEmployeePassword,
     saveBranch,
     saveEmployee,

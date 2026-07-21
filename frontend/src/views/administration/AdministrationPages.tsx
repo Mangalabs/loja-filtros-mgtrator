@@ -3,6 +3,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
+import { useEffect, useState } from "react";
 import {
   Activity,
   Building2,
@@ -19,6 +20,7 @@ import type {
   AuthEvent,
   AuthUser,
   Branch,
+  ClientCompanyLookup,
   EmployeePermission,
 } from "../../api";
 import {
@@ -47,128 +49,11 @@ export function BranchesPage() {
 
   return (
     <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(300px,0.7fr)_minmax(0,1.3fr)]">
-      <FormGrid
+      <BranchForm
         key={selectedBranch?.id ?? "new-branch"}
-        onSubmit={administration.saveBranch}
-      >
-        <PageHeader
-          description="Esses dados identificam a unidade nos documentos comerciais e preparam a filial para a NF-e."
-          icon={
-            selectedBranch ? <Pencil size={18} /> : <Building2 size={18} />
-          }
-          title={selectedBranch ? "Editar filial" : "Nova filial"}
-        />
-        <FormRow>
-          <TextField
-            defaultValue={selectedBranch?.name ?? ""}
-            label="Nome da filial"
-            name="name"
-            required
-          />
-          <TextField
-            defaultValue={selectedBranch?.code ?? ""}
-            helperText="Identificador curto, como 1, 2, CENTRO ou NORTE."
-            label="Codigo"
-            name="code"
-          />
-        </FormRow>
-        <FormRow>
-          <TextField
-            defaultValue={selectedBranch?.tradeName ?? ""}
-            label="Nome fantasia"
-            name="tradeName"
-          />
-          <TextField
-            defaultValue={selectedBranch?.legalName ?? ""}
-            label="Razao social"
-            name="legalName"
-          />
-        </FormRow>
-        <FormRow>
-          <TextField
-            defaultValue={selectedBranch?.document ?? ""}
-            label="CNPJ"
-            name="document"
-          />
-          <TextField
-            defaultValue={selectedBranch?.stateRegistration ?? ""}
-            label="Inscricao estadual"
-            name="stateRegistration"
-          />
-        </FormRow>
-        <FormRow>
-          <TextField
-            defaultValue={selectedBranch?.addressStreet ?? ""}
-            label="Logradouro"
-            name="addressStreet"
-          />
-          <TextField
-            defaultValue={selectedBranch?.addressNumber ?? ""}
-            label="Numero"
-            name="addressNumber"
-          />
-        </FormRow>
-        <FormRow>
-          <TextField
-            defaultValue={selectedBranch?.addressComplement ?? ""}
-            label="Complemento"
-            name="addressComplement"
-          />
-          <TextField
-            defaultValue={selectedBranch?.addressDistrict ?? ""}
-            label="Bairro"
-            name="addressDistrict"
-          />
-        </FormRow>
-        <FormRow>
-          <TextField
-            defaultValue={selectedBranch?.addressCity ?? ""}
-            label="Cidade"
-            name="addressCity"
-          />
-          <TextField
-            defaultValue={selectedBranch?.addressState ?? ""}
-            label="UF"
-            name="addressState"
-          />
-        </FormRow>
-        <FormRow>
-          <TextField
-            defaultValue={selectedBranch?.addressZipCode ?? ""}
-            label="CEP"
-            name="addressZipCode"
-          />
-          <TextField
-            defaultValue={selectedBranch?.phone ?? ""}
-            label="Telefone"
-            name="phone"
-          />
-        </FormRow>
-        <TextField
-          defaultValue={selectedBranch?.email ?? ""}
-          label="Email"
-          name="email"
-        />
-        <ActionGroup>
-          <PrimaryButton
-            disabled={administration.state === "loading"}
-            icon={selectedBranch ? <Pencil size={17} /> : <Plus size={17} />}
-            type="submit"
-          >
-            {selectedBranch ? "Atualizar filial" : "Cadastrar filial"}
-          </PrimaryButton>
-          {selectedBranch ? (
-            <SecondaryButton
-              icon={<X size={17} />}
-              type="button"
-              onClick={administration.clearSelectedBranch}
-            >
-              Cancelar
-            </SecondaryButton>
-          ) : null}
-        </ActionGroup>
-        <AdministrationMessage administration={administration} />
-      </FormGrid>
+        administration={administration}
+        selectedBranch={selectedBranch}
+      />
 
       <PagePanel wide>
         <PageHeader
@@ -229,6 +114,296 @@ export function BranchesPage() {
       </PagePanel>
     </div>
   );
+}
+
+function BranchForm({
+  administration,
+  selectedBranch,
+}: {
+  administration: ReturnType<typeof useAdministrationData>;
+  selectedBranch?: Branch;
+}) {
+  const [lookupState, setLookupState] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [values, setValues] = useState(branchFormValues(selectedBranch));
+
+  useEffect(() => {
+    setValues(branchFormValues(selectedBranch));
+    setLookupState("idle");
+  }, [selectedBranch]);
+
+  async function lookupCompany() {
+    const document = values.document.trim();
+
+    if (!document) {
+      setLookupState("error");
+      return;
+    }
+
+    setLookupState("loading");
+
+    try {
+      const company = await administration.lookupBranchCompany(document);
+
+      setValues((currentValues) => ({
+        ...currentValues,
+        ...branchLookupValues(company),
+      }));
+      setLookupState("success");
+    } catch {
+      setLookupState("error");
+    }
+  }
+
+  function updateValue(name: keyof BranchFormValues, value: string) {
+    setValues((currentValues) => ({
+      ...currentValues,
+      [name]: value,
+    }));
+  }
+
+  return (
+    <FormGrid onSubmit={administration.saveBranch}>
+      <PageHeader
+        description="Esses dados identificam a unidade nos documentos comerciais e preparam a filial para a NF-e."
+        icon={selectedBranch ? <Pencil size={18} /> : <Building2 size={18} />}
+        title={selectedBranch ? "Editar filial" : "Nova filial"}
+      />
+      <FormRow>
+        <BranchTextField
+          label="Nome da filial"
+          name="name"
+          required
+          updateValue={updateValue}
+          values={values}
+        />
+        <BranchTextField
+          helperText="Identificador curto, como 1, 2, CENTRO ou NORTE."
+          label="Codigo"
+          name="code"
+          updateValue={updateValue}
+          values={values}
+        />
+      </FormRow>
+      <FormRow>
+        <BranchTextField
+          label="Nome fantasia"
+          name="tradeName"
+          updateValue={updateValue}
+          values={values}
+        />
+        <BranchTextField
+          label="Razao social"
+          name="legalName"
+          updateValue={updateValue}
+          values={values}
+        />
+      </FormRow>
+      <FormRow>
+        <BranchTextField
+          label="CNPJ"
+          name="document"
+          updateValue={updateValue}
+          values={values}
+        />
+        <BranchTextField
+          label="Inscricao estadual"
+          name="stateRegistration"
+          updateValue={updateValue}
+          values={values}
+        />
+      </FormRow>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm text-[#5f665f]">
+          {branchLookupStatusLabel[lookupState]}
+        </span>
+        <SecondaryButton
+          disabled={lookupState === "loading"}
+          type="button"
+          onClick={() => void lookupCompany()}
+        >
+          Buscar CNPJ
+        </SecondaryButton>
+      </div>
+      <FormRow>
+        <BranchTextField
+          label="Logradouro"
+          name="addressStreet"
+          updateValue={updateValue}
+          values={values}
+        />
+        <BranchTextField
+          label="Numero"
+          name="addressNumber"
+          updateValue={updateValue}
+          values={values}
+        />
+      </FormRow>
+      <FormRow>
+        <BranchTextField
+          label="Complemento"
+          name="addressComplement"
+          updateValue={updateValue}
+          values={values}
+        />
+        <BranchTextField
+          label="Bairro"
+          name="addressDistrict"
+          updateValue={updateValue}
+          values={values}
+        />
+      </FormRow>
+      <FormRow>
+        <BranchTextField
+          label="Cidade"
+          name="addressCity"
+          updateValue={updateValue}
+          values={values}
+        />
+        <BranchTextField
+          label="UF"
+          name="addressState"
+          updateValue={updateValue}
+          values={values}
+        />
+      </FormRow>
+      <FormRow>
+        <BranchTextField
+          label="CEP"
+          name="addressZipCode"
+          updateValue={updateValue}
+          values={values}
+        />
+        <BranchTextField
+          label="Telefone"
+          name="phone"
+          updateValue={updateValue}
+          values={values}
+        />
+      </FormRow>
+      <BranchTextField
+        label="Email"
+        name="email"
+        updateValue={updateValue}
+        values={values}
+      />
+      <ActionGroup>
+        <PrimaryButton
+          disabled={administration.state === "loading"}
+          icon={selectedBranch ? <Pencil size={17} /> : <Plus size={17} />}
+          type="submit"
+        >
+          {selectedBranch ? "Atualizar filial" : "Cadastrar filial"}
+        </PrimaryButton>
+        {selectedBranch ? (
+          <SecondaryButton
+            icon={<X size={17} />}
+            type="button"
+            onClick={administration.clearSelectedBranch}
+          >
+            Cancelar
+          </SecondaryButton>
+        ) : null}
+      </ActionGroup>
+      <AdministrationMessage administration={administration} />
+    </FormGrid>
+  );
+}
+
+type BranchFormValues = {
+  addressCity: string;
+  addressComplement: string;
+  addressDistrict: string;
+  addressNumber: string;
+  addressState: string;
+  addressStreet: string;
+  addressZipCode: string;
+  code: string;
+  document: string;
+  email: string;
+  legalName: string;
+  name: string;
+  phone: string;
+  stateRegistration: string;
+  tradeName: string;
+};
+
+function BranchTextField({
+  helperText,
+  label,
+  name,
+  required,
+  updateValue,
+  values,
+}: {
+  helperText?: string;
+  label: string;
+  name: keyof BranchFormValues;
+  required?: boolean;
+  updateValue: (name: keyof BranchFormValues, value: string) => void;
+  values: BranchFormValues;
+}) {
+  return (
+    <TextField
+      helperText={helperText}
+      label={label}
+      name={name}
+      required={required}
+      value={values[name]}
+      onChange={(event) => updateValue(name, event.target.value)}
+    />
+  );
+}
+
+const branchLookupStatusLabel: Record<
+  "idle" | "loading" | "success" | "error",
+  string
+> = {
+  error: "Informe um CNPJ valido ou tente novamente.",
+  idle: "Preencha o CNPJ e busque os dados fiscais da filial.",
+  loading: "Consultando CNPJ...",
+  success: "Dados encontrados. Revise antes de salvar.",
+};
+
+function branchFormValues(branch?: Branch): BranchFormValues {
+  return {
+    addressCity: branch?.addressCity ?? "",
+    addressComplement: branch?.addressComplement ?? "",
+    addressDistrict: branch?.addressDistrict ?? "",
+    addressNumber: branch?.addressNumber ?? "",
+    addressState: branch?.addressState ?? "",
+    addressStreet: branch?.addressStreet ?? "",
+    addressZipCode: branch?.addressZipCode ?? "",
+    code: branch?.code ?? "",
+    document: branch?.document ?? "",
+    email: branch?.email ?? "",
+    legalName: branch?.legalName ?? "",
+    name: branch?.name ?? "",
+    phone: branch?.phone ?? "",
+    stateRegistration: branch?.stateRegistration ?? "",
+    tradeName: branch?.tradeName ?? "",
+  };
+}
+
+function branchLookupValues(
+  company: ClientCompanyLookup,
+): Partial<BranchFormValues> {
+  return {
+    addressCity: company.addressCity ?? "",
+    addressComplement: company.addressComplement ?? "",
+    addressDistrict: company.addressDistrict ?? "",
+    addressNumber: company.addressNumber ?? "",
+    addressState: company.addressState ?? "",
+    addressStreet: company.addressStreet ?? "",
+    addressZipCode: company.addressZipCode ?? "",
+    document: company.document,
+    email: company.email ?? "",
+    legalName: company.name,
+    phone: company.phone ?? "",
+    stateRegistration: company.stateRegistration ?? "",
+    tradeName: company.name,
+  };
 }
 
 export type RequestConfirmation = (
