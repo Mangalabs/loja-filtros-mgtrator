@@ -79,9 +79,16 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     setMessage("");
 
     try {
+      const branchesResult = await fetchBranches(user);
+      setBranches(branchesResult.data);
+
+      if (requiresBranchSelection(user, activeBranchId)) {
+        setState("ready");
+        return;
+      }
+
       const [
         productsResult,
-        branchesResult,
         brandsResult,
         clientsResult,
         suppliersResult,
@@ -106,9 +113,6 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         pickupReservationsResult,
       ] = await Promise.all([
         fetchProductCatalog(),
-        canAccessView(user, "employees")
-          ? apiGet<ApiResult<Branch[]>>("/branches")
-          : emptyResult<Branch[]>([]),
         apiGet<ApiResult<NamedEntity[]>>("/brands"),
         apiGet<ApiResult<Client[]>>("/clients"),
         apiGet<ApiResult<Supplier[]>>("/suppliers"),
@@ -150,7 +154,6 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       ]);
 
       setProducts(productsResult);
-      setBranches(branchesResult.data);
       setBrands(brandsResult.data);
       setClients(clientsResult.data);
       setSuppliers(suppliersResult.data);
@@ -376,6 +379,16 @@ async function fetchProductCatalog() {
   }
 
   return products;
+}
+
+async function fetchBranches(user: AuthUser) {
+  return canAccessView(user, "employees")
+    ? apiGet<ApiResult<Branch[]>>("/branches")
+    : emptyResult<Branch[]>([]);
+}
+
+function requiresBranchSelection(user: AuthUser, activeBranchId: string) {
+  return user.role === "ADMIN" && !activeBranchId;
 }
 
 async function fetchCommercialSettings() {
