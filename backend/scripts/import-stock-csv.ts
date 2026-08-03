@@ -150,7 +150,6 @@ const fieldAliases: Record<keyof Omit<StockImportRow, "rowNumber">, string[]> =
       "estoque minimo",
       "estoque mínimo",
       "estoque min.",
-      "estoque min,",
       "minimum_stock",
     ],
     ncm: ["ncm"],
