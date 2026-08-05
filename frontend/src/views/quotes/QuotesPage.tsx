@@ -77,7 +77,7 @@ export function QuotesPage({
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
   const [clientId, setClientId] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('')
-  const [billingIssueDate, setBillingIssueDate] = useState('')
+  const [billingIssueDate, setBillingIssueDate] = useState(todayInputDate)
   const [billingDueDate, setBillingDueDate] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [notes, setNotes] = useState('')
@@ -146,7 +146,7 @@ export function QuotesPage({
     setEditingQuoteId(null)
     setClientId('')
     setPaymentMethodId('')
-    setBillingIssueDate('')
+    setBillingIssueDate(todayInputDate())
     setBillingDueDate('')
     setValidUntil('')
     setNotes('')
@@ -371,7 +371,7 @@ export function QuotesPage({
                   onChange={(event) =>
                     updateItem(index, { quantity: event.target.value })
                   }
-                  slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
+                  slotProps={{ htmlInput: { min: '1', step: '1' } }}
                   required
                 />
                 <TextField
@@ -607,7 +607,7 @@ function QuoteActions({
         <div className='inline-flex justify-end'>
           <TableActionsMenu actions={actions} />
         </div>
-        <InlineNote>Pedido para envio criado</InlineNote>
+        <InlineNote>Pedido de envio criado</InlineNote>
       </ActionStack>
     )
   }
@@ -679,7 +679,7 @@ function quoteActions({
         onSelect: onEditQuote,
       },
       {
-        label: 'Enviar p/ envio',
+        label: 'Criar pedido de envio',
         onSelect: onCreateShippingOrder,
       },
       {
@@ -702,7 +702,7 @@ const quoteShippingStatusLabels: Record<
   APPROVED: 'Envio aprovado',
   CANCELLED: 'Envio cancelado',
   COMPLETED: 'Venda concluida',
-  QUOTED: 'Enviado p/ envio',
+  QUOTED: 'Pedido de envio criado',
   SEPARATED: 'Separado para envio',
 }
 
@@ -782,6 +782,10 @@ function emptyQuoteItem(): QuoteDraftItem {
     unitPrice: '',
     discountPercentage: '',
   }
+}
+
+function todayInputDate() {
+  return new Date().toLocaleDateString('en-CA')
 }
 
 function quoteItemDiscountAmount(item: QuoteDraftItem) {
