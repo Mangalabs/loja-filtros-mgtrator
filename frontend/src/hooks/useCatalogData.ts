@@ -112,7 +112,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         shippingOrdersResult,
         pickupReservationsResult,
       ] = await Promise.all([
-        fetchProductCatalog(),
+        fetchProductCatalog(search),
         apiGet<ApiResult<NamedEntity[]>>("/brands"),
         apiGet<ApiResult<Client[]>>("/clients"),
         apiGet<ApiResult<Supplier[]>>("/suppliers"),
@@ -260,6 +260,18 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     void loadCatalog();
   }, [activeBranchId, user.id]);
 
+  useEffect(() => {
+    if (requiresBranchSelection(user, activeBranchId)) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void refreshProducts(search);
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [activeBranchId, search, user.role]);
+
   const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
 
@@ -292,6 +304,15 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Erro inesperado");
       return false;
+    }
+  }
+
+  async function refreshProducts(searchTerm: string) {
+    try {
+      setProducts(await fetchProductCatalog(searchTerm));
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
     }
   }
 
@@ -362,23 +383,22 @@ function reportPath(path: string, filters: ReportPeriodFilters) {
   return query ? `${path}?${query}` : path;
 }
 
-async function fetchProductCatalog() {
-  const limit = 100;
-  const products: Product[] = [];
-  let page = 1;
-  let hasNextPage = true;
+async function fetchProductCatalog(search?: string) {
+  const params = new URLSearchParams({
+    limit: "100",
+    page: "1",
+  });
+  const term = search?.trim();
 
-  while (hasNextPage) {
-    const result = await apiGet<ApiResult<Product[]>>(
-      `/products?page=${page}&limit=${limit}`,
-    );
-
-    products.push(...result.data);
-    hasNextPage = result.data.length === limit;
-    page += 1;
+  if (term) {
+    params.set("search", term);
   }
 
-  return products;
+  const result = await apiGet<ApiResult<Product[]>>(
+    `/products?${params.toString()}`,
+  );
+
+  return result.data;
 }
 
 async function fetchBranches(user: AuthUser) {
