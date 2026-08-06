@@ -288,7 +288,7 @@ export function QuotesPage({
               : 'Monte itens, valores e dados comerciais antes do PDF.'
           }
           icon={<ListIcon size={18} />}
-          title={isEditing ? 'Editar orcamento' : 'Novo orcamento'}
+          title={isEditing ? 'Editar orçamento' : 'Novo orçamento'}
         />
         <TextField
           label='Cliente'
@@ -331,16 +331,18 @@ export function QuotesPage({
         {usesBankSlip ? (
           <FormCard>
             <PageHeader
-              description='As parcelas sao divididas igualmente a partir do vencimento informado.'
+              description='As parcelas são divididas igualmente a partir do vencimento informado.'
               title='Parcelamento do boleto'
             />
             <TextField
-              label='Numero de parcelas'
+              label='Número de parcelas'
               value={installmentCount}
               type='number'
               size='medium'
               onChange={(event) =>
-                setInstallmentCount(Number(event.target.value || 1))
+                setInstallmentCount(
+                  normalizeInstallmentCount(Number(event.target.value || 1)),
+                )
               }
               slotProps={{ htmlInput: { min: '1', max: '24', step: '1' } }}
               required
@@ -416,7 +418,7 @@ export function QuotesPage({
           geral: {formatCurrency(generalDiscount)}
         </InlineNote>
         <TextField
-          label='Observacoes do orcamento'
+          label='Observações do orçamento'
           multiline
           value={notes}
           rows={3}
@@ -521,7 +523,7 @@ export function QuotesPage({
             Adicionar item
           </SecondaryButton>
           <PrimaryButton icon={<Plus size={17} />} type='submit'>
-            {isEditing ? 'Atualizar orcamento' : 'Salvar orcamento'}
+            {isEditing ? 'Atualizar orçamento' : 'Salvar orçamento'}
           </PrimaryButton>
         </ActionGroup>
       </FormGrid>
@@ -631,7 +633,7 @@ export function QuotesPage({
               ),
             },
           ]}
-          emptyMessage='Nenhum orcamento salvo.'
+          emptyMessage='Nenhum orçamento salvo.'
           getRowId={(quote) => quote.id}
           items={visibleItems}
           pagination={pagination}
@@ -796,7 +798,7 @@ function quoteActions({
         onSelect: onCreateShippingOrder,
       },
       {
-        label: 'Cancelar orcamento',
+        label: 'Cancelar orçamento',
         onSelect: onCancelQuote,
       },
     )
@@ -926,7 +928,7 @@ function quotePaymentInstallments(
   firstDueDate: string,
   totalAmount: number,
 ): QuotePaymentInstallmentDraft[] {
-  const installmentCount = Math.max(Math.min(Math.trunc(count || 1), 24), 1)
+  const installmentCount = normalizeInstallmentCount(count)
   const baseAmount = Math.floor((totalAmount / installmentCount) * 100) / 100
   const baseTotal = Number((baseAmount * installmentCount).toFixed(2))
   const lastAmount = Number((baseAmount + totalAmount - baseTotal).toFixed(2))
@@ -936,6 +938,10 @@ function quotePaymentInstallments(
     dueDate: installmentDueDate(firstDueDate, index),
     position: index + 1,
   }))
+}
+
+function normalizeInstallmentCount(count: number) {
+  return Math.max(Math.min(Math.trunc(count || 1), 24), 1)
 }
 
 function installmentDueDate(firstDueDate: string, index: number) {
