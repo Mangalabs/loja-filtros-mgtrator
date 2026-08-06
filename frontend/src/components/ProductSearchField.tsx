@@ -1,6 +1,7 @@
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { apiGet, type ApiResult, type Product } from "../api";
 import { formatQuantity } from "../utils/format";
@@ -36,6 +37,7 @@ export function ProductSearchField({
   const [internalProductId, setInternalProductId] = useState(
     defaultValue ?? "",
   );
+  const [loading, setLoading] = useState(false);
   const [remoteProducts, setRemoteProducts] = useState<Product[]>([]);
   const [inputValue, setInputValue] = useState("");
   const productOptions = useMemo(
@@ -51,11 +53,16 @@ export function ProductSearchField({
     const term = inputValue.trim();
 
     if (term.length < 2) {
+      setLoading(false);
+      setRemoteProducts([]);
       return;
     }
 
     const timeout = window.setTimeout(() => {
-      void searchProducts(term, setRemoteProducts).catch(() => undefined);
+      setLoading(true);
+      void searchProducts(term, setRemoteProducts)
+        .catch(() => undefined)
+        .finally(() => setLoading(false));
     }, 250);
 
     return () => window.clearTimeout(timeout);
@@ -85,7 +92,9 @@ export function ProductSearchField({
         disabled={disabled}
         getOptionLabel={productSearchLabel}
         isOptionEqualToValue={(option, value) => option.id === value.id}
-        noOptionsText="Nenhum produto encontrado"
+        loading={loading}
+        loadingText="Buscando produtos..."
+        noOptionsText={noOptionsText(inputValue)}
         options={sortedProducts}
         value={selectedProduct}
         filterOptions={(options, state) =>
@@ -115,6 +124,12 @@ export function ProductSearchField({
       />
     </>
   );
+}
+
+function noOptionsText(inputValue: string): ReactNode {
+  return inputValue.trim().length < 2
+    ? "Digite ao menos 2 caracteres para buscar"
+    : "Nenhum produto encontrado";
 }
 
 function sortProducts(products: Product[]) {
