@@ -69,6 +69,7 @@ export function AuthenticatedApp({
     quotes,
     refreshQuoteFlow,
     refreshSalesFlow,
+    refreshStockFlow,
     reportsOverview,
     runAction,
     sales,
@@ -124,7 +125,7 @@ export function AuthenticatedApp({
   });
 
   const stockActions = useStockActions({
-    loadCatalog,
+    refreshStockFlow,
     requestConfirmation,
     runAction,
   });

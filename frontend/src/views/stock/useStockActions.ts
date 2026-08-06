@@ -13,7 +13,7 @@ import { nullableFormValue } from "../../utils/forms";
 import { parsePurchaseXmlPreview } from "./purchaseXmlPreview";
 
 type StockActionsOptions = {
-  loadCatalog: () => Promise<void>;
+  refreshStockFlow: () => Promise<void>;
   requestConfirmation: (
     message: string,
     title?: string,
@@ -23,7 +23,7 @@ type StockActionsOptions = {
 };
 
 export function useStockActions({
-  loadCatalog,
+  refreshStockFlow,
   requestConfirmation,
   runAction,
 }: StockActionsOptions) {
@@ -42,7 +42,7 @@ export function useStockActions({
       });
 
       formElement.reset();
-      await loadCatalog();
+      await refreshStockFlow();
     });
   }
 
@@ -59,7 +59,7 @@ export function useStockActions({
       });
 
       formElement.reset();
-      await loadCatalog();
+      await refreshStockFlow();
     });
   }
 
@@ -90,7 +90,7 @@ export function useStockActions({
             );
 
         void result;
-        await loadCatalog();
+        await refreshStockFlow();
       } catch (error) {
         handleMissingPurchaseInvoiceRoutes(error);
       }
@@ -114,7 +114,7 @@ export function useStockActions({
         {},
       );
 
-      await loadCatalog();
+      await refreshStockFlow();
     });
   }
 
@@ -130,7 +130,7 @@ export function useStockActions({
       );
 
       createdProduct = result.data;
-      await loadCatalog();
+      await refreshStockFlow();
     });
 
     return createdProduct;

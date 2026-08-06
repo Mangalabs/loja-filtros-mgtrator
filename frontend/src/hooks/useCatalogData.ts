@@ -261,6 +261,58 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     setPickupReservations(pickupReservationsResult.data);
   }
 
+  async function refreshStockFlow() {
+    const [
+      productsResult,
+      productPageResult,
+      suppliersResult,
+      stockEntriesResult,
+      stockAdjustmentsResult,
+      stockMovementsResult,
+      purchaseInvoicesResult,
+      lowStockResult,
+      reportsOverviewResult,
+      stockReportResult,
+      purchaseReportResult,
+    ] = await Promise.all([
+      fetchProductCatalog(),
+      fetchProductPage({
+        limit: productRowsPerPage,
+        page: productPageIndex + 1,
+        search,
+      }),
+      apiGet<ApiResult<Supplier[]>>("/suppliers"),
+      apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
+      canAccessView(user, "stock-adjustments")
+        ? apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments")
+        : emptyResult<StockAdjustment[]>([]),
+      apiGet<ApiResult<StockMovement[]>>("/stock-movements"),
+      canAccessView(user, "purchase-invoices")
+        ? fetchPurchaseInvoices()
+        : emptyResult<PurchaseInvoice[]>([]),
+      apiGet<ApiResult<Product[]>>("/products/low-stock"),
+      apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+      canAccessView(user, "reports")
+        ? apiGet<ApiResult<StockReport>>("/reports/stock")
+        : emptyResult<StockReport | null>(null),
+      canAccessView(user, "reports")
+        ? apiGet<ApiResult<PurchaseReport>>("/reports/purchases")
+        : emptyResult<PurchaseReport | null>(null),
+    ]);
+
+    setProducts(productsResult);
+    setProductPage(productPageResult);
+    setSuppliers(suppliersResult.data);
+    setStockEntries(stockEntriesResult.data);
+    setStockAdjustments(stockAdjustmentsResult.data);
+    setStockMovements(stockMovementsResult.data);
+    setPurchaseInvoices(purchaseInvoicesResult.data);
+    setLowStockProducts(lowStockResult.data);
+    setReportsOverview(reportsOverviewResult.data);
+    setStockReport(stockReportResult.data);
+    setPurchaseReport(purchaseReportResult.data);
+  }
+
   async function loadSalesReport(filters: SalesReportFilters = {}) {
     setMessage("");
 
@@ -418,6 +470,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     quotes,
     refreshQuoteFlow,
     refreshSalesFlow,
+    refreshStockFlow,
     reportsOverview,
     runAction,
     sales,
