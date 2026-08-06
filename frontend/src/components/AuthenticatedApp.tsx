@@ -141,6 +141,7 @@ export function AuthenticatedApp({
     products,
     requestConfirmation,
     runAction,
+    showSalesHistory: () => setView("sales-history"),
   });
 
   const activeTitle = viewTitles[view];

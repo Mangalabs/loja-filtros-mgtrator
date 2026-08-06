@@ -19,6 +19,7 @@ type SalesActionsOptions = {
   ) => Promise<boolean>;
   products: Product[];
   runAction: (action: () => Promise<void>) => Promise<boolean>;
+  showSalesHistory: () => void;
 };
 
 export function useSalesActions({
@@ -26,6 +27,7 @@ export function useSalesActions({
   products,
   requestConfirmation,
   runAction,
+  showSalesHistory,
 }: SalesActionsOptions) {
   async function createSale(input: SaleDraftInput) {
     const allowInsufficientStock = await confirmInsufficientStockIfNeeded(
@@ -44,6 +46,7 @@ export function useSalesActions({
         allowInsufficientStock,
       });
       await loadCatalog();
+      showSalesHistory();
     });
   }
 
@@ -263,6 +266,7 @@ export function useSalesActions({
         allowInsufficientStock,
       });
       await loadCatalog();
+      showSalesHistory();
     });
   }
 
@@ -347,6 +351,7 @@ export function useSalesActions({
         allowInsufficientStock,
       });
       await loadCatalog();
+      showSalesHistory();
     });
   }
 
