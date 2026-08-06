@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   apiGet,
   setActiveBranchHeader,
@@ -73,6 +73,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
+  const searchRefreshReadyRef = useRef(false);
 
   async function loadCatalog() {
     setState("loading");
@@ -256,12 +257,18 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   }
 
   useEffect(() => {
+    searchRefreshReadyRef.current = false;
     setActiveBranchHeader(activeBranchId);
     void loadCatalog();
   }, [activeBranchId, user.id]);
 
   useEffect(() => {
     if (requiresBranchSelection(user, activeBranchId)) {
+      return;
+    }
+
+    if (!searchRefreshReadyRef.current) {
+      searchRefreshReadyRef.current = true;
       return;
     }
 
