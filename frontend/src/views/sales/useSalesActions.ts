@@ -19,6 +19,7 @@ type SalesActionsOptions = {
   ) => Promise<boolean>;
   products: Product[];
   runAction: (action: () => Promise<void>) => Promise<boolean>;
+  showFiscalDocuments: () => void;
   showSalesHistory: () => void;
 };
 
@@ -27,6 +28,7 @@ export function useSalesActions({
   products,
   requestConfirmation,
   runAction,
+  showFiscalDocuments,
   showSalesHistory,
 }: SalesActionsOptions) {
   async function createSale(input: SaleDraftInput) {
@@ -66,6 +68,7 @@ export function useSalesActions({
         documentType: "NFE",
       });
       await loadCatalog();
+      showFiscalDocuments();
     });
   }
 
@@ -131,6 +134,7 @@ export function useSalesActions({
         documentType: "NFE",
       });
       await loadCatalog();
+      showFiscalDocuments();
     });
   }
 
@@ -152,6 +156,7 @@ export function useSalesActions({
         documentType: "NFE",
       });
       await loadCatalog();
+      showFiscalDocuments();
     });
   }
 

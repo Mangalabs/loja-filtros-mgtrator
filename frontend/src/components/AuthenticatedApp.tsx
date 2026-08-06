@@ -145,6 +145,7 @@ export function AuthenticatedApp({
     products,
     requestConfirmation,
     runAction,
+    showFiscalDocuments: () => setView("fiscal-documents"),
     showSalesHistory: () => setView("sales-history"),
   });
 
