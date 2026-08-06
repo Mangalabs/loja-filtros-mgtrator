@@ -450,7 +450,10 @@ type SalesReport = {
     productId: string;
     productName: string;
     quantity: string;
+    costAmount: string;
     totalAmount: string;
+    grossProfitAmount: string;
+    grossMarginPercentage: string;
   }>;
   byClient: Array<{
     clientId: string | null;
@@ -4109,11 +4112,19 @@ describe("catalog routes", () => {
   it("returns sales commercial reports grouped by product, client, and payment method", async () => {
     const firstProduct = await request<Product>("/products", {
       method: "POST",
-      body: { name: "Filtro relatorio comercial A", salePrice: 40 },
+      body: {
+        name: "Filtro relatorio comercial A",
+        costPrice: 20,
+        salePrice: 40,
+      },
     });
     const secondProduct = await request<Product>("/products", {
       method: "POST",
-      body: { name: "Filtro relatorio comercial B", salePrice: 75 },
+      body: {
+        name: "Filtro relatorio comercial B",
+        costPrice: 45,
+        salePrice: 75,
+      },
     });
     const client = await request<Client>("/clients", {
       method: "POST",
@@ -4167,9 +4178,24 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.summary.grossAmount, "155.00");
     assert.equal(report.body.data?.summary.discountAmount, "10.00");
     assert.equal(report.body.data?.summary.netAmount, "145.00");
-    assert.equal(report.body.data?.byProduct[0]?.productName, firstProduct.body.data?.name);
+    assert.equal(
+      report.body.data?.byProduct[0]?.productName,
+      firstProduct.body.data?.name,
+    );
+    assert.equal(report.body.data?.byProduct[0]?.costAmount, "40.00");
     assert.equal(report.body.data?.byProduct[0]?.totalAmount, "80.00");
-    assert.equal(report.body.data?.byClient[0]?.clientName, client.body.data?.name);
+    assert.equal(
+      report.body.data?.byProduct[0]?.grossProfitAmount,
+      "40.00",
+    );
+    assert.equal(
+      report.body.data?.byProduct[0]?.grossMarginPercentage,
+      "50.00",
+    );
+    assert.equal(
+      report.body.data?.byClient[0]?.clientName,
+      client.body.data?.name,
+    );
     assert.equal(report.body.data?.byClient[0]?.salesCount, 1);
     assert.equal(report.body.data?.byClient[0]?.totalAmount, "145.00");
     assert.equal(report.body.data?.byPaymentMethod[0]?.paymentMethodName, "Boleto");

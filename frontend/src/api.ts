@@ -467,7 +467,10 @@ export type SalesReport = {
     productId: string;
     productName: string;
     quantity: string;
+    costAmount: string;
     totalAmount: string;
+    grossProfitAmount: string;
+    grossMarginPercentage: string;
   }>;
   byClient: Array<{
     clientId: string | null;

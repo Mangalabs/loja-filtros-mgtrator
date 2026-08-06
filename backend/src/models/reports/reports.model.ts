@@ -32,7 +32,10 @@ export type SalesReport = {
     productId: string;
     productName: string;
     quantity: string;
+    costAmount: string;
     totalAmount: string;
+    grossProfitAmount: string;
+    grossMarginPercentage: string;
   }>;
   byClient: Array<{
     clientId: string | null;
@@ -182,7 +185,10 @@ type SalesByProductRow = {
   productId: string;
   productName: string;
   quantity: string;
+  costAmount: string;
   totalAmount: string;
+  grossProfitAmount: string;
+  grossMarginPercentage: string;
 };
 
 type SalesByClientRow = {
@@ -382,9 +388,24 @@ export async function getSalesReport(
         db.raw("sum(sale_items.quantity)::numeric(12, 3)::text as ??", [
           "quantity",
         ]),
+        db.raw(
+          "sum(products.cost_price * sale_items.quantity)::numeric(12, 2)::text as ??",
+          ["costAmount"],
+        ),
         db.raw("sum(sale_items.total_amount)::numeric(12, 2)::text as ??", [
           "totalAmount",
         ]),
+        db.raw(
+          "(sum(sale_items.total_amount) - sum(products.cost_price * sale_items.quantity))::numeric(12, 2)::text as ??",
+          ["grossProfitAmount"],
+        ),
+        db.raw(
+          `case
+            when sum(sale_items.total_amount) = 0 then '0.00'
+            else (((sum(sale_items.total_amount) - sum(products.cost_price * sale_items.quantity)) / sum(sale_items.total_amount)) * 100)::numeric(8, 2)::text
+          end as ??`,
+          ["grossMarginPercentage"],
+        ),
       ])
       .groupBy("products.id", "products.name")
       .orderByRaw("sum(sale_items.total_amount) desc")

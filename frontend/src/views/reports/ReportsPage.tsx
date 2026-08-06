@@ -306,6 +306,21 @@ function SalesReportSection({
               header: "Total",
               render: (item) => formatCurrency(item.totalAmount),
             },
+            {
+              align: "right",
+              header: "Custo",
+              render: (item) => formatCurrency(item.costAmount),
+            },
+            {
+              align: "right",
+              header: "Lucro",
+              render: (item) => formatCurrency(item.grossProfitAmount),
+            },
+            {
+              align: "right",
+              header: "Margem",
+              render: (item) => `${item.grossMarginPercentage}%`,
+            },
           ]}
           emptyMessage="Nenhuma venda por produto."
           getRowId={(item) => item.productId}
