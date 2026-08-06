@@ -327,6 +327,7 @@ export function AppViewRenderer({
     quotes: (
         <QuotesPage
           clients={clients}
+          commercialSettings={commercialSettings}
           paymentMethods={paymentMethods}
           products={products}
           quotes={quotes}

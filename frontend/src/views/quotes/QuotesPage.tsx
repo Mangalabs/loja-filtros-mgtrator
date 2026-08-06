@@ -3,8 +3,14 @@ import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import { CreditCard, List as ListIcon, Plus } from 'lucide-react'
-import { FormEvent, useState } from 'react'
-import type { Client, PaymentMethod, Product, Quote } from '../../api'
+import { FormEvent, useEffect, useState } from 'react'
+import type {
+  Client,
+  CommercialSettings,
+  PaymentMethod,
+  Product,
+  Quote,
+} from '../../api'
 import { downloadApiFile } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
 import {
@@ -57,6 +63,7 @@ export type QuoteDraftInput = {
 
 export function QuotesPage({
   clients,
+  commercialSettings,
   paymentMethods,
   products,
   quotes,
@@ -66,6 +73,7 @@ export function QuotesPage({
   onCreateShippingOrder,
 }: {
   clients: Client[]
+  commercialSettings: CommercialSettings | null
   paymentMethods: PaymentMethod[]
   products: Product[]
   quotes: Quote[]
@@ -79,7 +87,10 @@ export function QuotesPage({
   const [paymentMethodId, setPaymentMethodId] = useState('')
   const [billingIssueDate, setBillingIssueDate] = useState(todayInputDate)
   const [billingDueDate, setBillingDueDate] = useState('')
-  const [validUntil, setValidUntil] = useState('')
+  const [validUntil, setValidUntil] = useState(() =>
+    quoteValidityDate(todayInputDate(), commercialSettings),
+  )
+  const [validUntilTouched, setValidUntilTouched] = useState(false)
   const [notes, setNotes] = useState('')
   const [showBrand, setShowBrand] = useState(true)
   const [discountPercentage, setDiscountPercentage] = useState('')
@@ -109,6 +120,19 @@ export function QuotesPage({
     totalBeforeGeneralDiscount - generalDiscount,
     0,
   )
+
+  useEffect(() => {
+    if (isEditing || validUntilTouched) {
+      return
+    }
+
+    setValidUntil(quoteValidityDate(billingIssueDate, commercialSettings))
+  }, [
+    billingIssueDate,
+    commercialSettings?.defaultQuoteValidityDays,
+    isEditing,
+    validUntilTouched,
+  ])
 
   function updateItem(index: number, changes: Partial<QuoteDraftItem>) {
     setItems((currentItems) =>
@@ -146,9 +170,12 @@ export function QuotesPage({
     setEditingQuoteId(null)
     setClientId('')
     setPaymentMethodId('')
-    setBillingIssueDate(todayInputDate())
+    const issueDate = todayInputDate()
+
+    setBillingIssueDate(issueDate)
     setBillingDueDate('')
-    setValidUntil('')
+    setValidUntil(quoteValidityDate(issueDate, commercialSettings))
+    setValidUntilTouched(false)
     setNotes('')
     setShowBrand(true)
     setDiscountPercentage('')
@@ -191,6 +218,7 @@ export function QuotesPage({
     setBillingIssueDate(quote.billingIssueDate?.slice(0, 10) ?? '')
     setBillingDueDate(quote.billingDueDate?.slice(0, 10) ?? '')
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
+    setValidUntilTouched(true)
     setNotes(quote.notes ?? '')
     setShowBrand(quote.showBrand)
     setDiscountPercentage(quote.discountPercentage)
@@ -279,7 +307,10 @@ export function QuotesPage({
             size='medium'
             type='date'
             value={validUntil}
-            onChange={(event) => setValidUntil(event.target.value)}
+            onChange={(event) => {
+              setValidUntil(event.target.value)
+              setValidUntilTouched(true)
+            }}
             slotProps={{ inputLabel: { shrink: true } }}
           />
           <TextField
@@ -786,6 +817,16 @@ function emptyQuoteItem(): QuoteDraftItem {
 
 function todayInputDate() {
   return new Date().toLocaleDateString('en-CA')
+}
+
+function quoteValidityDate(
+  issueDate: string,
+  settings: CommercialSettings | null,
+) {
+  const date = new Date(`${issueDate}T00:00:00`)
+  date.setDate(date.getDate() + Number(settings?.defaultQuoteValidityDays ?? 7))
+
+  return date.toLocaleDateString('en-CA')
 }
 
 function quoteItemDiscountAmount(item: QuoteDraftItem) {

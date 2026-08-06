@@ -22,6 +22,7 @@ export async function replaceCommercialSettings(
       defaultProfitMarginPercentage: Number(
         input.defaultProfitMarginPercentage.toFixed(2),
       ),
+      defaultQuoteValidityDays: input.defaultQuoteValidityDays,
     },
   );
 
@@ -39,6 +40,7 @@ export async function currentCommercialSettings(branchId: string) {
     settings ??
     upsertCommercialSettings(branchId, {
       defaultProfitMarginPercentage: 0,
+      defaultQuoteValidityDays: 7,
     })
   );
 }

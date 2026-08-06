@@ -33,6 +33,15 @@ export function CommercialSettingsPage({
           type="number"
           slotProps={{ htmlInput: { min: 0, max: 1000, step: "0.01" } }}
         />
+        <TextField
+          defaultValue={settings?.defaultQuoteValidityDays ?? 7}
+          helperText="Quantidade de dias somada a data de emissao para preencher a validade do orcamento."
+          label="Validade padrao do orcamento (dias)"
+          name="defaultQuoteValidityDays"
+          required
+          type="number"
+          slotProps={{ htmlInput: { min: 0, max: 365, step: 1 } }}
+        />
         <PrimaryButton icon={<Save size={17} />} type="submit">
           Salvar configuracao
         </PrimaryButton>
@@ -48,6 +57,11 @@ export function CommercialSettingsPage({
         <p className="m-0 text-sm leading-6 text-[#5f665f]">
           Produtos ja cadastrados mantem o preco atual ao serem editados, para
           evitar alteracoes automaticas em cadastros existentes.
+        </p>
+        <p className="m-0 text-sm leading-6 text-[#5f665f]">
+          A validade padrao do orcamento preenche a data automaticamente a
+          partir da emissao, mas continua editavel no momento de montar a
+          proposta.
         </p>
       </FormCard>
     </section>

@@ -131,6 +131,9 @@ export function useCatalogActions({
         defaultProfitMarginPercentage: Number(
           form.get("defaultProfitMarginPercentage") ?? 0,
         ),
+        defaultQuoteValidityDays: Number(
+          form.get("defaultQuoteValidityDays") ?? 7,
+        ),
       });
       await loadCatalog();
     });
