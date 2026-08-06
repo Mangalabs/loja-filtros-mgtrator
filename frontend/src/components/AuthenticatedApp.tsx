@@ -67,6 +67,8 @@ export function AuthenticatedApp({
     purchaseInvoices,
     purchaseReport,
     quotes,
+    refreshQuoteFlow,
+    refreshSalesFlow,
     reportsOverview,
     runAction,
     sales,
@@ -134,15 +136,15 @@ export function AuthenticatedApp({
   });
 
   const quoteActions = useQuoteActions({
-    loadCatalog,
+    refreshQuoteFlow,
     requestConfirmation,
     runAction,
     showShippingOrders: () => setView("shipping-orders"),
   });
 
   const salesActions = useSalesActions({
-    loadCatalog,
     products,
+    refreshSalesFlow,
     requestConfirmation,
     runAction,
     showFiscalDocuments: () => setView("fiscal-documents"),

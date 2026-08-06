@@ -211,6 +211,56 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     }
   }
 
+  async function refreshQuoteFlow() {
+    const [quotesResult, shippingOrdersResult] = await Promise.all([
+      apiGet<ApiResult<Quote[]>>("/quotes"),
+      apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
+    ]);
+
+    setQuotes(quotesResult.data);
+    setShippingOrders(shippingOrdersResult.data);
+  }
+
+  async function refreshSalesFlow() {
+    const [
+      productsResult,
+      productPageResult,
+      lowStockResult,
+      cashRegisterResult,
+      reportsOverviewResult,
+      salesResult,
+      fiscalDocumentsResult,
+      shippingOrdersResult,
+      pickupReservationsResult,
+    ] = await Promise.all([
+      fetchProductCatalog(),
+      fetchProductPage({
+        limit: productRowsPerPage,
+        page: productPageIndex + 1,
+        search,
+      }),
+      apiGet<ApiResult<Product[]>>("/products/low-stock"),
+      apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
+      apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+      apiGet<ApiResult<Sale[]>>("/sales"),
+      canAccessView(user, "fiscal-documents")
+        ? apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents")
+        : emptyResult<FiscalDocument[]>([]),
+      apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
+      apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
+    ]);
+
+    setProducts(productsResult);
+    setProductPage(productPageResult);
+    setLowStockProducts(lowStockResult.data);
+    setCashRegister(cashRegisterResult.data);
+    setReportsOverview(reportsOverviewResult.data);
+    setSales(salesResult.data);
+    setFiscalDocuments(fiscalDocumentsResult.data);
+    setShippingOrders(shippingOrdersResult.data);
+    setPickupReservations(pickupReservationsResult.data);
+  }
+
   async function loadSalesReport(filters: SalesReportFilters = {}) {
     setMessage("");
 
@@ -366,6 +416,8 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     purchaseReport,
     purchaseInvoices,
     quotes,
+    refreshQuoteFlow,
+    refreshSalesFlow,
     reportsOverview,
     runAction,
     sales,

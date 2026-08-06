@@ -11,7 +11,7 @@ import { formatQuantity } from "../../utils/format";
 import type { PickupReservationDraftInput, SaleDraftInput } from "./SalesPages";
 
 type SalesActionsOptions = {
-  loadCatalog: () => Promise<void>;
+  refreshSalesFlow: () => Promise<void>;
   requestConfirmation: (
     message: string,
     title?: string,
@@ -24,8 +24,8 @@ type SalesActionsOptions = {
 };
 
 export function useSalesActions({
-  loadCatalog,
   products,
+  refreshSalesFlow,
   requestConfirmation,
   runAction,
   showFiscalDocuments,
@@ -48,7 +48,7 @@ export function useSalesActions({
         allowInsufficientStock,
       });
       showSalesHistory();
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -68,7 +68,7 @@ export function useSalesActions({
         documentType: "NFE",
       });
       showFiscalDocuments();
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -114,7 +114,7 @@ export function useSalesActions({
         ...optionalPayloadField("refundReference", refundReference),
       });
       formElement.reset();
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -134,7 +134,7 @@ export function useSalesActions({
         documentType: "NFE",
       });
       showFiscalDocuments();
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -156,7 +156,7 @@ export function useSalesActions({
         documentType: "NFE",
       });
       showFiscalDocuments();
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -189,7 +189,7 @@ export function useSalesActions({
       await apiPatch(`/shipping-orders/${order.id}/approve`, {
         allowInsufficientStock,
       });
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -215,7 +215,7 @@ export function useSalesActions({
       await apiPatch(`/shipping-orders/${order.id}/cancel`, {
         reason: String(form.get("shippingCancellationReason") ?? "").trim(),
       });
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -232,7 +232,7 @@ export function useSalesActions({
 
     await runAction(async () => {
       await apiPatch(`/shipping-orders/${order.id}/separate`, {});
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -271,7 +271,7 @@ export function useSalesActions({
         allowInsufficientStock,
       });
       showSalesHistory();
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -291,7 +291,7 @@ export function useSalesActions({
         ...input,
         allowInsufficientStock,
       });
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -317,7 +317,7 @@ export function useSalesActions({
       await apiPatch(`/pickup-reservations/${reservation.id}/cancel`, {
         reason: String(form.get("pickupCancellationReason") ?? "").trim(),
       });
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -356,7 +356,7 @@ export function useSalesActions({
         allowInsufficientStock,
       });
       showSalesHistory();
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
