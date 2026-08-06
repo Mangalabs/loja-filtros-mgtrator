@@ -13,7 +13,7 @@ import { nullableFormValue, optionalFormValue } from "../../utils/forms";
 import { productFormBody } from "./productFormBody";
 
 type CatalogActionsOptions = {
-  loadCatalog: () => Promise<void>;
+  refreshCatalogFlow: () => Promise<void>;
   requestConfirmation: (
     message: string,
     title?: string,
@@ -29,7 +29,7 @@ type CatalogActionsOptions = {
 };
 
 export function useCatalogActions({
-  loadCatalog,
+  refreshCatalogFlow,
   requestConfirmation,
   runAction,
   selectedClient,
@@ -56,7 +56,7 @@ export function useCatalogActions({
     await runAction(async () => {
       await apiPost(path, { name });
       formElement.reset();
-      await loadCatalog();
+      await refreshCatalogFlow();
     });
   }
 
@@ -74,7 +74,7 @@ export function useCatalogActions({
       });
 
       formElement.reset();
-      await loadCatalog();
+      await refreshCatalogFlow();
     });
   }
 
@@ -110,7 +110,7 @@ export function useCatalogActions({
       await save();
       formElement.reset();
       setSelectedClient(undefined);
-      await loadCatalog();
+      await refreshCatalogFlow();
     });
   }
 
@@ -136,7 +136,7 @@ export function useCatalogActions({
           form.get("defaultQuoteValidityDays") ?? 7,
         ),
       });
-      await loadCatalog();
+      await refreshCatalogFlow();
     });
   }
 
@@ -148,8 +148,8 @@ export function useCatalogActions({
     await runAction(async () => {
       await apiPost("/products", productFormBody(form));
       formElement.reset();
-      await loadCatalog();
       showProducts();
+      await refreshCatalogFlow();
     });
   }
 
@@ -164,9 +164,9 @@ export function useCatalogActions({
 
     await runAction(async () => {
       await apiPut(`/products/${selectedProduct.id}`, productFormBody(form));
-      await loadCatalog();
       setSelectedProduct(undefined);
       showProducts();
+      await refreshCatalogFlow();
     });
   }
 
@@ -185,7 +185,7 @@ export function useCatalogActions({
       await apiPatch(`/products/${product.id}/status`, {
         active: !product.active,
       });
-      await loadCatalog();
+      await refreshCatalogFlow();
     });
   }
 
@@ -204,7 +204,7 @@ export function useCatalogActions({
       await apiPatch(`/clients/${client.id}/status`, {
         active: !client.active,
       });
-      await loadCatalog();
+      await refreshCatalogFlow();
     });
   }
 

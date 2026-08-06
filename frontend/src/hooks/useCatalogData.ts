@@ -358,6 +358,44 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     setPaymentMethods(result.data);
   }
 
+  async function refreshCatalogFlow() {
+    const [
+      productsResult,
+      productPageResult,
+      brandsResult,
+      ncmOptionsResult,
+      clientsResult,
+      suppliersResult,
+      lowStockResult,
+      reportsOverviewResult,
+      commercialSettingsResult,
+    ] = await Promise.all([
+      fetchProductCatalog(),
+      fetchProductPage({
+        limit: productRowsPerPage,
+        page: productPageIndex + 1,
+        search,
+      }),
+      apiGet<ApiResult<NamedEntity[]>>("/brands"),
+      fetchNcmOptions(),
+      apiGet<ApiResult<Client[]>>("/clients"),
+      apiGet<ApiResult<Supplier[]>>("/suppliers"),
+      apiGet<ApiResult<Product[]>>("/products/low-stock"),
+      apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+      fetchCommercialSettings(),
+    ]);
+
+    setProducts(productsResult);
+    setProductPage(productPageResult);
+    setBrands(brandsResult.data);
+    setNcmOptions(ncmOptionsResult.data);
+    setClients(clientsResult.data);
+    setSuppliers(suppliersResult.data);
+    setLowStockProducts(lowStockResult.data);
+    setReportsOverview(reportsOverviewResult.data);
+    setCommercialSettings(commercialSettingsResult);
+  }
+
   async function loadSalesReport(filters: SalesReportFilters = {}) {
     setMessage("");
 
@@ -513,6 +551,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     purchaseReport,
     purchaseInvoices,
     quotes,
+    refreshCatalogFlow,
     refreshCashFlow,
     refreshFiscalFlow,
     refreshPaymentMethods,

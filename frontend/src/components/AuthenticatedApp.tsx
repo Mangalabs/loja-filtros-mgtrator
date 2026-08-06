@@ -67,6 +67,7 @@ export function AuthenticatedApp({
     purchaseInvoices,
     purchaseReport,
     quotes,
+    refreshCatalogFlow,
     refreshCashFlow,
     refreshFiscalFlow,
     refreshPaymentMethods,
@@ -116,7 +117,7 @@ export function AuthenticatedApp({
   }, []);
 
   const catalogActions = useCatalogActions({
-    loadCatalog,
+    refreshCatalogFlow,
     requestConfirmation,
     runAction,
     selectedClient,
