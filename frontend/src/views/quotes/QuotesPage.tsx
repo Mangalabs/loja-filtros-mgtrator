@@ -43,6 +43,12 @@ type QuoteDraftItem = {
   discountPercentage: string
 }
 
+type QuotePaymentInstallmentDraft = {
+  amount: string
+  dueDate: string
+  position: number
+}
+
 export type QuoteDraftInput = {
   clientId: string
   paymentMethodId: string
@@ -52,6 +58,11 @@ export type QuoteDraftInput = {
   notes?: string | null
   showBrand?: boolean
   discountPercentage?: number
+  paymentInstallments?: Array<{
+    amount: number
+    dueDate: string
+    position: number
+  }>
   items: Array<{
     productId: string
     description?: string | null
@@ -94,6 +105,7 @@ export function QuotesPage({
   const [notes, setNotes] = useState('')
   const [showBrand, setShowBrand] = useState(true)
   const [discountPercentage, setDiscountPercentage] = useState('')
+  const [installmentCount, setInstallmentCount] = useState(1)
   const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
   const { pagination, visibleItems } = usePaginatedRows<Quote>(quotes)
   const activeProducts = products.filter((product) => product.active)
@@ -103,6 +115,7 @@ export function QuotesPage({
   const selectedPaymentMethod = paymentMethods.find(
     (paymentMethod) => paymentMethod.id === paymentMethodId,
   )
+  const usesBankSlip = selectedPaymentMethod?.code === 'BOLETO'
   const isEditing = Boolean(editingQuoteId)
   const quoteSubtotal = items.reduce((sum, item) => {
     return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0)
@@ -120,6 +133,13 @@ export function QuotesPage({
     totalBeforeGeneralDiscount - generalDiscount,
     0,
   )
+  const paymentInstallments = usesBankSlip
+    ? quotePaymentInstallments(
+        installmentCount,
+        billingDueDate || billingIssueDate,
+        quoteTotal,
+      )
+    : []
 
   useEffect(() => {
     if (isEditing || validUntilTouched) {
@@ -179,6 +199,7 @@ export function QuotesPage({
     setNotes('')
     setShowBrand(true)
     setDiscountPercentage('')
+    setInstallmentCount(1)
     setItems([emptyQuoteItem()])
   }
 
@@ -194,6 +215,11 @@ export function QuotesPage({
       notes: notes.trim() || null,
       showBrand,
       discountPercentage: Number(discountPercentage || 0),
+      paymentInstallments: paymentInstallments.map((installment) => ({
+        amount: Number(installment.amount),
+        dueDate: installment.dueDate,
+        position: installment.position,
+      })),
       items: items.map((item) => ({
         productId: item.productId,
         description: item.description.trim() || null,
@@ -222,6 +248,7 @@ export function QuotesPage({
     setNotes(quote.notes ?? '')
     setShowBrand(quote.showBrand)
     setDiscountPercentage(quote.discountPercentage)
+    setInstallmentCount(Math.max(quote.paymentInstallments.length, 1))
     setItems(
       quote.items.map((item) => ({
         productId: item.productId,
@@ -283,6 +310,33 @@ export function QuotesPage({
         <QuotePaymentHighlight
           paymentMethodName={selectedPaymentMethod?.name ?? null}
         />
+        {usesBankSlip ? (
+          <FormCard>
+            <PageHeader
+              description='As parcelas sao divididas igualmente a partir do vencimento informado.'
+              title='Parcelamento do boleto'
+            />
+            <TextField
+              label='Numero de parcelas'
+              value={installmentCount}
+              type='number'
+              size='medium'
+              onChange={(event) =>
+                setInstallmentCount(Number(event.target.value || 1))
+              }
+              slotProps={{ htmlInput: { min: '1', max: '24', step: '1' } }}
+              required
+            />
+            <div className='grid gap-2'>
+              {paymentInstallments.map((installment) => (
+                <InlineNote key={installment.position}>
+                  Parcela {installment.position}: {formatDate(installment.dueDate)} -{' '}
+                  {formatCurrency(installment.amount)}
+                </InlineNote>
+              ))}
+            </div>
+          </FormCard>
+        ) : null}
         <FormRow>
           <TextField
             label='Data da fatura'
@@ -474,10 +528,17 @@ export function QuotesPage({
             {
               header: 'Pagamento',
               render: (quote) => (
-                <QuotePaymentHighlight
-                  compact
-                  paymentMethodName={quote.paymentMethodName}
-                />
+                <>
+                  <QuotePaymentHighlight
+                    compact
+                    paymentMethodName={quote.paymentMethodName}
+                  />
+                  {quote.paymentInstallments.length > 0 ? (
+                    <InlineNote>
+                      {quote.paymentInstallments.length} parcela(s)
+                    </InlineNote>
+                  ) : null}
+                </>
               ),
             },
             {
@@ -825,6 +886,30 @@ function quoteValidityDate(
 ) {
   const date = new Date(`${issueDate}T00:00:00`)
   date.setDate(date.getDate() + Number(settings?.defaultQuoteValidityDays ?? 7))
+
+  return date.toLocaleDateString('en-CA')
+}
+
+function quotePaymentInstallments(
+  count: number,
+  firstDueDate: string,
+  totalAmount: number,
+): QuotePaymentInstallmentDraft[] {
+  const installmentCount = Math.max(Math.min(Math.trunc(count || 1), 24), 1)
+  const baseAmount = Math.floor((totalAmount / installmentCount) * 100) / 100
+  const baseTotal = Number((baseAmount * installmentCount).toFixed(2))
+  const lastAmount = Number((baseAmount + totalAmount - baseTotal).toFixed(2))
+
+  return Array.from({ length: installmentCount }, (_item, index) => ({
+    amount: String(index === installmentCount - 1 ? lastAmount : baseAmount),
+    dueDate: installmentDueDate(firstDueDate, index),
+    position: index + 1,
+  }))
+}
+
+function installmentDueDate(firstDueDate: string, index: number) {
+  const date = new Date(`${firstDueDate || todayInputDate()}T00:00:00`)
+  date.setMonth(date.getMonth() + index)
 
   return date.toLocaleDateString('en-CA')
 }

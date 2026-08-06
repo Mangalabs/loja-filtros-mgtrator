@@ -700,6 +700,13 @@ export type Quote = {
     totalAmount: string;
     position: number;
   }>;
+  paymentInstallments: Array<{
+    id: string;
+    quoteId: string;
+    position: number;
+    dueDate: string;
+    amount: string;
+  }>;
 };
 
 export async function apiGet<T>(path: string): Promise<T> {

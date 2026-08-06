@@ -313,6 +313,13 @@ type Quote = {
     totalAmount: string;
     position: number;
   }>;
+  paymentInstallments: Array<{
+    id: string;
+    quoteId: string;
+    position: number;
+    dueDate: string;
+    amount: string;
+  }>;
 };
 
 type PaymentMethod = {
@@ -5692,6 +5699,48 @@ describe("catalog routes", () => {
       updateAfterShippingOrder.body.message,
       "Orcamento enviado para pedido de envio deve seguir o fluxo do pedido.",
     );
+  });
+
+  it("stores boleto installments for a quote", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro quote boleto parcelado", salePrice: 100 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente boleto parcelado" },
+    });
+    const boleto = await activePaymentMethod("BOLETO");
+
+    const created = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: boleto.id,
+        billingIssueDate: "2026-08-06",
+        billingDueDate: "2026-09-06",
+        paymentInstallments: [
+          { position: 1, dueDate: "2026-09-06", amount: 50 },
+          { position: 2, dueDate: "2026-10-06", amount: 50 },
+        ],
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+    const shown = await request<Quote>(`/quotes/${created.body.data?.id}`);
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.paymentMethodName, "Boleto");
+    assert.equal(created.body.data?.paymentInstallments.length, 2);
+    assert.equal(created.body.data?.paymentInstallments[0]?.position, 1);
+    assert.ok(
+      created.body.data?.paymentInstallments[0]?.dueDate.startsWith(
+        "2026-09-06",
+      ),
+    );
+    assert.equal(created.body.data?.paymentInstallments[0]?.amount, "50.00");
+    assert.equal(shown.body.data?.paymentInstallments.length, 2);
+    assert.equal(shown.body.data?.paymentInstallments[1]?.position, 2);
+    assert.equal(shown.body.data?.paymentInstallments[1]?.amount, "50.00");
   });
 
   it("cancels a draft quote before it becomes a shipping order", async () => {
