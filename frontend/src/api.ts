@@ -61,6 +61,13 @@ export type Product = {
   active: boolean;
 };
 
+export type NcmOption = {
+  code: string;
+  label: string;
+  productCount: number;
+  sampleProducts: string[];
+};
+
 export type NamedEntity = {
   id: string;
   name: string;

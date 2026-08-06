@@ -1,3 +1,4 @@
+import Autocomplete from "@mui/material/Autocomplete";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import {
@@ -17,6 +18,7 @@ import type {
   ClientCompanyLookup,
   CommercialSettings,
   NamedEntity,
+  NcmOption,
   Product,
   Supplier,
 } from "../../api";
@@ -185,6 +187,7 @@ function ProductTable({
 export function ProductForm({
   brands,
   commercialSettings,
+  ncmOptions,
   product,
   onSubmit,
   onCancel,
@@ -192,6 +195,7 @@ export function ProductForm({
 }: {
   brands: NamedEntity[];
   commercialSettings: CommercialSettings | null;
+  ncmOptions: NcmOption[];
   product?: Product;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCancel?: () => void;
@@ -208,6 +212,7 @@ export function ProductForm({
   const [salePriceTouched, setSalePriceTouched] = useState(
     Boolean(product?.salePrice),
   );
+  const [ncmValue, setNcmValue] = useState(product?.ncm ?? "");
 
   useEffect(() => {
     setCostPrice(product?.costPrice ?? "");
@@ -216,10 +221,12 @@ export function ProductForm({
       product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
     );
     setSalePriceTouched(Boolean(product?.salePrice));
+    setNcmValue(product?.ncm ?? "");
   }, [
     defaultProfitMarginPercentage,
     product?.costPrice,
     product?.id,
+    product?.ncm,
     product?.profitMarginPercentage,
     product?.salePrice,
   ]);
@@ -330,12 +337,43 @@ export function ProductForm({
           defaultValue={product?.minimumStock}
           slotProps={{ htmlInput: { step: "0.001" } }}
         />
-        <TextField
-          label="NCM"
-          name="ncm"
-          defaultValue={product?.ncm ?? ""}
+        <Autocomplete
+          freeSolo
+          inputValue={ncmValue}
+          options={ncmOptions}
+          filterOptions={(options, state) =>
+            filterNcmOptions(options, state.inputValue)
+          }
+          getOptionLabel={(option) =>
+            typeof option === "string" ? option : option.code
+          }
+          onChange={(_event, option) =>
+            setNcmValue(
+              typeof option === "string" ? option : option?.code ?? "",
+            )
+          }
+          onInputChange={(_event, value) => setNcmValue(value)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              helperText="Digite o NCM ou busque pelos produtos do inventário."
+              label="NCM"
+            />
+          )}
+          renderOption={(props, option) => (
+            <li {...props} key={option.code}>
+              <div className="grid gap-0.5">
+                <strong>{option.code}</strong>
+                <span className="text-xs text-[#5f665f]">
+                  {option.label} ({option.productCount} itens)
+                </span>
+              </div>
+            </li>
+          )}
         />
+        <input name="ncm" type="hidden" value={ncmValue.trim()} />
         <TextField
+          helperText="O inventário enviado ainda não trouxe CEST."
           label="CEST"
           name="cest"
           defaultValue={product?.cest ?? ""}
@@ -417,6 +455,28 @@ function suggestedSalePrice(costPrice: string, profitMarginPercentage: string) {
   }
 
   return (cost * (1 + margin / 100)).toFixed(2);
+}
+
+function filterNcmOptions(options: NcmOption[], inputValue: string) {
+  const search = normalizeSearch(inputValue);
+
+  if (!search) {
+    return options;
+  }
+
+  return options.filter((option) =>
+    [option.code, option.label, ...option.sampleProducts]
+      .map((value) => normalizeSearch(value))
+      .some((value) => value.includes(search)),
+  );
+}
+
+function normalizeSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 function salePriceHelperText(profitMarginPercentage: string) {

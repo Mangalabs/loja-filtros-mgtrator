@@ -12,6 +12,7 @@ import {
   type FiscalDocument,
   type FiscalSettings,
   type NamedEntity,
+  type NcmOption,
   type PaymentMethod,
   type PickupReservation,
   type Product,
@@ -35,6 +36,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   const [products, setProducts] = useState<Product[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
+  const [ncmOptions, setNcmOptions] = useState<NcmOption[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
@@ -91,6 +93,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       const [
         productsResult,
         brandsResult,
+        ncmOptionsResult,
         clientsResult,
         suppliersResult,
         stockEntriesResult,
@@ -115,6 +118,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       ] = await Promise.all([
         fetchProductCatalog(search),
         apiGet<ApiResult<NamedEntity[]>>("/brands"),
+        fetchNcmOptions(),
         apiGet<ApiResult<Client[]>>("/clients"),
         apiGet<ApiResult<Supplier[]>>("/suppliers"),
         apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
@@ -156,6 +160,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
 
       setProducts(productsResult);
       setBrands(brandsResult.data);
+      setNcmOptions(ncmOptionsResult.data);
       setClients(clientsResult.data);
       setSuppliers(suppliersResult.data);
       setStockEntries(stockEntriesResult.data);
@@ -339,6 +344,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     loadPurchaseReport,
     loadStockReport,
     message,
+    ncmOptions,
     paymentMethods,
     pickupReservations,
     products,
@@ -428,6 +434,20 @@ async function fetchCommercialSettings() {
   } catch (error) {
     if (error instanceof Error && error.message.includes("Route not found")) {
       return null;
+    }
+
+    throw error;
+  }
+}
+
+async function fetchNcmOptions() {
+  try {
+    return await apiGet<ApiResult<NcmOption[]>>("/fiscal/ncm-options");
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Route not found")) {
+      return { code: 200, status: "success", data: [] } as ApiResult<
+        NcmOption[]
+      >;
     }
 
     throw error;

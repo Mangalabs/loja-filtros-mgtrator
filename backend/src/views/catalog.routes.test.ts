@@ -70,6 +70,13 @@ type Product = {
   active: boolean;
 };
 
+type NcmOption = {
+  code: string;
+  label: string;
+  productCount: number;
+  sampleProducts: string[];
+};
+
 type StockEntry = {
   id: string;
   productId: string;
@@ -711,6 +718,21 @@ describe("catalog routes", () => {
     assert.equal(health.body.status, "ok");
     assert.equal(databaseHealth.status, 200);
     assert.equal(databaseHealth.body.status, "ok");
+  });
+
+  it("lists inventory-based NCM options", async () => {
+    const listed = await request<NcmOption[]>("/fiscal/ncm-options");
+    const filtered = await request<NcmOption[]>(
+      "/fiscal/ncm-options?search=separador",
+    );
+
+    assert.equal(listed.status, 200);
+    assert.ok(listed.body.data?.some((option) => option.code === "84212300"));
+    assert.equal(filtered.status, 200);
+    assert.deepEqual(
+      filtered.body.data?.map((option) => option.code),
+      ["84212300"],
+    );
   });
 
   it("authenticates users and protects operational routes", async () => {

@@ -58,6 +58,7 @@ export function AuthenticatedApp({
     loadStockReport,
     lowStockProducts,
     message,
+    ncmOptions,
     paymentMethods,
     pickupReservations,
     products,
@@ -237,6 +238,7 @@ export function AuthenticatedApp({
           fiscalDocuments={fiscalDocuments}
           fiscalSettings={fiscalSettings}
           lowStockProducts={lowStockProducts}
+          ncmOptions={ncmOptions}
           paymentMethods={paymentMethods}
           pickupReservations={pickupReservations}
           products={products}

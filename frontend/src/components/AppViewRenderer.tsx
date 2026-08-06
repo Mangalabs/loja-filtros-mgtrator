@@ -11,6 +11,7 @@ import type {
   PaymentMethod,
   PickupReservation,
   Product,
+  NcmOption,
   PurchaseInvoice,
   PurchaseReport,
   Quote,
@@ -80,6 +81,7 @@ type AppViewRendererProps = {
   fiscalDocuments: FiscalDocument[];
   fiscalSettings: FiscalSettings | null;
   lowStockProducts: Product[];
+  ncmOptions: NcmOption[];
   paymentMethods: PaymentMethod[];
   pickupReservations: PickupReservation[];
   products: Product[];
@@ -142,6 +144,7 @@ export function AppViewRenderer({
   fiscalDocuments,
   fiscalSettings,
   lowStockProducts,
+  ncmOptions,
   paymentMethods,
   pickupReservations,
   products,
@@ -210,6 +213,7 @@ export function AppViewRenderer({
         <ProductForm
           brands={brands}
           commercialSettings={commercialSettings}
+          ncmOptions={ncmOptions}
           onSubmit={catalogActions.createProduct}
           submitLabel="Cadastrar produto"
         />
@@ -219,6 +223,7 @@ export function AppViewRenderer({
           key={selectedProduct.id}
           brands={brands}
           commercialSettings={commercialSettings}
+          ncmOptions={ncmOptions}
           product={selectedProduct}
           onSubmit={catalogActions.updateProduct}
           onCancel={onCancelProductEdit}
