@@ -67,6 +67,9 @@ export function AuthenticatedApp({
     purchaseInvoices,
     purchaseReport,
     quotes,
+    refreshCashFlow,
+    refreshFiscalFlow,
+    refreshPaymentMethods,
     refreshQuoteFlow,
     refreshSalesFlow,
     refreshStockFlow,
@@ -131,7 +134,9 @@ export function AuthenticatedApp({
   });
 
   const financeActions = useFinanceActions({
-    loadCatalog,
+    refreshCashFlow,
+    refreshFiscalFlow,
+    refreshPaymentMethods,
     requestConfirmation,
     runAction,
   });

@@ -313,6 +313,51 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     setPurchaseReport(purchaseReportResult.data);
   }
 
+  async function refreshCashFlow() {
+    const [cashRegisterResult, reportsOverviewResult, cashReportResult] =
+      await Promise.all([
+        apiGet<ApiResult<CashRegisterSession | null>>(
+          "/cash-register/current",
+        ),
+        apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+        canAccessView(user, "reports")
+          ? apiGet<ApiResult<CashReport>>("/reports/cash")
+          : emptyResult<CashReport | null>(null),
+      ]);
+
+    setCashRegister(cashRegisterResult.data);
+    setReportsOverview(reportsOverviewResult.data);
+    setCashReport(cashReportResult.data);
+  }
+
+  async function refreshFiscalFlow() {
+    const [
+      fiscalDocumentsResult,
+      fiscalSettingsResult,
+      reportsOverviewResult,
+    ] = await Promise.all([
+      canAccessView(user, "fiscal-documents")
+        ? apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents")
+        : emptyResult<FiscalDocument[]>([]),
+      canAccessView(user, "fiscal-settings")
+        ? apiGet<ApiResult<FiscalSettings>>("/fiscal-settings")
+        : emptyResult<FiscalSettings | null>(null),
+      apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+    ]);
+
+    setFiscalDocuments(fiscalDocumentsResult.data);
+    setFiscalSettings(fiscalSettingsResult.data);
+    setReportsOverview(reportsOverviewResult.data);
+  }
+
+  async function refreshPaymentMethods() {
+    const result = await apiGet<ApiResult<PaymentMethod[]>>(
+      "/payment-methods",
+    );
+
+    setPaymentMethods(result.data);
+  }
+
   async function loadSalesReport(filters: SalesReportFilters = {}) {
     setMessage("");
 
@@ -468,6 +513,9 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     purchaseReport,
     purchaseInvoices,
     quotes,
+    refreshCashFlow,
+    refreshFiscalFlow,
+    refreshPaymentMethods,
     refreshQuoteFlow,
     refreshSalesFlow,
     refreshStockFlow,
