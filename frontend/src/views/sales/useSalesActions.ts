@@ -47,8 +47,8 @@ export function useSalesActions({
         ...input,
         allowInsufficientStock,
       });
-      await loadCatalog();
       showSalesHistory();
+      await loadCatalog();
     });
   }
 
@@ -67,8 +67,8 @@ export function useSalesActions({
       await apiPost(`/sales/${sale.id}/fiscal-documents`, {
         documentType: "NFE",
       });
-      await loadCatalog();
       showFiscalDocuments();
+      await loadCatalog();
     });
   }
 
@@ -133,8 +133,8 @@ export function useSalesActions({
       await apiPost(`/shipping-orders/${order.id}/fiscal-documents`, {
         documentType: "NFE",
       });
-      await loadCatalog();
       showFiscalDocuments();
+      await loadCatalog();
     });
   }
 
@@ -155,8 +155,8 @@ export function useSalesActions({
       await apiPost(`/pickup-reservations/${reservation.id}/fiscal-documents`, {
         documentType: "NFE",
       });
-      await loadCatalog();
       showFiscalDocuments();
+      await loadCatalog();
     });
   }
 
@@ -270,8 +270,8 @@ export function useSalesActions({
         billingDueDate: formDateValue(form, "shippingBillingDueDate"),
         allowInsufficientStock,
       });
-      await loadCatalog();
       showSalesHistory();
+      await loadCatalog();
     });
   }
 
@@ -355,8 +355,8 @@ export function useSalesActions({
         billingDueDate: formDateValue(form, "pickupBillingDueDate"),
         allowInsufficientStock,
       });
-      await loadCatalog();
       showSalesHistory();
+      await loadCatalog();
     });
   }
 

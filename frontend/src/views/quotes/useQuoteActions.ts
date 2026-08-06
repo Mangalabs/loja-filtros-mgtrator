@@ -46,8 +46,8 @@ export function useQuoteActions({
 
     await runAction(async () => {
       await apiPost(`/quotes/${quote.id}/shipping-order`, {})
-      await loadCatalog()
       showShippingOrders()
+      await loadCatalog()
     })
   }
 
