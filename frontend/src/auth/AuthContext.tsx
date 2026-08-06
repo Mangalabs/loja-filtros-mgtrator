@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function handleProtectedUnauthorized() {
     setUser(undefined);
     setRequiresSetup(false);
-    setAuthNotice("Sessao expirada. Entre novamente para continuar.");
+    setAuthNotice("Sessão expirada. Entre novamente para continuar.");
   }
 
   async function restoreSession() {

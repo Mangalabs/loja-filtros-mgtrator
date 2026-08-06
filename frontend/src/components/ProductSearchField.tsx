@@ -23,7 +23,7 @@ type ProductSearchFieldProps = {
 export function ProductSearchField({
   defaultValue,
   disabled,
-  helperText = "Pesquise por nome, codigo, codigo de barras, fabricante ou locacao.",
+  helperText = "Pesquise por nome, código, código de barras, fabricante ou locação.",
   label,
   name,
   onChange,

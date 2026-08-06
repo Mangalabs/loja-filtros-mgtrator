@@ -116,7 +116,7 @@ export function TableActionButton({
 
 export function TableActionsMenu({
   actions,
-  label = 'Acoes',
+  label = 'Ações',
 }: {
   actions: TableActionsMenuAction[]
   label?: string

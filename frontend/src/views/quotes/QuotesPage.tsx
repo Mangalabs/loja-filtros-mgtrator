@@ -622,7 +622,7 @@ export function QuotesPage({
             },
             {
               align: 'right',
-              header: 'Acoes',
+              header: 'Ações',
               render: (quote) => (
                 <QuoteActions
                   quote={quote}
@@ -733,7 +733,7 @@ function QuoteActions({
         <div className='inline-flex justify-end'>
           <TableActionsMenu actions={actions} />
         </div>
-        <InlineNote>Orcamento cancelado</InlineNote>
+        <InlineNote>Orçamento cancelado</InlineNote>
       </ActionStack>
     )
   }

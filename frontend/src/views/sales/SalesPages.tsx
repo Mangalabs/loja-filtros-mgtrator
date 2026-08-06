@@ -298,7 +298,7 @@ export function SalesPage({
           value={clientId || ''}
           onChange={(event) => setClientId(event.target.value)}
           disabled={!cashRegister}>
-          <MenuItem value=''>Cliente nao identificado</MenuItem>
+          <MenuItem value=''>Cliente não identificado</MenuItem>
           {clients
             .filter((client) => client.active)
             .map((client) => (
@@ -353,7 +353,7 @@ export function SalesPage({
               render: (sale) => sale.createdByUserName,
             },
             {
-              header: 'Acoes',
+              header: 'Ações',
               render: (sale) => (
                 <SaleActions
                   sale={sale}
@@ -574,7 +574,7 @@ export function ShippingOrdersPage({
               render: (order) => <ShippingOrderStatusSummary order={order} />,
             },
             {
-              header: 'Acoes',
+              header: 'Ações',
               render: (order) =>
                 shippingOrderActionRenderers[order.status]({
                   cashRegister,
@@ -956,7 +956,7 @@ export function PickupReservationsPage({
               ),
             },
             {
-              header: 'Acoes',
+              header: 'Ações',
               render: (reservation) => (
                 <PickupReservationActions
                   cashRegister={cashRegister}
@@ -1007,7 +1007,7 @@ function ShippingOrderItemsSummary({ order }: { order: ShippingOrder }) {
   return (
     <ActionStack>
       <strong>{order.clientName}</strong>
-      {order.quoteId ? <InlineNote>Origem: orcamento</InlineNote> : null}
+      {order.quoteId ? <InlineNote>Origem: orçamento</InlineNote> : null}
       <InlineNote>
         {order.items
           .map((item) => item.description ?? item.productName)
@@ -1266,7 +1266,7 @@ const shippingOrderStatusPresentation: Record<
   APPROVED: { label: 'Aprovado - separar', tone: 'success' },
   CANCELLED: { label: 'Cancelado', tone: 'neutral' },
   COMPLETED: { label: 'Venda concluida', tone: 'success' },
-  QUOTED: { label: 'Orcamento enviado', tone: 'warning' },
+  QUOTED: { label: 'Orçamento enviado', tone: 'warning' },
   SEPARATED: { label: 'Separado para envio', tone: 'success' },
 }
 

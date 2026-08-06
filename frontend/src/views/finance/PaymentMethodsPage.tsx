@@ -32,7 +32,7 @@ export function PaymentMethodsPage({
       ),
     },
     {
-      header: 'Acoes',
+      header: 'Ações',
       render: (paymentMethod: PaymentMethod) => (
         <div className='flex justify-end'>
           <TableActionsMenu

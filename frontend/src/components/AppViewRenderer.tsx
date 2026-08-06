@@ -183,11 +183,11 @@ export function AppViewRenderer({
     return (
       <PagePanel>
         <PageHeader
-          description="Solicite ao administrador a liberacao desta permissao para o seu usuario."
-          title="Acesso nao permitido"
+          description="Solicite ao administrador a liberação desta permissão para o seu usuário."
+          title="Acesso não permitido"
         />
         <Alert severity="warning" variant="outlined">
-          Seu usuario nao possui permissao para acessar esta tela.
+          Seu usuário não possui permissão para acessar esta tela.
         </Alert>
       </PagePanel>
     );

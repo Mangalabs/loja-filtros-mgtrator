@@ -63,7 +63,7 @@ export function ProductsPage({
           <TextField
             className="min-w-full md:min-w-80"
             label="Buscar produto"
-            placeholder="Nome, codigo, fabricante ou locacao"
+            placeholder="Nome, código, fabricante ou locação"
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
           />
@@ -149,7 +149,7 @@ function ProductTable({
         },
         {
           align: "right",
-          header: "Acoes",
+          header: "Ações",
           render: (product) => (
             <div className="flex justify-end">
               <TableActionsMenu
@@ -357,8 +357,8 @@ export function ProductForm({
       </FormRow>
       <TextField
         defaultValue={product?.description ?? ""}
-        helperText="Texto exibido em orcamentos quando precisar separar o nome interno do texto comercial."
-        label="Descricao comercial para orcamento"
+        helperText="Texto exibido em orçamentos quando precisar separar o nome interno do texto comercial."
+        label="Descrição comercial para orçamento"
         multiline
         name="description"
         rows={3}
@@ -367,7 +367,7 @@ export function ProductForm({
       <div className="grid gap-1 border-t border-[#e4e9e5] pt-4">
         <strong className="text-[#2c281e]">Tributacao para NF-e</strong>
         <span className="text-sm text-[#5f665f]">
-          Campos usados pela integracao fiscal quando houver emissao de nota.
+          Campos usados pela integração fiscal quando houver emissão de nota.
         </span>
       </div>
       <FormRow columns={3}>
@@ -423,14 +423,14 @@ function salePriceHelperText(profitMarginPercentage: string) {
   const margin = Number(profitMarginPercentage);
 
   if (!Number.isFinite(margin) || margin <= 0) {
-    return "Configure uma margem comercial para sugerir o preco automaticamente.";
+    return "Configure uma margem comercial para sugerir o preço automaticamente.";
   }
 
   return `Sugestao automatica pela margem de ${margin.toLocaleString("pt-BR")}%`;
 }
 
 function profitMarginHelperText(defaultProfitMarginPercentage: number) {
-  return `Preenchido pela margem padrao de ${defaultProfitMarginPercentage.toLocaleString("pt-BR")}%, mas pode variar por produto.`;
+  return `Preenchido pela margem padrão de ${defaultProfitMarginPercentage.toLocaleString("pt-BR")}%, mas pode variar por produto.`;
 }
 
 export function NamedEntityPage({
@@ -734,7 +734,7 @@ export function ClientsPage({
         />
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            label="Numero"
+            label="Número"
             name="clientAddressNumber"
             value={clientFieldValue(
               "clientAddressNumber",
@@ -863,7 +863,7 @@ export function ClientsPage({
             },
             {
               align: "right",
-              header: "Acoes",
+              header: "Ações",
               render: (client) => (
                 <div className="flex justify-end">
                   <TableActionsMenu

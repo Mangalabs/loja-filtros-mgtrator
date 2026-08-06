@@ -55,9 +55,9 @@ export function useQuoteActions({
     event.preventDefault()
     const formElement = event.currentTarget
     const confirmed = await requestConfirmation(
-      `Cancelar o orcamento de ${quote.clientName}?`,
-      'Cancelar orcamento?',
-      'Cancelar orcamento',
+      `Cancelar o orçamento de ${quote.clientName}?`,
+      'Cancelar orçamento?',
+      'Cancelar orçamento',
     )
 
     if (!confirmed) {

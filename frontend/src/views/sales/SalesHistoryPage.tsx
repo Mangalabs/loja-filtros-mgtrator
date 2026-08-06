@@ -104,13 +104,13 @@ export function SalesHistoryPage({
       <div className='mb-4 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] p-3 text-sm text-[#2c281e]'>
         <strong className='text-[#203466]'>Comprovante de venda:</strong>{' '}
         use o botao de comprovante para baixar um resumo comercial da venda
-        concluida. Este arquivo nao substitui NF-e, NFC-e, DANFE ou XML fiscal.
+        concluída. Este arquivo não substitui NF-e, NFC-e, DANFE ou XML fiscal.
       </div>
 
       <div className='mb-4 grid gap-3 md:grid-cols-[minmax(220px,1fr)_190px_190px]'>
         <TextField
           label='Buscar'
-          placeholder='Cliente, operador ou codigo'
+          placeholder='Cliente, operador ou código'
           size='small'
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -180,7 +180,7 @@ export function SalesHistoryPage({
           },
           {
             align: 'right',
-            header: 'Acoes',
+            header: 'Ações',
             render: (row) => (
               <SalesHistoryActions
                 paymentMethods={paymentMethods}

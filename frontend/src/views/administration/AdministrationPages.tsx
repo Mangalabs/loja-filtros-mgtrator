@@ -92,7 +92,7 @@ export function BranchesPage() {
               ),
             },
             {
-              header: "Acoes",
+              header: "Ações",
               render: (branch: Branch) => (
                 <TableActionsMenu
                   actions={[
@@ -234,7 +234,7 @@ function BranchForm({
           values={values}
         />
         <BranchTextField
-          label="Numero"
+          label="Número"
           name="addressNumber"
           updateValue={updateValue}
           values={values}
@@ -503,7 +503,7 @@ export function EmployeesPage({
               </strong>
               <span className="text-xs text-[#5f665f]">
                 Marque apenas as areas sensiveis que esse usuario pode acessar.
-                O menu e a API bloqueiam telas nao liberadas.
+                O menu e a API bloqueiam telas não liberadas.
               </span>
             </div>
             <div className="grid gap-1 sm:grid-cols-2">
@@ -612,7 +612,7 @@ export function EmployeesPage({
               },
               {
                 align: "right",
-                header: "Acoes",
+                header: "Ações",
                 render: (employee: AuthUser) => (
                   <div className="flex justify-end">
                     <TableActionsMenu
@@ -878,7 +878,7 @@ const authEventTones: Record<
 };
 
 const authEventReasonLabels: Record<string, string> = {
-  USER_NOT_FOUND: "Usuario nao encontrado",
+  USER_NOT_FOUND: "Usuário não encontrado",
   INACTIVE_USER: "Usuario inativo",
   INVALID_PASSWORD: "Senha invalida",
   UNKNOWN: "Motivo indefinido",

@@ -159,7 +159,7 @@ export function PurchaseInvoicesPage({
       <div className="grid content-start gap-4">
         <FormGrid onSubmit={parseXml}>
           <PageHeader
-            description="Selecione o XML da NF-e de compra para preencher a revisao antes da entrada no estoque."
+            description="Selecione o XML da NF-e de compra para preencher a revisão antes da entrada no estoque."
             icon={<Upload size={18} />}
             title="Importar XML de compra"
           />
@@ -211,7 +211,7 @@ export function PurchaseInvoicesPage({
                   type="button"
                   onClick={clearReview}
                 >
-                  Cancelar revisao
+                  Cancelar revisão
                 </SecondaryButton>
               }
               description="Confira fornecedor, valores e vincule o produto interno correto em cada item."
@@ -221,18 +221,18 @@ export function PurchaseInvoicesPage({
             />
 
             <Alert severity="info">
-              Esta etapa ainda nao atualiza estoque. Ela salva a compra
+              Esta etapa ainda não atualiza estoque. Ela salva a compra
               importada para depois confirmar a entrada.
             </Alert>
 
             <FormSection
-              description="Dados extraidos do XML. Ajuste antes de salvar a revisao."
+              description="Dados extraídos do XML. Ajuste antes de salvar a revisão."
               title="Dados gerais"
             >
               <FormRow>
                 <TextField
                   defaultValue={draft.number ?? ""}
-                  label="Numero"
+                  label="Número"
                   name="purchaseNumber"
                 />
                 <TextField
@@ -244,13 +244,13 @@ export function PurchaseInvoicesPage({
               <FormRow>
                 <TextField
                   defaultValue={draft.issueDate ?? ""}
-                  label="Data de emissao"
+                  label="Data de emissão"
                   name="purchaseIssueDate"
                   type="date"
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
                 <TextField
-                  defaultValue="Importada para revisao"
+                  defaultValue="Importada para revisão"
                   label="Situacao"
                   disabled
                 />
@@ -291,7 +291,7 @@ export function PurchaseInvoicesPage({
                     value="yes"
                   />
                 }
-                label="Cadastrar este fornecedor automaticamente ao salvar a revisao"
+                label="Cadastrar este fornecedor automaticamente ao salvar a revisão"
               />
             </FormSection>
 
@@ -361,7 +361,7 @@ export function PurchaseInvoicesPage({
             </FormSection>
 
             <PrimaryButton icon={<Save size={17} />} type="submit">
-              Salvar revisao da compra
+              Salvar revisão da compra
             </PrimaryButton>
           </FormGrid>
         ) : null}
@@ -428,13 +428,13 @@ export function PurchaseInvoicesPage({
               render: (invoice) => invoice.supplierName,
             },
             {
-              header: "Numero",
+              header: "Número",
               render: (invoice) =>
                 [invoice.number, invoice.series].filter(Boolean).join(" / ") ||
                 "-",
             },
             {
-              header: "Emissao",
+              header: "Emissão",
               render: (invoice) =>
                 invoice.issueDate ? formatDate(invoice.issueDate) : "-",
             },
@@ -450,7 +450,7 @@ export function PurchaseInvoicesPage({
             },
             {
               align: "center",
-              header: "Acoes",
+              header: "Ações",
               render: (invoice) => (
                 <TableActionsMenu
                   actions={[
@@ -523,7 +523,7 @@ function PurchaseInvoiceInstallments({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <strong className="text-[#2c281e]">Parcela {index + 1}</strong>
             <span className="text-sm text-[#5f665f]">
-              Numero {installment.number ?? "-"}
+              Número {installment.number ?? "-"}
             </span>
           </div>
           <FormRow>
@@ -582,7 +582,7 @@ function PurchaseInvoiceItemReview({
 
       <ProductSearchField
         defaultValue={item.productId ?? ""}
-        helperText="Confirme o produto interno correto. Use nome, codigo, fabricante ou locacao."
+        helperText="Confirme o produto interno correto. Use nome, código, fabricante ou locação."
         label="Produto interno"
         name={`purchaseItemProductId_${index}`}
         products={products}

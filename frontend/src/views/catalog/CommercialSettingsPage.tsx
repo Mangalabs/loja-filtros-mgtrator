@@ -20,7 +20,7 @@ export function CommercialSettingsPage({
         onSubmit={onSubmit}
       >
         <PageHeader
-          description="Defina a margem de venda e os prazos sugeridos ao montar orcamentos."
+          description="Defina a margem de venda e os prazos sugeridos ao montar orçamentos."
           icon={<Percent size={18} />}
           title="Configuração comercial"
         />
@@ -36,8 +36,8 @@ export function CommercialSettingsPage({
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
             defaultValue={settings?.defaultQuoteDueDays ?? 0}
-            helperText="Quantidade de dias somada a data de emissao para sugerir o vencimento."
-            label="Vencimento padrao (dias)"
+            helperText="Quantidade de dias somada à data de emissão para sugerir o vencimento."
+            label="Vencimento padrão (dias)"
             name="defaultQuoteDueDays"
             required
             type="number"
@@ -45,8 +45,8 @@ export function CommercialSettingsPage({
           />
           <TextField
             defaultValue={settings?.defaultQuoteValidityDays ?? 7}
-            helperText="Quantidade de dias somada a data de emissao para preencher a validade."
-            label="Validade padrao (dias)"
+            helperText="Quantidade de dias somada à data de emissão para preencher a validade."
+            label="Validade padrão (dias)"
             name="defaultQuoteValidityDays"
             required
             type="number"
@@ -66,12 +66,12 @@ export function CommercialSettingsPage({
           salvar, porque alguns itens podem precisar de precificacao propria.
         </p>
         <p className="m-0 text-sm leading-6 text-[#5f665f]">
-          Produtos ja cadastrados mantem o preco atual ao serem editados, para
-          evitar alteracoes automaticas em cadastros existentes.
+          Produtos já cadastrados mantêm o preço atual ao serem editados, para
+          evitar alterações automáticas em cadastros existentes.
         </p>
         <p className="m-0 text-sm leading-6 text-[#5f665f]">
-          O vencimento e a validade padrao do orcamento sao preenchidos
-          automaticamente a partir da emissao, mas continuam editaveis no
+          O vencimento e a validade padrão do orçamento são preenchidos
+          automaticamente a partir da emissão, mas continuam editáveis no
           momento de montar a proposta.
         </p>
       </FormCard>
