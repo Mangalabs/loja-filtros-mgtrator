@@ -20,7 +20,7 @@ export function CommercialSettingsPage({
         onSubmit={onSubmit}
       >
         <PageHeader
-          description="Defina a margem usada para sugerir o preco de venda ao cadastrar produtos."
+          description="Defina a margem de venda e os prazos sugeridos ao montar orcamentos."
           icon={<Percent size={18} />}
           title="Configuracao comercial"
         />
@@ -33,15 +33,26 @@ export function CommercialSettingsPage({
           type="number"
           slotProps={{ htmlInput: { min: 0, max: 1000, step: "0.01" } }}
         />
-        <TextField
-          defaultValue={settings?.defaultQuoteValidityDays ?? 7}
-          helperText="Quantidade de dias somada a data de emissao para preencher a validade do orcamento."
-          label="Validade padrao do orcamento (dias)"
-          name="defaultQuoteValidityDays"
-          required
-          type="number"
-          slotProps={{ htmlInput: { min: 0, max: 365, step: 1 } }}
-        />
+        <div className="grid gap-4 md:grid-cols-2">
+          <TextField
+            defaultValue={settings?.defaultQuoteDueDays ?? 0}
+            helperText="Quantidade de dias somada a data de emissao para sugerir o vencimento."
+            label="Vencimento padrao (dias)"
+            name="defaultQuoteDueDays"
+            required
+            type="number"
+            slotProps={{ htmlInput: { min: 0, max: 365, step: 1 } }}
+          />
+          <TextField
+            defaultValue={settings?.defaultQuoteValidityDays ?? 7}
+            helperText="Quantidade de dias somada a data de emissao para preencher a validade."
+            label="Validade padrao (dias)"
+            name="defaultQuoteValidityDays"
+            required
+            type="number"
+            slotProps={{ htmlInput: { min: 0, max: 365, step: 1 } }}
+          />
+        </div>
         <PrimaryButton icon={<Save size={17} />} type="submit">
           Salvar configuracao
         </PrimaryButton>
@@ -59,9 +70,9 @@ export function CommercialSettingsPage({
           evitar alteracoes automaticas em cadastros existentes.
         </p>
         <p className="m-0 text-sm leading-6 text-[#5f665f]">
-          A validade padrao do orcamento preenche a data automaticamente a
-          partir da emissao, mas continua editavel no momento de montar a
-          proposta.
+          O vencimento e a validade padrao do orcamento sao preenchidos
+          automaticamente a partir da emissao, mas continuam editaveis no
+          momento de montar a proposta.
         </p>
       </FormCard>
     </section>

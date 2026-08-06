@@ -601,6 +601,8 @@ type CommercialSettings = {
   branchId: string | null;
   branchName: string | null;
   defaultProfitMarginPercentage: string;
+  defaultQuoteDueDays: number;
+  defaultQuoteValidityDays: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -1238,7 +1240,11 @@ describe("catalog routes", () => {
     });
     const updated = await request<CommercialSettings>("/commercial-settings", {
       method: "PUT",
-      body: { defaultProfitMarginPercentage: 50 },
+      body: {
+        defaultProfitMarginPercentage: 50,
+        defaultQuoteDueDays: 28,
+        defaultQuoteValidityDays: 14,
+      },
     });
     const listedAfterUpdate =
       await request<CommercialSettings>("/commercial-settings");
@@ -1247,14 +1253,20 @@ describe("catalog routes", () => {
     assert.equal(current.body.data?.branchId, defaultBranchId);
     assert.equal(current.body.data?.branchName, "Matriz Teste");
     assert.equal(current.body.data?.defaultProfitMarginPercentage, "0.00");
+    assert.equal(current.body.data?.defaultQuoteDueDays, 0);
+    assert.equal(current.body.data?.defaultQuoteValidityDays, 7);
     assert.equal(invalid.status, 422);
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.defaultProfitMarginPercentage, "50.00");
+    assert.equal(updated.body.data?.defaultQuoteDueDays, 28);
+    assert.equal(updated.body.data?.defaultQuoteValidityDays, 14);
     assert.equal(listedAfterUpdate.body.data?.id, updated.body.data?.id);
     assert.equal(
       listedAfterUpdate.body.data?.defaultProfitMarginPercentage,
       "50.00",
     );
+    assert.equal(listedAfterUpdate.body.data?.defaultQuoteDueDays, 28);
+    assert.equal(listedAfterUpdate.body.data?.defaultQuoteValidityDays, 14);
   });
 
   it("keeps commercial settings scoped to the active branch", async () => {
@@ -1271,7 +1283,11 @@ describe("catalog routes", () => {
       "/commercial-settings",
       {
         method: "PUT",
-        body: { defaultProfitMarginPercentage: 50 },
+        body: {
+          defaultProfitMarginPercentage: 50,
+          defaultQuoteDueDays: 21,
+          defaultQuoteValidityDays: 10,
+        },
       },
     );
     const isolatedCurrent = await request<CommercialSettings>(
@@ -1285,7 +1301,11 @@ describe("catalog routes", () => {
       {
         method: "PUT",
         headers: { "x-active-branch-id": branch.body.data.id },
-        body: { defaultProfitMarginPercentage: 35 },
+        body: {
+          defaultProfitMarginPercentage: 35,
+          defaultQuoteDueDays: 7,
+          defaultQuoteValidityDays: 3,
+        },
       },
     );
     const defaultCurrent =
@@ -1299,15 +1319,21 @@ describe("catalog routes", () => {
       isolatedCurrent.body.data?.defaultProfitMarginPercentage,
       "0.00",
     );
+    assert.equal(isolatedCurrent.body.data?.defaultQuoteDueDays, 0);
+    assert.equal(isolatedCurrent.body.data?.defaultQuoteValidityDays, 7);
     assert.equal(isolatedUpdated.status, 200);
     assert.equal(
       isolatedUpdated.body.data?.defaultProfitMarginPercentage,
       "35.00",
     );
+    assert.equal(isolatedUpdated.body.data?.defaultQuoteDueDays, 7);
+    assert.equal(isolatedUpdated.body.data?.defaultQuoteValidityDays, 3);
     assert.equal(
       defaultCurrent.body.data?.defaultProfitMarginPercentage,
       "50.00",
     );
+    assert.equal(defaultCurrent.body.data?.defaultQuoteDueDays, 21);
+    assert.equal(defaultCurrent.body.data?.defaultQuoteValidityDays, 10);
   });
 
   it("opens one cash register session for the authenticated user", async () => {

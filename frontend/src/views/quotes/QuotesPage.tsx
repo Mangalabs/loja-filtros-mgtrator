@@ -97,7 +97,10 @@ export function QuotesPage({
   const [clientId, setClientId] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('')
   const [billingIssueDate, setBillingIssueDate] = useState(todayInputDate)
-  const [billingDueDate, setBillingDueDate] = useState('')
+  const [billingDueDate, setBillingDueDate] = useState(() =>
+    quoteDueDate(todayInputDate(), commercialSettings),
+  )
+  const [billingDueDateTouched, setBillingDueDateTouched] = useState(false)
   const [validUntil, setValidUntil] = useState(() =>
     quoteValidityDate(todayInputDate(), commercialSettings),
   )
@@ -154,6 +157,19 @@ export function QuotesPage({
     validUntilTouched,
   ])
 
+  useEffect(() => {
+    if (isEditing || billingDueDateTouched) {
+      return
+    }
+
+    setBillingDueDate(quoteDueDate(billingIssueDate, commercialSettings))
+  }, [
+    billingDueDateTouched,
+    billingIssueDate,
+    commercialSettings?.defaultQuoteDueDays,
+    isEditing,
+  ])
+
   function updateItem(index: number, changes: Partial<QuoteDraftItem>) {
     setItems((currentItems) =>
       currentItems.map((item, itemIndex) => {
@@ -193,7 +209,8 @@ export function QuotesPage({
     const issueDate = todayInputDate()
 
     setBillingIssueDate(issueDate)
-    setBillingDueDate('')
+    setBillingDueDate(quoteDueDate(issueDate, commercialSettings))
+    setBillingDueDateTouched(false)
     setValidUntil(quoteValidityDate(issueDate, commercialSettings))
     setValidUntilTouched(false)
     setNotes('')
@@ -243,6 +260,7 @@ export function QuotesPage({
     setPaymentMethodId(quote.paymentMethodId ?? '')
     setBillingIssueDate(quote.billingIssueDate?.slice(0, 10) ?? '')
     setBillingDueDate(quote.billingDueDate?.slice(0, 10) ?? '')
+    setBillingDueDateTouched(true)
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
     setValidUntilTouched(true)
     setNotes(quote.notes ?? '')
@@ -351,7 +369,10 @@ export function QuotesPage({
             size='medium'
             type='date'
             value={billingDueDate}
-            onChange={(event) => setBillingDueDate(event.target.value)}
+            onChange={(event) => {
+              setBillingDueDate(event.target.value)
+              setBillingDueDateTouched(true)
+            }}
             slotProps={{ inputLabel: { shrink: true } }}
           />
         </FormRow>
@@ -878,6 +899,16 @@ function emptyQuoteItem(): QuoteDraftItem {
 
 function todayInputDate() {
   return new Date().toLocaleDateString('en-CA')
+}
+
+function quoteDueDate(
+  issueDate: string,
+  settings: CommercialSettings | null,
+) {
+  const date = new Date(`${issueDate}T00:00:00`)
+  date.setDate(date.getDate() + Number(settings?.defaultQuoteDueDays ?? 0))
+
+  return date.toLocaleDateString('en-CA')
 }
 
 function quoteValidityDate(

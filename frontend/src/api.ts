@@ -449,6 +449,7 @@ export type CommercialSettings = {
   branchId: string | null;
   branchName: string | null;
   defaultProfitMarginPercentage: string;
+  defaultQuoteDueDays: number;
   defaultQuoteValidityDays: number;
   createdAt: string;
   updatedAt: string;

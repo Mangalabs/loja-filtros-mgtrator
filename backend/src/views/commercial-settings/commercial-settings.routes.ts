@@ -13,6 +13,7 @@ export const commercialSettingsRoutes = Router();
 const commercialSettingsSchema = z
   .object({
     defaultProfitMarginPercentage: z.coerce.number().min(0).max(1000),
+    defaultQuoteDueDays: z.coerce.number().int().min(0).max(365).default(0),
     defaultQuoteValidityDays: z.coerce.number().int().min(0).max(365).default(7),
   })
   .strict();
