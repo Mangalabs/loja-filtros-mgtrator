@@ -613,7 +613,7 @@ const shippingOrderActionRenderers: Record<
 > = {
   APPROVED: (props) => <ShippingOrderCompleteActions {...props} />,
   CANCELLED: () => '-',
-  COMPLETED: () => 'Venda concluida',
+  COMPLETED: () => 'Venda concluída',
   QUOTED: (props) => <ShippingOrderCompleteActions {...props} />,
   SEPARATED: (props) => <ShippingOrderCompleteActions {...props} />,
 }
@@ -1094,7 +1094,7 @@ function PickupReservationActions({
   )
 
   if (reservation.status === 'COMPLETED') {
-    return 'Venda concluida'
+    return 'Venda concluída'
   }
 
   if (reservation.status !== 'RESERVED') {
@@ -1222,7 +1222,7 @@ function shippingOrderAuditNotes(order: ShippingOrder) {
       ? `Separado por ${order.separatedByUserName}`
       : null,
     order.completedByUserName
-      ? `Concluido por ${order.completedByUserName}`
+      ? `Concluído por ${order.completedByUserName}`
       : null,
     order.cancelledByUserName
       ? `Cancelado por ${order.cancelledByUserName}`
@@ -1265,7 +1265,7 @@ const shippingOrderStatusPresentation: Record<
 > = {
   APPROVED: { label: 'Aprovado - separar', tone: 'success' },
   CANCELLED: { label: 'Cancelado', tone: 'neutral' },
-  COMPLETED: { label: 'Venda concluida', tone: 'success' },
+  COMPLETED: { label: 'Venda concluída', tone: 'success' },
   QUOTED: { label: 'Orçamento enviado', tone: 'warning' },
   SEPARATED: { label: 'Separado para envio', tone: 'success' },
 }
@@ -1275,6 +1275,6 @@ const pickupReservationStatusPresentation: Record<
   { label: string; tone: StatusTone }
 > = {
   CANCELLED: { label: 'Cancelada', tone: 'neutral' },
-  COMPLETED: { label: 'Venda concluida', tone: 'success' },
+  COMPLETED: { label: 'Venda concluída', tone: 'success' },
   RESERVED: { label: 'Reservada', tone: 'warning' },
 }

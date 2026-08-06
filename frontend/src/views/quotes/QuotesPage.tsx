@@ -512,7 +512,7 @@ export function QuotesPage({
         <ActionGroup className='pt-1'>
           {isEditing ? (
             <SecondaryButton type='button' onClick={resetQuoteForm}>
-              Cancelar edicao
+              Cancelar edição
             </SecondaryButton>
           ) : null}
           <SecondaryButton
@@ -530,7 +530,7 @@ export function QuotesPage({
 
       <PagePanel wide>
         <PageHeader
-          actions={<StatusChip label='PDF disponivel' tone='success' />}
+          actions={<StatusChip label='PDF disponível' tone='success' />}
           description={`${quotes.length} registros`}
           title='Orçamentos salvos'
         />
@@ -650,7 +650,7 @@ function QuotePaymentHighlight({
   compact?: boolean
   paymentMethodName: string | null
 }) {
-  const label = paymentMethodName ?? 'Nao informada'
+  const label = paymentMethodName ?? 'Não informada'
 
   return (
     <div
@@ -816,7 +816,7 @@ const quoteShippingStatusLabels: Record<
 > = {
   APPROVED: 'Envio aprovado',
   CANCELLED: 'Envio cancelado',
-  COMPLETED: 'Venda concluida',
+  COMPLETED: 'Venda concluída',
   QUOTED: 'Pedido para envio criado',
   SEPARATED: 'Separado para envio',
 }

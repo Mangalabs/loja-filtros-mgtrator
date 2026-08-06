@@ -97,13 +97,13 @@ export function SalesHistoryPage({
   return (
     <PagePanel className='min-w-0' wide>
       <PageHeader
-        description='Consulte vendas fechadas de balcao, envio e retirada.'
+        description='Consulte vendas fechadas de balcão, envio e retirada.'
         icon={<ReceiptText size={18} />}
         title='Histórico de vendas fechadas'
       />
       <div className='mb-4 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] p-3 text-sm text-[#2c281e]'>
         <strong className='text-[#203466]'>Comprovante de venda:</strong>{' '}
-        use o botao de comprovante para baixar um resumo comercial da venda
+        use o botão de comprovante para baixar um resumo comercial da venda
         concluída. Este arquivo não substitui NF-e, NFC-e, DANFE ou XML fiscal.
       </div>
 
