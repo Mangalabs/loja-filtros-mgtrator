@@ -45,15 +45,23 @@ type LoadState = "idle" | "loading" | "ready" | "error";
 
 export function ProductsPage({
   products,
+  pageIndex,
+  rowsPerPage,
   search,
   state,
+  totalProducts,
+  onPageChange,
   onSearchChange,
   onEdit,
   onChangeStatus,
 }: {
   products: Product[];
+  pageIndex: number;
+  rowsPerPage: number;
   search: string;
   state: LoadState;
+  totalProducts: number;
+  onPageChange: (pageIndex: number, rowsPerPage?: number) => void;
   onSearchChange: (value: string) => void;
   onEdit: (product: Product) => void;
   onChangeStatus: (product: Product) => void;
@@ -75,8 +83,11 @@ export function ProductsPage({
       />
 
       <ProductTable
+        pageIndex={pageIndex}
         products={products}
-        resetKey={search}
+        rowsPerPage={rowsPerPage}
+        totalProducts={totalProducts}
+        onPageChange={onPageChange}
         onEdit={onEdit}
         onChangeStatus={onChangeStatus}
       />
@@ -86,17 +97,21 @@ export function ProductsPage({
 
 function ProductTable({
   products,
-  resetKey,
+  pageIndex,
+  rowsPerPage,
+  totalProducts,
+  onPageChange,
   onEdit,
   onChangeStatus,
 }: {
   products: Product[];
-  resetKey: string;
+  pageIndex: number;
+  rowsPerPage: number;
+  totalProducts: number;
+  onPageChange: (pageIndex: number, rowsPerPage?: number) => void;
   onEdit: (product: Product) => void;
   onChangeStatus: (product: Product) => void;
 }) {
-  const { pagination, visibleItems } = usePaginatedRows(products, resetKey);
-
   return (
     <ResponsiveTable
       columns={[
@@ -178,8 +193,15 @@ function ProductTable({
       ]}
       emptyMessage="Nenhum produto encontrado."
       getRowId={(product) => product.id}
-      items={visibleItems}
-      pagination={pagination}
+      items={products}
+      pagination={{
+        count: totalProducts,
+        page: pageIndex,
+        rowsPerPage,
+        onPageChange: (page) => onPageChange(page),
+        onRowsPerPageChange: (nextRowsPerPage) =>
+          onPageChange(0, nextRowsPerPage),
+      }}
     />
   );
 }

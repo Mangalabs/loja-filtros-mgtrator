@@ -12,6 +12,7 @@ import type {
   PickupReservation,
   Product,
   NcmOption,
+  ProductPage,
   PurchaseInvoice,
   PurchaseReport,
   Quote,
@@ -77,13 +78,15 @@ type AppViewRendererProps = {
   clients: Client[];
   commercialSettings: CommercialSettings | null;
   financeActions: ReturnType<typeof useFinanceActions>;
-  filteredProducts: Product[];
   fiscalDocuments: FiscalDocument[];
   fiscalSettings: FiscalSettings | null;
   lowStockProducts: Product[];
   ncmOptions: NcmOption[];
   paymentMethods: PaymentMethod[];
   pickupReservations: PickupReservation[];
+  productPage: ProductPage;
+  productPageIndex: number;
+  productRowsPerPage: number;
   products: Product[];
   purchaseInvoices: PurchaseInvoice[];
   purchaseReport: PurchaseReport | null;
@@ -109,6 +112,7 @@ type AppViewRendererProps = {
   onCancelClient: () => void;
   onCancelProductEdit: () => void;
   onOpenQuotes: () => void;
+  onProductPageChange: (pageIndex: number, rowsPerPage?: number) => void;
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
   onLoadSalesReport: (filters?: {
     dateFrom?: string;
@@ -140,13 +144,15 @@ export function AppViewRenderer({
   clients,
   commercialSettings,
   financeActions,
-  filteredProducts,
   fiscalDocuments,
   fiscalSettings,
   lowStockProducts,
   ncmOptions,
   paymentMethods,
   pickupReservations,
+  productPage,
+  productPageIndex,
+  productRowsPerPage,
   products,
   purchaseInvoices,
   purchaseReport,
@@ -176,6 +182,7 @@ export function AppViewRenderer({
   onLoadPurchaseReport,
   onLoadStockReport,
   onOpenQuotes,
+  onProductPageChange,
   onResolveFiscalPendency,
   onSelectView,
   onSearchChange,
@@ -199,9 +206,13 @@ export function AppViewRenderer({
   const viewRenderers: Record<View, ReactNode> = {
     products: (
         <ProductsPage
-          products={filteredProducts}
+          pageIndex={productPageIndex}
+          products={productPage.items}
+          rowsPerPage={productRowsPerPage}
           search={search}
           state={state}
+          totalProducts={productPage.total}
+          onPageChange={onProductPageChange}
           onSearchChange={onSearchChange}
           onEdit={catalogActions.editProduct}
           onChangeStatus={(product) =>

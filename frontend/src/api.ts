@@ -61,6 +61,14 @@ export type Product = {
   active: boolean;
 };
 
+export type ProductPage = {
+  items: Product[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 export type NcmOption = {
   code: string;
   label: string;

@@ -48,7 +48,6 @@ export function AuthenticatedApp({
     cashReport,
     clients,
     commercialSettings,
-    filteredProducts,
     fiscalDocuments,
     fiscalSettings,
     loadCatalog,
@@ -61,6 +60,9 @@ export function AuthenticatedApp({
     ncmOptions,
     paymentMethods,
     pickupReservations,
+    productPage,
+    productPageIndex,
+    productRowsPerPage,
     products,
     purchaseInvoices,
     purchaseReport,
@@ -70,6 +72,7 @@ export function AuthenticatedApp({
     sales,
     salesReport,
     search,
+    setProductPage,
     setMessage,
     setSearch,
     shippingOrders,
@@ -234,13 +237,15 @@ export function AuthenticatedApp({
           clients={clients}
           commercialSettings={commercialSettings}
           financeActions={financeActions}
-          filteredProducts={filteredProducts}
           fiscalDocuments={fiscalDocuments}
           fiscalSettings={fiscalSettings}
           lowStockProducts={lowStockProducts}
           ncmOptions={ncmOptions}
           paymentMethods={paymentMethods}
           pickupReservations={pickupReservations}
+          productPage={productPage}
+          productPageIndex={productPageIndex}
+          productRowsPerPage={productRowsPerPage}
           products={products}
           purchaseInvoices={purchaseInvoices}
           purchaseReport={purchaseReport}
@@ -271,6 +276,7 @@ export function AuthenticatedApp({
           onCancelProductEdit={() => setView("products")}
           onOpenQuotes={() => setView("quotes")}
           onResolveFiscalPendency={resolveFiscalPendency}
+          onProductPageChange={setProductPage}
           onSelectView={setView}
           onSearchChange={setSearch}
           onSelectClient={setSelectedClient}

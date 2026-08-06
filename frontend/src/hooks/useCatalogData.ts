@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   apiGet,
   setActiveBranchHeader,
@@ -16,6 +16,7 @@ import {
   type PaymentMethod,
   type PickupReservation,
   type Product,
+  type ProductPage,
   type PurchaseReport,
   type PurchaseInvoice,
   type Quote,
@@ -32,8 +33,22 @@ import {
 import type { LoadState } from "../navigation";
 import { canAccessView } from "../navigation";
 
+const defaultProductPage: ProductPage = {
+  items: [],
+  total: 0,
+  page: 1,
+  limit: 15,
+  totalPages: 1,
+};
+
 export function useCatalogData(user: AuthUser, activeBranchId: string) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [productPage, setProductPage] =
+    useState<ProductPage>(defaultProductPage);
+  const [productPageIndex, setProductPageIndex] = useState(0);
+  const [productRowsPerPage, setProductRowsPerPage] = useState(
+    defaultProductPage.limit,
+  );
   const [branches, setBranches] = useState<Branch[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
   const [ncmOptions, setNcmOptions] = useState<NcmOption[]>([]);
@@ -92,6 +107,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
 
       const [
         productsResult,
+        productPageResult,
         brandsResult,
         ncmOptionsResult,
         clientsResult,
@@ -116,7 +132,12 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         shippingOrdersResult,
         pickupReservationsResult,
       ] = await Promise.all([
-        fetchProductCatalog(search),
+        fetchProductCatalog(),
+        fetchProductPage({
+          limit: productRowsPerPage,
+          page: productPageIndex + 1,
+          search,
+        }),
         apiGet<ApiResult<NamedEntity[]>>("/brands"),
         fetchNcmOptions(),
         apiGet<ApiResult<Client[]>>("/clients"),
@@ -159,6 +180,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       ]);
 
       setProducts(productsResult);
+      setProductPage(productPageResult);
       setBrands(brandsResult.data);
       setNcmOptions(ncmOptionsResult.data);
       setClients(clientsResult.data);
@@ -278,31 +300,11 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     }
 
     const timeout = window.setTimeout(() => {
-      void refreshProducts(search);
+      void changeProductPage(0, productRowsPerPage);
     }, 300);
 
     return () => window.clearTimeout(timeout);
   }, [activeBranchId, search, user.role]);
-
-  const filteredProducts = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    if (!term) {
-      return products;
-    }
-
-    return products.filter((product) => {
-      return [
-        product.name,
-        product.internalCode,
-        product.barcode,
-        product.brandName,
-        product.location,
-      ]
-        .filter(Boolean)
-        .some((value) => value!.toLowerCase().includes(term));
-    });
-  }, [products, search]);
 
   async function runAction(action: () => Promise<void>) {
     setMessage("");
@@ -319,9 +321,20 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     }
   }
 
-  async function refreshProducts(searchTerm: string) {
+  async function changeProductPage(pageIndex: number, rowsPerPage?: number) {
+    const nextRowsPerPage = rowsPerPage ?? productRowsPerPage;
+
+    setProductPageIndex(pageIndex);
+    setProductRowsPerPage(nextRowsPerPage);
+
     try {
-      setProducts(await fetchProductCatalog(searchTerm));
+      setProductPage(
+        await fetchProductPage({
+          limit: nextRowsPerPage,
+          page: pageIndex + 1,
+          search,
+        }),
+      );
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Erro inesperado");
@@ -335,7 +348,6 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     cashReport,
     clients,
     commercialSettings,
-    filteredProducts,
     fiscalDocuments,
     fiscalSettings,
     loadCatalog,
@@ -347,6 +359,9 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     ncmOptions,
     paymentMethods,
     pickupReservations,
+    productPage,
+    productPageIndex,
+    productRowsPerPage,
     products,
     purchaseReport,
     purchaseInvoices,
@@ -357,6 +372,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     salesReport,
     loadSalesReport,
     search,
+    setProductPage: changeProductPage,
     setMessage,
     setSearch,
     shippingOrders,
@@ -408,6 +424,33 @@ async function fetchProductCatalog(search?: string) {
   }
 
   const result = await apiGet<ApiResult<Product[]>>(
+    `/products?${params.toString()}`,
+  );
+
+  return result.data;
+}
+
+async function fetchProductPage({
+  limit,
+  page,
+  search,
+}: {
+  limit: number;
+  page: number;
+  search?: string;
+}) {
+  const params = new URLSearchParams({
+    includeMeta: "true",
+    limit: String(limit),
+    page: String(page),
+  });
+  const term = search?.trim();
+
+  if (term) {
+    params.set("search", term);
+  }
+
+  const result = await apiGet<ApiResult<ProductPage>>(
     `/products?${params.toString()}`,
   );
 

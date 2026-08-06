@@ -70,6 +70,14 @@ type Product = {
   active: boolean;
 };
 
+type ProductListPage = {
+  items: Product[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 type NcmOption = {
   code: string;
   label: string;
@@ -6499,6 +6507,9 @@ describe("catalog routes", () => {
     });
 
     const listed = await request<Product[]>("/products?search=Wega");
+    const listedPage = await request<ProductListPage>(
+      "/products?search=Wega&includeMeta=true&page=1&limit=1",
+    );
     const shown = await request<Product>(`/products/${created.body.data?.id}`);
     const updated = await request<Product>(
       `/products/${created.body.data?.id}`,
@@ -6543,6 +6554,11 @@ describe("catalog routes", () => {
     );
     assert.equal(listed.status, 200);
     assert.equal(listed.body.data?.length, 1);
+    assert.equal(listedPage.status, 200);
+    assert.equal(listedPage.body.data?.total, 1);
+    assert.equal(listedPage.body.data?.page, 1);
+    assert.equal(listedPage.body.data?.limit, 1);
+    assert.equal(listedPage.body.data?.items[0]?.id, created.body.data?.id);
     assert.equal(shown.status, 200);
     assert.equal(shown.body.data?.internalCode, "FAP4040");
     assert.equal(
