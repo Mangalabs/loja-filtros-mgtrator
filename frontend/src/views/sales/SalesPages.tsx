@@ -517,19 +517,19 @@ export function ShippingOrdersPage({
     <section className='grid items-start gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]'>
       <PagePanel>
         <PageHeader
-          description='Crie o orcamento e envie para este fluxo quando o cliente aprovar.'
+          description='Crie um orçamento e transforme em pedido quando o cliente aprovar.'
           icon={<Send size={18} />}
-          title='Registrar orcamento'
+          title='Novo pedido por orçamento'
         />
         <InlineNote>
-          Pedidos para envio nascem de orcamentos salvos. Quando o cliente
-          confirmar, informe o pagamento e conclua a venda em um unico passo.
+          Pedidos para envio nascem de orçamentos salvos. Quando o cliente
+          confirmar, informe o pagamento e conclua a venda em um único passo.
         </InlineNote>
         <PrimaryButton
           icon={<Plus size={17} />}
           type='button'
           onClick={onOpenQuotes}>
-          Registrar orcamento
+          Abrir orçamentos
         </PrimaryButton>
       </PagePanel>
 
@@ -540,7 +540,7 @@ export function ShippingOrdersPage({
               {orders.length} registros
             </span>
           }
-          description='Conclua a venda em um passo quando o pedido for confirmado para envio.'
+          description='Conclua a venda em um passo quando o cliente confirmar o envio.'
           title='Pedidos para envio'
         />
         <ResponsiveTable
@@ -587,7 +587,7 @@ export function ShippingOrdersPage({
                 }),
             },
           ]}
-          emptyMessage='Nenhum orcamento para envio registrado.'
+          emptyMessage='Nenhum pedido para envio registrado.'
           getRowId={(order) => order.id}
           items={visibleItems}
           pagination={pagination}

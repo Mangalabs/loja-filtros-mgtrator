@@ -412,7 +412,7 @@ function fiscalReadinessIssueSummary(issues: string[]) {
 
   return [
     issueCounts.configuration > 0
-      ? `Configuracao: ${issueCounts.configuration}`
+      ? `Configuração: ${issueCounts.configuration}`
       : null,
     issueCounts.client > 0 ? `Cliente: ${issueCounts.client}` : null,
     issueCounts.product > 0 ? `Produtos: ${issueCounts.product}` : null,
@@ -637,7 +637,7 @@ function fiscalSettingsAlerts(settings: FiscalSettings | null) {
   const alertOptions = [
     {
       active: !settings,
-      message: 'Configuracao fiscal ainda nao foi carregada.',
+      message: 'Configuração fiscal ainda nao foi carregada.',
       severity: 'info',
     },
     {

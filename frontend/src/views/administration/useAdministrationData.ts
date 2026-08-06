@@ -141,7 +141,7 @@ export function useAdministrationData() {
       setSelectedPasswordResetEmployee(undefined);
       setMessage(
         selectedEmployee
-          ? "Funcionario atualizado com sucesso."
+          ? "Funcionário atualizado com sucesso."
           : "Acesso do funcionario criado com sucesso.",
       );
     });

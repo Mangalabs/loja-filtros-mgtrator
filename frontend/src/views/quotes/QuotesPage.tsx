@@ -530,7 +530,7 @@ export function QuotesPage({
         <PageHeader
           actions={<StatusChip label='PDF disponivel' tone='success' />}
           description={`${quotes.length} registros`}
-          title='Orcamentos salvos'
+          title='Orçamentos salvos'
         />
         <ResponsiveTable
           columns={[
@@ -792,7 +792,7 @@ function quoteActions({
         onSelect: onEditQuote,
       },
       {
-        label: 'Criar pedido de envio',
+        label: 'Criar pedido para envio',
         onSelect: onCreateShippingOrder,
       },
       {
@@ -815,7 +815,7 @@ const quoteShippingStatusLabels: Record<
   APPROVED: 'Envio aprovado',
   CANCELLED: 'Envio cancelado',
   COMPLETED: 'Venda concluida',
-  QUOTED: 'Pedido de envio criado',
+  QUOTED: 'Pedido para envio criado',
   SEPARATED: 'Separado para envio',
 }
 

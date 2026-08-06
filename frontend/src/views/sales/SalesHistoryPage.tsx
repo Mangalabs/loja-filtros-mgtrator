@@ -99,7 +99,7 @@ export function SalesHistoryPage({
       <PageHeader
         description='Consulte vendas fechadas de balcao, envio e retirada.'
         icon={<ReceiptText size={18} />}
-        title='Historico de vendas fechadas'
+        title='Histórico de vendas fechadas'
       />
       <div className='mb-4 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] p-3 text-sm text-[#2c281e]'>
         <strong className='text-[#203466]'>Comprovante de venda:</strong>{' '}
@@ -124,7 +124,7 @@ export function SalesHistoryPage({
             setOrigin(event.target.value as SalesHistoryOrigin)
           }>
           <MenuItem value='ALL'>Todas</MenuItem>
-          <MenuItem value='SALE'>Balcao</MenuItem>
+          <MenuItem value='SALE'>Balcão</MenuItem>
           <MenuItem value='SHIPPING_ORDER'>Para envio</MenuItem>
           <MenuItem value='PICKUP_RESERVATION'>Retirada</MenuItem>
         </TextField>
@@ -365,7 +365,7 @@ function buildSalesHistoryRows({
       id: `SALE-${sale.id}`,
       netAmount: saleNetAmount(sale, sale.totalAmount),
       operatorName: sale.createdByUserName,
-      originLabel: 'Balcao',
+      originLabel: 'Balcão',
       refundAmount: saleRefundAmount(sale),
       sale,
       saleId: sale.id,

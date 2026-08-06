@@ -22,7 +22,7 @@ export function CommercialSettingsPage({
         <PageHeader
           description="Defina a margem de venda e os prazos sugeridos ao montar orcamentos."
           icon={<Percent size={18} />}
-          title="Configuracao comercial"
+          title="Configuração comercial"
         />
         <TextField
           defaultValue={settings?.defaultProfitMarginPercentage ?? "0"}

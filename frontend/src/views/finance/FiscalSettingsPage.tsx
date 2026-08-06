@@ -110,7 +110,7 @@ export function FiscalSettingsPage({
       <PageHeader
         description='Defina o provedor fiscal, ambiente e CNPJ usados na emissao de NF-e.'
         icon={<Settings2 size={18} />}
-        title='Configuracao fiscal da loja'
+        title='Configuração fiscal da loja'
       />
 
       <FiscalSettingsStatus settings={settings} />

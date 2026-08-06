@@ -178,16 +178,16 @@ export const viewTitles: Record<View, { title: string; description: string }> =
     "new-product": {
       title: "Novo produto",
       description:
-        "Cadastre filtros com codigos, fabricante, locacao e dados fiscais.",
+        "Cadastre filtros com códigos, fabricante, locação e dados fiscais.",
     },
     "edit-product": {
       title: "Editar produto",
       description: "Atualize os dados cadastrais do produto selecionado.",
     },
     "commercial-settings": {
-      title: "Configuracao comercial",
+      title: "Configuração comercial",
       description:
-        "Defina a margem base para sugestao de preco de venda nos produtos.",
+        "Defina margem, prazos e sugestões de preço de venda.",
     },
     "stock-entries": {
       title: "Entrada de mercadoria",
@@ -195,22 +195,22 @@ export const viewTitles: Record<View, { title: string; description: string }> =
         "Registre produtos recebidos e atualize o estoque da filial.",
     },
     "purchase-invoices": {
-      title: "Importacao XML",
+      title: "Importação XML",
       description:
         "Leia XML de compra, revise os itens e confirme os produtos internos.",
     },
     "stock-adjustments": {
       title: "Ajuste de estoque",
-      description: "Corrija divergencias de saldo com motivo registrado.",
+      description: "Corrija divergências de saldo com motivo registrado.",
     },
     "stock-movements": {
-      title: "Historico de estoque",
+      title: "Histórico de estoque",
       description:
         "Acompanhe entradas e ajustes que alteraram o saldo da filial.",
     },
     "low-stock": {
-      title: "Reposicao",
-      description: "Consulte produtos ativos que atingiram o estoque minimo.",
+      title: "Reposição",
+      description: "Consulte produtos ativos que atingiram o estoque mínimo.",
     },
     "payment-methods": {
       title: "Formas de pagamento",
@@ -218,14 +218,14 @@ export const viewTitles: Record<View, { title: string; description: string }> =
         "Configure as formas disponiveis para o futuro fechamento de vendas.",
     },
     "fiscal-settings": {
-      title: "Configuracao fiscal",
+      title: "Configuração fiscal",
       description:
-        "Defina provedor, ambiente e CNPJ usados na emissao de NF-e.",
+        "Defina provedor, ambiente e CNPJ usados na emissão de NF-e.",
     },
     "fiscal-documents": {
       title: "Notas fiscais",
       description:
-        "Acompanhe emissao, status e referencias fiscais das vendas.",
+        "Acompanhe emissão, status e referências fiscais das vendas.",
     },
     "cash-register": {
       title: "Caixa",
@@ -233,28 +233,28 @@ export const viewTitles: Record<View, { title: string; description: string }> =
         "Abra o caixa da filial antes de iniciar operacoes de venda.",
     },
     reports: {
-      title: "Relatorios",
-      description: "Acompanhe indicadores operacionais e pendencias da filial.",
+      title: "Relatórios",
+      description: "Acompanhe indicadores operacionais e pendências da filial.",
     },
     quotes: {
-      title: "Orcamentos",
+      title: "Orçamentos",
       description:
-        "Monte orcamentos com cliente, multiplos produtos e valores personalizados.",
+        "Monte orçamentos com cliente, múltiplos produtos e valores personalizados.",
     },
     sales: {
-      title: "Venda de balcao",
+      title: "Venda de balcão",
       description:
         "Registre a venda imediata de um produto com baixa de estoque.",
     },
     "sales-history": {
-      title: "Historico de vendas",
+      title: "Histórico de vendas",
       description:
         "Consulte vendas fechadas, comprovantes e documentos fiscais.",
     },
     "shipping-orders": {
       title: "Pedidos para envio",
       description:
-        "Registre orcamentos aprovados pelo cliente e separe os produtos para envio.",
+        "Conclua pedidos originados de orçamentos aprovados pelo cliente.",
     },
     "pickup-reservations": {
       title: "Reservas para retirada",
@@ -279,8 +279,8 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       description: "Cadastre as unidades usadas para organizar os funcionarios.",
     },
     employees: {
-      title: "Funcionarios",
+      title: "Funcionários",
       description:
-        "Crie acessos individuais e vincule cada funcionario a uma filial.",
+        "Crie acessos individuais e vincule cada funcionário a uma filial.",
     },
   };

@@ -558,12 +558,12 @@ export function EmployeesPage({
           <PageHeader
             description="Acessos operacionais vinculados as filiais."
             icon={<Users size={18} />}
-            title="Funcionarios cadastrados"
+            title="Funcionários cadastrados"
           />
           <ResponsiveTable
             columns={[
               {
-                header: "Funcionario",
+                header: "Funcionário",
                 render: (employee: AuthUser) => (
                   <div className="grid gap-1">
                     <strong className="font-semibold text-[#2c281e]">
@@ -808,7 +808,7 @@ const employeePermissionOptions: Array<{
 }> = [
   {
     value: "MANAGE_COMMERCIAL_SETTINGS",
-    label: "Configuracao comercial",
+    label: "Configuração comercial",
   },
   {
     value: "IMPORT_PURCHASE_INVOICES",
@@ -824,7 +824,7 @@ const employeePermissionOptions: Array<{
   },
   {
     value: "MANAGE_FISCAL_SETTINGS",
-    label: "Configuracao fiscal",
+    label: "Configuração fiscal",
   },
   {
     value: "MANAGE_FISCAL_DOCUMENTS",
@@ -836,7 +836,7 @@ const employeePermissionOptions: Array<{
   },
   {
     value: "VIEW_REPORTS",
-    label: "Relatorios gerenciais",
+    label: "Relatórios gerenciais",
   },
 ];
 
@@ -857,8 +857,8 @@ const authEventLabels: Record<AuthEvent["eventType"], string> = {
   LOGOUT: "Logout",
   PASSWORD_CHANGED: "Senha alterada",
   PASSWORD_RESET: "Senha redefinida",
-  EMPLOYEE_CREATED: "Funcionario criado",
-  EMPLOYEE_UPDATED: "Funcionario atualizado",
+  EMPLOYEE_CREATED: "Funcionário criado",
+  EMPLOYEE_UPDATED: "Funcionário atualizado",
   EMPLOYEE_STATUS_CHANGED: "Status alterado",
 };
 
