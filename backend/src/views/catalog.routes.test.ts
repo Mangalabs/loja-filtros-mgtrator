@@ -461,7 +461,10 @@ type SalesReport = {
     itemsQuantity: string;
     grossAmount: string;
     discountAmount: string;
+    costAmount: string;
     netAmount: string;
+    grossProfitAmount: string;
+    grossMarginPercentage: string;
   };
   byProduct: Array<{
     productId: string;
@@ -482,6 +485,14 @@ type SalesReport = {
     paymentMethodId: string;
     paymentMethodName: string;
     totalAmount: string;
+  }>;
+  abcProducts: Array<{
+    productId: string;
+    productName: string;
+    totalAmount: string;
+    revenueSharePercentage: string;
+    cumulativeRevenuePercentage: string;
+    abcClass: "A" | "B" | "C";
   }>;
 };
 
@@ -4256,7 +4267,10 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.summary.itemsQuantity, "3.000");
     assert.equal(report.body.data?.summary.grossAmount, "155.00");
     assert.equal(report.body.data?.summary.discountAmount, "10.00");
+    assert.equal(report.body.data?.summary.costAmount, "85.00");
     assert.equal(report.body.data?.summary.netAmount, "145.00");
+    assert.equal(report.body.data?.summary.grossProfitAmount, "60.00");
+    assert.equal(report.body.data?.summary.grossMarginPercentage, "41.38");
     assert.equal(
       report.body.data?.byProduct[0]?.productName,
       firstProduct.body.data?.name,
@@ -4279,6 +4293,20 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.byClient[0]?.totalAmount, "145.00");
     assert.equal(report.body.data?.byPaymentMethod[0]?.paymentMethodName, "Boleto");
     assert.equal(report.body.data?.byPaymentMethod[0]?.totalAmount, "145.00");
+    assert.equal(
+      report.body.data?.abcProducts[0]?.productName,
+      firstProduct.body.data?.name,
+    );
+    assert.equal(report.body.data?.abcProducts[0]?.totalAmount, "80.00");
+    assert.equal(
+      report.body.data?.abcProducts[0]?.revenueSharePercentage,
+      "51.61",
+    );
+    assert.equal(
+      report.body.data?.abcProducts[0]?.cumulativeRevenuePercentage,
+      "51.61",
+    );
+    assert.equal(report.body.data?.abcProducts[0]?.abcClass, "A");
   });
 
   it("returns stock reports with low stock, products without movement, and turnover", async () => {

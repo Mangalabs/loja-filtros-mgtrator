@@ -279,7 +279,7 @@ Relatorios posteriores:
 - Configuracao fiscal central da loja com trava explicita para producao.
 - Configuracao fiscal sincronizada com o CNPJ da filial ativa.
 - Relatorios gerenciais iniciais.
-- Ultima validacao backend registrada nesta revisao: `npm test` com 91 testes passando.
+- Ultima validacao backend registrada nesta revisao: `npm test` com 94 testes passando.
 
 ### Frontend
 
@@ -346,10 +346,15 @@ Estado: avancada em homologacao para NF-e.
 
 ### Fase 5 - Relatorios
 
-Estado: inicial entregue.
+Estado: MVP gerencial entregue.
 
 - Overview gerencial existe.
-- Falta aprofundar relatorios de vendas, compras, caixa, margem/lucro e curva ABC.
+- Relatorio comercial possui vendas por periodo, produto, cliente e forma de pagamento.
+- Relatorio comercial mostra custo, lucro bruto, margem e curva ABC por produto.
+- Relatorio de estoque mostra estoque baixo, produtos sem movimentacao e giro por vendas.
+- Relatorio de compras mostra gastos de entradas manuais e XML por origem, fornecedor e produto.
+- Relatorio financeiro mostra caixa por periodo, formas de pagamento, sangrias, suprimentos e divergencias.
+- Falta evoluir exportacoes e visoes analiticas avancadas conforme uso real.
 
 ## Pontos de Atencao Atuais
 
@@ -370,14 +375,7 @@ Estado: inicial entregue.
 - Atualizar custo e estoque a partir da compra.
 - Historico formal de compras registradas por fornecedor e custo por produto.
 
-### 2. Relatorios
-
-- Vendas por periodo, produto, cliente e forma de pagamento.
-- Estoque baixo, giro e produtos sem movimentacao.
-- Caixa por periodo.
-- Margem, lucro e curva ABC.
-
-### 3. Fechar o ciclo comercial/fiscal MVP
+### 2. Fechar o ciclo comercial/fiscal MVP
 
 - Atualizar documentacao conforme os testes manuais e tecnicos avancarem.
 - Melhorar a tela de detalhes da NF-e e a leitura de rejeicoes.
@@ -385,14 +383,14 @@ Estado: inicial entregue.
 - Validar NF-e com descontos em venda de balcao e em venda originada de orcamento.
 - Manter producao bloqueada ate checklist fiscal final ser cumprido.
 
-### 4. Ajustes de experiencia
+### 3. Ajustes de experiencia
 
 - Compactar acoes de tabelas em menu MUI nas listas com muitas opcoes.
 - Manter formularios de acao destrutiva ou detalhada ocultos ate o usuario escolher a acao.
 - Garantir botao de fechar/cancelar em formularios abertos dentro de linhas.
 - Tratar os demais pontos de UX como acabamento apos as funcoes prioritarias.
 
-### 5. Completar PDV/Caixa
+### 4. Completar PDV/Caixa
 
 - Estorno financeiro detalhado de itens devolvidos.
 

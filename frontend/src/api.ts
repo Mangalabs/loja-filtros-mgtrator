@@ -483,7 +483,10 @@ export type SalesReport = {
     itemsQuantity: string;
     grossAmount: string;
     discountAmount: string;
+    costAmount: string;
     netAmount: string;
+    grossProfitAmount: string;
+    grossMarginPercentage: string;
   };
   byProduct: Array<{
     productId: string;
@@ -504,6 +507,14 @@ export type SalesReport = {
     paymentMethodId: string;
     paymentMethodName: string;
     totalAmount: string;
+  }>;
+  abcProducts: Array<{
+    productId: string;
+    productName: string;
+    totalAmount: string;
+    revenueSharePercentage: string;
+    cumulativeRevenuePercentage: string;
+    abcClass: "A" | "B" | "C";
   }>;
 };
 

@@ -26,7 +26,10 @@ export type SalesReport = {
     itemsQuantity: string;
     grossAmount: string;
     discountAmount: string;
+    costAmount: string;
     netAmount: string;
+    grossProfitAmount: string;
+    grossMarginPercentage: string;
   };
   byProduct: Array<{
     productId: string;
@@ -47,6 +50,14 @@ export type SalesReport = {
     paymentMethodId: string;
     paymentMethodName: string;
     totalAmount: string;
+  }>;
+  abcProducts: Array<{
+    productId: string;
+    productName: string;
+    totalAmount: string;
+    revenueSharePercentage: string;
+    cumulativeRevenuePercentage: string;
+    abcClass: "A" | "B" | "C";
   }>;
 };
 
@@ -178,7 +189,10 @@ type SalesReportSummaryRow = {
   itemsQuantity: string;
   grossAmount: string;
   discountAmount: string;
+  costAmount: string;
   netAmount: string;
+  grossProfitAmount: string;
+  grossMarginPercentage: string;
 };
 
 type SalesByProductRow = {
@@ -356,14 +370,14 @@ export async function getSalesReport(
   const [summary, byProduct, byClient, byPaymentMethod] = await Promise.all([
     salesReportSalesQuery(filters)
       .leftJoin(
-        salesItemQuantitySubquery().as("sale_item_quantities"),
-        "sale_item_quantities.sale_id",
+        salesItemTotalsSubquery().as("sale_item_totals"),
+        "sale_item_totals.sale_id",
         "sales.id",
       )
       .select<SalesReportSummaryRow[]>([
         db.raw("count(sales.id)::text as ??", ["salesCount"]),
         db.raw(
-          "coalesce(sum(sale_item_quantities.quantity), 0)::numeric(12, 3)::text as ??",
+          "coalesce(sum(sale_item_totals.quantity), 0)::numeric(12, 3)::text as ??",
           ["itemsQuantity"],
         ),
         db.raw(
@@ -375,8 +389,23 @@ export async function getSalesReport(
           ["discountAmount"],
         ),
         db.raw(
+          "coalesce(sum(sale_item_totals.cost_amount), 0)::numeric(12, 2)::text as ??",
+          ["costAmount"],
+        ),
+        db.raw(
           "coalesce(sum(sales.total_amount), 0)::numeric(12, 2)::text as ??",
           ["netAmount"],
+        ),
+        db.raw(
+          "(coalesce(sum(sales.total_amount), 0) - coalesce(sum(sale_item_totals.cost_amount), 0))::numeric(12, 2)::text as ??",
+          ["grossProfitAmount"],
+        ),
+        db.raw(
+          `case
+            when coalesce(sum(sales.total_amount), 0) = 0 then '0.00'
+            else (((coalesce(sum(sales.total_amount), 0) - coalesce(sum(sale_item_totals.cost_amount), 0)) / coalesce(sum(sales.total_amount), 0)) * 100)::numeric(8, 2)::text
+          end as ??`,
+          ["grossMarginPercentage"],
         ),
       ])
       .first(),
@@ -447,7 +476,10 @@ export async function getSalesReport(
       itemsQuantity: summary?.itemsQuantity ?? "0.000",
       grossAmount: summary?.grossAmount ?? "0.00",
       discountAmount: summary?.discountAmount ?? "0.00",
+      costAmount: summary?.costAmount ?? "0.00",
       netAmount: summary?.netAmount ?? "0.00",
+      grossProfitAmount: summary?.grossProfitAmount ?? "0.00",
+      grossMarginPercentage: summary?.grossMarginPercentage ?? "0.00",
     },
     byProduct,
     byClient: byClient.map((client) => ({
@@ -456,6 +488,7 @@ export async function getSalesReport(
       salesCount: Number(client.salesCount),
     })),
     byPaymentMethod,
+    abcProducts: buildSalesAbcProducts(byProduct, summary?.grossAmount),
   };
 }
 
@@ -780,11 +813,15 @@ function salesReportSalesQuery(filters: SalesReportFilters) {
     });
 }
 
-function salesItemQuantitySubquery() {
+function salesItemTotalsSubquery() {
   return db("sale_items")
-    .select("sale_id")
-    .sum("quantity as quantity")
-    .groupBy("sale_id");
+    .join("products", "products.id", "sale_items.product_id")
+    .select("sale_items.sale_id")
+    .sum("sale_items.quantity as quantity")
+    .select([
+      db.raw("sum(products.cost_price * sale_items.quantity) as cost_amount"),
+    ])
+    .groupBy("sale_items.sale_id");
 }
 
 function stockTurnoverQuery(filters: StockReportFilters) {
@@ -1102,6 +1139,45 @@ function mergeCashReportPaymentMethods(
   return [...paymentMethods.values()].sort(
     (first, second) => Number(second.netAmount) - Number(first.netAmount),
   );
+}
+
+function buildSalesAbcProducts(
+  products: SalesByProductRow[],
+  grossAmount = "0.00",
+): SalesReport["abcProducts"] {
+  const total = Number(grossAmount);
+  let cumulativePercentage = 0;
+
+  if (!Number.isFinite(total) || total <= 0) {
+    return [];
+  }
+
+  return products.map((product) => {
+    const previousCumulativePercentage = cumulativePercentage;
+    const revenueSharePercentage = (Number(product.totalAmount) / total) * 100;
+    cumulativePercentage += revenueSharePercentage;
+
+    return {
+      productId: product.productId,
+      productName: product.productName,
+      totalAmount: product.totalAmount,
+      revenueSharePercentage: revenueSharePercentage.toFixed(2),
+      cumulativeRevenuePercentage: cumulativePercentage.toFixed(2),
+      abcClass: salesAbcClass(previousCumulativePercentage),
+    };
+  });
+}
+
+function salesAbcClass(cumulativePercentageBeforeProduct: number) {
+  if (cumulativePercentageBeforeProduct < 80) {
+    return "A";
+  }
+
+  if (cumulativePercentageBeforeProduct < 95) {
+    return "B";
+  }
+
+  return "C";
 }
 
 function addMoney(...values: string[]) {
