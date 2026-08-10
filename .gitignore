@@ -4,6 +4,13 @@ dist/
 # Local Codex workspace state
 .codex
 
+# Local AI development rules
+AGENTS.md
+**/AGENTS.md
+.agents/
+ai.md
+frontend-ai.md
+
 # Internal project and integration documentation
 docs/*
 !docs/

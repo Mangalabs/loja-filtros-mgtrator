@@ -91,3 +91,32 @@ cd frontend
 npm run typecheck
 npm run build
 ```
+
+## Importacao de estoque
+
+O importador de estoque por CSV deve ser executado a partir da pasta
+`backend`. Por padrao ele roda em modo de simulacao e nao grava dados:
+
+```bash
+cd backend
+npm run stock:import-csv -- \
+  --file /caminho/estoque.csv \
+  --branch-code CODIGO_DA_FILIAL \
+  --created-by-email financeiro@empresa.com.br \
+  --report /caminho/import-stock-report.json
+```
+
+Depois de conferir o relatorio gerado, execute com `--commit` para gravar:
+
+```bash
+npm run stock:import-csv -- \
+  --file /caminho/estoque.csv \
+  --branch-code CODIGO_DA_FILIAL \
+  --created-by-email financeiro@empresa.com.br \
+  --report /caminho/import-stock-report.json \
+  --commit
+```
+
+O CSV e tratado como saldo atual de estoque, nao como entrada incremental. Antes
+de gravar, confira se a filial, o layout detectado, os produtos criados ou
+atualizados e as linhas rejeitadas estao corretos.
