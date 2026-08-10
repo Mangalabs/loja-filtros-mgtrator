@@ -659,9 +659,35 @@ async function fetchProductPage({
 }
 
 async function fetchBranches(user: AuthUser) {
-  return canAccessView(user, "employees")
-    ? apiGet<ApiResult<Branch[]>>("/branches")
-    : emptyResult<Branch[]>([]);
+  if (user.role === "ADMIN") {
+    return apiGet<ApiResult<Branch[]>>("/branches");
+  }
+
+  return emptyResult<Branch[]>(
+    user.branchId
+      ? [
+          {
+            id: user.branchId,
+            name: user.branchName ?? "Filial vinculada",
+            code: null,
+            legalName: null,
+            tradeName: null,
+            document: null,
+            stateRegistration: null,
+            addressStreet: null,
+            addressNumber: null,
+            addressComplement: null,
+            addressDistrict: null,
+            addressCity: null,
+            addressState: null,
+            addressZipCode: null,
+            phone: null,
+            email: null,
+            active: true,
+          },
+        ]
+      : [],
+  );
 }
 
 function requiresBranchSelection(user: AuthUser, activeBranchId: string) {

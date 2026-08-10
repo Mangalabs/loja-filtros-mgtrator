@@ -118,7 +118,13 @@ export const viewPermissionRequirements: Partial<
   reports: "VIEW_REPORTS",
 };
 
+const adminOnlyViews = new Set<View>(["branches", "employees"]);
+
 export function canAccessView(user: AuthUser, view: View) {
+  if (adminOnlyViews.has(view)) {
+    return user.role === "ADMIN";
+  }
+
   const requiredPermission = viewPermissionRequirements[view];
 
   return (
