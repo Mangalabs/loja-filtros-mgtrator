@@ -17,6 +17,7 @@ import type {
   Client,
   ClientCompanyLookup,
   CommercialSettings,
+  CestOption,
   NamedEntity,
   NcmOption,
   Product,
@@ -208,6 +209,7 @@ function ProductTable({
 
 export function ProductForm({
   brands,
+  cestOptions,
   commercialSettings,
   ncmOptions,
   product,
@@ -216,6 +218,7 @@ export function ProductForm({
   submitLabel,
 }: {
   brands: NamedEntity[];
+  cestOptions: CestOption[];
   commercialSettings: CommercialSettings | null;
   ncmOptions: NcmOption[];
   product?: Product;
@@ -234,6 +237,7 @@ export function ProductForm({
   const [salePriceTouched, setSalePriceTouched] = useState(
     Boolean(product?.salePrice),
   );
+  const [cestValue, setCestValue] = useState(product?.cest ?? "");
   const [ncmValue, setNcmValue] = useState(product?.ncm ?? "");
 
   useEffect(() => {
@@ -243,9 +247,11 @@ export function ProductForm({
       product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
     );
     setSalePriceTouched(Boolean(product?.salePrice));
+    setCestValue(product?.cest ?? "");
     setNcmValue(product?.ncm ?? "");
   }, [
     defaultProfitMarginPercentage,
+    product?.cest,
     product?.costPrice,
     product?.id,
     product?.ncm,
@@ -364,7 +370,7 @@ export function ProductForm({
           inputValue={ncmValue}
           options={ncmOptions}
           filterOptions={(options, state) =>
-            filterNcmOptions(options, state.inputValue)
+            filterFiscalCodeOptions(options, state.inputValue)
           }
           getOptionLabel={(option) =>
             typeof option === "string" ? option : option.code
@@ -394,12 +400,41 @@ export function ProductForm({
           )}
         />
         <input name="ncm" type="hidden" value={ncmValue.trim()} />
-        <TextField
-          helperText="O inventário enviado ainda não trouxe CEST."
-          label="CEST"
-          name="cest"
-          defaultValue={product?.cest ?? ""}
+        <Autocomplete
+          freeSolo
+          inputValue={cestValue}
+          options={cestOptions}
+          filterOptions={(options, state) =>
+            filterFiscalCodeOptions(options, state.inputValue)
+          }
+          getOptionLabel={(option) =>
+            typeof option === "string" ? option : option.code
+          }
+          onChange={(_event, option) =>
+            setCestValue(
+              typeof option === "string" ? option : option?.code ?? "",
+            )
+          }
+          onInputChange={(_event, value) => setCestValue(value)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              helperText="Digite o CEST ou busque pelos produtos cadastrados."
+              label="CEST"
+            />
+          )}
+          renderOption={(props, option) => (
+            <li {...props} key={option.code}>
+              <div className="grid gap-0.5">
+                <strong>{option.code}</strong>
+                <span className="text-xs text-[#5f665f]">
+                  {option.label} ({option.productCount} itens)
+                </span>
+              </div>
+            </li>
+          )}
         />
+        <input name="cest" type="hidden" value={cestValue.trim()} />
       </FormRow>
       <FormRow>
         <TextField
@@ -479,18 +514,36 @@ function suggestedSalePrice(costPrice: string, profitMarginPercentage: string) {
   return (cost * (1 + margin / 100)).toFixed(2);
 }
 
-function filterNcmOptions(options: NcmOption[], inputValue: string) {
+function filterFiscalCodeOptions<
+  Option extends {
+    code: string;
+    label: string;
+    sampleProducts: string[];
+  },
+>(
+  options: Option[],
+  inputValue: string,
+): Option[] {
   const search = normalizeSearch(inputValue);
 
   if (!search) {
     return options;
   }
 
-  return options.filter((option) =>
-    [option.code, option.label, ...option.sampleProducts]
-      .map((value) => normalizeSearch(value))
-      .some((value) => value.includes(search)),
-  );
+  return options.filter((option) => matchesFiscalCodeOption(option, search));
+}
+
+function matchesFiscalCodeOption(
+  option: {
+    code: string;
+    label: string;
+    sampleProducts: string[];
+  },
+  search: string,
+) {
+  return [option.code, option.label, ...option.sampleProducts]
+    .map((value) => normalizeSearch(value))
+    .some((value) => value.includes(search));
 }
 
 function normalizeSearch(value: string) {

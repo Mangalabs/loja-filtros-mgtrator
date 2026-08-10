@@ -7,6 +7,7 @@ import {
   type Branch,
   type CashReport,
   type CashRegisterSession,
+  type CestOption,
   type Client,
   type CommercialSettings,
   type FiscalDocument,
@@ -51,6 +52,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   );
   const [branches, setBranches] = useState<Branch[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
+  const [cestOptions, setCestOptions] = useState<CestOption[]>([]);
   const [ncmOptions, setNcmOptions] = useState<NcmOption[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -109,6 +111,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         productsResult,
         productPageResult,
         brandsResult,
+        cestOptionsResult,
         ncmOptionsResult,
         clientsResult,
         suppliersResult,
@@ -139,6 +142,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
           search,
         }),
         apiGet<ApiResult<NamedEntity[]>>("/brands"),
+        fetchCestOptions(),
         fetchNcmOptions(),
         apiGet<ApiResult<Client[]>>("/clients"),
         apiGet<ApiResult<Supplier[]>>("/suppliers"),
@@ -182,6 +186,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       setProducts(productsResult);
       setProductPage(productPageResult);
       setBrands(brandsResult.data);
+      setCestOptions(cestOptionsResult.data);
       setNcmOptions(ncmOptionsResult.data);
       setClients(clientsResult.data);
       setSuppliers(suppliersResult.data);
@@ -363,6 +368,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       productsResult,
       productPageResult,
       brandsResult,
+      cestOptionsResult,
       ncmOptionsResult,
       clientsResult,
       suppliersResult,
@@ -377,6 +383,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         search,
       }),
       apiGet<ApiResult<NamedEntity[]>>("/brands"),
+      fetchCestOptions(),
       fetchNcmOptions(),
       apiGet<ApiResult<Client[]>>("/clients"),
       apiGet<ApiResult<Supplier[]>>("/suppliers"),
@@ -388,6 +395,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     setProducts(productsResult);
     setProductPage(productPageResult);
     setBrands(brandsResult.data);
+    setCestOptions(cestOptionsResult.data);
     setNcmOptions(ncmOptionsResult.data);
     setClients(clientsResult.data);
     setSuppliers(suppliersResult.data);
@@ -531,6 +539,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     branches,
     cashRegister,
     cashReport,
+    cestOptions,
     clients,
     commercialSettings,
     fiscalDocuments,
@@ -682,6 +691,20 @@ async function fetchNcmOptions() {
     if (error instanceof Error && error.message.includes("Route not found")) {
       return { code: 200, status: "success", data: [] } as ApiResult<
         NcmOption[]
+      >;
+    }
+
+    throw error;
+  }
+}
+
+async function fetchCestOptions() {
+  try {
+    return await apiGet<ApiResult<CestOption[]>>("/fiscal/cest-options");
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Route not found")) {
+      return { code: 200, status: "success", data: [] } as ApiResult<
+        CestOption[]
       >;
     }
 

@@ -46,6 +46,7 @@ export function AuthenticatedApp({
     branches,
     cashRegister,
     cashReport,
+    cestOptions,
     clients,
     commercialSettings,
     fiscalDocuments,
@@ -244,6 +245,7 @@ export function AuthenticatedApp({
           cashRegister={cashRegister}
           cashReport={cashReport}
           catalogActions={catalogActions}
+          cestOptions={cestOptions}
           clients={clients}
           commercialSettings={commercialSettings}
           financeActions={financeActions}

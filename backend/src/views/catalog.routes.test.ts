@@ -85,6 +85,8 @@ type NcmOption = {
   sampleProducts: string[];
 };
 
+type CestOption = NcmOption;
+
 type StockEntry = {
   id: string;
   productId: string;
@@ -740,6 +742,53 @@ describe("catalog routes", () => {
     assert.deepEqual(
       filtered.body.data?.map((option) => option.code),
       ["84212300"],
+    );
+  });
+
+  it("lists branch product CEST options", async () => {
+    await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Jogo de vedacao CEST",
+        internalCode: "CEST-001",
+        salePrice: 50,
+        cest: "0100100",
+      },
+    });
+    await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Anel de vedacao CEST",
+        internalCode: "CEST-002",
+        salePrice: 60,
+        cest: "0100100",
+      },
+    });
+    await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro sem busca CEST",
+        internalCode: "CEST-003",
+        salePrice: 70,
+        cest: "2800100",
+      },
+    });
+
+    const listed = await request<CestOption[]>("/fiscal/cest-options");
+    const filtered = await request<CestOption[]>(
+      "/fiscal/cest-options?search=vedacao",
+    );
+
+    assert.equal(listed.status, 200);
+    assert.ok(
+      listed.body.data?.some(
+        (option) => option.code === "0100100" && option.productCount === 2,
+      ),
+    );
+    assert.equal(filtered.status, 200);
+    assert.deepEqual(
+      filtered.body.data?.map((option) => option.code),
+      ["0100100"],
     );
   });
 

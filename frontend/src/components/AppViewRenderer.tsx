@@ -2,6 +2,7 @@ import Alert from "@mui/material/Alert";
 import type {
   CashRegisterSession,
   CashReport,
+  CestOption,
   Client,
   CommercialSettings,
   AuthUser,
@@ -75,6 +76,7 @@ type AppViewRendererProps = {
   cashRegister: CashRegisterSession | null;
   cashReport: CashReport | null;
   catalogActions: ReturnType<typeof useCatalogActions>;
+  cestOptions: CestOption[];
   clients: Client[];
   commercialSettings: CommercialSettings | null;
   financeActions: ReturnType<typeof useFinanceActions>;
@@ -141,6 +143,7 @@ export function AppViewRenderer({
   cashRegister,
   cashReport,
   catalogActions,
+  cestOptions,
   clients,
   commercialSettings,
   financeActions,
@@ -223,6 +226,7 @@ export function AppViewRenderer({
     "new-product": (
         <ProductForm
           brands={brands}
+          cestOptions={cestOptions}
           commercialSettings={commercialSettings}
           ncmOptions={ncmOptions}
           onSubmit={catalogActions.createProduct}
@@ -233,6 +237,7 @@ export function AppViewRenderer({
         <ProductForm
           key={selectedProduct.id}
           brands={brands}
+          cestOptions={cestOptions}
           commercialSettings={commercialSettings}
           ncmOptions={ncmOptions}
           product={selectedProduct}

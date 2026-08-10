@@ -76,6 +76,13 @@ export type NcmOption = {
   sampleProducts: string[];
 };
 
+export type CestOption = {
+  code: string;
+  label: string;
+  productCount: number;
+  sampleProducts: string[];
+};
+
 export type NamedEntity = {
   id: string;
   name: string;

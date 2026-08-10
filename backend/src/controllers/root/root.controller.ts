@@ -31,6 +31,8 @@ export function showApiInfo() {
         "/reports/overview",
         "/reports/sales",
         "/reports/stock",
+        "/fiscal/cest-options",
+        "/fiscal/ncm-options",
         "/products",
         "/products/low-stock",
         "/payment-methods",
