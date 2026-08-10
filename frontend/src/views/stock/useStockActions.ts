@@ -157,6 +157,7 @@ function productPayloadFromPurchaseItem(item: PurchaseInvoiceItemDraft) {
     internalCode: item.supplierProductCode ?? "",
     minimumStock: 0,
     name: item.description,
+    cest: item.cest ?? "",
     ncm: item.ncm ?? "",
     salePrice: item.unitCost,
     unit: productUnitFromPurchaseItem(item.unit),

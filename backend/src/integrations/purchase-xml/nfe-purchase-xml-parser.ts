@@ -66,6 +66,7 @@ function purchaseItemFromDet(detXml: string, index: number): PurchaseInvoiceItem
   }
 
   return {
+    cest: xmlText(detXml, "CEST"),
     cfop: xmlText(detXml, "CFOP", "prod"),
     description,
     ncm: xmlText(detXml, "NCM", "prod"),

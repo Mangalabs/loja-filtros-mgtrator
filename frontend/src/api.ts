@@ -170,6 +170,7 @@ export type StockMovement = {
 };
 
 export type PurchaseInvoiceItemDraft = {
+  cest: string | null;
   cfop: string | null;
   description: string;
   ncm: string | null;
@@ -233,6 +234,7 @@ export type PurchaseInvoice = {
     position: number;
     supplierProductCode: string | null;
     description: string;
+    cest: string | null;
     ncm: string | null;
     cfop: string | null;
     unit: string | null;

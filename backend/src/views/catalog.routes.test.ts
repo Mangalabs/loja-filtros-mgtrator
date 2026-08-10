@@ -149,6 +149,7 @@ type PurchaseInvoice = {
     position: number;
     supplierProductCode: string | null;
     description: string;
+    cest: string | null;
     ncm: string | null;
     cfop: string | null;
     unit: string | null;
@@ -167,6 +168,7 @@ type ParsedPurchaseInvoice = {
   }>;
   issueDate: string | null;
   items: Array<{
+    cest: string | null;
     cfop: string | null;
     description: string;
     ncm: string | null;
@@ -7075,6 +7077,7 @@ describe("catalog routes", () => {
     assert.equal(parsed.body.data?.items[0]?.position, 1);
     assert.equal(parsed.body.data?.items[0]?.supplierProductCode, "FX-1");
     assert.equal(parsed.body.data?.items[0]?.description, "Filtro & oleo");
+    assert.equal(parsed.body.data?.items[0]?.cest, "0100100");
     assert.equal(parsed.body.data?.items[0]?.quantity, 2);
     assert.equal(parsed.body.data?.items[0]?.unitCost, 21.25);
     assert.equal(parsed.body.data?.items[1]?.position, 2);
@@ -7115,6 +7118,7 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.items.length, 2);
     assert.equal(created.body.data?.items[0]?.productId, null);
     assert.equal(created.body.data?.items[0]?.description, "Filtro & oleo");
+    assert.equal(created.body.data?.items[0]?.cest, "0100100");
     assert.equal(created.body.data?.items[1]?.totalAmount, "42.00");
     assert.equal(duplicated.status, 409);
     assert.equal(listed.body.data?.length, 1);
@@ -7161,6 +7165,7 @@ describe("catalog routes", () => {
           ],
           items: [
             {
+              cest: "0100100",
               cfop: "5102",
               description: "Filtro revisado",
               ncm: "84212300",
@@ -7173,6 +7178,7 @@ describe("catalog routes", () => {
               unitCost: 21.25,
             },
             {
+              cest: "0100200",
               cfop: "5102",
               description: "Filtro combustivel",
               ncm: "84212300",
@@ -7207,6 +7213,7 @@ describe("catalog routes", () => {
       "Filtro correto do XML",
     );
     assert.equal(reviewed.body.data?.items[0]?.description, "Filtro revisado");
+    assert.equal(reviewed.body.data?.items[0]?.cest, "0100100");
     assert.equal(reviewed.body.data?.items[1]?.productId, null);
     assert.equal(
       listed.body.data?.[0]?.items[0]?.productId,
@@ -7254,6 +7261,7 @@ describe("catalog routes", () => {
           totalAmount: 84.5,
           items: [
             {
+              cest: "0100100",
               cfop: "5102",
               description: "Filtro XML estoque A",
               ncm: "84212300",
@@ -7266,6 +7274,7 @@ describe("catalog routes", () => {
               unitCost: 21.25,
             },
             {
+              cest: "0100200",
               cfop: "5102",
               description: "Filtro XML estoque B",
               ncm: "84212300",
@@ -7551,6 +7560,13 @@ function purchaseInvoiceXml(accessKey: string) {
               <vUnCom>21.2500</vUnCom>
               <vProd>42.50</vProd>
             </prod>
+            <imposto>
+              <ICMS>
+                <ICMS00>
+                  <CEST>0100100</CEST>
+                </ICMS00>
+              </ICMS>
+            </imposto>
           </det>
           <det nItem="2">
             <prod>

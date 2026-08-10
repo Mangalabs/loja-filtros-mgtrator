@@ -15,6 +15,10 @@ import { validateBody } from "../../shared/validation/validate-request.js";
 export const purchaseInvoicesRoutes = Router();
 
 const purchaseInvoiceItemSchema = z.object({
+  cest: z
+    .union([z.string().trim().min(1).max(16), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional(),
   cfop: z
     .union([z.string().trim().length(4), z.literal(""), z.null()])
     .transform((value) => value || null)

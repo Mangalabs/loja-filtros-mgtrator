@@ -669,11 +669,18 @@ function PurchaseInvoiceItemReview({
           name={`purchaseItemNcm_${index}`}
         />
       </FormRow>
-      <TextField
-        defaultValue={item.cfop ?? ""}
-        label="CFOP"
-        name={`purchaseItemCfop_${index}`}
-      />
+      <FormRow>
+        <TextField
+          defaultValue={item.cest ?? ""}
+          label="CEST"
+          name={`purchaseItemCest_${index}`}
+        />
+        <TextField
+          defaultValue={item.cfop ?? ""}
+          label="CFOP"
+          name={`purchaseItemCfop_${index}`}
+        />
+      </FormRow>
     </FormCard>
   );
 }
@@ -710,6 +717,7 @@ function draftFromInvoice(invoice: PurchaseInvoice): PurchaseInvoiceDraft {
     })),
     issueDate: invoice.issueDate,
     items: invoice.items.map((item) => ({
+      cest: item.cest,
       cfop: item.cfop,
       description: item.description,
       ncm: item.ncm,
@@ -746,6 +754,7 @@ function reviewInputFromForm(
     accessKey: draft.accessKey,
     issueDate: nullableFormValue(form, "purchaseIssueDate"),
     items: draft.items.map((item, index) => ({
+      cest: nullableFormValue(form, `purchaseItemCest_${index}`),
       cfop: nullableFormValue(form, `purchaseItemCfop_${index}`),
       description: formValue(form, `purchaseItemDescription_${index}`),
       ncm: nullableFormValue(form, `purchaseItemNcm_${index}`),

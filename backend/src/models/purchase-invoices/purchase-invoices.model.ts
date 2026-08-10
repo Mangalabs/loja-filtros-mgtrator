@@ -32,6 +32,7 @@ export type PurchaseInvoiceUpdateInput = Omit<
 >;
 
 export type PurchaseInvoiceItemInput = {
+  cest?: string | null;
   cfop?: string | null;
   description: string;
   ncm?: string | null;
@@ -81,6 +82,7 @@ export type PurchaseInvoiceItem = {
   position: number;
   supplierProductCode: string | null;
   description: string;
+  cest: string | null;
   ncm: string | null;
   cfop: string | null;
   unit: string | null;
@@ -190,6 +192,7 @@ export async function insertPurchaseInvoice(
   await transaction("purchase_invoice_items").insert(
     input.items.map((item) => ({
       cfop: item.cfop,
+      cest: item.cest,
       description: item.description,
       ncm: item.ncm,
       position: item.position,
@@ -302,6 +305,7 @@ export async function updatePurchaseInvoiceReview(
   await transaction("purchase_invoice_items").insert(
     input.items.map((item) => ({
       cfop: item.cfop,
+      cest: item.cest,
       description: item.description,
       ncm: item.ncm,
       position: item.position,
@@ -379,6 +383,7 @@ async function withPurchaseInvoiceDetails(
             "purchase_invoice_items.position",
             "purchase_invoice_items.supplier_product_code as supplierProductCode",
             "purchase_invoice_items.description",
+            "purchase_invoice_items.cest",
             "purchase_invoice_items.ncm",
             "purchase_invoice_items.cfop",
             "purchase_invoice_items.unit",
