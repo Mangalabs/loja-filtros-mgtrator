@@ -10,7 +10,6 @@ import {
   type Supplier,
 } from "../../api";
 import { nullableFormValue } from "../../utils/forms";
-import { parsePurchaseXmlPreview } from "./purchaseXmlPreview";
 
 type StockActionsOptions = {
   refreshStockFlow: () => Promise<void>;
@@ -67,7 +66,12 @@ export function useStockActions({
     let parsedInvoice: PurchaseInvoiceDraft | null = null;
 
     await runAction(async () => {
-      parsedInvoice = parsePurchaseXmlPreview(xmlContent);
+      const result = await apiPost<ApiResult<PurchaseInvoiceDraft>>(
+        "/purchase-invoices/parse-xml",
+        { xmlContent },
+      );
+
+      parsedInvoice = result.data;
     });
 
     return parsedInvoice;
