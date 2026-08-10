@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  cancelPurchaseInvoice,
   importPurchaseInvoiceXml,
   indexPurchaseInvoices,
   parsePurchaseInvoiceXml,
@@ -15,6 +16,10 @@ import { validateBody } from "../../shared/validation/validate-request.js";
 export const purchaseInvoicesRoutes = Router();
 
 const purchaseInvoiceItemSchema = z.object({
+  cest: z
+    .union([z.string().trim().min(1).max(16), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional(),
   cfop: z
     .union([z.string().trim().length(4), z.literal(""), z.null()])
     .transform((value) => value || null)
@@ -187,6 +192,20 @@ purchaseInvoicesRoutes.post(
     const result = await postPurchaseInvoice(
       id,
       userId,
+      requireActiveBranchId(response.locals),
+    );
+
+    response.status(200).json(result);
+  },
+);
+
+purchaseInvoicesRoutes.post(
+  "/purchase-invoices/:id/cancel",
+  requirePermission("IMPORT_PURCHASE_INVOICES"),
+  async (request, response) => {
+    const { id } = purchaseInvoiceParamsSchema.parse(request.params);
+    const result = await cancelPurchaseInvoice(
+      id,
       requireActiveBranchId(response.locals),
     );
 

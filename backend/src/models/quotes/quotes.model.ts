@@ -18,7 +18,14 @@ export type QuoteInput = {
   notes?: string | null
   showBrand?: boolean
   discountPercentage?: number
+  paymentInstallments?: QuotePaymentInstallmentInput[]
   items: QuoteItemInput[]
+}
+
+export type QuotePaymentInstallmentInput = {
+  dueDate: string
+  amount: number
+  position: number
 }
 
 export type QuoteItem = {
@@ -76,6 +83,15 @@ export type Quote = {
   createdAt: Date
   updatedAt: Date
   items: QuoteItem[]
+  paymentInstallments: QuotePaymentInstallment[]
+}
+
+export type QuotePaymentInstallment = {
+  id: string
+  quoteId: string
+  position: number
+  dueDate: string
+  amount: string
 }
 
 type QuoteProduct = {
@@ -90,6 +106,7 @@ type QuoteRow = Omit<Quote, 'items'>
 type QuoteItemRow = QuoteItem & {
   quoteId: string
 }
+type QuotePaymentInstallmentRow = QuotePaymentInstallment
 type LockedQuote = {
   id: string
   status: Quote['status']
@@ -146,6 +163,14 @@ const quoteItemColumns = [
   'quote_items.discount_amount as discountAmount',
   'quote_items.total_amount as totalAmount',
   'quote_items.position',
+]
+
+const quotePaymentInstallmentColumns = [
+  'quote_payment_installments.id',
+  'quote_payment_installments.quote_id as quoteId',
+  'quote_payment_installments.position',
+  'quote_payment_installments.due_date as dueDate',
+  'quote_payment_installments.amount',
 ]
 
 export async function listQuotes(filters: { branchId: string }): Promise<Quote[]> {
@@ -233,6 +258,7 @@ export async function insertQuote(
   discountPercentage: number,
   discountAmount: number,
   totalAmount: number,
+  paymentInstallments: QuotePaymentInstallmentInput[],
 ): Promise<Quote> {
   const [created] = await transaction('quotes')
     .insert({
@@ -267,6 +293,12 @@ export async function insertQuote(
     })),
   )
 
+  await insertQuotePaymentInstallments(
+    transaction,
+    created.id,
+    paymentInstallments,
+  )
+
   const quote = await quoteQuery(transaction)
     .where('quotes.id', created.id)
     .first()
@@ -297,6 +329,7 @@ export async function updateQuote(
   discountPercentage: number,
   discountAmount: number,
   totalAmount: number,
+  paymentInstallments: QuotePaymentInstallmentInput[],
 ): Promise<Quote> {
   await transaction('quotes').where('id', id).update({
     client_id: input.clientId,
@@ -314,6 +347,7 @@ export async function updateQuote(
   })
 
   await transaction('quote_items').where('quote_id', id).delete()
+  await transaction('quote_payment_installments').where('quote_id', id).delete()
   await transaction('quote_items').insert(
     items.map((item) => ({
       quote_id: id,
@@ -326,6 +360,11 @@ export async function updateQuote(
       total_amount: item.totalAmount,
       position: item.position,
     })),
+  )
+  await insertQuotePaymentInstallments(
+    transaction,
+    id,
+    paymentInstallments,
   )
 
   const quote = await getQuoteById(id, transaction)
@@ -410,11 +449,37 @@ async function withQuoteItems(
     .select<QuoteItemRow[]>(quoteItemColumns)
     .whereIn('quote_items.quote_id', quoteIds)
     .orderBy('quote_items.position', 'asc')
+  const installments = await database('quote_payment_installments')
+    .select<QuotePaymentInstallmentRow[]>(quotePaymentInstallmentColumns)
+    .whereIn('quote_payment_installments.quote_id', quoteIds)
+    .orderBy('quote_payment_installments.position', 'asc')
 
   return quotes.map((quote) => ({
     ...quote,
     items: items
       .filter((item) => item.quoteId === quote.id)
       .map(({ quoteId: _quoteId, ...item }) => item),
+    paymentInstallments: installments.filter(
+      (installment) => installment.quoteId === quote.id,
+    ),
   }))
+}
+
+async function insertQuotePaymentInstallments(
+  transaction: Knex.Transaction,
+  quoteId: string,
+  installments: QuotePaymentInstallmentInput[],
+) {
+  if (installments.length === 0) {
+    return
+  }
+
+  await transaction('quote_payment_installments').insert(
+    installments.map((installment) => ({
+      quote_id: quoteId,
+      position: installment.position,
+      due_date: installment.dueDate,
+      amount: installment.amount,
+    })),
+  )
 }

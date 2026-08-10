@@ -68,6 +68,7 @@ export async function storeQuote(
       discountAmount,
       discountPercentage,
       quoteItems,
+      paymentInstallments,
       subtotalAmount,
       totalAmount,
     } =
@@ -83,6 +84,7 @@ export async function storeQuote(
       discountPercentage,
       discountAmount,
       totalAmount,
+      paymentInstallments,
     );
   });
 
@@ -122,6 +124,7 @@ export async function updateDraftQuote(
       discountAmount,
       discountPercentage,
       quoteItems,
+      paymentInstallments,
       subtotalAmount,
       totalAmount,
     } =
@@ -136,6 +139,7 @@ export async function updateDraftQuote(
       discountPercentage,
       discountAmount,
       totalAmount,
+      paymentInstallments,
     );
   });
 
@@ -312,10 +316,16 @@ async function prepareQuoteInput(
   const totalAmount = Number(
     (totalBeforeGeneralDiscount - discountAmount).toFixed(2),
   );
+  const paymentInstallments = normalizePaymentInstallments(
+    input.paymentInstallments ?? [],
+    totalAmount,
+    input.billingIssueDate,
+  );
 
   return {
     discountAmount,
     discountPercentage,
+    paymentInstallments,
     quoteItems,
     subtotalAmount,
     totalAmount,
@@ -324,4 +334,56 @@ async function prepareQuoteInput(
 
 function percentageAmount(baseAmount: number, percentage: number) {
   return Number(((baseAmount * percentage) / 100).toFixed(2));
+}
+
+function normalizePaymentInstallments(
+  installments: NonNullable<QuoteInput["paymentInstallments"]>,
+  totalAmount: number,
+  billingIssueDate?: string | null,
+) {
+  if (installments.length === 0) {
+    return [];
+  }
+
+  const sortedInstallments = [...installments].sort(
+    (current, next) => current.position - next.position,
+  );
+  const hasSequentialPositions = sortedInstallments.every(
+    (installment, index) => installment.position === index + 1,
+  );
+
+  if (!hasSequentialPositions) {
+    throw new AppError("Parcelas do orcamento devem ser sequenciais.", 422);
+  }
+
+  const hasInvalidDueDate =
+    Boolean(billingIssueDate) &&
+    sortedInstallments.some(
+      (installment) => installment.dueDate < String(billingIssueDate),
+    );
+
+  if (hasInvalidDueDate) {
+    throw new AppError(
+      "Vencimento das parcelas nao pode ser anterior a data da fatura.",
+      422,
+    );
+  }
+
+  const installmentsTotal = Number(
+    sortedInstallments
+      .reduce((sum, installment) => sum + installment.amount, 0)
+      .toFixed(2),
+  );
+
+  if (installmentsTotal !== totalAmount) {
+    throw new AppError(
+      "Total das parcelas deve ser igual ao total do orcamento.",
+      422,
+    );
+  }
+
+  return sortedInstallments.map((installment) => ({
+    ...installment,
+    amount: Number(installment.amount.toFixed(2)),
+  }));
 }

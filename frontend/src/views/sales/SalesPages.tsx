@@ -298,7 +298,7 @@ export function SalesPage({
           value={clientId || ''}
           onChange={(event) => setClientId(event.target.value)}
           disabled={!cashRegister}>
-          <MenuItem value=''>Cliente nao identificado</MenuItem>
+          <MenuItem value=''>Cliente não identificado</MenuItem>
           {clients
             .filter((client) => client.active)
             .map((client) => (
@@ -353,7 +353,7 @@ export function SalesPage({
               render: (sale) => sale.createdByUserName,
             },
             {
-              header: 'Acoes',
+              header: 'Ações',
               render: (sale) => (
                 <SaleActions
                   sale={sale}
@@ -517,19 +517,19 @@ export function ShippingOrdersPage({
     <section className='grid items-start gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]'>
       <PagePanel>
         <PageHeader
-          description='Crie o orcamento e envie para este fluxo quando o cliente aprovar.'
+          description='Crie um orçamento e transforme em pedido quando o cliente aprovar.'
           icon={<Send size={18} />}
-          title='Registrar orcamento'
+          title='Novo pedido por orçamento'
         />
         <InlineNote>
-          Pedidos para envio nascem de orcamentos salvos. Quando o cliente
-          confirmar, informe o pagamento e conclua a venda em um unico passo.
+          Pedidos para envio nascem de orçamentos salvos. Quando o cliente
+          confirmar, informe o pagamento e conclua a venda em um único passo.
         </InlineNote>
         <PrimaryButton
           icon={<Plus size={17} />}
           type='button'
           onClick={onOpenQuotes}>
-          Registrar orcamento
+          Abrir orçamentos
         </PrimaryButton>
       </PagePanel>
 
@@ -540,7 +540,7 @@ export function ShippingOrdersPage({
               {orders.length} registros
             </span>
           }
-          description='Conclua a venda em um passo quando o pedido for confirmado para envio.'
+          description='Conclua a venda em um passo quando o cliente confirmar o envio.'
           title='Pedidos para envio'
         />
         <ResponsiveTable
@@ -574,7 +574,7 @@ export function ShippingOrdersPage({
               render: (order) => <ShippingOrderStatusSummary order={order} />,
             },
             {
-              header: 'Acoes',
+              header: 'Ações',
               render: (order) =>
                 shippingOrderActionRenderers[order.status]({
                   cashRegister,
@@ -587,7 +587,7 @@ export function ShippingOrdersPage({
                 }),
             },
           ]}
-          emptyMessage='Nenhum orcamento para envio registrado.'
+          emptyMessage='Nenhum pedido para envio registrado.'
           getRowId={(order) => order.id}
           items={visibleItems}
           pagination={pagination}
@@ -613,7 +613,7 @@ const shippingOrderActionRenderers: Record<
 > = {
   APPROVED: (props) => <ShippingOrderCompleteActions {...props} />,
   CANCELLED: () => '-',
-  COMPLETED: () => 'Venda concluida',
+  COMPLETED: () => 'Venda concluída',
   QUOTED: (props) => <ShippingOrderCompleteActions {...props} />,
   SEPARATED: (props) => <ShippingOrderCompleteActions {...props} />,
 }
@@ -956,7 +956,7 @@ export function PickupReservationsPage({
               ),
             },
             {
-              header: 'Acoes',
+              header: 'Ações',
               render: (reservation) => (
                 <PickupReservationActions
                   cashRegister={cashRegister}
@@ -1007,7 +1007,7 @@ function ShippingOrderItemsSummary({ order }: { order: ShippingOrder }) {
   return (
     <ActionStack>
       <strong>{order.clientName}</strong>
-      {order.quoteId ? <InlineNote>Origem: orcamento</InlineNote> : null}
+      {order.quoteId ? <InlineNote>Origem: orçamento</InlineNote> : null}
       <InlineNote>
         {order.items
           .map((item) => item.description ?? item.productName)
@@ -1094,7 +1094,7 @@ function PickupReservationActions({
   )
 
   if (reservation.status === 'COMPLETED') {
-    return 'Venda concluida'
+    return 'Venda concluída'
   }
 
   if (reservation.status !== 'RESERVED') {
@@ -1222,7 +1222,7 @@ function shippingOrderAuditNotes(order: ShippingOrder) {
       ? `Separado por ${order.separatedByUserName}`
       : null,
     order.completedByUserName
-      ? `Concluido por ${order.completedByUserName}`
+      ? `Concluído por ${order.completedByUserName}`
       : null,
     order.cancelledByUserName
       ? `Cancelado por ${order.cancelledByUserName}`
@@ -1265,8 +1265,8 @@ const shippingOrderStatusPresentation: Record<
 > = {
   APPROVED: { label: 'Aprovado - separar', tone: 'success' },
   CANCELLED: { label: 'Cancelado', tone: 'neutral' },
-  COMPLETED: { label: 'Venda concluida', tone: 'success' },
-  QUOTED: { label: 'Orcamento enviado', tone: 'warning' },
+  COMPLETED: { label: 'Venda concluída', tone: 'success' },
+  QUOTED: { label: 'Orçamento enviado', tone: 'warning' },
   SEPARATED: { label: 'Separado para envio', tone: 'success' },
 }
 
@@ -1275,6 +1275,6 @@ const pickupReservationStatusPresentation: Record<
   { label: string; tone: StatusTone }
 > = {
   CANCELLED: { label: 'Cancelada', tone: 'neutral' },
-  COMPLETED: { label: 'Venda concluida', tone: 'success' },
+  COMPLETED: { label: 'Venda concluída', tone: 'success' },
   RESERVED: { label: 'Reservada', tone: 'warning' },
 }

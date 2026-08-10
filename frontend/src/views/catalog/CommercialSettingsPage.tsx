@@ -20,9 +20,9 @@ export function CommercialSettingsPage({
         onSubmit={onSubmit}
       >
         <PageHeader
-          description="Defina a margem usada para sugerir o preco de venda ao cadastrar produtos."
+          description="Defina a margem de venda e os prazos sugeridos ao montar orçamentos."
           icon={<Percent size={18} />}
-          title="Configuracao comercial"
+          title="Configuração comercial"
         />
         <TextField
           defaultValue={settings?.defaultProfitMarginPercentage ?? "0"}
@@ -33,6 +33,26 @@ export function CommercialSettingsPage({
           type="number"
           slotProps={{ htmlInput: { min: 0, max: 1000, step: "0.01" } }}
         />
+        <div className="grid gap-4 md:grid-cols-2">
+          <TextField
+            defaultValue={settings?.defaultQuoteDueDays ?? 0}
+            helperText="Quantidade de dias somada à data de emissão para sugerir o vencimento."
+            label="Vencimento padrão (dias)"
+            name="defaultQuoteDueDays"
+            required
+            type="number"
+            slotProps={{ htmlInput: { min: 0, max: 365, step: 1 } }}
+          />
+          <TextField
+            defaultValue={settings?.defaultQuoteValidityDays ?? 7}
+            helperText="Quantidade de dias somada à data de emissão para preencher a validade."
+            label="Validade padrão (dias)"
+            name="defaultQuoteValidityDays"
+            required
+            type="number"
+            slotProps={{ htmlInput: { min: 0, max: 365, step: 1 } }}
+          />
+        </div>
         <PrimaryButton icon={<Save size={17} />} type="submit">
           Salvar configuracao
         </PrimaryButton>
@@ -46,8 +66,13 @@ export function CommercialSettingsPage({
           salvar, porque alguns itens podem precisar de precificacao propria.
         </p>
         <p className="m-0 text-sm leading-6 text-[#5f665f]">
-          Produtos ja cadastrados mantem o preco atual ao serem editados, para
-          evitar alteracoes automaticas em cadastros existentes.
+          Produtos já cadastrados mantêm o preço atual ao serem editados, para
+          evitar alterações automáticas em cadastros existentes.
+        </p>
+        <p className="m-0 text-sm leading-6 text-[#5f665f]">
+          O vencimento e a validade padrão do orçamento são preenchidos
+          automaticamente a partir da emissão, mas continuam editáveis no
+          momento de montar a proposta.
         </p>
       </FormCard>
     </section>

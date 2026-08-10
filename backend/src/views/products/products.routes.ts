@@ -57,6 +57,7 @@ productsRoutes.get("/products", async (request, response) => {
   const page = Number(request.query.page ?? 1);
   const limit = Number(request.query.limit ?? 20);
   const active = parseBooleanFilter(request.query.active);
+  const includeMeta = parseBooleanFilter(request.query.includeMeta) ?? false;
 
   if (!Number.isInteger(page) || page < 1) {
     throw new AppError("Invalid page parameter");
@@ -72,7 +73,7 @@ productsRoutes.get("/products", async (request, response) => {
     active,
     branchId: requireActiveBranchId(response.locals),
     search: parseStringFilter(request.query.search),
-  });
+  }, { includeMeta });
 
   response.status(200).json(result);
 });

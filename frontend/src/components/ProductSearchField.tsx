@@ -1,8 +1,9 @@
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
-import { useMemo, useState } from "react";
-import type { Product } from "../api";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { apiGet, type ApiResult, type Product } from "../api";
 import { formatQuantity } from "../utils/format";
 import { productDisplayName } from "../utils/productDisplay";
 
@@ -23,7 +24,7 @@ type ProductSearchFieldProps = {
 export function ProductSearchField({
   defaultValue,
   disabled,
-  helperText = "Pesquise por nome, codigo, codigo de barras, fabricante ou locacao.",
+  helperText = "Pesquise por nome, código, código de barras, fabricante ou locação.",
   label,
   name,
   onChange,
@@ -36,16 +37,46 @@ export function ProductSearchField({
   const [internalProductId, setInternalProductId] = useState(
     defaultValue ?? "",
   );
-  const sortedProducts = useMemo(
-    () =>
-      [...products].sort((current, next) =>
-        productDisplayName(current).localeCompare(productDisplayName(next)),
-      ),
-    [products],
+  const [loading, setLoading] = useState(false);
+  const [remoteProducts, setRemoteProducts] = useState<Product[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const productOptions = useMemo(
+    () => uniqueProducts([...products, ...remoteProducts]),
+    [products, remoteProducts],
   );
+  const sortedProducts = useMemo(() => sortProducts(productOptions), [productOptions]);
   const selectedProductId = value ?? internalProductId;
   const selectedProduct =
     sortedProducts.find((product) => product.id === selectedProductId) ?? null;
+
+  useEffect(() => {
+    const term = inputValue.trim();
+
+    if (term.length < 2) {
+      setLoading(false);
+      setRemoteProducts([]);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setLoading(true);
+      void searchProducts(term, setRemoteProducts)
+        .catch(() => undefined)
+        .finally(() => setLoading(false));
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [inputValue]);
+
+  useEffect(() => {
+    if (!selectedProductId || selectedProduct) {
+      return;
+    }
+
+    void fetchSelectedProduct(selectedProductId, setRemoteProducts).catch(
+      () => undefined,
+    );
+  }, [selectedProduct, selectedProductId]);
 
   function selectProduct(product: Product | null) {
     const productId = product?.id ?? "";
@@ -61,13 +92,16 @@ export function ProductSearchField({
         disabled={disabled}
         getOptionLabel={productSearchLabel}
         isOptionEqualToValue={(option, value) => option.id === value.id}
-        noOptionsText="Nenhum produto encontrado"
+        loading={loading}
+        loadingText="Buscando produtos..."
+        noOptionsText={noOptionsText(inputValue)}
         options={sortedProducts}
         value={selectedProduct}
         filterOptions={(options, state) =>
           filterProducts(options, state.inputValue)
         }
         onChange={(_event, product) => selectProduct(product)}
+        onInputChange={(_event, nextValue) => setInputValue(nextValue)}
         renderInput={(params) => (
           <TextField
             {...params}
@@ -90,6 +124,49 @@ export function ProductSearchField({
       />
     </>
   );
+}
+
+function noOptionsText(inputValue: string): ReactNode {
+  return inputValue.trim().length < 2
+    ? "Digite ao menos 2 caracteres para buscar"
+    : "Nenhum produto encontrado";
+}
+
+function sortProducts(products: Product[]) {
+  return [...products].sort((current, next) =>
+    productDisplayName(current).localeCompare(productDisplayName(next)),
+  );
+}
+
+function uniqueProducts(products: Product[]) {
+  const productMap = new Map(products.map((product) => [product.id, product]));
+
+  return [...productMap.values()];
+}
+
+async function searchProducts(
+  term: string,
+  setRemoteProducts: (products: Product[]) => void,
+) {
+  const params = new URLSearchParams({
+    limit: "50",
+    page: "1",
+    search: term,
+  });
+  const result = await apiGet<ApiResult<Product[]>>(
+    `/products?${params.toString()}`,
+  );
+
+  setRemoteProducts(result.data);
+}
+
+async function fetchSelectedProduct(
+  productId: string,
+  setRemoteProducts: (products: Product[]) => void,
+) {
+  const result = await apiGet<ApiResult<Product>>(`/products/${productId}`);
+
+  setRemoteProducts([result.data]);
 }
 
 function filterProducts(products: Product[], inputValue: string) {

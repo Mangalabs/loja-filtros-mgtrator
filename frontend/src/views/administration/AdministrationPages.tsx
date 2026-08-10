@@ -92,7 +92,7 @@ export function BranchesPage() {
               ),
             },
             {
-              header: "Acoes",
+              header: "Ações",
               render: (branch: Branch) => (
                 <TableActionsMenu
                   actions={[
@@ -234,7 +234,7 @@ function BranchForm({
           values={values}
         />
         <BranchTextField
-          label="Numero"
+          label="Número"
           name="addressNumber"
           updateValue={updateValue}
           values={values}
@@ -503,7 +503,7 @@ export function EmployeesPage({
               </strong>
               <span className="text-xs text-[#5f665f]">
                 Marque apenas as areas sensiveis que esse usuario pode acessar.
-                O menu e a API bloqueiam telas nao liberadas.
+                O menu e a API bloqueiam telas não liberadas.
               </span>
             </div>
             <div className="grid gap-1 sm:grid-cols-2">
@@ -558,12 +558,12 @@ export function EmployeesPage({
           <PageHeader
             description="Acessos operacionais vinculados as filiais."
             icon={<Users size={18} />}
-            title="Funcionarios cadastrados"
+            title="Funcionários cadastrados"
           />
           <ResponsiveTable
             columns={[
               {
-                header: "Funcionario",
+                header: "Funcionário",
                 render: (employee: AuthUser) => (
                   <div className="grid gap-1">
                     <strong className="font-semibold text-[#2c281e]">
@@ -612,7 +612,7 @@ export function EmployeesPage({
               },
               {
                 align: "right",
-                header: "Acoes",
+                header: "Ações",
                 render: (employee: AuthUser) => (
                   <div className="flex justify-end">
                     <TableActionsMenu
@@ -808,7 +808,7 @@ const employeePermissionOptions: Array<{
 }> = [
   {
     value: "MANAGE_COMMERCIAL_SETTINGS",
-    label: "Configuracao comercial",
+    label: "Configuração comercial",
   },
   {
     value: "IMPORT_PURCHASE_INVOICES",
@@ -824,7 +824,7 @@ const employeePermissionOptions: Array<{
   },
   {
     value: "MANAGE_FISCAL_SETTINGS",
-    label: "Configuracao fiscal",
+    label: "Configuração fiscal",
   },
   {
     value: "MANAGE_FISCAL_DOCUMENTS",
@@ -836,7 +836,7 @@ const employeePermissionOptions: Array<{
   },
   {
     value: "VIEW_REPORTS",
-    label: "Relatorios gerenciais",
+    label: "Relatórios gerenciais",
   },
 ];
 
@@ -857,8 +857,8 @@ const authEventLabels: Record<AuthEvent["eventType"], string> = {
   LOGOUT: "Logout",
   PASSWORD_CHANGED: "Senha alterada",
   PASSWORD_RESET: "Senha redefinida",
-  EMPLOYEE_CREATED: "Funcionario criado",
-  EMPLOYEE_UPDATED: "Funcionario atualizado",
+  EMPLOYEE_CREATED: "Funcionário criado",
+  EMPLOYEE_UPDATED: "Funcionário atualizado",
   EMPLOYEE_STATUS_CHANGED: "Status alterado",
 };
 
@@ -878,7 +878,7 @@ const authEventTones: Record<
 };
 
 const authEventReasonLabels: Record<string, string> = {
-  USER_NOT_FOUND: "Usuario nao encontrado",
+  USER_NOT_FOUND: "Usuário não encontrado",
   INACTIVE_USER: "Usuario inativo",
   INVALID_PASSWORD: "Senha invalida",
   UNKNOWN: "Motivo indefinido",

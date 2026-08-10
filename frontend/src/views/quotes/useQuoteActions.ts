@@ -3,7 +3,7 @@ import { apiPatch, apiPost, apiPut, type Quote } from '../../api'
 import type { QuoteDraftInput } from './QuotesPage'
 
 type QuoteActionsOptions = {
-  loadCatalog: () => Promise<void>
+  refreshQuoteFlow: () => Promise<void>
   requestConfirmation: (
     message: string,
     title?: string,
@@ -14,7 +14,7 @@ type QuoteActionsOptions = {
 }
 
 export function useQuoteActions({
-  loadCatalog,
+  refreshQuoteFlow,
   requestConfirmation,
   runAction,
   showShippingOrders,
@@ -22,22 +22,22 @@ export function useQuoteActions({
   async function createQuote(input: QuoteDraftInput) {
     return runAction(async () => {
       await apiPost('/quotes', input)
-      await loadCatalog()
+      await refreshQuoteFlow()
     })
   }
 
   async function updateQuote(id: string, input: QuoteDraftInput) {
     return runAction(async () => {
       await apiPut(`/quotes/${id}`, input)
-      await loadCatalog()
+      await refreshQuoteFlow()
     })
   }
 
   async function createShippingOrderFromQuote(quote: Quote) {
     const confirmed = await requestConfirmation(
-      `Enviar o orcamento de ${quote.clientName} para a fila de pedidos para envio?`,
-      'Enviar para envio?',
-      'Enviar para envio',
+      `Criar pedido para envio a partir do orçamento de ${quote.clientName}?`,
+      'Criar pedido para envio?',
+      'Criar pedido',
     )
 
     if (!confirmed) {
@@ -46,8 +46,8 @@ export function useQuoteActions({
 
     await runAction(async () => {
       await apiPost(`/quotes/${quote.id}/shipping-order`, {})
-      await loadCatalog()
       showShippingOrders()
+      await refreshQuoteFlow()
     })
   }
 
@@ -55,9 +55,9 @@ export function useQuoteActions({
     event.preventDefault()
     const formElement = event.currentTarget
     const confirmed = await requestConfirmation(
-      `Cancelar o orcamento de ${quote.clientName}?`,
-      'Cancelar orcamento?',
-      'Cancelar orcamento',
+      `Cancelar o orçamento de ${quote.clientName}?`,
+      'Cancelar orçamento?',
+      'Cancelar orçamento',
     )
 
     if (!confirmed) {
@@ -70,7 +70,7 @@ export function useQuoteActions({
       await apiPatch(`/quotes/${quote.id}/cancel`, {
         reason: String(form.get('quoteCancellationReason') ?? '').trim(),
       })
-      await loadCatalog()
+      await refreshQuoteFlow()
     })
   }
 

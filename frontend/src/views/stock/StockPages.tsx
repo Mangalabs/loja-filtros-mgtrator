@@ -247,9 +247,9 @@ export function LowStockPage({ products }: { products: Product[] }) {
   return (
     <PagePanel wide>
       <PageHeader
-        description="Produtos ativos com saldo disponivel igual ou menor que o minimo definido."
+        description="Produtos ativos com saldo disponível igual ou menor que o mínimo definido."
         icon={<AlertTriangle size={18} />}
-        title="Produtos para reposicao"
+        title="Produtos para reposição"
       />
       <ResponsiveTable
         columns={[
@@ -262,11 +262,11 @@ export function LowStockPage({ products }: { products: Product[] }) {
             render: (product) => product.brandName ?? "-",
           },
           {
-            header: "Locacao",
+            header: "Locação",
             render: (product) => product.location ?? "-",
           },
           {
-            header: "Disponivel",
+            header: "Disponível",
             render: (product) => (
               <strong className="text-[#9f3a2c]">
                 {formatQuantity(product.availableStock)}
@@ -274,11 +274,11 @@ export function LowStockPage({ products }: { products: Product[] }) {
             ),
           },
           {
-            header: "Minimo",
+            header: "Mínimo",
             render: (product) => formatQuantity(product.minimumStock),
           },
           {
-            header: "Faltam p/ minimo",
+            header: "Faltam para o mínimo",
             render: (product) =>
               formatQuantity(
                 String(
@@ -288,7 +288,7 @@ export function LowStockPage({ products }: { products: Product[] }) {
               ),
           },
         ]}
-        emptyMessage="Nenhum produto requer reposicao."
+        emptyMessage="Nenhum produto requer reposição."
         getRowId={(product) => product.id}
         items={visibleItems}
         pagination={pagination}

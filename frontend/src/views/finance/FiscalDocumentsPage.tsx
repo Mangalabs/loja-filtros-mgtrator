@@ -111,9 +111,9 @@ export function FiscalDocumentsPage({
 
       <PagePanel className='min-w-0'>
         <PageHeader
-          description='Centralize a emissao fiscal de balcao, envio e retirada.'
+          description='Centralize a emissão fiscal de balcão, envio e retirada.'
           icon={<FileText size={18} />}
-          title='Fila de emissao'
+          title='Fila de emissão'
         />
         <ResponsiveTable
           columns={[
@@ -154,7 +154,7 @@ export function FiscalDocumentsPage({
             },
             {
               align: 'right',
-              header: 'Acoes',
+              header: 'Ações',
               render: (request) => (
                 <div className='flex flex-wrap justify-end gap-2'>
                   <FiscalRequestAction
@@ -172,7 +172,7 @@ export function FiscalDocumentsPage({
               ),
             },
           ]}
-          emptyMessage='Nenhuma venda disponivel para emissao.'
+          emptyMessage='Nenhuma venda disponível para emissão.'
           getRowId={(request) => `${request.sourceType}-${request.sourceId}`}
           items={visibleFiscalRequests}
           pagination={requestPagination}
@@ -234,7 +234,7 @@ export function FiscalDocumentsPage({
               ),
             },
             {
-              header: 'Emissao',
+              header: 'Emissão',
               render: (document) => (
                 <>
                   <strong>
@@ -271,7 +271,7 @@ export function FiscalDocumentsPage({
             },
             {
               align: 'right',
-              header: 'Acoes',
+              header: 'Ações',
               render: (document) => (
                 <FiscalDocumentActions
                   document={document}
@@ -412,7 +412,7 @@ function fiscalReadinessIssueSummary(issues: string[]) {
 
   return [
     issueCounts.configuration > 0
-      ? `Configuracao: ${issueCounts.configuration}`
+      ? `Configuração: ${issueCounts.configuration}`
       : null,
     issueCounts.client > 0 ? `Cliente: ${issueCounts.client}` : null,
     issueCounts.product > 0 ? `Produtos: ${issueCounts.product}` : null,
@@ -558,7 +558,7 @@ function FiscalDocumentsOverview({
   return (
     <PagePanel className='min-w-0'>
       <PageHeader
-        description='Visao rapida da fila antes de emitir, sincronizar ou cancelar NF-e.'
+        description='Visão rápida da fila antes de emitir, sincronizar ou cancelar NF-e.'
         icon={<FileText size={18} />}
         title='Controle fiscal'
       />
@@ -637,20 +637,20 @@ function fiscalSettingsAlerts(settings: FiscalSettings | null) {
   const alertOptions = [
     {
       active: !settings,
-      message: 'Configuracao fiscal ainda nao foi carregada.',
+      message: 'Configuração fiscal ainda não foi carregada.',
       severity: 'info',
     },
     {
       active: settings?.provider === 'MOCK',
       message:
-        'Provedor fiscal em mock interno. As notas geradas nao serao enviadas para a Focus.',
+        'Provedor fiscal em mock interno. As notas geradas não serão enviadas para a Focus.',
       severity: 'warning',
     },
     {
       active:
         settings?.environment === 'PRODUCTION' && !settings.allowProduction,
       message:
-        'Ambiente de producao selecionado, mas emissao em producao continua bloqueada.',
+        'Ambiente de produção selecionado, mas emissão em produção continua bloqueada.',
       severity: 'warning',
     },
   ] as const
@@ -796,7 +796,7 @@ function fiscalDocumentSummaryAlerts(summary: FiscalDocumentSummary) {
     {
       enabled: summary.pendingRequests > 0,
       message:
-        'Algumas vendas ainda possuem pendencias fiscais e nao podem ser emitidas.',
+        'Algumas vendas ainda possuem pendências fiscais e não podem ser emitidas.',
       severity: 'warning' as const,
     },
   ].filter((alert) => alert.enabled)

@@ -70,6 +70,23 @@ type Product = {
   active: boolean;
 };
 
+type ProductListPage = {
+  items: Product[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
+type NcmOption = {
+  code: string;
+  label: string;
+  productCount: number;
+  sampleProducts: string[];
+};
+
+type CestOption = NcmOption;
+
 type StockEntry = {
   id: string;
   productId: string;
@@ -132,6 +149,7 @@ type PurchaseInvoice = {
     position: number;
     supplierProductCode: string | null;
     description: string;
+    cest: string | null;
     ncm: string | null;
     cfop: string | null;
     unit: string | null;
@@ -150,6 +168,7 @@ type ParsedPurchaseInvoice = {
   }>;
   issueDate: string | null;
   items: Array<{
+    cest: string | null;
     cfop: string | null;
     description: string;
     ncm: string | null;
@@ -313,6 +332,13 @@ type Quote = {
     totalAmount: string;
     position: number;
   }>;
+  paymentInstallments: Array<{
+    id: string;
+    quoteId: string;
+    position: number;
+    dueDate: string;
+    amount: string;
+  }>;
 };
 
 type PaymentMethod = {
@@ -437,13 +463,19 @@ type SalesReport = {
     itemsQuantity: string;
     grossAmount: string;
     discountAmount: string;
+    costAmount: string;
     netAmount: string;
+    grossProfitAmount: string;
+    grossMarginPercentage: string;
   };
   byProduct: Array<{
     productId: string;
     productName: string;
     quantity: string;
+    costAmount: string;
     totalAmount: string;
+    grossProfitAmount: string;
+    grossMarginPercentage: string;
   }>;
   byClient: Array<{
     clientId: string | null;
@@ -455,6 +487,14 @@ type SalesReport = {
     paymentMethodId: string;
     paymentMethodName: string;
     totalAmount: string;
+  }>;
+  abcProducts: Array<{
+    productId: string;
+    productName: string;
+    totalAmount: string;
+    revenueSharePercentage: string;
+    cumulativeRevenuePercentage: string;
+    abcClass: "A" | "B" | "C";
   }>;
 };
 
@@ -594,6 +634,8 @@ type CommercialSettings = {
   branchId: string | null;
   branchName: string | null;
   defaultProfitMarginPercentage: string;
+  defaultQuoteDueDays: number;
+  defaultQuoteValidityDays: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -699,6 +741,68 @@ describe("catalog routes", () => {
     assert.equal(health.body.status, "ok");
     assert.equal(databaseHealth.status, 200);
     assert.equal(databaseHealth.body.status, "ok");
+  });
+
+  it("lists inventory-based NCM options", async () => {
+    const listed = await request<NcmOption[]>("/fiscal/ncm-options");
+    const filtered = await request<NcmOption[]>(
+      "/fiscal/ncm-options?search=separador",
+    );
+
+    assert.equal(listed.status, 200);
+    assert.ok(listed.body.data?.some((option) => option.code === "84212300"));
+    assert.equal(filtered.status, 200);
+    assert.deepEqual(
+      filtered.body.data?.map((option) => option.code),
+      ["84212300"],
+    );
+  });
+
+  it("lists branch product CEST options", async () => {
+    await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Jogo de vedacao CEST",
+        internalCode: "CEST-001",
+        salePrice: 50,
+        cest: "0100100",
+      },
+    });
+    await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Anel de vedacao CEST",
+        internalCode: "CEST-002",
+        salePrice: 60,
+        cest: "0100100",
+      },
+    });
+    await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro sem busca CEST",
+        internalCode: "CEST-003",
+        salePrice: 70,
+        cest: "2800100",
+      },
+    });
+
+    const listed = await request<CestOption[]>("/fiscal/cest-options");
+    const filtered = await request<CestOption[]>(
+      "/fiscal/cest-options?search=vedacao",
+    );
+
+    assert.equal(listed.status, 200);
+    assert.ok(
+      listed.body.data?.some(
+        (option) => option.code === "0100100" && option.productCount === 2,
+      ),
+    );
+    assert.equal(filtered.status, 200);
+    assert.deepEqual(
+      filtered.body.data?.map((option) => option.code),
+      ["0100100"],
+    );
   });
 
   it("authenticates users and protects operational routes", async () => {
@@ -1231,7 +1335,11 @@ describe("catalog routes", () => {
     });
     const updated = await request<CommercialSettings>("/commercial-settings", {
       method: "PUT",
-      body: { defaultProfitMarginPercentage: 50 },
+      body: {
+        defaultProfitMarginPercentage: 50,
+        defaultQuoteDueDays: 28,
+        defaultQuoteValidityDays: 14,
+      },
     });
     const listedAfterUpdate =
       await request<CommercialSettings>("/commercial-settings");
@@ -1240,14 +1348,20 @@ describe("catalog routes", () => {
     assert.equal(current.body.data?.branchId, defaultBranchId);
     assert.equal(current.body.data?.branchName, "Matriz Teste");
     assert.equal(current.body.data?.defaultProfitMarginPercentage, "0.00");
+    assert.equal(current.body.data?.defaultQuoteDueDays, 0);
+    assert.equal(current.body.data?.defaultQuoteValidityDays, 7);
     assert.equal(invalid.status, 422);
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.defaultProfitMarginPercentage, "50.00");
+    assert.equal(updated.body.data?.defaultQuoteDueDays, 28);
+    assert.equal(updated.body.data?.defaultQuoteValidityDays, 14);
     assert.equal(listedAfterUpdate.body.data?.id, updated.body.data?.id);
     assert.equal(
       listedAfterUpdate.body.data?.defaultProfitMarginPercentage,
       "50.00",
     );
+    assert.equal(listedAfterUpdate.body.data?.defaultQuoteDueDays, 28);
+    assert.equal(listedAfterUpdate.body.data?.defaultQuoteValidityDays, 14);
   });
 
   it("keeps commercial settings scoped to the active branch", async () => {
@@ -1264,7 +1378,11 @@ describe("catalog routes", () => {
       "/commercial-settings",
       {
         method: "PUT",
-        body: { defaultProfitMarginPercentage: 50 },
+        body: {
+          defaultProfitMarginPercentage: 50,
+          defaultQuoteDueDays: 21,
+          defaultQuoteValidityDays: 10,
+        },
       },
     );
     const isolatedCurrent = await request<CommercialSettings>(
@@ -1278,7 +1396,11 @@ describe("catalog routes", () => {
       {
         method: "PUT",
         headers: { "x-active-branch-id": branch.body.data.id },
-        body: { defaultProfitMarginPercentage: 35 },
+        body: {
+          defaultProfitMarginPercentage: 35,
+          defaultQuoteDueDays: 7,
+          defaultQuoteValidityDays: 3,
+        },
       },
     );
     const defaultCurrent =
@@ -1292,15 +1414,21 @@ describe("catalog routes", () => {
       isolatedCurrent.body.data?.defaultProfitMarginPercentage,
       "0.00",
     );
+    assert.equal(isolatedCurrent.body.data?.defaultQuoteDueDays, 0);
+    assert.equal(isolatedCurrent.body.data?.defaultQuoteValidityDays, 7);
     assert.equal(isolatedUpdated.status, 200);
     assert.equal(
       isolatedUpdated.body.data?.defaultProfitMarginPercentage,
       "35.00",
     );
+    assert.equal(isolatedUpdated.body.data?.defaultQuoteDueDays, 7);
+    assert.equal(isolatedUpdated.body.data?.defaultQuoteValidityDays, 3);
     assert.equal(
       defaultCurrent.body.data?.defaultProfitMarginPercentage,
       "50.00",
     );
+    assert.equal(defaultCurrent.body.data?.defaultQuoteDueDays, 21);
+    assert.equal(defaultCurrent.body.data?.defaultQuoteValidityDays, 10);
   });
 
   it("opens one cash register session for the authenticated user", async () => {
@@ -4076,11 +4204,19 @@ describe("catalog routes", () => {
   it("returns sales commercial reports grouped by product, client, and payment method", async () => {
     const firstProduct = await request<Product>("/products", {
       method: "POST",
-      body: { name: "Filtro relatorio comercial A", salePrice: 40 },
+      body: {
+        name: "Filtro relatorio comercial A",
+        costPrice: 20,
+        salePrice: 40,
+      },
     });
     const secondProduct = await request<Product>("/products", {
       method: "POST",
-      body: { name: "Filtro relatorio comercial B", salePrice: 75 },
+      body: {
+        name: "Filtro relatorio comercial B",
+        costPrice: 45,
+        salePrice: 75,
+      },
     });
     const client = await request<Client>("/clients", {
       method: "POST",
@@ -4133,14 +4269,46 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.summary.itemsQuantity, "3.000");
     assert.equal(report.body.data?.summary.grossAmount, "155.00");
     assert.equal(report.body.data?.summary.discountAmount, "10.00");
+    assert.equal(report.body.data?.summary.costAmount, "85.00");
     assert.equal(report.body.data?.summary.netAmount, "145.00");
-    assert.equal(report.body.data?.byProduct[0]?.productName, firstProduct.body.data?.name);
+    assert.equal(report.body.data?.summary.grossProfitAmount, "60.00");
+    assert.equal(report.body.data?.summary.grossMarginPercentage, "41.38");
+    assert.equal(
+      report.body.data?.byProduct[0]?.productName,
+      firstProduct.body.data?.name,
+    );
+    assert.equal(report.body.data?.byProduct[0]?.costAmount, "40.00");
     assert.equal(report.body.data?.byProduct[0]?.totalAmount, "80.00");
-    assert.equal(report.body.data?.byClient[0]?.clientName, client.body.data?.name);
+    assert.equal(
+      report.body.data?.byProduct[0]?.grossProfitAmount,
+      "40.00",
+    );
+    assert.equal(
+      report.body.data?.byProduct[0]?.grossMarginPercentage,
+      "50.00",
+    );
+    assert.equal(
+      report.body.data?.byClient[0]?.clientName,
+      client.body.data?.name,
+    );
     assert.equal(report.body.data?.byClient[0]?.salesCount, 1);
     assert.equal(report.body.data?.byClient[0]?.totalAmount, "145.00");
     assert.equal(report.body.data?.byPaymentMethod[0]?.paymentMethodName, "Boleto");
     assert.equal(report.body.data?.byPaymentMethod[0]?.totalAmount, "145.00");
+    assert.equal(
+      report.body.data?.abcProducts[0]?.productName,
+      firstProduct.body.data?.name,
+    );
+    assert.equal(report.body.data?.abcProducts[0]?.totalAmount, "80.00");
+    assert.equal(
+      report.body.data?.abcProducts[0]?.revenueSharePercentage,
+      "51.61",
+    );
+    assert.equal(
+      report.body.data?.abcProducts[0]?.cumulativeRevenuePercentage,
+      "51.61",
+    );
+    assert.equal(report.body.data?.abcProducts[0]?.abcClass, "A");
   });
 
   it("returns stock reports with low stock, products without movement, and turnover", async () => {
@@ -5694,6 +5862,48 @@ describe("catalog routes", () => {
     );
   });
 
+  it("stores boleto installments for a quote", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro quote boleto parcelado", salePrice: 100 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente boleto parcelado" },
+    });
+    const boleto = await activePaymentMethod("BOLETO");
+
+    const created = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: boleto.id,
+        billingIssueDate: "2026-08-06",
+        billingDueDate: "2026-09-06",
+        paymentInstallments: [
+          { position: 1, dueDate: "2026-09-06", amount: 50 },
+          { position: 2, dueDate: "2026-10-06", amount: 50 },
+        ],
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+    const shown = await request<Quote>(`/quotes/${created.body.data?.id}`);
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.paymentMethodName, "Boleto");
+    assert.equal(created.body.data?.paymentInstallments.length, 2);
+    assert.equal(created.body.data?.paymentInstallments[0]?.position, 1);
+    assert.ok(
+      created.body.data?.paymentInstallments[0]?.dueDate.startsWith(
+        "2026-09-06",
+      ),
+    );
+    assert.equal(created.body.data?.paymentInstallments[0]?.amount, "50.00");
+    assert.equal(shown.body.data?.paymentInstallments.length, 2);
+    assert.equal(shown.body.data?.paymentInstallments[1]?.position, 2);
+    assert.equal(shown.body.data?.paymentInstallments[1]?.amount, "50.00");
+  });
+
   it("cancels a draft quote before it becomes a shipping order", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
@@ -6376,6 +6586,9 @@ describe("catalog routes", () => {
     });
 
     const listed = await request<Product[]>("/products?search=Wega");
+    const listedPage = await request<ProductListPage>(
+      "/products?search=Wega&includeMeta=true&page=1&limit=1",
+    );
     const shown = await request<Product>(`/products/${created.body.data?.id}`);
     const updated = await request<Product>(
       `/products/${created.body.data?.id}`,
@@ -6420,6 +6633,11 @@ describe("catalog routes", () => {
     );
     assert.equal(listed.status, 200);
     assert.equal(listed.body.data?.length, 1);
+    assert.equal(listedPage.status, 200);
+    assert.equal(listedPage.body.data?.total, 1);
+    assert.equal(listedPage.body.data?.page, 1);
+    assert.equal(listedPage.body.data?.limit, 1);
+    assert.equal(listedPage.body.data?.items[0]?.id, created.body.data?.id);
     assert.equal(shown.status, 200);
     assert.equal(shown.body.data?.internalCode, "FAP4040");
     assert.equal(
@@ -6859,6 +7077,7 @@ describe("catalog routes", () => {
     assert.equal(parsed.body.data?.items[0]?.position, 1);
     assert.equal(parsed.body.data?.items[0]?.supplierProductCode, "FX-1");
     assert.equal(parsed.body.data?.items[0]?.description, "Filtro & oleo");
+    assert.equal(parsed.body.data?.items[0]?.cest, "0100100");
     assert.equal(parsed.body.data?.items[0]?.quantity, 2);
     assert.equal(parsed.body.data?.items[0]?.unitCost, 21.25);
     assert.equal(parsed.body.data?.items[1]?.position, 2);
@@ -6899,9 +7118,40 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.items.length, 2);
     assert.equal(created.body.data?.items[0]?.productId, null);
     assert.equal(created.body.data?.items[0]?.description, "Filtro & oleo");
+    assert.equal(created.body.data?.items[0]?.cest, "0100100");
     assert.equal(created.body.data?.items[1]?.totalAmount, "42.00");
     assert.equal(duplicated.status, 409);
     assert.equal(listed.body.data?.length, 1);
+  });
+
+  it("cancels an imported purchase invoice before stock posting", async () => {
+    const created = await request<PurchaseInvoice>(
+      "/purchase-invoices/import-xml",
+      {
+        method: "POST",
+        body: { xmlContent: purchaseInvoiceXml("8".repeat(44)) },
+      },
+    );
+
+    const cancelled = await request<PurchaseInvoice>(
+      `/purchase-invoices/${created.body.data?.id}/cancel`,
+      { method: "POST" },
+    );
+    const postCancelled = await request(
+      `/purchase-invoices/${created.body.data?.id}/post`,
+      { method: "POST" },
+    );
+    const listed = await request<PurchaseInvoice[]>("/purchase-invoices");
+
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(postCancelled.status, 409);
+    assert.ok(
+      listed.body.data?.some(
+        (invoice) =>
+          invoice.id === created.body.data?.id && invoice.status === "CANCELLED",
+      ),
+    );
   });
 
   it("reviews an imported purchase invoice before posting stock", async () => {
@@ -6945,6 +7195,7 @@ describe("catalog routes", () => {
           ],
           items: [
             {
+              cest: "0100100",
               cfop: "5102",
               description: "Filtro revisado",
               ncm: "84212300",
@@ -6957,6 +7208,7 @@ describe("catalog routes", () => {
               unitCost: 21.25,
             },
             {
+              cest: "0100200",
               cfop: "5102",
               description: "Filtro combustivel",
               ncm: "84212300",
@@ -6991,6 +7243,7 @@ describe("catalog routes", () => {
       "Filtro correto do XML",
     );
     assert.equal(reviewed.body.data?.items[0]?.description, "Filtro revisado");
+    assert.equal(reviewed.body.data?.items[0]?.cest, "0100100");
     assert.equal(reviewed.body.data?.items[1]?.productId, null);
     assert.equal(
       listed.body.data?.[0]?.items[0]?.productId,
@@ -7038,6 +7291,7 @@ describe("catalog routes", () => {
           totalAmount: 84.5,
           items: [
             {
+              cest: "0100100",
               cfop: "5102",
               description: "Filtro XML estoque A",
               ncm: "84212300",
@@ -7050,6 +7304,7 @@ describe("catalog routes", () => {
               unitCost: 21.25,
             },
             {
+              cest: "0100200",
               cfop: "5102",
               description: "Filtro XML estoque B",
               ncm: "84212300",
@@ -7081,6 +7336,10 @@ describe("catalog routes", () => {
       `/purchase-invoices/${reviewed.body.data?.id}/post`,
       { method: "POST" },
     );
+    const cancelPosted = await request(
+      `/purchase-invoices/${reviewed.body.data?.id}/cancel`,
+      { method: "POST" },
+    );
 
     assert.equal(posted.status, 200);
     assert.equal(posted.body.data?.status, "POSTED");
@@ -7091,6 +7350,7 @@ describe("catalog routes", () => {
     assert.equal(entries.body.data?.length, 2);
     assert.equal(entries.body.data?.[0]?.supplierName, "Fornecedor para XML");
     assert.equal(repost.status, 409);
+    assert.equal(cancelPosted.status, 409);
   });
 
   it("imports a structured purchase invoice without posting stock", async () => {
@@ -7335,6 +7595,13 @@ function purchaseInvoiceXml(accessKey: string) {
               <vUnCom>21.2500</vUnCom>
               <vProd>42.50</vProd>
             </prod>
+            <imposto>
+              <ICMS>
+                <ICMS00>
+                  <CEST>0100100</CEST>
+                </ICMS00>
+              </ICMS>
+            </imposto>
           </det>
           <det nItem="2">
             <prod>

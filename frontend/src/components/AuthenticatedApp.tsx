@@ -46,9 +46,9 @@ export function AuthenticatedApp({
     branches,
     cashRegister,
     cashReport,
+    cestOptions,
     clients,
     commercialSettings,
-    filteredProducts,
     fiscalDocuments,
     fiscalSettings,
     loadCatalog,
@@ -58,17 +58,29 @@ export function AuthenticatedApp({
     loadStockReport,
     lowStockProducts,
     message,
+    ncmOptions,
     paymentMethods,
     pickupReservations,
+    productPage,
+    productPageIndex,
+    productRowsPerPage,
     products,
     purchaseInvoices,
     purchaseReport,
     quotes,
+    refreshCatalogFlow,
+    refreshCashFlow,
+    refreshFiscalFlow,
+    refreshPaymentMethods,
+    refreshQuoteFlow,
+    refreshSalesFlow,
+    refreshStockFlow,
     reportsOverview,
     runAction,
     sales,
     salesReport,
     search,
+    setProductPage,
     setMessage,
     setSearch,
     shippingOrders,
@@ -106,7 +118,7 @@ export function AuthenticatedApp({
   }, []);
 
   const catalogActions = useCatalogActions({
-    loadCatalog,
+    refreshCatalogFlow,
     requestConfirmation,
     runAction,
     selectedClient,
@@ -118,29 +130,34 @@ export function AuthenticatedApp({
   });
 
   const stockActions = useStockActions({
-    loadCatalog,
+    commercialSettings,
+    refreshStockFlow,
     requestConfirmation,
     runAction,
   });
 
   const financeActions = useFinanceActions({
-    loadCatalog,
+    refreshCashFlow,
+    refreshFiscalFlow,
+    refreshPaymentMethods,
     requestConfirmation,
     runAction,
   });
 
   const quoteActions = useQuoteActions({
-    loadCatalog,
+    refreshQuoteFlow,
     requestConfirmation,
     runAction,
     showShippingOrders: () => setView("shipping-orders"),
   });
 
   const salesActions = useSalesActions({
-    loadCatalog,
     products,
+    refreshSalesFlow,
     requestConfirmation,
     runAction,
+    showFiscalDocuments: () => setView("fiscal-documents"),
+    showSalesHistory: () => setView("sales-history"),
   });
 
   const activeTitle = viewTitles[view];
@@ -229,15 +246,19 @@ export function AuthenticatedApp({
           cashRegister={cashRegister}
           cashReport={cashReport}
           catalogActions={catalogActions}
+          cestOptions={cestOptions}
           clients={clients}
           commercialSettings={commercialSettings}
           financeActions={financeActions}
-          filteredProducts={filteredProducts}
           fiscalDocuments={fiscalDocuments}
           fiscalSettings={fiscalSettings}
           lowStockProducts={lowStockProducts}
+          ncmOptions={ncmOptions}
           paymentMethods={paymentMethods}
           pickupReservations={pickupReservations}
+          productPage={productPage}
+          productPageIndex={productPageIndex}
+          productRowsPerPage={productRowsPerPage}
           products={products}
           purchaseInvoices={purchaseInvoices}
           purchaseReport={purchaseReport}
@@ -268,6 +289,7 @@ export function AuthenticatedApp({
           onCancelProductEdit={() => setView("products")}
           onOpenQuotes={() => setView("quotes")}
           onResolveFiscalPendency={resolveFiscalPendency}
+          onProductPageChange={setProductPage}
           onSelectView={setView}
           onSearchChange={setSearch}
           onSelectClient={setSelectedClient}

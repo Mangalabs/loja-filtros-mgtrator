@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
+import type { Knex } from "knex";
 import { db } from "../src/database/knex.js";
 
 type ImportOptions = {
@@ -47,6 +48,7 @@ type ImportRejection = {
 type ImportSummary = {
   mode: "commit" | "dry-run";
   file: string;
+  layout: ImportLayout;
   branch: {
     id: string;
     name: string;
@@ -59,22 +61,50 @@ type ImportSummary = {
     accepted: number;
     rejected: number;
     productsCreated: number;
+    productsUpdated: number;
     stockEntriesCreated: number;
+    stockAdjustmentsCreated: number;
     brandsCreated: number;
     suppliersCreated: number;
   };
   rejections: ImportRejection[];
 };
 
+type ImportLayout = "legacy-basic" | "fiscal-stock" | "custom";
+
 const defaultSupplierName = "Importacao inicial de estoque";
-const expectedFields = [
-  "Nome do produto",
-  "Codigo interno",
-  "Unidade",
-  "Custo",
-  "Venda",
-  "NCM",
-];
+const expectedFieldsByLayout: Record<ImportLayout, string[]> = {
+  "legacy-basic": [
+    "Cód. interno",
+    "Nome",
+    "Unidade",
+    "Estoque",
+    "Custo unit.",
+    "Valor venda",
+  ],
+  "fiscal-stock": [
+    "Cód. interno",
+    "Nome",
+    "Valor de custo",
+    "NCM",
+    "CEST",
+    "Estoque",
+    "LOCAÇÃO",
+    "FABRICANTE",
+    "Vr. MG SÃO LUIS-MA",
+  ],
+  custom: [
+    "Nome",
+    "Cód. interno",
+    "Estoque",
+    "Custo",
+    "Venda",
+    "NCM",
+    "CEST",
+    "LOCAÇÃO",
+    "FABRICANTE",
+  ],
+};
 const unitMappings: Record<string, string> = {
   BD: "UN",
   JG: "KIT",
@@ -97,6 +127,7 @@ const fieldAliases: Record<keyof Omit<StockImportRow, "rowNumber">, string[]> =
       "codigo interno",
       "código interno",
       "cod. interno",
+      "cód. interno",
       "codigo",
       "código",
       "cod interno",
@@ -122,6 +153,7 @@ const fieldAliases: Record<keyof Omit<StockImportRow, "rowNumber">, string[]> =
       "custo unitario",
       "custo unitário",
       "valor custo",
+      "valor de custo",
       "preco custo",
       "preço custo",
       "cost_price",
@@ -131,6 +163,10 @@ const fieldAliases: Record<keyof Omit<StockImportRow, "rowNumber">, string[]> =
       "valor venda",
       "preco venda",
       "preço venda",
+      "vr. mg sao luis-ma",
+      "vr. mg são luis-ma",
+      "vr mg sao luis ma",
+      "vr mg são luis ma",
       "sale_price",
     ],
     profitMarginPercentage: [
@@ -182,6 +218,7 @@ async function importStockCsv(options: ImportOptions): Promise<ImportSummary> {
   const branch = await resolveImportBranch(options);
   const csvContent = await readCsvFile(filePath);
   const parsedRows = parseCsv(csvContent);
+  const layout = detectImportLayout(parsedRows);
   const { acceptedRows, rejections } = normalizeRows(parsedRows, options);
   const duplicateBarcodeRejections = rejectDuplicatedBarcodes(acceptedRows);
   const cleanRows = acceptedRows.filter(
@@ -190,7 +227,10 @@ async function importStockCsv(options: ImportOptions): Promise<ImportSummary> {
         (rejection) => rejection.rowNumber === row.rowNumber,
       ),
   );
-  const databaseBarcodeRejections = await rejectExistingBarcodes(cleanRows);
+  const databaseBarcodeRejections = await rejectExistingBarcodes(
+    cleanRows,
+    branch.id,
+  );
   const rowsToImport = cleanRows.filter(
     (row) =>
       !databaseBarcodeRejections.some(
@@ -208,15 +248,18 @@ async function importStockCsv(options: ImportOptions): Promise<ImportSummary> {
     : {
         brandsCreated: 0,
         productsCreated: 0,
+        productsUpdated: 0,
         stockEntriesCreated: 0,
+        stockAdjustmentsCreated: 0,
         suppliersCreated: 0,
       };
 
   const summary: ImportSummary = {
     mode: options.commit ? "commit" : "dry-run",
     file: filePath,
+    layout,
     branch,
-    expectedFields,
+    expectedFields: expectedFieldsByLayout[layout],
     unitMappings,
     totals: {
       rows: parsedRows.length,
@@ -244,7 +287,9 @@ async function writeImport(
     const counters = {
       brandsCreated: 0,
       productsCreated: 0,
+      productsUpdated: 0,
       stockEntriesCreated: 0,
+      stockAdjustmentsCreated: 0,
       suppliersCreated: 0,
     };
 
@@ -255,31 +300,23 @@ async function writeImport(
       const supplier = await findOrCreateSupplier(
         transaction,
         row.supplierName,
+        branchId,
       );
-      const [product] = await transaction("products")
-        .insert({
-          name: row.name,
-          internal_code: row.internalCode,
-          barcode: row.barcode,
-          branch_id: branchId,
-          brand_id: brand.id,
-          unit: row.unit,
-          location: row.location,
-          cost_price: row.costPrice,
-          sale_price: row.salePrice,
-          profit_margin_percentage: row.profitMarginPercentage,
-          minimum_stock: row.minimumStock,
-          ncm: row.ncm,
-          cest: row.cest,
-          cfop: row.cfop,
-          icms_cst: row.icmsCst,
-          pis_cst: row.pisCst,
-          cofins_cst: row.cofinsCst,
-          origin: row.origin,
-          description: row.description,
-          active: true,
-        })
-        .returning("id");
+      const existingProduct = await findImportProduct(
+        transaction,
+        row,
+        branchId,
+        brand.id,
+      );
+      const product = existingProduct
+        ? await updateImportProduct(
+            transaction,
+            existingProduct.id,
+            row,
+            branchId,
+            brand.id,
+          )
+        : await createImportProduct(transaction, row, branchId, brand.id);
 
       await transaction("product_suppliers")
         .insert({
@@ -293,36 +330,195 @@ async function writeImport(
           updated_at: transaction.fn.now(),
         });
 
-      if (row.currentStock > 0) {
-        await transaction("stock_movements").insert({
-          product_id: product.id,
-          supplier_id: supplier.id,
-          created_by_user_id: createdByUserId,
-          type: "ENTRY",
-          quantity: row.currentStock,
-          unit_cost: row.costPrice,
-          notes: `Importacao inicial CSV ${basename(options.filePath)} linha ${row.rowNumber}`,
-        });
-
-        await transaction("products").where("id", product.id).update({
-          current_stock: row.currentStock,
-          updated_at: transaction.fn.now(),
-        });
+      if (!existingProduct && row.currentStock > 0) {
+        await insertInitialStockEntry(
+          transaction,
+          product.id,
+          supplier.id,
+          row,
+          options,
+          createdByUserId,
+        );
 
         counters.stockEntriesCreated += 1;
       }
 
+      if (existingProduct) {
+        const stockDifference =
+          row.currentStock - Number(existingProduct.current_stock ?? 0);
+
+        if (stockDifference !== 0) {
+          await insertStockBalanceAdjustment(
+            transaction,
+            product.id,
+            stockDifference,
+            row,
+            options,
+            createdByUserId,
+          );
+
+          counters.stockAdjustmentsCreated += 1;
+        }
+      }
+
+      await transaction("products").where("id", product.id).update({
+        current_stock: row.currentStock,
+        updated_at: transaction.fn.now(),
+      });
+
       counters.brandsCreated += brand.created ? 1 : 0;
       counters.suppliersCreated += supplier.created ? 1 : 0;
-      counters.productsCreated += 1;
+      counters.productsCreated += existingProduct ? 0 : 1;
+      counters.productsUpdated += existingProduct ? 1 : 0;
     }
 
     return counters;
   });
 }
 
+async function createImportProduct(
+  transaction: Knex.Transaction,
+  row: StockImportRow,
+  branchId: string,
+  brandId: string | null,
+) {
+  const [product] = await transaction("products")
+    .insert({
+      name: row.name,
+      internal_code: row.internalCode,
+      barcode: row.barcode,
+      branch_id: branchId,
+      brand_id: brandId,
+      unit: row.unit,
+      location: row.location,
+      cost_price: row.costPrice,
+      sale_price: row.salePrice,
+      profit_margin_percentage: row.profitMarginPercentage,
+      minimum_stock: row.minimumStock,
+      ncm: row.ncm,
+      cest: row.cest,
+      cfop: row.cfop,
+      icms_cst: row.icmsCst,
+      pis_cst: row.pisCst,
+      cofins_cst: row.cofinsCst,
+      origin: row.origin,
+      description: row.description,
+      active: true,
+    })
+    .returning("id");
+
+  return { id: product.id as string };
+}
+
+async function updateImportProduct(
+  transaction: Knex.Transaction,
+  productId: string,
+  row: StockImportRow,
+  branchId: string,
+  brandId: string | null,
+) {
+  const [product] = await transaction("products")
+    .where("id", productId)
+    .update({
+      name: row.name,
+      internal_code: row.internalCode,
+      barcode: row.barcode,
+      branch_id: branchId,
+      brand_id: brandId,
+      unit: row.unit,
+      location: row.location,
+      cost_price: row.costPrice,
+      sale_price: row.salePrice,
+      profit_margin_percentage: row.profitMarginPercentage,
+      minimum_stock: row.minimumStock,
+      ncm: row.ncm,
+      cest: row.cest,
+      cfop: row.cfop,
+      icms_cst: row.icmsCst,
+      pis_cst: row.pisCst,
+      cofins_cst: row.cofinsCst,
+      origin: row.origin,
+      description: row.description,
+      active: true,
+      updated_at: transaction.fn.now(),
+    })
+    .returning("id");
+
+  return { id: product.id as string };
+}
+
+async function insertInitialStockEntry(
+  transaction: Knex.Transaction,
+  productId: string,
+  supplierId: string,
+  row: StockImportRow,
+  options: ImportOptions,
+  createdByUserId: string | null,
+) {
+  await transaction("stock_movements").insert({
+    product_id: productId,
+    supplier_id: supplierId,
+    created_by_user_id: createdByUserId,
+    type: "ENTRY",
+    quantity: row.currentStock,
+    unit_cost: row.costPrice,
+    notes: `Importacao inicial CSV ${basename(options.filePath)} linha ${row.rowNumber}`,
+  });
+}
+
+async function insertStockBalanceAdjustment(
+  transaction: Knex.Transaction,
+  productId: string,
+  quantity: number,
+  row: StockImportRow,
+  options: ImportOptions,
+  createdByUserId: string | null,
+) {
+  await transaction("stock_movements").insert({
+    product_id: productId,
+    created_by_user_id: createdByUserId,
+    type: "ADJUSTMENT",
+    quantity,
+    notes: `Ajuste por reimportacao CSV ${basename(options.filePath)} linha ${row.rowNumber}`,
+  });
+}
+
+async function findImportProduct(
+  transaction: Knex.Transaction,
+  row: StockImportRow,
+  branchId: string,
+  brandId: string | null,
+) {
+  const barcodeProduct = row.barcode
+    ? await transaction("products")
+        .select(["id", "branch_id", "current_stock"])
+        .where("barcode", row.barcode)
+        .first()
+    : null;
+
+  if (barcodeProduct) {
+    return barcodeProduct as {
+      id: string;
+      branch_id: string | null;
+      current_stock: string;
+    };
+  }
+
+  return transaction("products")
+    .select(["id", "branch_id", "current_stock"])
+    .where("branch_id", branchId)
+    .whereRaw("lower(name) = lower(?)", [row.name])
+    .modify((query) => {
+      row.internalCode
+        ? query.where("internal_code", row.internalCode)
+        : query.whereNull("internal_code");
+      brandId ? query.where("brand_id", brandId) : query.whereNull("brand_id");
+    })
+    .first();
+}
+
 async function findOrCreateBrand(
-  transaction: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  transaction: Knex.Transaction,
   name: string,
 ) {
   const existing = await transaction("brands")
@@ -340,12 +536,14 @@ async function findOrCreateBrand(
 }
 
 async function findOrCreateSupplier(
-  transaction: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  transaction: Knex.Transaction,
   name: string,
+  branchId: string,
 ) {
   const existing = await transaction("suppliers")
     .select("id")
     .whereRaw("lower(name) = lower(?)", [name])
+    .where("branch_id", branchId)
     .first();
 
   if (existing) {
@@ -353,7 +551,7 @@ async function findOrCreateSupplier(
   }
 
   const [supplier] = await transaction("suppliers")
-    .insert({ name })
+    .insert({ name, branch_id: branchId })
     .returning("id");
 
   return { id: supplier.id as string, created: true };
@@ -413,7 +611,7 @@ function applyBranchLookup(
   return lookup?.apply() ?? Promise.resolve(undefined);
 }
 
-async function rejectExistingBarcodes(rows: StockImportRow[]) {
+async function rejectExistingBarcodes(rows: StockImportRow[], branchId: string) {
   const barcodes = rows
     .map((row) => row.barcode)
     .filter((barcode): barcode is string => Boolean(barcode));
@@ -423,9 +621,12 @@ async function rejectExistingBarcodes(rows: StockImportRow[]) {
   }
 
   const existingBarcodes = await db("products")
+    .select(["barcode", "branch_id"])
     .whereIn("barcode", barcodes)
-    .pluck<string[]>("barcode");
-  const existingBarcodeSet = new Set(existingBarcodes);
+    .whereNot("branch_id", branchId);
+  const existingBarcodeSet = new Set(
+    existingBarcodes.map((product) => product.barcode as string),
+  );
 
   return rows
     .filter((row) => row.barcode && existingBarcodeSet.has(row.barcode))
@@ -455,6 +656,43 @@ function rejectDuplicatedBarcodes(rows: StockImportRow[]) {
         row: {},
       })),
     );
+}
+
+function detectImportLayout(rows: CsvRow[]): ImportLayout {
+  const headers = new Set(Object.keys(rows[0] ?? {}));
+  const hasLegacyFields = hasHeaderFields(headers, [
+    "Cód. interno",
+    "Nome",
+    "Unidade",
+    "Custo unit.",
+    "Valor venda",
+  ]);
+  const hasFiscalStockFields = hasHeaderFields(headers, [
+    "Cód. interno",
+    "Nome",
+    "Valor de custo",
+    "NCM",
+    "CEST",
+    "LOCAÇÃO",
+    "FABRICANTE",
+    "Vr. MG SÃO LUIS-MA",
+  ]);
+  const layouts = [
+    {
+      matched: hasFiscalStockFields,
+      name: "fiscal-stock" as const,
+    },
+    {
+      matched: hasLegacyFields,
+      name: "legacy-basic" as const,
+    },
+  ];
+
+  return layouts.find((layout) => layout.matched)?.name ?? "custom";
+}
+
+function hasHeaderFields(headers: Set<string>, labels: string[]) {
+  return labels.every((label) => headers.has(normalizeHeader(label)));
 }
 
 function normalizeRows(rows: CsvRow[], options: ImportOptions) {
@@ -683,6 +921,7 @@ function normalizeHeader(header: string) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[._-]+/g, " ")
     .replace(/\s+/g, " ");
 }
 

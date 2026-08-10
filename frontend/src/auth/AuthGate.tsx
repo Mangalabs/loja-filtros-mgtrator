@@ -93,7 +93,7 @@ const authStateRenderers: Record<
   ),
   loading: () => (
     <div className="flex min-h-screen items-center justify-center text-[#5f665f]">
-      Validando sessao...
+      Validando sessão...
     </div>
   ),
 };

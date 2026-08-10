@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   apiGet,
   setActiveBranchHeader,
@@ -7,14 +7,17 @@ import {
   type Branch,
   type CashReport,
   type CashRegisterSession,
+  type CestOption,
   type Client,
   type CommercialSettings,
   type FiscalDocument,
   type FiscalSettings,
   type NamedEntity,
+  type NcmOption,
   type PaymentMethod,
   type PickupReservation,
   type Product,
+  type ProductPage,
   type PurchaseReport,
   type PurchaseInvoice,
   type Quote,
@@ -31,10 +34,26 @@ import {
 import type { LoadState } from "../navigation";
 import { canAccessView } from "../navigation";
 
+const defaultProductPage: ProductPage = {
+  items: [],
+  total: 0,
+  page: 1,
+  limit: 15,
+  totalPages: 1,
+};
+
 export function useCatalogData(user: AuthUser, activeBranchId: string) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [productPage, setProductPage] =
+    useState<ProductPage>(defaultProductPage);
+  const [productPageIndex, setProductPageIndex] = useState(0);
+  const [productRowsPerPage, setProductRowsPerPage] = useState(
+    defaultProductPage.limit,
+  );
   const [branches, setBranches] = useState<Branch[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
+  const [cestOptions, setCestOptions] = useState<CestOption[]>([]);
+  const [ncmOptions, setNcmOptions] = useState<NcmOption[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
@@ -73,6 +92,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   const [state, setState] = useState<LoadState>("idle");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
+  const searchRefreshReadyRef = useRef(false);
 
   async function loadCatalog() {
     setState("loading");
@@ -89,7 +109,10 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
 
       const [
         productsResult,
+        productPageResult,
         brandsResult,
+        cestOptionsResult,
+        ncmOptionsResult,
         clientsResult,
         suppliersResult,
         stockEntriesResult,
@@ -113,7 +136,14 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         pickupReservationsResult,
       ] = await Promise.all([
         fetchProductCatalog(),
+        fetchProductPage({
+          limit: productRowsPerPage,
+          page: productPageIndex + 1,
+          search,
+        }),
         apiGet<ApiResult<NamedEntity[]>>("/brands"),
+        fetchCestOptions(),
+        fetchNcmOptions(),
         apiGet<ApiResult<Client[]>>("/clients"),
         apiGet<ApiResult<Supplier[]>>("/suppliers"),
         apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
@@ -154,7 +184,10 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       ]);
 
       setProducts(productsResult);
+      setProductPage(productPageResult);
       setBrands(brandsResult.data);
+      setCestOptions(cestOptionsResult.data);
+      setNcmOptions(ncmOptionsResult.data);
       setClients(clientsResult.data);
       setSuppliers(suppliersResult.data);
       setStockEntries(stockEntriesResult.data);
@@ -181,6 +214,194 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Erro inesperado");
     }
+  }
+
+  async function refreshQuoteFlow() {
+    const [quotesResult, shippingOrdersResult] = await Promise.all([
+      apiGet<ApiResult<Quote[]>>("/quotes"),
+      apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
+    ]);
+
+    setQuotes(quotesResult.data);
+    setShippingOrders(shippingOrdersResult.data);
+  }
+
+  async function refreshSalesFlow() {
+    const [
+      productsResult,
+      productPageResult,
+      lowStockResult,
+      cashRegisterResult,
+      reportsOverviewResult,
+      salesResult,
+      fiscalDocumentsResult,
+      shippingOrdersResult,
+      pickupReservationsResult,
+    ] = await Promise.all([
+      fetchProductCatalog(),
+      fetchProductPage({
+        limit: productRowsPerPage,
+        page: productPageIndex + 1,
+        search,
+      }),
+      apiGet<ApiResult<Product[]>>("/products/low-stock"),
+      apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
+      apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+      apiGet<ApiResult<Sale[]>>("/sales"),
+      canAccessView(user, "fiscal-documents")
+        ? apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents")
+        : emptyResult<FiscalDocument[]>([]),
+      apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
+      apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
+    ]);
+
+    setProducts(productsResult);
+    setProductPage(productPageResult);
+    setLowStockProducts(lowStockResult.data);
+    setCashRegister(cashRegisterResult.data);
+    setReportsOverview(reportsOverviewResult.data);
+    setSales(salesResult.data);
+    setFiscalDocuments(fiscalDocumentsResult.data);
+    setShippingOrders(shippingOrdersResult.data);
+    setPickupReservations(pickupReservationsResult.data);
+  }
+
+  async function refreshStockFlow() {
+    const [
+      productsResult,
+      productPageResult,
+      suppliersResult,
+      stockEntriesResult,
+      stockAdjustmentsResult,
+      stockMovementsResult,
+      purchaseInvoicesResult,
+      lowStockResult,
+      reportsOverviewResult,
+      stockReportResult,
+      purchaseReportResult,
+    ] = await Promise.all([
+      fetchProductCatalog(),
+      fetchProductPage({
+        limit: productRowsPerPage,
+        page: productPageIndex + 1,
+        search,
+      }),
+      apiGet<ApiResult<Supplier[]>>("/suppliers"),
+      apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
+      canAccessView(user, "stock-adjustments")
+        ? apiGet<ApiResult<StockAdjustment[]>>("/stock-adjustments")
+        : emptyResult<StockAdjustment[]>([]),
+      apiGet<ApiResult<StockMovement[]>>("/stock-movements"),
+      canAccessView(user, "purchase-invoices")
+        ? fetchPurchaseInvoices()
+        : emptyResult<PurchaseInvoice[]>([]),
+      apiGet<ApiResult<Product[]>>("/products/low-stock"),
+      apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+      canAccessView(user, "reports")
+        ? apiGet<ApiResult<StockReport>>("/reports/stock")
+        : emptyResult<StockReport | null>(null),
+      canAccessView(user, "reports")
+        ? apiGet<ApiResult<PurchaseReport>>("/reports/purchases")
+        : emptyResult<PurchaseReport | null>(null),
+    ]);
+
+    setProducts(productsResult);
+    setProductPage(productPageResult);
+    setSuppliers(suppliersResult.data);
+    setStockEntries(stockEntriesResult.data);
+    setStockAdjustments(stockAdjustmentsResult.data);
+    setStockMovements(stockMovementsResult.data);
+    setPurchaseInvoices(purchaseInvoicesResult.data);
+    setLowStockProducts(lowStockResult.data);
+    setReportsOverview(reportsOverviewResult.data);
+    setStockReport(stockReportResult.data);
+    setPurchaseReport(purchaseReportResult.data);
+  }
+
+  async function refreshCashFlow() {
+    const [cashRegisterResult, reportsOverviewResult, cashReportResult] =
+      await Promise.all([
+        apiGet<ApiResult<CashRegisterSession | null>>(
+          "/cash-register/current",
+        ),
+        apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+        canAccessView(user, "reports")
+          ? apiGet<ApiResult<CashReport>>("/reports/cash")
+          : emptyResult<CashReport | null>(null),
+      ]);
+
+    setCashRegister(cashRegisterResult.data);
+    setReportsOverview(reportsOverviewResult.data);
+    setCashReport(cashReportResult.data);
+  }
+
+  async function refreshFiscalFlow() {
+    const [
+      fiscalDocumentsResult,
+      fiscalSettingsResult,
+      reportsOverviewResult,
+    ] = await Promise.all([
+      canAccessView(user, "fiscal-documents")
+        ? apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents")
+        : emptyResult<FiscalDocument[]>([]),
+      canAccessView(user, "fiscal-settings")
+        ? apiGet<ApiResult<FiscalSettings>>("/fiscal-settings")
+        : emptyResult<FiscalSettings | null>(null),
+      apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+    ]);
+
+    setFiscalDocuments(fiscalDocumentsResult.data);
+    setFiscalSettings(fiscalSettingsResult.data);
+    setReportsOverview(reportsOverviewResult.data);
+  }
+
+  async function refreshPaymentMethods() {
+    const result = await apiGet<ApiResult<PaymentMethod[]>>(
+      "/payment-methods",
+    );
+
+    setPaymentMethods(result.data);
+  }
+
+  async function refreshCatalogFlow() {
+    const [
+      productsResult,
+      productPageResult,
+      brandsResult,
+      cestOptionsResult,
+      ncmOptionsResult,
+      clientsResult,
+      suppliersResult,
+      lowStockResult,
+      reportsOverviewResult,
+      commercialSettingsResult,
+    ] = await Promise.all([
+      fetchProductCatalog(),
+      fetchProductPage({
+        limit: productRowsPerPage,
+        page: productPageIndex + 1,
+        search,
+      }),
+      apiGet<ApiResult<NamedEntity[]>>("/brands"),
+      fetchCestOptions(),
+      fetchNcmOptions(),
+      apiGet<ApiResult<Client[]>>("/clients"),
+      apiGet<ApiResult<Supplier[]>>("/suppliers"),
+      apiGet<ApiResult<Product[]>>("/products/low-stock"),
+      apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
+      fetchCommercialSettings(),
+    ]);
+
+    setProducts(productsResult);
+    setProductPage(productPageResult);
+    setBrands(brandsResult.data);
+    setCestOptions(cestOptionsResult.data);
+    setNcmOptions(ncmOptionsResult.data);
+    setClients(clientsResult.data);
+    setSuppliers(suppliersResult.data);
+    setLowStockProducts(lowStockResult.data);
+    setReportsOverview(reportsOverviewResult.data);
+    setCommercialSettings(commercialSettingsResult);
   }
 
   async function loadSalesReport(filters: SalesReportFilters = {}) {
@@ -256,29 +477,27 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   }
 
   useEffect(() => {
+    searchRefreshReadyRef.current = false;
     setActiveBranchHeader(activeBranchId);
     void loadCatalog();
   }, [activeBranchId, user.id]);
 
-  const filteredProducts = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    if (!term) {
-      return products;
+  useEffect(() => {
+    if (requiresBranchSelection(user, activeBranchId)) {
+      return;
     }
 
-    return products.filter((product) => {
-      return [
-        product.name,
-        product.internalCode,
-        product.barcode,
-        product.brandName,
-        product.location,
-      ]
-        .filter(Boolean)
-        .some((value) => value!.toLowerCase().includes(term));
-    });
-  }, [products, search]);
+    if (!searchRefreshReadyRef.current) {
+      searchRefreshReadyRef.current = true;
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void changeProductPage(0, productRowsPerPage);
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [activeBranchId, search, user.role]);
 
   async function runAction(action: () => Promise<void>) {
     setMessage("");
@@ -295,14 +514,34 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     }
   }
 
+  async function changeProductPage(pageIndex: number, rowsPerPage?: number) {
+    const nextRowsPerPage = rowsPerPage ?? productRowsPerPage;
+
+    setProductPageIndex(pageIndex);
+    setProductRowsPerPage(nextRowsPerPage);
+
+    try {
+      setProductPage(
+        await fetchProductPage({
+          limit: nextRowsPerPage,
+          page: pageIndex + 1,
+          search,
+        }),
+      );
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+    }
+  }
+
   return {
     brands,
     branches,
     cashRegister,
     cashReport,
+    cestOptions,
     clients,
     commercialSettings,
-    filteredProducts,
     fiscalDocuments,
     fiscalSettings,
     loadCatalog,
@@ -311,18 +550,30 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     loadPurchaseReport,
     loadStockReport,
     message,
+    ncmOptions,
     paymentMethods,
     pickupReservations,
+    productPage,
+    productPageIndex,
+    productRowsPerPage,
     products,
     purchaseReport,
     purchaseInvoices,
     quotes,
+    refreshCatalogFlow,
+    refreshCashFlow,
+    refreshFiscalFlow,
+    refreshPaymentMethods,
+    refreshQuoteFlow,
+    refreshSalesFlow,
+    refreshStockFlow,
     reportsOverview,
     runAction,
     sales,
     salesReport,
     loadSalesReport,
     search,
+    setProductPage: changeProductPage,
     setMessage,
     setSearch,
     shippingOrders,
@@ -362,23 +613,49 @@ function reportPath(path: string, filters: ReportPeriodFilters) {
   return query ? `${path}?${query}` : path;
 }
 
-async function fetchProductCatalog() {
-  const limit = 100;
-  const products: Product[] = [];
-  let page = 1;
-  let hasNextPage = true;
+async function fetchProductCatalog(search?: string) {
+  const params = new URLSearchParams({
+    limit: "100",
+    page: "1",
+  });
+  const term = search?.trim();
 
-  while (hasNextPage) {
-    const result = await apiGet<ApiResult<Product[]>>(
-      `/products?page=${page}&limit=${limit}`,
-    );
-
-    products.push(...result.data);
-    hasNextPage = result.data.length === limit;
-    page += 1;
+  if (term) {
+    params.set("search", term);
   }
 
-  return products;
+  const result = await apiGet<ApiResult<Product[]>>(
+    `/products?${params.toString()}`,
+  );
+
+  return result.data;
+}
+
+async function fetchProductPage({
+  limit,
+  page,
+  search,
+}: {
+  limit: number;
+  page: number;
+  search?: string;
+}) {
+  const params = new URLSearchParams({
+    includeMeta: "true",
+    limit: String(limit),
+    page: String(page),
+  });
+  const term = search?.trim();
+
+  if (term) {
+    params.set("search", term);
+  }
+
+  const result = await apiGet<ApiResult<ProductPage>>(
+    `/products?${params.toString()}`,
+  );
+
+  return result.data;
 }
 
 async function fetchBranches(user: AuthUser) {
@@ -401,6 +678,34 @@ async function fetchCommercialSettings() {
   } catch (error) {
     if (error instanceof Error && error.message.includes("Route not found")) {
       return null;
+    }
+
+    throw error;
+  }
+}
+
+async function fetchNcmOptions() {
+  try {
+    return await apiGet<ApiResult<NcmOption[]>>("/fiscal/ncm-options");
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Route not found")) {
+      return { code: 200, status: "success", data: [] } as ApiResult<
+        NcmOption[]
+      >;
+    }
+
+    throw error;
+  }
+}
+
+async function fetchCestOptions() {
+  try {
+    return await apiGet<ApiResult<CestOption[]>>("/fiscal/cest-options");
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Route not found")) {
+      return { code: 200, status: "success", data: [] } as ApiResult<
+        CestOption[]
+      >;
     }
 
     throw error;

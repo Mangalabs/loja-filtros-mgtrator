@@ -5,12 +5,16 @@ export type CommercialSettings = {
   branchId: string | null;
   branchName: string | null;
   defaultProfitMarginPercentage: string;
+  defaultQuoteDueDays: number;
+  defaultQuoteValidityDays: number;
   createdAt: Date;
   updatedAt: Date;
 };
 
 export type CommercialSettingsInput = {
   defaultProfitMarginPercentage: number;
+  defaultQuoteDueDays: number;
+  defaultQuoteValidityDays: number;
 };
 
 const commercialSettingsColumns = [
@@ -18,6 +22,8 @@ const commercialSettingsColumns = [
   "commercial_settings.branch_id as branchId",
   "branches.name as branchName",
   "commercial_settings.default_profit_margin_percentage as defaultProfitMarginPercentage",
+  "commercial_settings.default_quote_due_days as defaultQuoteDueDays",
+  "commercial_settings.default_quote_validity_days as defaultQuoteValidityDays",
   "commercial_settings.created_at as createdAt",
   "commercial_settings.updated_at as updatedAt",
 ];
@@ -43,6 +49,8 @@ export async function upsertCommercialSettings(
       .where("id", existing.id)
       .update({
         default_profit_margin_percentage: input.defaultProfitMarginPercentage,
+        default_quote_due_days: input.defaultQuoteDueDays,
+        default_quote_validity_days: input.defaultQuoteValidityDays,
         updated_at: db.fn.now(),
       })
       .returning("id");
@@ -54,6 +62,8 @@ export async function upsertCommercialSettings(
     .insert({
       branch_id: branchId,
       default_profit_margin_percentage: input.defaultProfitMarginPercentage,
+      default_quote_due_days: input.defaultQuoteDueDays,
+      default_quote_validity_days: input.defaultQuoteValidityDays,
     })
     .returning("id");
 

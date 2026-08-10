@@ -3,6 +3,7 @@ import {
   apiPost,
   apiPut,
   type ApiResult,
+  type CommercialSettings,
   type Product,
   type PurchaseInvoice,
   type PurchaseInvoiceDraft,
@@ -10,10 +11,10 @@ import {
   type Supplier,
 } from "../../api";
 import { nullableFormValue } from "../../utils/forms";
-import { parsePurchaseXmlPreview } from "./purchaseXmlPreview";
 
 type StockActionsOptions = {
-  loadCatalog: () => Promise<void>;
+  commercialSettings: CommercialSettings | null;
+  refreshStockFlow: () => Promise<void>;
   requestConfirmation: (
     message: string,
     title?: string,
@@ -23,7 +24,8 @@ type StockActionsOptions = {
 };
 
 export function useStockActions({
-  loadCatalog,
+  commercialSettings,
+  refreshStockFlow,
   requestConfirmation,
   runAction,
 }: StockActionsOptions) {
@@ -42,7 +44,7 @@ export function useStockActions({
       });
 
       formElement.reset();
-      await loadCatalog();
+      await refreshStockFlow();
     });
   }
 
@@ -59,7 +61,7 @@ export function useStockActions({
       });
 
       formElement.reset();
-      await loadCatalog();
+      await refreshStockFlow();
     });
   }
 
@@ -67,7 +69,12 @@ export function useStockActions({
     let parsedInvoice: PurchaseInvoiceDraft | null = null;
 
     await runAction(async () => {
-      parsedInvoice = parsePurchaseXmlPreview(xmlContent);
+      const result = await apiPost<ApiResult<PurchaseInvoiceDraft>>(
+        "/purchase-invoices/parse-xml",
+        { xmlContent },
+      );
+
+      parsedInvoice = result.data;
     });
 
     return parsedInvoice;
@@ -90,7 +97,7 @@ export function useStockActions({
             );
 
         void result;
-        await loadCatalog();
+        await refreshStockFlow();
       } catch (error) {
         handleMissingPurchaseInvoiceRoutes(error);
       }
@@ -114,7 +121,28 @@ export function useStockActions({
         {},
       );
 
-      await loadCatalog();
+      await refreshStockFlow();
+    });
+  }
+
+  async function cancelPurchaseInvoice(invoice: PurchaseInvoice) {
+    const confirmed = await requestConfirmation(
+      "Esta acao cancela a compra importada antes de qualquer lancamento no estoque.",
+      "Cancelar compra importada",
+      "Cancelar compra",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPost<ApiResult<PurchaseInvoice>>(
+        `/purchase-invoices/${invoice.id}/cancel`,
+        {},
+      );
+
+      await refreshStockFlow();
     });
   }
 
@@ -126,17 +154,18 @@ export function useStockActions({
     await runAction(async () => {
       const result = await apiPost<ApiResult<Product>>(
         "/products",
-        productPayloadFromPurchaseItem(item),
+        productPayloadFromPurchaseItem(item, commercialSettings),
       );
 
       createdProduct = result.data;
-      await loadCatalog();
+      await refreshStockFlow();
     });
 
     return createdProduct;
   }
 
   return {
+    cancelPurchaseInvoice,
     createProductFromPurchaseItem,
     createStockAdjustment,
     createStockEntry,
@@ -146,17 +175,38 @@ export function useStockActions({
   };
 }
 
-function productPayloadFromPurchaseItem(item: PurchaseInvoiceItemDraft) {
+function productPayloadFromPurchaseItem(
+  item: PurchaseInvoiceItemDraft,
+  commercialSettings: CommercialSettings | null,
+) {
+  const profitMarginPercentage = Number(
+    commercialSettings?.defaultProfitMarginPercentage ?? 0,
+  );
+
   return {
     active: true,
     costPrice: item.unitCost,
     internalCode: item.supplierProductCode ?? "",
     minimumStock: 0,
     name: item.description,
+    cest: item.cest ?? "",
     ncm: item.ncm ?? "",
-    salePrice: item.unitCost,
+    profitMarginPercentage,
+    salePrice: suggestedSalePrice(item.unitCost, profitMarginPercentage),
     unit: productUnitFromPurchaseItem(item.unit),
   };
+}
+
+function suggestedSalePrice(costPrice: number, profitMarginPercentage: number) {
+  if (
+    !Number.isFinite(costPrice) ||
+    !Number.isFinite(profitMarginPercentage) ||
+    costPrice <= 0
+  ) {
+    return 0;
+  }
+
+  return Number((costPrice * (1 + profitMarginPercentage / 100)).toFixed(2));
 }
 
 function productUnitFromPurchaseItem(unit: string | null) {

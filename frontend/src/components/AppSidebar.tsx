@@ -102,7 +102,7 @@ export function AppSidebar({
               icon={<Percent size={18} />}
               onClick={() => onSelectView("commercial-settings")}
             >
-              Configuracao comercial
+              Configuração comercial
             </NavButton>
           ) : null}
         </NavSection>
@@ -167,14 +167,14 @@ export function AppSidebar({
             icon={<AlertTriangle size={18} />}
             onClick={() => onSelectView("low-stock")}
           >
-            Reposicao
+            Reposição
           </NavButton>
           <NavButton
             active={view === "stock-movements"}
             icon={<ArrowLeftRight size={18} />}
             onClick={() => onSelectView("stock-movements")}
           >
-            Historico
+            Histórico
           </NavButton>
         </NavSection>
 
@@ -219,7 +219,7 @@ export function AppSidebar({
                 icon={<SlidersHorizontal size={18} />}
                 onClick={() => onSelectView("fiscal-settings")}
               >
-                Configuracao fiscal
+                Configuração fiscal
               </NavButton>
             ) : null}
             {canAccess("fiscal-documents") ? (
@@ -257,7 +257,7 @@ export function AppSidebar({
             active={isSectionActive("reports")}
             icon={<SlidersHorizontal size={17} />}
             open={openSections.reports}
-            title="Relatorios"
+            title="Relatórios"
             onToggle={() => onToggleSection("reports")}
           >
             <NavButton
@@ -282,21 +282,21 @@ export function AppSidebar({
             icon={<ListIcon size={18} />}
             onClick={() => onSelectView("quotes")}
           >
-            Orcamentos
+            Orçamentos
           </NavButton>
           <NavButton
             active={view === "sales"}
             icon={<ShoppingCart size={18} />}
             onClick={() => onSelectView("sales")}
           >
-            Balcao
+            Balcão
           </NavButton>
           <NavButton
             active={view === "sales-history"}
             icon={<ReceiptText size={18} />}
             onClick={() => onSelectView("sales-history")}
           >
-            Historico
+            Histórico
           </NavButton>
           <NavButton
             active={view === "shipping-orders"}
@@ -319,7 +319,7 @@ export function AppSidebar({
             active={isSectionActive("administration")}
             icon={<Users size={17} />}
             open={openSections.administration}
-            title="Administracao"
+            title="Administração"
             onToggle={() => onToggleSection("administration")}
           >
             <NavButton
@@ -334,7 +334,7 @@ export function AppSidebar({
               icon={<Users size={18} />}
               onClick={() => onSelectView("employees")}
             >
-              Funcionarios
+              Funcionários
             </NavButton>
           </NavSection>
         ) : null}

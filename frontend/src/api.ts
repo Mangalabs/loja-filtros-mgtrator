@@ -61,6 +61,28 @@ export type Product = {
   active: boolean;
 };
 
+export type ProductPage = {
+  items: Product[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
+export type NcmOption = {
+  code: string;
+  label: string;
+  productCount: number;
+  sampleProducts: string[];
+};
+
+export type CestOption = {
+  code: string;
+  label: string;
+  productCount: number;
+  sampleProducts: string[];
+};
+
 export type NamedEntity = {
   id: string;
   name: string;
@@ -148,6 +170,7 @@ export type StockMovement = {
 };
 
 export type PurchaseInvoiceItemDraft = {
+  cest: string | null;
   cfop: string | null;
   description: string;
   ncm: string | null;
@@ -211,6 +234,7 @@ export type PurchaseInvoice = {
     position: number;
     supplierProductCode: string | null;
     description: string;
+    cest: string | null;
     ncm: string | null;
     cfop: string | null;
     unit: string | null;
@@ -449,6 +473,8 @@ export type CommercialSettings = {
   branchId: string | null;
   branchName: string | null;
   defaultProfitMarginPercentage: string;
+  defaultQuoteDueDays: number;
+  defaultQuoteValidityDays: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -459,13 +485,19 @@ export type SalesReport = {
     itemsQuantity: string;
     grossAmount: string;
     discountAmount: string;
+    costAmount: string;
     netAmount: string;
+    grossProfitAmount: string;
+    grossMarginPercentage: string;
   };
   byProduct: Array<{
     productId: string;
     productName: string;
     quantity: string;
+    costAmount: string;
     totalAmount: string;
+    grossProfitAmount: string;
+    grossMarginPercentage: string;
   }>;
   byClient: Array<{
     clientId: string | null;
@@ -477,6 +509,14 @@ export type SalesReport = {
     paymentMethodId: string;
     paymentMethodName: string;
     totalAmount: string;
+  }>;
+  abcProducts: Array<{
+    productId: string;
+    productName: string;
+    totalAmount: string;
+    revenueSharePercentage: string;
+    cumulativeRevenuePercentage: string;
+    abcClass: "A" | "B" | "C";
   }>;
 };
 
@@ -698,6 +738,13 @@ export type Quote = {
     discountAmount: string;
     totalAmount: string;
     position: number;
+  }>;
+  paymentInstallments: Array<{
+    id: string;
+    quoteId: string;
+    position: number;
+    dueDate: string;
+    amount: string;
   }>;
 };
 

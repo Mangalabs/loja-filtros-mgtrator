@@ -97,20 +97,20 @@ export function SalesHistoryPage({
   return (
     <PagePanel className='min-w-0' wide>
       <PageHeader
-        description='Consulte vendas fechadas de balcao, envio e retirada.'
+        description='Consulte vendas fechadas de balcão, envio e retirada.'
         icon={<ReceiptText size={18} />}
-        title='Historico de vendas fechadas'
+        title='Histórico de vendas fechadas'
       />
       <div className='mb-4 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] p-3 text-sm text-[#2c281e]'>
         <strong className='text-[#203466]'>Comprovante de venda:</strong>{' '}
-        use o botao de comprovante para baixar um resumo comercial da venda
-        concluida. Este arquivo nao substitui NF-e, NFC-e, DANFE ou XML fiscal.
+        use o botão de comprovante para baixar um resumo comercial da venda
+        concluída. Este arquivo não substitui NF-e, NFC-e, DANFE ou XML fiscal.
       </div>
 
       <div className='mb-4 grid gap-3 md:grid-cols-[minmax(220px,1fr)_190px_190px]'>
         <TextField
           label='Buscar'
-          placeholder='Cliente, operador ou codigo'
+          placeholder='Cliente, operador ou código'
           size='small'
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -124,7 +124,7 @@ export function SalesHistoryPage({
             setOrigin(event.target.value as SalesHistoryOrigin)
           }>
           <MenuItem value='ALL'>Todas</MenuItem>
-          <MenuItem value='SALE'>Balcao</MenuItem>
+          <MenuItem value='SALE'>Balcão</MenuItem>
           <MenuItem value='SHIPPING_ORDER'>Para envio</MenuItem>
           <MenuItem value='PICKUP_RESERVATION'>Retirada</MenuItem>
         </TextField>
@@ -180,7 +180,7 @@ export function SalesHistoryPage({
           },
           {
             align: 'right',
-            header: 'Acoes',
+            header: 'Ações',
             render: (row) => (
               <SalesHistoryActions
                 paymentMethods={paymentMethods}
@@ -365,7 +365,7 @@ function buildSalesHistoryRows({
       id: `SALE-${sale.id}`,
       netAmount: saleNetAmount(sale, sale.totalAmount),
       operatorName: sale.createdByUserName,
-      originLabel: 'Balcao',
+      originLabel: 'Balcão',
       refundAmount: saleRefundAmount(sale),
       sale,
       saleId: sale.id,

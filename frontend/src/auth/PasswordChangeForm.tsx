@@ -33,7 +33,7 @@ export function PasswordChangeForm({
 
     if (newPassword !== confirmation) {
       setMessageKind("error");
-      setMessage("A confirmacao da senha nao confere.");
+      setMessage("A confirmação da senha não confere.");
       return;
     }
 

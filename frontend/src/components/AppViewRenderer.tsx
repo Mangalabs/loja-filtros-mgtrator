@@ -2,6 +2,7 @@ import Alert from "@mui/material/Alert";
 import type {
   CashRegisterSession,
   CashReport,
+  CestOption,
   Client,
   CommercialSettings,
   AuthUser,
@@ -11,6 +12,8 @@ import type {
   PaymentMethod,
   PickupReservation,
   Product,
+  NcmOption,
+  ProductPage,
   PurchaseInvoice,
   PurchaseReport,
   Quote,
@@ -73,15 +76,19 @@ type AppViewRendererProps = {
   cashRegister: CashRegisterSession | null;
   cashReport: CashReport | null;
   catalogActions: ReturnType<typeof useCatalogActions>;
+  cestOptions: CestOption[];
   clients: Client[];
   commercialSettings: CommercialSettings | null;
   financeActions: ReturnType<typeof useFinanceActions>;
-  filteredProducts: Product[];
   fiscalDocuments: FiscalDocument[];
   fiscalSettings: FiscalSettings | null;
   lowStockProducts: Product[];
+  ncmOptions: NcmOption[];
   paymentMethods: PaymentMethod[];
   pickupReservations: PickupReservation[];
+  productPage: ProductPage;
+  productPageIndex: number;
+  productRowsPerPage: number;
   products: Product[];
   purchaseInvoices: PurchaseInvoice[];
   purchaseReport: PurchaseReport | null;
@@ -107,6 +114,7 @@ type AppViewRendererProps = {
   onCancelClient: () => void;
   onCancelProductEdit: () => void;
   onOpenQuotes: () => void;
+  onProductPageChange: (pageIndex: number, rowsPerPage?: number) => void;
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
   onLoadSalesReport: (filters?: {
     dateFrom?: string;
@@ -135,15 +143,19 @@ export function AppViewRenderer({
   cashRegister,
   cashReport,
   catalogActions,
+  cestOptions,
   clients,
   commercialSettings,
   financeActions,
-  filteredProducts,
   fiscalDocuments,
   fiscalSettings,
   lowStockProducts,
+  ncmOptions,
   paymentMethods,
   pickupReservations,
+  productPage,
+  productPageIndex,
+  productRowsPerPage,
   products,
   purchaseInvoices,
   purchaseReport,
@@ -173,6 +185,7 @@ export function AppViewRenderer({
   onLoadPurchaseReport,
   onLoadStockReport,
   onOpenQuotes,
+  onProductPageChange,
   onResolveFiscalPendency,
   onSelectView,
   onSearchChange,
@@ -183,11 +196,11 @@ export function AppViewRenderer({
     return (
       <PagePanel>
         <PageHeader
-          description="Solicite ao administrador a liberacao desta permissao para o seu usuario."
-          title="Acesso nao permitido"
+          description="Solicite ao administrador a liberação desta permissão para o seu usuário."
+          title="Acesso não permitido"
         />
         <Alert severity="warning" variant="outlined">
-          Seu usuario nao possui permissao para acessar esta tela.
+          Seu usuário não possui permissão para acessar esta tela.
         </Alert>
       </PagePanel>
     );
@@ -196,9 +209,13 @@ export function AppViewRenderer({
   const viewRenderers: Record<View, ReactNode> = {
     products: (
         <ProductsPage
-          products={filteredProducts}
+          pageIndex={productPageIndex}
+          products={productPage.items}
+          rowsPerPage={productRowsPerPage}
           search={search}
           state={state}
+          totalProducts={productPage.total}
+          onPageChange={onProductPageChange}
           onSearchChange={onSearchChange}
           onEdit={catalogActions.editProduct}
           onChangeStatus={(product) =>
@@ -209,7 +226,9 @@ export function AppViewRenderer({
     "new-product": (
         <ProductForm
           brands={brands}
+          cestOptions={cestOptions}
           commercialSettings={commercialSettings}
+          ncmOptions={ncmOptions}
           onSubmit={catalogActions.createProduct}
           submitLabel="Cadastrar produto"
         />
@@ -218,7 +237,9 @@ export function AppViewRenderer({
         <ProductForm
           key={selectedProduct.id}
           brands={brands}
+          cestOptions={cestOptions}
           commercialSettings={commercialSettings}
+          ncmOptions={ncmOptions}
           product={selectedProduct}
           onSubmit={catalogActions.updateProduct}
           onCancel={onCancelProductEdit}
@@ -244,6 +265,9 @@ export function AppViewRenderer({
           invoices={purchaseInvoices}
           products={products}
           suppliers={suppliers}
+          onCancelInvoice={(invoice) =>
+            void stockActions.cancelPurchaseInvoice(invoice)
+          }
           onCreateProductFromItem={stockActions.createProductFromPurchaseItem}
           onParseXml={stockActions.parsePurchaseInvoiceXml}
           onPostInvoice={(invoice) =>
@@ -327,6 +351,7 @@ export function AppViewRenderer({
     quotes: (
         <QuotesPage
           clients={clients}
+          commercialSettings={commercialSettings}
           paymentMethods={paymentMethods}
           products={products}
           quotes={quotes}

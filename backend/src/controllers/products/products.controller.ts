@@ -3,6 +3,7 @@ import {
   getProductById,
   listLowStockProducts,
   listProducts,
+  listProductsPage,
   updateProduct,
   updateProductStatus,
   type ProductCreateInput,
@@ -11,8 +12,13 @@ import {
 } from "../../models/products/products.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
 
-export async function indexProducts(filters: ProductListFilters) {
-  const products = await listProducts(filters);
+export async function indexProducts(
+  filters: ProductListFilters,
+  options: { includeMeta?: boolean } = {},
+) {
+  const products = options.includeMeta
+    ? await listProductsPage(filters)
+    : await listProducts(filters);
 
   return {
     code: 200,

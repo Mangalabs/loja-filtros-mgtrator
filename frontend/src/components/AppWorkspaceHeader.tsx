@@ -198,7 +198,7 @@ export function AppWorkspaceHeader({
               />
               <ProfileItem
                 label="Perfil"
-                value={user.role === "ADMIN" ? "Administrador" : "Funcionario"}
+                value={user.role === "ADMIN" ? "Administrador" : "Funcionário"}
               />
               <ProfileItem
                 label="Ultimo login"
@@ -255,7 +255,7 @@ export function AppWorkspaceHeader({
         <Metric
           active={view === "low-stock"}
           icon={<AlertTriangle size={18} />}
-          label="Reposicao"
+          label="Reposição"
           value={lowStockCount}
           onClick={() => onSelectView("low-stock")}
         />

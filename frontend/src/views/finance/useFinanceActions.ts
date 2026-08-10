@@ -9,7 +9,9 @@ import {
 } from "../../api";
 
 type FinanceActionsOptions = {
-  loadCatalog: () => Promise<void>;
+  refreshCashFlow: () => Promise<void>;
+  refreshFiscalFlow: () => Promise<void>;
+  refreshPaymentMethods: () => Promise<void>;
   requestConfirmation: (
     message: string,
     title?: string,
@@ -19,7 +21,9 @@ type FinanceActionsOptions = {
 };
 
 export function useFinanceActions({
-  loadCatalog,
+  refreshCashFlow,
+  refreshFiscalFlow,
+  refreshPaymentMethods,
   requestConfirmation,
   runAction,
 }: FinanceActionsOptions) {
@@ -34,7 +38,7 @@ export function useFinanceActions({
       });
 
       formElement.reset();
-      await loadCatalog();
+      await refreshCashFlow();
     });
   }
 
@@ -60,7 +64,7 @@ export function useFinanceActions({
       });
 
       formElement.reset();
-      await loadCatalog();
+      await refreshCashFlow();
     });
   }
 
@@ -94,7 +98,7 @@ export function useFinanceActions({
       });
 
       formElement.reset();
-      await loadCatalog();
+      await refreshCashFlow();
     });
   }
 
@@ -113,7 +117,7 @@ export function useFinanceActions({
       await apiPatch(`/payment-methods/${paymentMethod.id}/status`, {
         active: !paymentMethod.active,
       });
-      await loadCatalog();
+      await refreshPaymentMethods();
     });
   }
 
@@ -139,14 +143,14 @@ export function useFinanceActions({
 
     await runAction(async () => {
       await apiPut("/fiscal-settings", input);
-      await loadCatalog();
+      await refreshFiscalFlow();
     });
   }
 
   async function syncFiscalDocument(fiscalDocument: FiscalDocument) {
     await runAction(async () => {
       await apiPatch(`/fiscal-documents/${fiscalDocument.id}/sync`, {});
-      await loadCatalog();
+      await refreshFiscalFlow();
     });
   }
 
@@ -174,7 +178,7 @@ export function useFinanceActions({
       });
 
       formElement.reset();
-      await loadCatalog();
+      await refreshFiscalFlow();
     });
   }
 

@@ -22,7 +22,7 @@ import type {
   StockReport,
 } from "../../api";
 import { PageHeader, PagePanel, ResponsiveTable } from "../../components/layout";
-import { StatusChip } from "../../components/ui";
+import { StatusChip, type StatusTone } from "../../components/ui";
 import { frontendPalette } from "../../theme";
 import {
   formatCurrency,
@@ -266,7 +266,7 @@ function SalesReportSection({
         icon={<CircleDollarSign size={18} />}
         title="Relatorio comercial"
       />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <ReportMetric
           icon={<ShoppingCart size={18} />}
           label="Vendas"
@@ -283,11 +283,24 @@ function SalesReportSection({
           value={formatCurrency(salesReport.summary.grossAmount)}
         />
         <ReportMetric
+          icon={<PackageSearch size={18} />}
+          label="Custo"
+          value={formatCurrency(salesReport.summary.costAmount)}
+        />
+        <ReportMetric
+          icon={<CircleDollarSign size={18} />}
+          label="Lucro"
+          value={formatCurrency(salesReport.summary.grossProfitAmount)}
+        />
+        <ReportMetric
           icon={<CircleDollarSign size={18} />}
           label="Liquido"
           value={formatCurrency(salesReport.summary.netAmount)}
         />
       </div>
+      <span className="text-sm text-[#5f665f]">
+        Margem geral: {salesReport.summary.grossMarginPercentage}%
+      </span>
 
       <div className="mt-5 grid gap-4 xl:grid-cols-3">
         <ResponsiveTable
@@ -305,6 +318,21 @@ function SalesReportSection({
               align: "right",
               header: "Total",
               render: (item) => formatCurrency(item.totalAmount),
+            },
+            {
+              align: "right",
+              header: "Custo",
+              render: (item) => formatCurrency(item.costAmount),
+            },
+            {
+              align: "right",
+              header: "Lucro",
+              render: (item) => formatCurrency(item.grossProfitAmount),
+            },
+            {
+              align: "right",
+              header: "Margem",
+              render: (item) => `${item.grossMarginPercentage}%`,
             },
           ]}
           emptyMessage="Nenhuma venda por produto."
@@ -354,6 +382,41 @@ function SalesReportSection({
           emptyMessage="Nenhuma venda por pagamento."
           getRowId={(item) => item.paymentMethodId}
           items={salesReport.byPaymentMethod}
+        />
+      </div>
+
+      <div className="mt-5">
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Produto",
+              render: (item) => item.productName,
+            },
+            {
+              align: "right",
+              header: "Faturamento",
+              render: (item) => formatCurrency(item.totalAmount),
+            },
+            {
+              align: "right",
+              header: "Part.",
+              render: (item) => `${item.revenueSharePercentage}%`,
+            },
+            {
+              align: "right",
+              header: "Acumulado",
+              render: (item) => `${item.cumulativeRevenuePercentage}%`,
+            },
+            {
+              header: "Classe",
+              render: (item) => (
+                <StatusChip label={item.abcClass} tone={abcTone(item.abcClass)} />
+              ),
+            },
+          ]}
+          emptyMessage="Nenhum produto para curva ABC."
+          getRowId={(item) => item.productId}
+          items={salesReport.abcProducts}
         />
       </div>
     </PagePanel>
@@ -874,6 +937,18 @@ type SalesReportFilters = {
   dateFrom?: string;
   dateTo?: string;
 };
+
+function abcTone(abcClass: "A" | "B" | "C"): StatusTone {
+  if (abcClass === "A") {
+    return "success";
+  }
+
+  if (abcClass === "B") {
+    return "warning";
+  }
+
+  return "neutral";
+}
 
 function ReportDetail({ label, value }: { label: string; value: string }) {
   return (

@@ -11,7 +11,7 @@ import { formatQuantity } from "../../utils/format";
 import type { PickupReservationDraftInput, SaleDraftInput } from "./SalesPages";
 
 type SalesActionsOptions = {
-  loadCatalog: () => Promise<void>;
+  refreshSalesFlow: () => Promise<void>;
   requestConfirmation: (
     message: string,
     title?: string,
@@ -19,13 +19,17 @@ type SalesActionsOptions = {
   ) => Promise<boolean>;
   products: Product[];
   runAction: (action: () => Promise<void>) => Promise<boolean>;
+  showFiscalDocuments: () => void;
+  showSalesHistory: () => void;
 };
 
 export function useSalesActions({
-  loadCatalog,
   products,
+  refreshSalesFlow,
   requestConfirmation,
   runAction,
+  showFiscalDocuments,
+  showSalesHistory,
 }: SalesActionsOptions) {
   async function createSale(input: SaleDraftInput) {
     const allowInsufficientStock = await confirmInsufficientStockIfNeeded(
@@ -43,7 +47,8 @@ export function useSalesActions({
         ...input,
         allowInsufficientStock,
       });
-      await loadCatalog();
+      showSalesHistory();
+      await refreshSalesFlow();
     });
   }
 
@@ -62,7 +67,8 @@ export function useSalesActions({
       await apiPost(`/sales/${sale.id}/fiscal-documents`, {
         documentType: "NFE",
       });
-      await loadCatalog();
+      showFiscalDocuments();
+      await refreshSalesFlow();
     });
   }
 
@@ -108,7 +114,7 @@ export function useSalesActions({
         ...optionalPayloadField("refundReference", refundReference),
       });
       formElement.reset();
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -127,7 +133,8 @@ export function useSalesActions({
       await apiPost(`/shipping-orders/${order.id}/fiscal-documents`, {
         documentType: "NFE",
       });
-      await loadCatalog();
+      showFiscalDocuments();
+      await refreshSalesFlow();
     });
   }
 
@@ -148,7 +155,8 @@ export function useSalesActions({
       await apiPost(`/pickup-reservations/${reservation.id}/fiscal-documents`, {
         documentType: "NFE",
       });
-      await loadCatalog();
+      showFiscalDocuments();
+      await refreshSalesFlow();
     });
   }
 
@@ -181,7 +189,7 @@ export function useSalesActions({
       await apiPatch(`/shipping-orders/${order.id}/approve`, {
         allowInsufficientStock,
       });
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -207,7 +215,7 @@ export function useSalesActions({
       await apiPatch(`/shipping-orders/${order.id}/cancel`, {
         reason: String(form.get("shippingCancellationReason") ?? "").trim(),
       });
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -224,7 +232,7 @@ export function useSalesActions({
 
     await runAction(async () => {
       await apiPatch(`/shipping-orders/${order.id}/separate`, {});
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -262,7 +270,8 @@ export function useSalesActions({
         billingDueDate: formDateValue(form, "shippingBillingDueDate"),
         allowInsufficientStock,
       });
-      await loadCatalog();
+      showSalesHistory();
+      await refreshSalesFlow();
     });
   }
 
@@ -282,7 +291,7 @@ export function useSalesActions({
         ...input,
         allowInsufficientStock,
       });
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -308,7 +317,7 @@ export function useSalesActions({
       await apiPatch(`/pickup-reservations/${reservation.id}/cancel`, {
         reason: String(form.get("pickupCancellationReason") ?? "").trim(),
       });
-      await loadCatalog();
+      await refreshSalesFlow();
     });
   }
 
@@ -346,7 +355,8 @@ export function useSalesActions({
         billingDueDate: formDateValue(form, "pickupBillingDueDate"),
         allowInsufficientStock,
       });
-      await loadCatalog();
+      showSalesHistory();
+      await refreshSalesFlow();
     });
   }
 

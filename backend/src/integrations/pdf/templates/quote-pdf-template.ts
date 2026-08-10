@@ -80,6 +80,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
               <span>Forma de pagamento</span>
               <strong>${escapeHtml(quote.paymentMethodName ?? "Nao informada")}</strong>
             </div>
+            ${quote.paymentInstallments.length > 0 ? quoteInstallmentsHtml(quote) : ""}
           </section>
 
           <table class="items-table">
@@ -139,6 +140,29 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
         </div>
       </body>
     </html>
+  `;
+}
+
+function quoteInstallmentsHtml(quote: Quote) {
+  const rows = quote.paymentInstallments
+    .map(
+      (installment) => `
+        <tr>
+          <td>${installment.position}</td>
+          <td>${formatDate(installment.dueDate)}</td>
+          <td class="text-right">${formatCurrency(installment.amount)}</td>
+        </tr>
+      `,
+    )
+    .join("");
+
+  return `
+    <div class="installments-box">
+      <strong>Parcelamento</strong>
+      <table>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
   `;
 }
 
@@ -314,6 +338,22 @@ function quotePdfCss() {
     .payment-highlight strong {
       color: #1a365d;
       font-size: 10pt;
+    }
+    .installments-box {
+      border-top: 1px solid #e2e8f0;
+      margin-top: 8px;
+      padding-top: 8px;
+    }
+    .installments-box strong {
+      color: #1a365d;
+      display: block;
+      font-size: 8pt;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+    .installments-box td {
+      font-size: 7.6pt;
+      padding: 4px 5px;
     }
     table {
       border-collapse: collapse;

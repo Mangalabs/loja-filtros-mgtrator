@@ -1,4 +1,5 @@
 import { db } from "../../database/knex.js";
+import type { Knex } from "knex";
 
 export type ProductListFilters = {
   search?: string;
@@ -6,6 +7,14 @@ export type ProductListFilters = {
   branchId?: string | null;
   page: number;
   limit: number;
+};
+
+export type ProductListPage = {
+  items: ProductListItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 };
 
 export type ProductListItem = {
@@ -74,31 +83,29 @@ export async function listProducts(
     .leftJoin("brands", "brands.id", "products.brand_id")
     .leftJoin("product_groups", "product_groups.id", "products.group_id")
     .select(productListColumns())
-    .modify((query) => {
-      if (filters.search) {
-        query.where((builder) => {
-          builder
-            .whereILike("products.name", `%${filters.search}%`)
-            .orWhereILike("products.internal_code", `%${filters.search}%`)
-            .orWhereILike("products.barcode", `%${filters.search}%`)
-            .orWhereILike("brands.name", `%${filters.search}%`)
-            .orWhereILike("products.location", `%${filters.search}%`);
-        });
-      }
-
-      if (typeof filters.active === "boolean") {
-        query.where("products.active", filters.active);
-      }
-
-      if (filters.branchId) {
-        query.where("products.branch_id", filters.branchId);
-      }
-    })
+    .modify((query) => applyProductFilters(query, filters))
     .orderBy("products.name", "asc")
     .limit(filters.limit)
     .offset(offset);
 
   return rows;
+}
+
+export async function listProductsPage(
+  filters: ProductListFilters,
+): Promise<ProductListPage> {
+  const [items, total] = await Promise.all([
+    listProducts(filters),
+    countProducts(filters),
+  ]);
+
+  return {
+    items,
+    total,
+    page: filters.page,
+    limit: filters.limit,
+    totalPages: Math.max(1, Math.ceil(total / filters.limit)),
+  };
 }
 
 export async function listLowStockProducts(filters: {
@@ -121,6 +128,40 @@ export async function listLowStockProducts(filters: {
     )
     .orderByRaw("products.current_stock - products.reserved_stock asc")
     .orderBy("products.name", "asc");
+}
+
+async function countProducts(filters: ProductListFilters) {
+  const result = await db("products")
+    .leftJoin("brands", "brands.id", "products.brand_id")
+    .count<{ count: string }>("products.id as count")
+    .modify((query) => applyProductFilters(query, filters))
+    .first();
+
+  return Number(result?.count ?? 0);
+}
+
+function applyProductFilters(
+  query: Knex.QueryBuilder,
+  filters: ProductListFilters,
+) {
+  if (filters.search) {
+    query.where((builder) => {
+      builder
+        .whereILike("products.name", `%${filters.search}%`)
+        .orWhereILike("products.internal_code", `%${filters.search}%`)
+        .orWhereILike("products.barcode", `%${filters.search}%`)
+        .orWhereILike("brands.name", `%${filters.search}%`)
+        .orWhereILike("products.location", `%${filters.search}%`);
+    });
+  }
+
+  if (typeof filters.active === "boolean") {
+    query.where("products.active", filters.active);
+  }
+
+  if (filters.branchId) {
+    query.where("products.branch_id", filters.branchId);
+  }
 }
 
 export async function createProduct(

@@ -1,3 +1,4 @@
+import Autocomplete from "@mui/material/Autocomplete";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import {
@@ -16,7 +17,9 @@ import type {
   Client,
   ClientCompanyLookup,
   CommercialSettings,
+  CestOption,
   NamedEntity,
+  NcmOption,
   Product,
   Supplier,
 } from "../../api";
@@ -43,15 +46,23 @@ type LoadState = "idle" | "loading" | "ready" | "error";
 
 export function ProductsPage({
   products,
+  pageIndex,
+  rowsPerPage,
   search,
   state,
+  totalProducts,
+  onPageChange,
   onSearchChange,
   onEdit,
   onChangeStatus,
 }: {
   products: Product[];
+  pageIndex: number;
+  rowsPerPage: number;
   search: string;
   state: LoadState;
+  totalProducts: number;
+  onPageChange: (pageIndex: number, rowsPerPage?: number) => void;
   onSearchChange: (value: string) => void;
   onEdit: (product: Product) => void;
   onChangeStatus: (product: Product) => void;
@@ -63,7 +74,7 @@ export function ProductsPage({
           <TextField
             className="min-w-full md:min-w-80"
             label="Buscar produto"
-            placeholder="Nome, codigo, fabricante ou locacao"
+            placeholder="Nome, código, fabricante ou locação"
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
           />
@@ -73,8 +84,11 @@ export function ProductsPage({
       />
 
       <ProductTable
+        pageIndex={pageIndex}
         products={products}
-        resetKey={search}
+        rowsPerPage={rowsPerPage}
+        totalProducts={totalProducts}
+        onPageChange={onPageChange}
         onEdit={onEdit}
         onChangeStatus={onChangeStatus}
       />
@@ -84,17 +98,21 @@ export function ProductsPage({
 
 function ProductTable({
   products,
-  resetKey,
+  pageIndex,
+  rowsPerPage,
+  totalProducts,
+  onPageChange,
   onEdit,
   onChangeStatus,
 }: {
   products: Product[];
-  resetKey: string;
+  pageIndex: number;
+  rowsPerPage: number;
+  totalProducts: number;
+  onPageChange: (pageIndex: number, rowsPerPage?: number) => void;
   onEdit: (product: Product) => void;
   onChangeStatus: (product: Product) => void;
 }) {
-  const { pagination, visibleItems } = usePaginatedRows(products, resetKey);
-
   return (
     <ResponsiveTable
       columns={[
@@ -149,7 +167,7 @@ function ProductTable({
         },
         {
           align: "right",
-          header: "Acoes",
+          header: "Ações",
           render: (product) => (
             <div className="flex justify-end">
               <TableActionsMenu
@@ -176,22 +194,33 @@ function ProductTable({
       ]}
       emptyMessage="Nenhum produto encontrado."
       getRowId={(product) => product.id}
-      items={visibleItems}
-      pagination={pagination}
+      items={products}
+      pagination={{
+        count: totalProducts,
+        page: pageIndex,
+        rowsPerPage,
+        onPageChange: (page) => onPageChange(page),
+        onRowsPerPageChange: (nextRowsPerPage) =>
+          onPageChange(0, nextRowsPerPage),
+      }}
     />
   );
 }
 
 export function ProductForm({
   brands,
+  cestOptions,
   commercialSettings,
+  ncmOptions,
   product,
   onSubmit,
   onCancel,
   submitLabel,
 }: {
   brands: NamedEntity[];
+  cestOptions: CestOption[];
   commercialSettings: CommercialSettings | null;
+  ncmOptions: NcmOption[];
   product?: Product;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCancel?: () => void;
@@ -208,6 +237,8 @@ export function ProductForm({
   const [salePriceTouched, setSalePriceTouched] = useState(
     Boolean(product?.salePrice),
   );
+  const [cestValue, setCestValue] = useState(product?.cest ?? "");
+  const [ncmValue, setNcmValue] = useState(product?.ncm ?? "");
 
   useEffect(() => {
     setCostPrice(product?.costPrice ?? "");
@@ -216,10 +247,14 @@ export function ProductForm({
       product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
     );
     setSalePriceTouched(Boolean(product?.salePrice));
+    setCestValue(product?.cest ?? "");
+    setNcmValue(product?.ncm ?? "");
   }, [
     defaultProfitMarginPercentage,
+    product?.cest,
     product?.costPrice,
     product?.id,
+    product?.ncm,
     product?.profitMarginPercentage,
     product?.salePrice,
   ]);
@@ -330,16 +365,76 @@ export function ProductForm({
           defaultValue={product?.minimumStock}
           slotProps={{ htmlInput: { step: "0.001" } }}
         />
-        <TextField
-          label="NCM"
-          name="ncm"
-          defaultValue={product?.ncm ?? ""}
+        <Autocomplete
+          freeSolo
+          inputValue={ncmValue}
+          options={ncmOptions}
+          filterOptions={(options, state) =>
+            filterFiscalCodeOptions(options, state.inputValue)
+          }
+          getOptionLabel={(option) =>
+            typeof option === "string" ? option : option.code
+          }
+          onChange={(_event, option) =>
+            setNcmValue(
+              typeof option === "string" ? option : option?.code ?? "",
+            )
+          }
+          onInputChange={(_event, value) => setNcmValue(value)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              helperText="Digite o NCM ou busque pelos produtos do inventário."
+              label="NCM"
+            />
+          )}
+          renderOption={(props, option) => (
+            <li {...props} key={option.code}>
+              <div className="grid gap-0.5">
+                <strong>{option.code}</strong>
+                <span className="text-xs text-[#5f665f]">
+                  {option.label} ({option.productCount} itens)
+                </span>
+              </div>
+            </li>
+          )}
         />
-        <TextField
-          label="CEST"
-          name="cest"
-          defaultValue={product?.cest ?? ""}
+        <input name="ncm" type="hidden" value={ncmValue.trim()} />
+        <Autocomplete
+          freeSolo
+          inputValue={cestValue}
+          options={cestOptions}
+          filterOptions={(options, state) =>
+            filterFiscalCodeOptions(options, state.inputValue)
+          }
+          getOptionLabel={(option) =>
+            typeof option === "string" ? option : option.code
+          }
+          onChange={(_event, option) =>
+            setCestValue(
+              typeof option === "string" ? option : option?.code ?? "",
+            )
+          }
+          onInputChange={(_event, value) => setCestValue(value)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              helperText="Digite o CEST ou busque pelos produtos cadastrados."
+              label="CEST"
+            />
+          )}
+          renderOption={(props, option) => (
+            <li {...props} key={option.code}>
+              <div className="grid gap-0.5">
+                <strong>{option.code}</strong>
+                <span className="text-xs text-[#5f665f]">
+                  {option.label} ({option.productCount} itens)
+                </span>
+              </div>
+            </li>
+          )}
         />
+        <input name="cest" type="hidden" value={cestValue.trim()} />
       </FormRow>
       <FormRow>
         <TextField
@@ -357,8 +452,8 @@ export function ProductForm({
       </FormRow>
       <TextField
         defaultValue={product?.description ?? ""}
-        helperText="Texto exibido em orcamentos quando precisar separar o nome interno do texto comercial."
-        label="Descricao comercial para orcamento"
+        helperText="Texto exibido em orçamentos quando precisar separar o nome interno do texto comercial."
+        label="Descrição comercial para orçamento"
         multiline
         name="description"
         rows={3}
@@ -367,7 +462,7 @@ export function ProductForm({
       <div className="grid gap-1 border-t border-[#e4e9e5] pt-4">
         <strong className="text-[#2c281e]">Tributacao para NF-e</strong>
         <span className="text-sm text-[#5f665f]">
-          Campos usados pela integracao fiscal quando houver emissao de nota.
+          Campos usados pela integração fiscal quando houver emissão de nota.
         </span>
       </div>
       <FormRow columns={3}>
@@ -419,18 +514,58 @@ function suggestedSalePrice(costPrice: string, profitMarginPercentage: string) {
   return (cost * (1 + margin / 100)).toFixed(2);
 }
 
+function filterFiscalCodeOptions<
+  Option extends {
+    code: string;
+    label: string;
+    sampleProducts: string[];
+  },
+>(
+  options: Option[],
+  inputValue: string,
+): Option[] {
+  const search = normalizeSearch(inputValue);
+
+  if (!search) {
+    return options;
+  }
+
+  return options.filter((option) => matchesFiscalCodeOption(option, search));
+}
+
+function matchesFiscalCodeOption(
+  option: {
+    code: string;
+    label: string;
+    sampleProducts: string[];
+  },
+  search: string,
+) {
+  return [option.code, option.label, ...option.sampleProducts]
+    .map((value) => normalizeSearch(value))
+    .some((value) => value.includes(search));
+}
+
+function normalizeSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function salePriceHelperText(profitMarginPercentage: string) {
   const margin = Number(profitMarginPercentage);
 
   if (!Number.isFinite(margin) || margin <= 0) {
-    return "Configure uma margem comercial para sugerir o preco automaticamente.";
+    return "Configure uma margem comercial para sugerir o preço automaticamente.";
   }
 
   return `Sugestao automatica pela margem de ${margin.toLocaleString("pt-BR")}%`;
 }
 
 function profitMarginHelperText(defaultProfitMarginPercentage: number) {
-  return `Preenchido pela margem padrao de ${defaultProfitMarginPercentage.toLocaleString("pt-BR")}%, mas pode variar por produto.`;
+  return `Preenchido pela margem padrão de ${defaultProfitMarginPercentage.toLocaleString("pt-BR")}%, mas pode variar por produto.`;
 }
 
 export function NamedEntityPage({
@@ -734,7 +869,7 @@ export function ClientsPage({
         />
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            label="Numero"
+            label="Número"
             name="clientAddressNumber"
             value={clientFieldValue(
               "clientAddressNumber",
@@ -863,7 +998,7 @@ export function ClientsPage({
             },
             {
               align: "right",
-              header: "Acoes",
+              header: "Ações",
               render: (client) => (
                 <div className="flex justify-end">
                   <TableActionsMenu
