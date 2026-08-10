@@ -3,6 +3,7 @@ import {
   apiPost,
   apiPut,
   type ApiResult,
+  type CommercialSettings,
   type Product,
   type PurchaseInvoice,
   type PurchaseInvoiceDraft,
@@ -12,6 +13,7 @@ import {
 import { nullableFormValue } from "../../utils/forms";
 
 type StockActionsOptions = {
+  commercialSettings: CommercialSettings | null;
   refreshStockFlow: () => Promise<void>;
   requestConfirmation: (
     message: string,
@@ -22,6 +24,7 @@ type StockActionsOptions = {
 };
 
 export function useStockActions({
+  commercialSettings,
   refreshStockFlow,
   requestConfirmation,
   runAction,
@@ -130,7 +133,7 @@ export function useStockActions({
     await runAction(async () => {
       const result = await apiPost<ApiResult<Product>>(
         "/products",
-        productPayloadFromPurchaseItem(item),
+        productPayloadFromPurchaseItem(item, commercialSettings),
       );
 
       createdProduct = result.data;
@@ -150,7 +153,14 @@ export function useStockActions({
   };
 }
 
-function productPayloadFromPurchaseItem(item: PurchaseInvoiceItemDraft) {
+function productPayloadFromPurchaseItem(
+  item: PurchaseInvoiceItemDraft,
+  commercialSettings: CommercialSettings | null,
+) {
+  const profitMarginPercentage = Number(
+    commercialSettings?.defaultProfitMarginPercentage ?? 0,
+  );
+
   return {
     active: true,
     costPrice: item.unitCost,
@@ -159,9 +169,22 @@ function productPayloadFromPurchaseItem(item: PurchaseInvoiceItemDraft) {
     name: item.description,
     cest: item.cest ?? "",
     ncm: item.ncm ?? "",
-    salePrice: item.unitCost,
+    profitMarginPercentage,
+    salePrice: suggestedSalePrice(item.unitCost, profitMarginPercentage),
     unit: productUnitFromPurchaseItem(item.unit),
   };
+}
+
+function suggestedSalePrice(costPrice: number, profitMarginPercentage: number) {
+  if (
+    !Number.isFinite(costPrice) ||
+    !Number.isFinite(profitMarginPercentage) ||
+    costPrice <= 0
+  ) {
+    return 0;
+  }
+
+  return Number((costPrice * (1 + profitMarginPercentage / 100)).toFixed(2));
 }
 
 function productUnitFromPurchaseItem(unit: string | null) {

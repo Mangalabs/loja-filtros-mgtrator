@@ -130,6 +130,7 @@ export function AuthenticatedApp({
   });
 
   const stockActions = useStockActions({
+    commercialSettings,
     refreshStockFlow,
     requestConfirmation,
     runAction,
