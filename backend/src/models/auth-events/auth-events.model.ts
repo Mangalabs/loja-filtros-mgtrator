@@ -62,6 +62,12 @@ export type AuthEventPage = {
   };
 };
 
+export type RecentLoginFailureFilters = {
+  email: string;
+  ipAddress?: string | null;
+  since: Date;
+};
+
 type Database = Knex | Knex.Transaction;
 
 export async function createAuthEvent(
@@ -112,6 +118,25 @@ export async function listAuthEvents(
       limit: filters.limit,
     },
   };
+}
+
+export async function countRecentLoginFailures(
+  filters: RecentLoginFailureFilters,
+  database: Database = db,
+): Promise<number> {
+  const [{ count }] = await database("auth_events")
+    .where("event_type", "LOGIN_FAILURE")
+    .where("created_at", ">=", filters.since)
+    .where((query) => {
+      query.whereRaw("lower(email) = lower(?)", [filters.email]);
+
+      if (filters.ipAddress) {
+        query.orWhere("ip_address", filters.ipAddress);
+      }
+    })
+    .count<{ count: string }[]>({ count: "*" });
+
+  return Number(count);
 }
 
 function applyAuthEventFilters(

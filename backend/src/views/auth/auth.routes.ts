@@ -74,7 +74,6 @@ authRoutes.post(
 
 authRoutes.post(
   "/auth/login",
-  authenticationRateLimit,
   async (request, response) => {
     const body = validateBody(request, credentialsSchema);
     const result = await authenticateUser(body, authRequestMetadata(request));

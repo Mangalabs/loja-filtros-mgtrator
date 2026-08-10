@@ -1106,6 +1106,47 @@ describe("catalog routes", () => {
     );
   });
 
+  it("limits repeated invalid login attempts without blocking a valid password", async () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const invalidLogin = await request("/auth/login", {
+        method: "POST",
+        authenticated: false,
+        body: {
+          email: "admin@example.com",
+          password: `senha-incorreta-${attempt}`,
+        },
+      });
+
+      assert.equal(invalidLogin.status, 401);
+      assert.equal(invalidLogin.body.message, "Email ou senha invalidos.");
+    }
+
+    const blockedInvalidLogin = await request("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "admin@example.com",
+        password: "senha-incorreta-final",
+      },
+    });
+    const validLogin = await request<User>("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "admin@example.com",
+        password: "senha-segura-123",
+      },
+    });
+
+    assert.equal(blockedInvalidLogin.status, 429);
+    assert.equal(
+      blockedInvalidLogin.body.message,
+      "Muitas tentativas de autenticacao. Tente novamente mais tarde.",
+    );
+    assert.equal(validLogin.status, 200);
+    assert.equal(validLogin.body.data?.email, "admin@example.com");
+  });
+
   it("shows and updates fiscal settings with production guard", async () => {
     const blocked = await request("/fiscal-settings", {
       authenticated: false,

@@ -1,5 +1,8 @@
 import { db } from "../../database/knex.js";
-import { createAuthEvent } from "../../models/auth-events/auth-events.model.js";
+import {
+  countRecentLoginFailures,
+  createAuthEvent,
+} from "../../models/auth-events/auth-events.model.js";
 import {
   createUser,
   findActiveUserById,
@@ -36,6 +39,10 @@ export type ChangePasswordInput = {
 const dummyPasswordHash = hashPassword(
   "timing-check-password-not-used-for-login",
 );
+const loginFailureLimit = 10;
+const loginFailureWindowMs = 15 * 60 * 1000;
+const loginFailureLimitMessage =
+  "Muitas tentativas de autenticacao. Tente novamente mais tarde.";
 
 export async function showSetupStatus() {
   return {
@@ -92,6 +99,11 @@ export async function authenticateUser(
   const passwordIsValid = await verifyPassword(input.password, passwordHash);
 
   if (!user || !user.active || !passwordIsValid) {
+    const failureCount = await countRecentLoginFailures({
+      email: input.email,
+      ipAddress: metadata.ipAddress,
+      since: new Date(Date.now() - loginFailureWindowMs),
+    });
     await createAuthEvent({
       userId: user?.id,
       email: input.email,
@@ -100,7 +112,9 @@ export async function authenticateUser(
       ...metadata,
     });
 
-    throw new AppError("Email ou senha invalidos.", 401);
+    throw failureCount >= loginFailureLimit
+      ? new AppError(loginFailureLimitMessage, 429)
+      : new AppError("Email ou senha invalidos.", 401);
   }
 
   await createAuthEvent({
