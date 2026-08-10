@@ -48,6 +48,7 @@ type PurchaseInvoicesPageProps = {
   onCreateProductFromItem: (
     item: PurchaseInvoiceDraft["items"][number],
   ) => Promise<Product | null>;
+  onCancelInvoice: (invoice: PurchaseInvoice) => void;
   onParseXml: (xmlContent: string) => Promise<PurchaseInvoiceDraft | null>;
   onPostInvoice: (invoice: PurchaseInvoice) => void;
   onSaveReview: (
@@ -60,6 +61,7 @@ export function PurchaseInvoicesPage({
   invoices,
   products,
   suppliers,
+  onCancelInvoice,
   onCreateProductFromItem,
   onParseXml,
   onPostInvoice,
@@ -465,6 +467,12 @@ export function PurchaseInvoicesPage({
                       icon: <PackageCheck size={16} />,
                       label: "Lancar no estoque",
                       onSelect: () => onPostInvoice(invoice),
+                    },
+                    {
+                      disabled: invoice.status !== "IMPORTED",
+                      icon: <RotateCcw size={16} />,
+                      label: "Cancelar importacao",
+                      onSelect: () => onCancelInvoice(invoice),
                     },
                   ]}
                 />

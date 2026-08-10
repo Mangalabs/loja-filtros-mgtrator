@@ -5,6 +5,7 @@ import {
   insertPurchaseInvoice,
   findPurchaseInvoiceStatus,
   listPurchaseInvoices,
+  markPurchaseInvoiceAsCancelled,
   markPurchaseInvoiceAsPosted,
   productsExist,
   supplierExists,
@@ -155,6 +156,31 @@ export async function postPurchaseInvoice(
     }
 
     return markPurchaseInvoiceAsPosted(transaction, id, branchId);
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: invoice,
+  };
+}
+
+export async function cancelPurchaseInvoice(id: string, branchId: string) {
+  const invoice = await db.transaction(async (transaction) => {
+    const status = await findPurchaseInvoiceStatus(transaction, id, branchId);
+
+    if (!status) {
+      throw new AppError("Compra importada nao encontrada.", 404);
+    }
+
+    if (status !== "IMPORTED") {
+      throw new AppError(
+        "Somente compras importadas podem ser canceladas antes do lancamento.",
+        409,
+      );
+    }
+
+    return markPurchaseInvoiceAsCancelled(transaction, id, branchId);
   });
 
   return {

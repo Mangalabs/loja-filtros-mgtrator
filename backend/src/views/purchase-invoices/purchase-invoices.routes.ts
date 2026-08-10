@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  cancelPurchaseInvoice,
   importPurchaseInvoiceXml,
   indexPurchaseInvoices,
   parsePurchaseInvoiceXml,
@@ -191,6 +192,20 @@ purchaseInvoicesRoutes.post(
     const result = await postPurchaseInvoice(
       id,
       userId,
+      requireActiveBranchId(response.locals),
+    );
+
+    response.status(200).json(result);
+  },
+);
+
+purchaseInvoicesRoutes.post(
+  "/purchase-invoices/:id/cancel",
+  requirePermission("IMPORT_PURCHASE_INVOICES"),
+  async (request, response) => {
+    const { id } = purchaseInvoiceParamsSchema.parse(request.params);
+    const result = await cancelPurchaseInvoice(
+      id,
       requireActiveBranchId(response.locals),
     );
 

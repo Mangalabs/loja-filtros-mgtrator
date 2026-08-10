@@ -125,6 +125,27 @@ export function useStockActions({
     });
   }
 
+  async function cancelPurchaseInvoice(invoice: PurchaseInvoice) {
+    const confirmed = await requestConfirmation(
+      "Esta acao cancela a compra importada antes de qualquer lancamento no estoque.",
+      "Cancelar compra importada",
+      "Cancelar compra",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPost<ApiResult<PurchaseInvoice>>(
+        `/purchase-invoices/${invoice.id}/cancel`,
+        {},
+      );
+
+      await refreshStockFlow();
+    });
+  }
+
   async function createProductFromPurchaseItem(
     item: PurchaseInvoiceItemDraft,
   ) {
@@ -144,6 +165,7 @@ export function useStockActions({
   }
 
   return {
+    cancelPurchaseInvoice,
     createProductFromPurchaseItem,
     createStockAdjustment,
     createStockEntry,

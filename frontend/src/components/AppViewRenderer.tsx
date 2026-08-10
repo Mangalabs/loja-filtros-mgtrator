@@ -265,6 +265,9 @@ export function AppViewRenderer({
           invoices={purchaseInvoices}
           products={products}
           suppliers={suppliers}
+          onCancelInvoice={(invoice) =>
+            void stockActions.cancelPurchaseInvoice(invoice)
+          }
           onCreateProductFromItem={stockActions.createProductFromPurchaseItem}
           onParseXml={stockActions.parsePurchaseInvoiceXml}
           onPostInvoice={(invoice) =>

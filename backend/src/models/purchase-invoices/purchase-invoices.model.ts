@@ -278,6 +278,27 @@ export async function markPurchaseInvoiceAsPosted(
   return invoice;
 }
 
+export async function markPurchaseInvoiceAsCancelled(
+  transaction: Knex.Transaction,
+  id: string,
+  branchId: string,
+): Promise<PurchaseInvoice> {
+  await transaction("purchase_invoices")
+    .where({ id, branch_id: branchId })
+    .update({
+      status: "CANCELLED",
+      updated_at: transaction.fn.now(),
+    });
+
+  const invoice = await findPurchaseInvoiceById(transaction, id, branchId);
+
+  if (!invoice) {
+    throw new Error("Purchase invoice was not found after cancellation");
+  }
+
+  return invoice;
+}
+
 export async function updatePurchaseInvoiceReview(
   transaction: Knex.Transaction,
   id: string,

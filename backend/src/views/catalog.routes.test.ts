@@ -7124,6 +7124,36 @@ describe("catalog routes", () => {
     assert.equal(listed.body.data?.length, 1);
   });
 
+  it("cancels an imported purchase invoice before stock posting", async () => {
+    const created = await request<PurchaseInvoice>(
+      "/purchase-invoices/import-xml",
+      {
+        method: "POST",
+        body: { xmlContent: purchaseInvoiceXml("8".repeat(44)) },
+      },
+    );
+
+    const cancelled = await request<PurchaseInvoice>(
+      `/purchase-invoices/${created.body.data?.id}/cancel`,
+      { method: "POST" },
+    );
+    const postCancelled = await request(
+      `/purchase-invoices/${created.body.data?.id}/post`,
+      { method: "POST" },
+    );
+    const listed = await request<PurchaseInvoice[]>("/purchase-invoices");
+
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(postCancelled.status, 409);
+    assert.ok(
+      listed.body.data?.some(
+        (invoice) =>
+          invoice.id === created.body.data?.id && invoice.status === "CANCELLED",
+      ),
+    );
+  });
+
   it("reviews an imported purchase invoice before posting stock", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
@@ -7306,6 +7336,10 @@ describe("catalog routes", () => {
       `/purchase-invoices/${reviewed.body.data?.id}/post`,
       { method: "POST" },
     );
+    const cancelPosted = await request(
+      `/purchase-invoices/${reviewed.body.data?.id}/cancel`,
+      { method: "POST" },
+    );
 
     assert.equal(posted.status, 200);
     assert.equal(posted.body.data?.status, "POSTED");
@@ -7316,6 +7350,7 @@ describe("catalog routes", () => {
     assert.equal(entries.body.data?.length, 2);
     assert.equal(entries.body.data?.[0]?.supplierName, "Fornecedor para XML");
     assert.equal(repost.status, 409);
+    assert.equal(cancelPosted.status, 409);
   });
 
   it("imports a structured purchase invoice without posting stock", async () => {
