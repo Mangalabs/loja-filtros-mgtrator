@@ -82,12 +82,15 @@ export function ProductSearchField({
     const productId = product?.id ?? "";
 
     setInternalProductId(productId);
+    setRemoteProducts((currentProducts) =>
+      product ? uniqueProducts([product, ...currentProducts]) : currentProducts,
+    );
     onChange?.(productId);
   }
 
   return (
     <>
-      <input name={name} type="hidden" value={selectedProduct?.id ?? ""} />
+      <input name={name} type="hidden" value={selectedProductId} />
       <Autocomplete
         disabled={disabled}
         getOptionLabel={productSearchLabel}
@@ -101,7 +104,13 @@ export function ProductSearchField({
           filterProducts(options, state.inputValue)
         }
         onChange={(_event, product) => selectProduct(product)}
-        onInputChange={(_event, nextValue) => setInputValue(nextValue)}
+        onInputChange={(_event, nextValue, reason) => {
+          if (reason === "reset") {
+            return;
+          }
+
+          setInputValue(nextValue);
+        }}
         renderInput={(params) => (
           <TextField
             {...params}
