@@ -124,10 +124,17 @@ export async function listLowStockProducts(filters: {
         query.where("products.branch_id", filters.branchId);
       }
     })
-    .andWhere("products.minimum_stock", ">", 0)
-    .andWhereRaw(
-      "products.current_stock - products.reserved_stock <= products.minimum_stock",
-    )
+    .andWhere((builder) => {
+      builder
+        .where("products.replenishment_monitor_enabled", true)
+        .orWhere((lowStockBuilder) => {
+          lowStockBuilder
+            .where("products.minimum_stock", ">", 0)
+            .whereRaw(
+              "products.current_stock - products.reserved_stock <= products.minimum_stock",
+            );
+        });
+    })
     .orderBy("products.replenishment_monitor_enabled", "desc")
     .orderByRaw("products.current_stock - products.reserved_stock asc")
     .orderBy("products.name", "asc");

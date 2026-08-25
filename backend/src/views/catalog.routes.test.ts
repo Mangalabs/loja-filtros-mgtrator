@@ -6918,6 +6918,10 @@ describe("catalog routes", () => {
       method: "POST",
       body: { name: "Filtro monitorado", minimumStock: 5 },
     });
+    const monitoredWithStock = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro monitorado com estoque", minimumStock: 2 },
+    });
     const replenished = await request<Product>("/products", {
       method: "POST",
       body: { name: "Filtro reposto", minimumStock: 2 },
@@ -6940,6 +6944,15 @@ describe("catalog routes", () => {
         unitCost: 10,
       },
     });
+    await request("/stock-entries", {
+      method: "POST",
+      body: {
+        productId: monitoredWithStock.body.data?.id,
+        supplierId: supplier.body.data?.id,
+        quantity: 5,
+        unitCost: 10,
+      },
+    });
     await request(`/products/${inactive.body.data?.id}/status`, {
       method: "PATCH",
       body: { active: false },
@@ -6951,18 +6964,29 @@ describe("catalog routes", () => {
         body: { enabled: true },
       },
     );
+    const monitoredWithStockUpdate = await request<Product>(
+      `/products/${monitoredWithStock.body.data?.id}/replenishment-monitor`,
+      {
+        method: "PATCH",
+        body: { enabled: true },
+      },
+    );
 
     const response = await request<Product[]>("/products/low-stock");
 
     assert.equal(monitoredUpdate.status, 200);
     assert.equal(monitoredUpdate.body.data?.replenishmentMonitorEnabled, true);
+    assert.equal(monitoredWithStockUpdate.status, 200);
     assert.equal(response.status, 200);
-    assert.equal(response.body.data?.length, 2);
+    assert.equal(response.body.data?.length, 3);
     assert.equal(response.body.data?.[0]?.id, monitored.body.data?.id);
     assert.equal(response.body.data?.[0]?.replenishmentMonitorEnabled, true);
-    assert.equal(response.body.data?.[1]?.id, lowStock.body.data?.id);
-    assert.equal(response.body.data?.[1]?.currentStock, "0.000");
-    assert.equal(response.body.data?.[1]?.minimumStock, "5.000");
+    assert.equal(response.body.data?.[1]?.id, monitoredWithStock.body.data?.id);
+    assert.equal(response.body.data?.[1]?.replenishmentMonitorEnabled, true);
+    assert.equal(response.body.data?.[1]?.availableStock, "5.000");
+    assert.equal(response.body.data?.[2]?.id, lowStock.body.data?.id);
+    assert.equal(response.body.data?.[2]?.currentStock, "0.000");
+    assert.equal(response.body.data?.[2]?.minimumStock, "5.000");
     assert.notEqual(response.body.data?.[0]?.id, notConfigured.body.data?.id);
   });
 
