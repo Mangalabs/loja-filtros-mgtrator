@@ -315,6 +315,41 @@ function fiscalSettingsReadinessIssues(settings: FiscalSettings | null) {
     settings?.environment === 'PRODUCTION' && !settings.allowProduction
       ? 'Emissao em producao bloqueada pela configuracao fiscal.'
       : null,
+    settings?.provider === 'FOCUS' && !settings.defaultNatureOperation
+      ? 'Natureza da operacao padrao pendente na configuracao fiscal.'
+      : null,
+    settings?.provider === 'FOCUS' && !settings.defaultSaleCfop
+      ? 'CFOP padrao de venda pendente na configuracao fiscal.'
+      : null,
+    settings?.provider === 'FOCUS' && !settings.defaultIcmsCst
+      ? 'CST/CSOSN ICMS padrao pendente na configuracao fiscal.'
+      : null,
+    settings?.provider === 'FOCUS' && !settings.defaultPisCst
+      ? 'CST PIS padrao pendente na configuracao fiscal.'
+      : null,
+    settings?.provider === 'FOCUS' && !settings.defaultCofinsCst
+      ? 'CST COFINS padrao pendente na configuracao fiscal.'
+      : null,
+    settings?.provider === 'FOCUS' &&
+    Boolean(settings.defaultSaleCfop) &&
+    !validCfop(settings.defaultSaleCfop)
+      ? 'CFOP padrao de venda deve conter 4 digitos na configuracao fiscal.'
+      : null,
+    settings?.provider === 'FOCUS' &&
+    Boolean(settings.defaultIcmsCst) &&
+    !validIcmsCst(settings.defaultIcmsCst)
+      ? 'CST/CSOSN ICMS padrao deve conter 2 ou 3 digitos na configuracao fiscal.'
+      : null,
+    settings?.provider === 'FOCUS' &&
+    Boolean(settings.defaultPisCst) &&
+    !validTaxCst(settings.defaultPisCst)
+      ? 'CST PIS padrao deve conter 2 digitos na configuracao fiscal.'
+      : null,
+    settings?.provider === 'FOCUS' &&
+    Boolean(settings.defaultCofinsCst) &&
+    !validTaxCst(settings.defaultCofinsCst)
+      ? 'CST COFINS padrao deve conter 2 digitos na configuracao fiscal.'
+      : null,
   ]
 
   return issues.filter((issue): issue is string => Boolean(issue))
@@ -322,6 +357,18 @@ function fiscalSettingsReadinessIssues(settings: FiscalSettings | null) {
 
 function validFiscalCompanyCnpj(settings: FiscalSettings) {
   return fiscalDigits(settings.companyCnpj).length === 14
+}
+
+function validCfop(value?: string | null) {
+  return /^\d{4}$/.test(fiscalDigits(value))
+}
+
+function validIcmsCst(value?: string | null) {
+  return /^\d{2,3}$/.test(fiscalDigits(value))
+}
+
+function validTaxCst(value?: string | null) {
+  return /^\d{2}$/.test(fiscalDigits(value))
 }
 
 function fiscalDigits(value?: string | null) {

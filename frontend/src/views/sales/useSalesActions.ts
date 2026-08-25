@@ -265,7 +265,7 @@ export function useSalesActions({
 
     await runAction(async () => {
       await apiPatch(`/shipping-orders/${order.id}/complete`, {
-        paymentMethodId: String(form.get("shippingPaymentMethodId") ?? ""),
+        paymentMethodId: formStringValue(form, "shippingPaymentMethodId"),
         billingIssueDate: formDateValue(form, "shippingBillingIssueDate"),
         billingDueDate: formDateValue(form, "shippingBillingDueDate"),
         allowInsufficientStock,

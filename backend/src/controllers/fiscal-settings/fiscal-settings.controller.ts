@@ -36,6 +36,11 @@ export async function replaceFiscalSettings(
       environment: input.environment,
       allowProduction: fiscalProductionAllowance(input),
       companyCnpj,
+      defaultNatureOperation: fiscalText(input.defaultNatureOperation),
+      defaultSaleCfop: fiscalDigits(input.defaultSaleCfop),
+      defaultIcmsCst: fiscalDigits(input.defaultIcmsCst),
+      defaultPisCst: fiscalDigits(input.defaultPisCst),
+      defaultCofinsCst: fiscalDigits(input.defaultCofinsCst),
     },
   );
 
@@ -61,6 +66,17 @@ export async function currentFiscalSettings(branchId: string) {
       environment: settings.environment,
       companyCnpj: branchCompanyCnpj,
       allowProduction: settings.allowProduction,
+      ...fiscalIssueDefaults(settings),
+    });
+  }
+
+  if (settings && fiscalSettingsMissingIssueDefaults(settings)) {
+    return upsertFiscalSettings(branchId, {
+      provider: settings.provider,
+      environment: settings.environment,
+      companyCnpj: settings.companyCnpj,
+      allowProduction: settings.allowProduction,
+      ...fiscalIssueDefaults(settings),
     });
   }
 
@@ -74,6 +90,7 @@ export async function currentFiscalSettings(branchId: string) {
       environment: settings.environment,
       companyCnpj: branchCompanyCnpj,
       allowProduction: settings.allowProduction,
+      ...fiscalIssueDefaults(settings),
     });
   }
 
@@ -83,7 +100,48 @@ export async function currentFiscalSettings(branchId: string) {
     environment: env.fiscal.environment,
     companyCnpj: branchCompanyCnpj ?? fiscalDigits(env.fiscal.focus.companyCnpj),
     allowProduction: false,
+    ...defaultFiscalIssueSettings(),
   });
+}
+
+function fiscalIssueDefaults(settings: FiscalSettingsInput) {
+  return {
+    defaultNatureOperation:
+      fiscalText(settings.defaultNatureOperation) ??
+      defaultFiscalIssueSettings().defaultNatureOperation,
+    defaultSaleCfop:
+      fiscalDigits(settings.defaultSaleCfop) ??
+      defaultFiscalIssueSettings().defaultSaleCfop,
+    defaultIcmsCst:
+      fiscalDigits(settings.defaultIcmsCst) ??
+      defaultFiscalIssueSettings().defaultIcmsCst,
+    defaultPisCst:
+      fiscalDigits(settings.defaultPisCst) ??
+      defaultFiscalIssueSettings().defaultPisCst,
+    defaultCofinsCst:
+      fiscalDigits(settings.defaultCofinsCst) ??
+      defaultFiscalIssueSettings().defaultCofinsCst,
+  };
+}
+
+function defaultFiscalIssueSettings() {
+  return {
+    defaultNatureOperation: "Venda de mercadoria",
+    defaultSaleCfop: "5102",
+    defaultIcmsCst: "102",
+    defaultPisCst: "49",
+    defaultCofinsCst: "49",
+  };
+}
+
+function fiscalSettingsMissingIssueDefaults(settings: FiscalSettingsInput) {
+  return [
+    settings.defaultNatureOperation,
+    settings.defaultSaleCfop,
+    settings.defaultIcmsCst,
+    settings.defaultPisCst,
+    settings.defaultCofinsCst,
+  ].some((value) => !value);
 }
 
 function fiscalProductionAllowance(input: FiscalSettingsInput) {
@@ -126,7 +184,11 @@ function ensureFocusCompanyCnpj(
   );
 }
 
-function fiscalDigits(value: string | null) {
+function fiscalDigits(value?: string | null) {
   const normalized = value?.replace(/\D/g, "");
   return normalized || null;
+}
+
+function fiscalText(value?: string | null) {
+  return value?.trim() || null;
 }

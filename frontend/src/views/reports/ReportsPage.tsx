@@ -337,7 +337,7 @@ function SalesReportSection({
           ]}
           emptyMessage="Nenhuma venda por produto."
           getRowId={(item) => item.productId}
-          items={salesReport.byProduct}
+          items={salesReport.byProduct ?? []}
         />
 
         <ResponsiveTable
@@ -359,7 +359,7 @@ function SalesReportSection({
           ]}
           emptyMessage="Nenhuma venda por cliente."
           getRowId={(item) => item.clientId ?? item.clientName}
-          items={salesReport.byClient}
+          items={salesReport.byClient ?? []}
         />
 
         <ResponsiveTable
@@ -381,7 +381,7 @@ function SalesReportSection({
           ]}
           emptyMessage="Nenhuma venda por pagamento."
           getRowId={(item) => item.paymentMethodId}
-          items={salesReport.byPaymentMethod}
+          items={salesReport.byPaymentMethod ?? []}
         />
       </div>
 
@@ -416,7 +416,7 @@ function SalesReportSection({
           ]}
           emptyMessage="Nenhum produto para curva ABC."
           getRowId={(item) => item.productId}
-          items={salesReport.abcProducts}
+          items={salesReport.abcProducts ?? []}
         />
       </div>
     </PagePanel>
@@ -541,7 +541,7 @@ function PurchaseReportSection({
           ]}
           emptyMessage="Nenhuma compra por origem."
           getRowId={(item) => item.source}
-          items={purchaseReport.bySource}
+          items={purchaseReport.bySource ?? []}
         />
 
         <ResponsiveTable
@@ -563,7 +563,7 @@ function PurchaseReportSection({
           ]}
           emptyMessage="Nenhuma compra por fornecedor."
           getRowId={(item) => item.supplierId}
-          items={purchaseReport.bySupplier}
+          items={purchaseReport.bySupplier ?? []}
         />
 
         <ResponsiveTable
@@ -585,7 +585,7 @@ function PurchaseReportSection({
           ]}
           emptyMessage="Nenhuma compra por produto."
           getRowId={(item) => item.productId}
-          items={purchaseReport.byProduct}
+          items={purchaseReport.byProduct ?? []}
         />
       </div>
     </PagePanel>
@@ -719,7 +719,7 @@ function CashReportSection({
           ]}
           emptyMessage="Nenhum pagamento registrado no periodo."
           getRowId={(item) => item.paymentMethodId}
-          items={cashReport.byPaymentMethod}
+          items={cashReport.byPaymentMethod ?? []}
         />
 
         <ResponsiveTable
@@ -763,7 +763,7 @@ function CashReportSection({
           ]}
           emptyMessage="Nenhum caixa no periodo."
           getRowId={(item) => item.id}
-          items={cashReport.sessions}
+          items={cashReport.sessions ?? []}
         />
       </div>
     </PagePanel>
@@ -882,7 +882,7 @@ function StockReportSection({
           ]}
           emptyMessage="Nenhum produto em estoque baixo."
           getRowId={(item) => item.productId}
-          items={stockReport.lowStockProducts}
+          items={stockReport.lowStockProducts ?? []}
         />
 
         <ResponsiveTable
@@ -904,7 +904,7 @@ function StockReportSection({
           ]}
           emptyMessage="Nenhum produto sem movimentacao."
           getRowId={(item) => item.productId}
-          items={stockReport.productsWithoutMovement}
+          items={stockReport.productsWithoutMovement ?? []}
         />
 
         <ResponsiveTable
@@ -926,7 +926,7 @@ function StockReportSection({
           ]}
           emptyMessage="Nenhum giro de vendas no periodo."
           getRowId={(item) => item.productId}
-          items={stockReport.turnoverProducts}
+          items={stockReport.turnoverProducts ?? []}
         />
       </div>
     </PagePanel>

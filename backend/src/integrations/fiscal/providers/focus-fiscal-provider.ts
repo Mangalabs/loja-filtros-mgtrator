@@ -221,7 +221,8 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
   const discountAmount = focusSaleDiscountAmount(request.sale);
 
   return {
-    natureza_operacao: "Venda de mercadoria",
+    natureza_operacao:
+      focusString(request.defaultNatureOperation) ?? "Venda de mercadoria",
     data_emissao: new Date().toISOString(),
     tipo_documento: 1,
     local_destino: 1,
@@ -259,7 +260,7 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
       totalAmount,
     }),
     modalidade_frete: 9,
-    items: request.sale.items.map(focusNfeItemPayload),
+    items: request.sale.items.map((item) => focusNfeItemPayload(item, request)),
   };
 }
 
@@ -336,6 +337,7 @@ function focusCustomerStateRegistrationIndicator(
 
 function focusNfeItemPayload(
   item: FiscalIssueRequest["sale"]["items"][number],
+  request: FiscalIssueRequest,
 ): FocusNfeItemPayload {
   const quantity = quantityNumber(item.quantity);
   const unitPrice = moneyNumber(item.unitPrice);
@@ -346,11 +348,11 @@ function focusNfeItemPayload(
     codigo_produto: focusString(item.productInternalCode) ?? item.productId,
     descricao: focusString(item.productName) ?? item.productId,
     codigo_ncm: focusString(item.productNcm) ?? undefined,
-    cfop: focusProductCfop(item.productCfop),
+    cfop: focusTaxCode(request.defaultSaleCfop, "5102"),
     icms_origem: focusProductOrigin(item.productOrigin),
-    icms_situacao_tributaria: focusTaxCode(item.productIcmsCst, "102"),
-    pis_situacao_tributaria: focusTaxCode(item.productPisCst, "49"),
-    cofins_situacao_tributaria: focusTaxCode(item.productCofinsCst, "49"),
+    icms_situacao_tributaria: focusTaxCode(request.defaultIcmsCst, "102"),
+    pis_situacao_tributaria: focusTaxCode(request.defaultPisCst, "49"),
+    cofins_situacao_tributaria: focusTaxCode(request.defaultCofinsCst, "49"),
     unidade_comercial: focusProductUnit(item.productUnit),
     quantidade_comercial: quantity,
     valor_unitario_comercial: unitPrice,
@@ -610,10 +612,6 @@ function focusProductUnit(unit: string) {
   };
 
   return unitByProductUnit[unit] ?? "UN";
-}
-
-function focusProductCfop(cfop: string | null) {
-  return cfop?.replace(/\D/g, "") || "5102";
 }
 
 function focusProductOrigin(origin: string | null) {

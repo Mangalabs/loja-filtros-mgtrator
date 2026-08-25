@@ -38,6 +38,7 @@ import {
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import {
   formatCurrency,
+  formatDate,
   formatDateTime,
   formatQuantity,
 } from '../../utils/format'
@@ -628,6 +629,7 @@ function ShippingOrderCompleteActions({
   const [openAction, setOpenAction] = useState<'cancel' | 'complete' | null>(
     null,
   )
+  const usesQuoteBillingData = Boolean(order.quoteId && order.paymentMethodId)
   const actions: TableActionsMenuAction[] = [
     {
       disabled: !cashRegister,
@@ -652,41 +654,59 @@ function ShippingOrderCompleteActions({
         <form
           className='grid w-full max-w-72 gap-2'
           onSubmit={(event) => onComplete(event, order)}>
-          <TextField
-            label='Pagamento'
-            name='shippingPaymentMethodId'
-            defaultValue=''
-            select
-            size='small'
-            required
-            disabled={!cashRegister}>
-            <MenuItem value='' disabled>
-              Pagamento
-            </MenuItem>
-            {paymentMethods
-              .filter((method) => method.active)
-              .map((method) => (
-                <MenuItem key={method.id} value={method.id}>
-                  {method.name}
+          {usesQuoteBillingData ? (
+            <Alert severity='info' variant='outlined'>
+              Pagamento: {order.paymentMethodName ?? 'definido no orçamento'}
+              <br />
+              Fatura:{' '}
+              {order.billingIssueDate
+                ? formatDate(order.billingIssueDate)
+                : 'sem data'}
+              <br />
+              Vencimento:{' '}
+              {order.billingDueDate
+                ? formatDate(order.billingDueDate)
+                : 'sem data'}
+            </Alert>
+          ) : (
+            <>
+              <TextField
+                label='Pagamento'
+                name='shippingPaymentMethodId'
+                defaultValue=''
+                select
+                size='small'
+                required
+                disabled={!cashRegister}>
+                <MenuItem value='' disabled>
+                  Pagamento
                 </MenuItem>
-              ))}
-          </TextField>
-          <TextField
-            disabled={!cashRegister}
-            label='Data da fatura'
-            name='shippingBillingIssueDate'
-            size='small'
-            type='date'
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-          <TextField
-            disabled={!cashRegister}
-            label='Vencimento'
-            name='shippingBillingDueDate'
-            size='small'
-            type='date'
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
+                {paymentMethods
+                  .filter((method) => method.active)
+                  .map((method) => (
+                    <MenuItem key={method.id} value={method.id}>
+                      {method.name}
+                    </MenuItem>
+                  ))}
+              </TextField>
+              <TextField
+                disabled={!cashRegister}
+                label='Data da fatura'
+                name='shippingBillingIssueDate'
+                size='small'
+                type='date'
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+              <TextField
+                disabled={!cashRegister}
+                label='Vencimento'
+                name='shippingBillingDueDate'
+                size='small'
+                type='date'
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </>
+          )}
           <div className='flex flex-wrap gap-2'>
             <TableActionButton type='submit' disabled={!cashRegister}>
               Concluir venda

@@ -78,5 +78,11 @@ async function saveBranchFiscalBootstrap(
     environment: currentSettings?.environment ?? env.fiscal.environment,
     companyCnpj,
     allowProduction: currentSettings?.allowProduction ?? false,
+    defaultNatureOperation:
+      currentSettings?.defaultNatureOperation ?? "Venda de mercadoria",
+    defaultSaleCfop: currentSettings?.defaultSaleCfop ?? "5102",
+    defaultIcmsCst: currentSettings?.defaultIcmsCst ?? "102",
+    defaultPisCst: currentSettings?.defaultPisCst ?? "49",
+    defaultCofinsCst: currentSettings?.defaultCofinsCst ?? "49",
   });
 }

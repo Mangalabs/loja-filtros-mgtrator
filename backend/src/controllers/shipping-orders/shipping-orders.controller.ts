@@ -248,7 +248,7 @@ export async function confirmShippingOrderSeparation(
 
 export async function completeSeparatedShippingOrder(
   id: string,
-  paymentMethodId: string,
+  paymentMethodId: string | null | undefined,
   completedByUserId: string,
   branchId: string,
   allowInsufficientStock = false,
@@ -281,7 +281,13 @@ export async function completeSeparatedShippingOrder(
       );
     }
 
-    if (!(await activePaymentMethodExists(transaction, paymentMethodId))) {
+    const resolvedPaymentMethodId =
+      paymentMethodId ?? currentOrder.paymentMethodId;
+
+    if (
+      !resolvedPaymentMethodId ||
+      !(await activePaymentMethodExists(transaction, resolvedPaymentMethodId))
+    ) {
       throw new AppError("Forma de pagamento informada nao disponivel.", 422);
     }
 
@@ -341,9 +347,10 @@ export async function completeSeparatedShippingOrder(
         clientId: currentOrder.clientId,
         billingIssueDate:
           billingDates.billingIssueDate ?? currentOrder.billingIssueDate,
-        billingDueDate: billingDates.billingDueDate ?? currentOrder.billingDueDate,
+        billingDueDate:
+          billingDates.billingDueDate ?? currentOrder.billingDueDate,
         discountAmount: saleDiscountAmount,
-        paymentMethodId,
+        paymentMethodId: resolvedPaymentMethodId,
         items: currentOrder.items.map((item) => ({
           productId: item.productId,
           quantity: Number(item.quantity),

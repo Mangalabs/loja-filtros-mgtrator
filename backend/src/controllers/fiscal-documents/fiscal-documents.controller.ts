@@ -1,4 +1,5 @@
 import { db } from "../../database/knex.js";
+import type { FiscalIssueRequest } from "../../integrations/fiscal/fiscal-provider.js";
 import { makeFiscalProviderByName } from "../../integrations/fiscal/fiscal-provider-factory.js";
 import { currentFiscalSettings } from "../fiscal-settings/fiscal-settings.controller.js";
 import {
@@ -462,9 +463,14 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       documentType: input.documentType,
       environment: fiscalSettings.environment,
       companyCnpj: fiscalSettings.companyCnpj,
+      defaultNatureOperation: fiscalSettings.defaultNatureOperation,
+      defaultSaleCfop: fiscalSettings.defaultSaleCfop,
+      defaultIcmsCst: fiscalSettings.defaultIcmsCst,
+      defaultPisCst: fiscalSettings.defaultPisCst,
+      defaultCofinsCst: fiscalSettings.defaultCofinsCst,
       sale,
     };
-    ensureFiscalReadiness(requestPayload.sale, fiscalSettings.provider);
+    ensureFiscalReadiness(requestPayload, fiscalSettings.provider);
     const result = await provider.issue(requestPayload);
 
     const fiscalDocumentInput = {
@@ -527,14 +533,14 @@ type FiscalSale = IssueFiscalDocumentInput extends never
   : NonNullable<Awaited<ReturnType<typeof getSaleById>>>;
 
 function ensureFiscalReadiness(
-  sale: FiscalSale,
+  request: FiscalIssueRequest,
   provider: Awaited<ReturnType<typeof currentFiscalSettings>>["provider"],
 ) {
   if (provider !== "FOCUS") {
     return;
   }
 
-  const errors = fiscalReadinessErrors(sale);
+  const errors = fiscalReadinessErrors(request);
 
   if (errors.length > 0) {
     throw new AppError(
@@ -545,16 +551,89 @@ function ensureFiscalReadiness(
   }
 }
 
-function fiscalReadinessErrors(sale: FiscalSale): AppErrorDetail[] {
+function fiscalReadinessErrors(request: FiscalIssueRequest): AppErrorDetail[] {
   return [
-    ...requiredClientFiscalFields(sale),
-    ...sale.items.flatMap((item, index) =>
+    ...requiredClientFiscalFields(request.sale),
+    ...requiredFiscalSettingsFields(request),
+    ...request.sale.items.flatMap((item, index) =>
       requiredItemFiscalFields(item, index + 1),
     ),
   ];
 }
 
-function requiredClientFiscalFields(sale: FiscalSale): AppErrorDetail[] {
+function requiredFiscalSettingsFields(
+  request: FiscalIssueRequest,
+): AppErrorDetail[] {
+  const fieldChecks: Array<[string, unknown, string]> = [
+    [
+      "defaultNatureOperation",
+      request.defaultNatureOperation,
+      "Natureza da operacao padrao e obrigatoria.",
+    ],
+    [
+      "defaultSaleCfop",
+      request.defaultSaleCfop,
+      "CFOP padrao de venda e obrigatorio.",
+    ],
+    [
+      "defaultIcmsCst",
+      request.defaultIcmsCst,
+      "CST/CSOSN ICMS padrao e obrigatorio.",
+    ],
+    [
+      "defaultPisCst",
+      request.defaultPisCst,
+      "CST PIS padrao e obrigatorio.",
+    ],
+    [
+      "defaultCofinsCst",
+      request.defaultCofinsCst,
+      "CST COFINS padrao e obrigatorio.",
+    ],
+  ];
+
+  return [
+    ...missingFieldDetails(fieldChecks),
+    ...invalidFiscalSettingsFields(request),
+  ];
+}
+
+function invalidFiscalSettingsFields(
+  request: FiscalIssueRequest,
+): AppErrorDetail[] {
+  const fieldChecks: Array<[string, unknown, RegExp, string]> = [
+    [
+      "defaultSaleCfop",
+      request.defaultSaleCfop,
+      /^\d{4}$/,
+      "CFOP padrao de venda deve conter 4 digitos.",
+    ],
+    [
+      "defaultIcmsCst",
+      request.defaultIcmsCst,
+      /^\d{2,3}$/,
+      "CST/CSOSN ICMS padrao deve conter 2 ou 3 digitos.",
+    ],
+    [
+      "defaultPisCst",
+      request.defaultPisCst,
+      /^\d{2}$/,
+      "CST PIS padrao deve conter 2 digitos.",
+    ],
+    [
+      "defaultCofinsCst",
+      request.defaultCofinsCst,
+      /^\d{2}$/,
+      "CST COFINS padrao deve conter 2 digitos.",
+    ],
+  ];
+
+  return invalidFieldDetails(fieldChecks);
+}
+
+function requiredClientFiscalFields(
+  sale: FiscalIssueRequest["sale"],
+): AppErrorDetail[] {
   const documentFieldByPersonType: Record<string, string | null> = {
     ES: null,
     PF: "clientDocument",
@@ -615,7 +694,9 @@ function requiredClientFiscalFields(sale: FiscalSale): AppErrorDetail[] {
   ];
 }
 
-function invalidClientFiscalFields(sale: FiscalSale): AppErrorDetail[] {
+function invalidClientFiscalFields(
+  sale: FiscalIssueRequest["sale"],
+): AppErrorDetail[] {
   const documentPatternsByPersonType: Record<string, RegExp | null> = {
     ES: null,
     PF: /^\d{11}$/,
@@ -648,7 +729,7 @@ function invalidClientFiscalFields(sale: FiscalSale): AppErrorDetail[] {
 }
 
 function requiredItemFiscalFields(
-  item: FiscalSale["items"][number],
+  item: FiscalIssueRequest["sale"]["items"][number],
   position: number,
 ): AppErrorDetail[] {
   const fieldChecks: Array<[string, unknown, string]> = [
@@ -658,29 +739,9 @@ function requiredItemFiscalFields(
       `NCM do item ${position} e obrigatorio.`,
     ],
     [
-      `items.${position}.productCfop`,
-      item.productCfop,
-      `CFOP do item ${position} e obrigatorio.`,
-    ],
-    [
       `items.${position}.productOrigin`,
       item.productOrigin,
       `Origem fiscal do item ${position} e obrigatoria.`,
-    ],
-    [
-      `items.${position}.productIcmsCst`,
-      item.productIcmsCst,
-      `CST/CSOSN ICMS do item ${position} e obrigatorio.`,
-    ],
-    [
-      `items.${position}.productPisCst`,
-      item.productPisCst,
-      `CST PIS do item ${position} e obrigatorio.`,
-    ],
-    [
-      `items.${position}.productCofinsCst`,
-      item.productCofinsCst,
-      `CST COFINS do item ${position} e obrigatorio.`,
     ],
   ];
 
@@ -697,7 +758,7 @@ function missingFieldDetails(fieldChecks: Array<[string, unknown, string]>) {
 }
 
 function invalidItemFiscalFields(
-  item: FiscalSale["items"][number],
+  item: FiscalIssueRequest["sale"]["items"][number],
   position: number,
 ): AppErrorDetail[] {
   const fieldChecks: Array<[string, unknown, RegExp, string]> = [
@@ -708,34 +769,10 @@ function invalidItemFiscalFields(
       `NCM do item ${position} deve conter 8 digitos.`,
     ],
     [
-      `items.${position}.productCfop`,
-      item.productCfop,
-      /^\d{4}$/,
-      `CFOP do item ${position} deve conter 4 digitos.`,
-    ],
-    [
       `items.${position}.productOrigin`,
       item.productOrigin,
       /^[0-8]$/,
       `Origem fiscal do item ${position} deve estar entre 0 e 8.`,
-    ],
-    [
-      `items.${position}.productIcmsCst`,
-      item.productIcmsCst,
-      /^\d{2,3}$/,
-      `CST/CSOSN ICMS do item ${position} deve conter 2 ou 3 digitos.`,
-    ],
-    [
-      `items.${position}.productPisCst`,
-      item.productPisCst,
-      /^\d{2}$/,
-      `CST PIS do item ${position} deve conter 2 digitos.`,
-    ],
-    [
-      `items.${position}.productCofinsCst`,
-      item.productCofinsCst,
-      /^\d{2}$/,
-      `CST COFINS do item ${position} deve conter 2 digitos.`,
     ],
   ];
 

@@ -22,6 +22,10 @@ export type ShippingOrder = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  paymentMethodId: string | null;
+  paymentMethodName: string | null;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   items: ShippingOrderItem[];
   createdByUserName: string;
   createdAt: Date;
@@ -66,6 +70,10 @@ const shippingOrderColumns = [
   "clients.name as clientName",
   "clients.phone as clientPhone",
   "shipping_orders.total_amount as totalAmount",
+  "quotes.payment_method_id as paymentMethodId",
+  "payment_methods.name as paymentMethodName",
+  "quotes.billing_issue_date as billingIssueDate",
+  "quotes.billing_due_date as billingDueDate",
   "created_users.name as createdByUserName",
   "shipping_orders.created_at as createdAt",
   "approved_users.name as approvedByUserName",
@@ -113,6 +121,7 @@ type LockedShippingOrder = {
   id: string;
   clientId: string;
   totalAmount: string;
+  paymentMethodId: string | null;
   billingIssueDate: string | null;
   billingDueDate: string | null;
   status: ShippingOrder["status"];
@@ -265,6 +274,7 @@ export async function lockShippingOrder(
       "shipping_orders.id",
       "shipping_orders.client_id as clientId",
       "shipping_orders.total_amount as totalAmount",
+      "quotes.payment_method_id as paymentMethodId",
       "quotes.billing_issue_date as billingIssueDate",
       "quotes.billing_due_date as billingDueDate",
       "shipping_orders.status",
@@ -423,6 +433,12 @@ function shippingOrderQuery(database: Knex | Knex.Transaction) {
   return database("shipping_orders")
     .join("clients", "clients.id", "shipping_orders.client_id")
     .leftJoin("branches", "branches.id", "shipping_orders.branch_id")
+    .leftJoin("quotes", "quotes.id", "shipping_orders.quote_id")
+    .leftJoin(
+      "payment_methods",
+      "payment_methods.id",
+      "quotes.payment_method_id",
+    )
     .join(
       { created_users: "users" },
       "created_users.id",

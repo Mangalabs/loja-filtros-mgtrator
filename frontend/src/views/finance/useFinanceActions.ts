@@ -124,7 +124,15 @@ export function useFinanceActions({
   async function saveFiscalSettings(
     input: Pick<
       FiscalSettings,
-      "allowProduction" | "companyCnpj" | "environment" | "provider"
+      | "allowProduction"
+      | "companyCnpj"
+      | "defaultCofinsCst"
+      | "defaultIcmsCst"
+      | "defaultNatureOperation"
+      | "defaultPisCst"
+      | "defaultSaleCfop"
+      | "environment"
+      | "provider"
     > & { productionConfirmation?: string | null },
   ) {
     const productionWarning =

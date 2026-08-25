@@ -244,6 +244,10 @@ type ShippingOrder = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  paymentMethodId: string | null;
+  paymentMethodName: string | null;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   items: Array<{
     id: string;
     productId: string;
@@ -625,6 +629,11 @@ type FiscalSettings = {
   environment: "HOMOLOGATION" | "PRODUCTION";
   companyCnpj: string | null;
   allowProduction: boolean;
+  defaultNatureOperation: string | null;
+  defaultSaleCfop: string | null;
+  defaultIcmsCst: string | null;
+  defaultPisCst: string | null;
+  defaultCofinsCst: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -1159,6 +1168,11 @@ describe("catalog routes", () => {
         environment: "HOMOLOGATION",
         companyCnpj: "12.345.678/0001-90",
         allowProduction: false,
+        defaultNatureOperation: "Venda de mercadoria",
+        defaultSaleCfop: "5405",
+        defaultIcmsCst: "500",
+        defaultPisCst: "49",
+        defaultCofinsCst: "49",
       },
     });
     const listedAfterUpdate =
@@ -1225,6 +1239,11 @@ describe("catalog routes", () => {
     assert.equal(updated.body.data?.environment, "HOMOLOGATION");
     assert.equal(updated.body.data?.companyCnpj, "12345678000190");
     assert.equal(updated.body.data?.allowProduction, false);
+    assert.equal(updated.body.data?.defaultNatureOperation, "Venda de mercadoria");
+    assert.equal(updated.body.data?.defaultSaleCfop, "5405");
+    assert.equal(updated.body.data?.defaultIcmsCst, "500");
+    assert.equal(updated.body.data?.defaultPisCst, "49");
+    assert.equal(updated.body.data?.defaultCofinsCst, "49");
     assert.equal(listedAfterUpdate.body.data?.id, updated.body.data?.id);
     assert.equal(listedAfterUpdate.body.data?.companyCnpj, "12345678000190");
     assert.equal(blockedProduction.status, 422);
@@ -2876,7 +2895,7 @@ describe("catalog routes", () => {
       );
       assert.ok(
         fiscalDocument.body.errors?.some(
-          (error) => error.field === "items.1.productCfop",
+          (error) => error.field === "items.1.productOrigin",
         ),
       );
     } finally {
@@ -2892,10 +2911,6 @@ describe("catalog routes", () => {
         name: "Filtro com dados fiscais invalidos",
         salePrice: 35,
         ncm: "8421230",
-        cfop: "ABCD",
-        icmsCst: "A1",
-        pisCst: "X4",
-        cofinsCst: "YZ",
         origin: "9",
       },
     });
@@ -2944,6 +2959,21 @@ describe("catalog routes", () => {
       },
     });
 
+    await request("/fiscal-settings", {
+      method: "PUT",
+      body: {
+        provider: "FOCUS",
+        environment: "HOMOLOGATION",
+        companyCnpj: "12.345.678/0001-90",
+        allowProduction: false,
+        defaultNatureOperation: "Venda de mercadoria",
+        defaultSaleCfop: "123",
+        defaultIcmsCst: "1",
+        defaultPisCst: "4",
+        defaultCofinsCst: "7",
+      },
+    });
+
     env.fiscal.provider = "focus";
 
     try {
@@ -2970,8 +3000,30 @@ describe("catalog routes", () => {
       assert.ok(
         fiscalDocument.body.errors?.some(
           (error) =>
-            error.field === "items.1.productCfop" &&
-            error.message === "CFOP do item 1 deve conter 4 digitos.",
+            error.field === "defaultSaleCfop" &&
+            error.message === "CFOP padrao de venda deve conter 4 digitos.",
+        ),
+      );
+      assert.ok(
+        fiscalDocument.body.errors?.some(
+          (error) =>
+            error.field === "defaultIcmsCst" &&
+            error.message ===
+              "CST/CSOSN ICMS padrao deve conter 2 ou 3 digitos.",
+        ),
+      );
+      assert.ok(
+        fiscalDocument.body.errors?.some(
+          (error) =>
+            error.field === "defaultPisCst" &&
+            error.message === "CST PIS padrao deve conter 2 digitos.",
+        ),
+      );
+      assert.ok(
+        fiscalDocument.body.errors?.some(
+          (error) =>
+            error.field === "defaultCofinsCst" &&
+            error.message === "CST COFINS padrao deve conter 2 digitos.",
         ),
       );
       assert.ok(
@@ -3737,6 +3789,11 @@ describe("catalog routes", () => {
     requestPayload.sale.items[0].productInternalCode = " FISCAL-1 ";
     requestPayload.sale.items[0].productName = " Filtro Focus ";
     requestPayload.sale.items[0].productNcm = " 84212300 ";
+    requestPayload.defaultNatureOperation = " Venda de mercadoria ";
+    requestPayload.defaultSaleCfop = "5405";
+    requestPayload.defaultIcmsCst = "500";
+    requestPayload.defaultPisCst = "49";
+    requestPayload.defaultCofinsCst = "49";
 
     env.fiscal.provider = "focus";
     env.fiscal.focus.token = "token-focus-teste";
@@ -3762,6 +3819,7 @@ describe("catalog routes", () => {
 
       const payload = submittedPayload as Record<string, unknown>;
 
+      assert.equal(payload.natureza_operacao, "Venda de mercadoria");
       assert.equal(payload.nome_destinatario, "Cliente Focus");
       assert.equal(
         payload.inscricao_estadual_destinatario,
@@ -3780,6 +3838,10 @@ describe("catalog routes", () => {
       assert.equal(item.codigo_produto, "FISCAL-1");
       assert.equal(item.descricao, "Filtro Focus");
       assert.equal(item.codigo_ncm, "84212300");
+      assert.equal(item.cfop, "5405");
+      assert.equal(item.icms_situacao_tributaria, "500");
+      assert.equal(item.pis_situacao_tributaria, "49");
+      assert.equal(item.cofins_situacao_tributaria, "49");
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
@@ -5197,6 +5259,8 @@ describe("catalog routes", () => {
       body: {
         clientId: client.body.data?.id,
         paymentMethodId: quotePaymentMethod.id,
+        billingIssueDate: "2026-07-10",
+        billingDueDate: "2026-07-25",
         items: [{ productId: product.body.data?.id, quantity: 1 }],
       },
     });
@@ -5217,7 +5281,7 @@ describe("catalog routes", () => {
       `/shipping-orders/${shippingOrder.body.data?.id}/complete`,
       {
         method: "PATCH",
-        body: { paymentMethodId: quotePaymentMethod.id },
+        body: {},
       },
     );
     const updatedProduct = await request<Product>(
@@ -5231,6 +5295,14 @@ describe("catalog routes", () => {
     assert.equal(updatedProduct.body.data?.currentStock, "1.000");
     assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
     assert.equal(sales.body.data?.[0]?.totalAmount, "90.00");
+    assert.equal(
+      sales.body.data?.[0]?.paymentMethodName,
+      quotePaymentMethod.name,
+    );
+    assert.ok(
+      sales.body.data?.[0]?.billingIssueDate?.startsWith("2026-07-10"),
+    );
+    assert.ok(sales.body.data?.[0]?.billingDueDate?.startsWith("2026-07-25"));
   });
 
   it("creates and cancels a pickup reservation releasing reserved stock", async () => {
@@ -7691,6 +7763,11 @@ function focusIssueRequest(): FiscalIssueRequest {
     documentType: "NFE",
     environment: "HOMOLOGATION",
     companyCnpj: "12345678000199",
+    defaultNatureOperation: "Venda de mercadoria",
+    defaultSaleCfop: "5102",
+    defaultIcmsCst: "102",
+    defaultPisCst: "49",
+    defaultCofinsCst: "49",
     sale: {
       id: "salefocusprovidertest",
       clientPersonType: "PF",

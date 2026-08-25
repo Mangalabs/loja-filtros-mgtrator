@@ -464,6 +464,11 @@ export type FiscalSettings = {
   environment: "HOMOLOGATION" | "PRODUCTION";
   companyCnpj: string | null;
   allowProduction: boolean;
+  defaultNatureOperation: string | null;
+  defaultSaleCfop: string | null;
+  defaultIcmsCst: string | null;
+  defaultPisCst: string | null;
+  defaultCofinsCst: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -629,6 +634,10 @@ export type ShippingOrder = {
   quantity: string;
   unitPrice: string;
   totalAmount: string;
+  paymentMethodId: string | null;
+  paymentMethodName: string | null;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
   items: Array<{
     id: string;
     productId: string;

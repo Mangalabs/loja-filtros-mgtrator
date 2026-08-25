@@ -31,7 +31,10 @@ const cancelShippingOrderSchema = z.object({
 });
 
 const completeShippingOrderSchema = z.object({
-  paymentMethodId: z.uuid(),
+  paymentMethodId: z
+    .union([z.uuid(), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .optional(),
   billingIssueDate: z
     .union([z.iso.date(), z.literal(""), z.null()])
     .transform((value) => value || null)

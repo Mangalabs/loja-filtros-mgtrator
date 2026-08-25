@@ -13,7 +13,15 @@ import { PrimaryButton, StatusChip } from '../../components/ui'
 
 type FiscalSettingsInput = Pick<
   FiscalSettings,
-  'allowProduction' | 'companyCnpj' | 'environment' | 'provider'
+  | 'allowProduction'
+  | 'companyCnpj'
+  | 'defaultCofinsCst'
+  | 'defaultIcmsCst'
+  | 'defaultNatureOperation'
+  | 'defaultPisCst'
+  | 'defaultSaleCfop'
+  | 'environment'
+  | 'provider'
 > & {
   productionConfirmation?: string | null
 }
@@ -177,6 +185,75 @@ export function FiscalSettingsPage({
       />
 
       <FormCard>
+        <div className='grid gap-1'>
+          <strong className='text-[#2c281e]'>Padrões de emissão NF-e</strong>
+          <span className='text-sm text-[#5f665f]'>
+            Usados na nota quando a venda estiver pronta para emissão. NCM,
+            CEST e origem continuam no cadastro do produto.
+          </span>
+        </div>
+        <TextField
+          helperText='Exemplo: Venda de mercadoria.'
+          label='Natureza da operação'
+          value={draft.defaultNatureOperation ?? ''}
+          onChange={(event) =>
+            setDraft((currentDraft) => ({
+              ...currentDraft,
+              defaultNatureOperation: event.target.value,
+            }))
+          }
+        />
+        <FormRow>
+          <TextField
+            helperText='Exemplo: 5102 ou 5405.'
+            label='CFOP padrão de venda'
+            value={draft.defaultSaleCfop ?? ''}
+            onChange={(event) =>
+              setDraft((currentDraft) => ({
+                ...currentDraft,
+                defaultSaleCfop: event.target.value,
+              }))
+            }
+          />
+          <TextField
+            helperText='Exemplo: 102 para Simples Nacional.'
+            label='CST/CSOSN ICMS padrão'
+            value={draft.defaultIcmsCst ?? ''}
+            onChange={(event) =>
+              setDraft((currentDraft) => ({
+                ...currentDraft,
+                defaultIcmsCst: event.target.value,
+              }))
+            }
+          />
+        </FormRow>
+        <FormRow>
+          <TextField
+            helperText='Exemplo: 49.'
+            label='CST PIS padrão'
+            value={draft.defaultPisCst ?? ''}
+            onChange={(event) =>
+              setDraft((currentDraft) => ({
+                ...currentDraft,
+                defaultPisCst: event.target.value,
+              }))
+            }
+          />
+          <TextField
+            helperText='Exemplo: 49.'
+            label='CST COFINS padrão'
+            value={draft.defaultCofinsCst ?? ''}
+            onChange={(event) =>
+              setDraft((currentDraft) => ({
+                ...currentDraft,
+                defaultCofinsCst: event.target.value,
+              }))
+            }
+          />
+        </FormRow>
+      </FormCard>
+
+      <FormCard>
         <FormControlLabel
           control={
             <Switch
@@ -287,6 +364,12 @@ function fiscalSettingsInput(
   return {
     allowProduction: settings?.allowProduction ?? false,
     companyCnpj: settings?.companyCnpj ?? null,
+    defaultCofinsCst: settings?.defaultCofinsCst ?? '49',
+    defaultIcmsCst: settings?.defaultIcmsCst ?? '102',
+    defaultNatureOperation:
+      settings?.defaultNatureOperation ?? 'Venda de mercadoria',
+    defaultPisCst: settings?.defaultPisCst ?? '49',
+    defaultSaleCfop: settings?.defaultSaleCfop ?? '5102',
     environment: settings?.environment ?? 'HOMOLOGATION',
     provider: settings?.provider ?? 'MOCK',
     productionConfirmation: null,

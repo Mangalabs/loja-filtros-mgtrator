@@ -12,6 +12,11 @@ export type FiscalSettings = {
   environment: FiscalEnvironment;
   companyCnpj: string | null;
   allowProduction: boolean;
+  defaultNatureOperation: string | null;
+  defaultSaleCfop: string | null;
+  defaultIcmsCst: string | null;
+  defaultPisCst: string | null;
+  defaultCofinsCst: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -21,6 +26,11 @@ export type FiscalSettingsInput = {
   environment: FiscalEnvironment;
   companyCnpj: string | null;
   allowProduction: boolean;
+  defaultNatureOperation?: string | null;
+  defaultSaleCfop?: string | null;
+  defaultIcmsCst?: string | null;
+  defaultPisCst?: string | null;
+  defaultCofinsCst?: string | null;
 };
 
 const fiscalSettingsColumns = [
@@ -31,6 +41,11 @@ const fiscalSettingsColumns = [
   "fiscal_settings.environment",
   "fiscal_settings.company_cnpj as companyCnpj",
   "fiscal_settings.allow_production as allowProduction",
+  "fiscal_settings.default_nature_operation as defaultNatureOperation",
+  "fiscal_settings.default_sale_cfop as defaultSaleCfop",
+  "fiscal_settings.default_icms_cst as defaultIcmsCst",
+  "fiscal_settings.default_pis_cst as defaultPisCst",
+  "fiscal_settings.default_cofins_cst as defaultCofinsCst",
   "fiscal_settings.created_at as createdAt",
   "fiscal_settings.updated_at as updatedAt",
 ];
@@ -59,6 +74,11 @@ export async function upsertFiscalSettings(
         environment: input.environment,
         company_cnpj: input.companyCnpj,
         allow_production: input.allowProduction,
+        default_nature_operation: input.defaultNatureOperation,
+        default_sale_cfop: input.defaultSaleCfop,
+        default_icms_cst: input.defaultIcmsCst,
+        default_pis_cst: input.defaultPisCst,
+        default_cofins_cst: input.defaultCofinsCst,
         updated_at: db.fn.now(),
       })
       .returning("id");
@@ -73,6 +93,11 @@ export async function upsertFiscalSettings(
       environment: input.environment,
       company_cnpj: input.companyCnpj,
       allow_production: input.allowProduction,
+      default_nature_operation: input.defaultNatureOperation,
+      default_sale_cfop: input.defaultSaleCfop,
+      default_icms_cst: input.defaultIcmsCst,
+      default_pis_cst: input.defaultPisCst,
+      default_cofins_cst: input.defaultCofinsCst,
     })
     .returning("id");
 

@@ -438,17 +438,19 @@ export function ProductForm({
       </FormRow>
       <FormRow>
         <TextField
-          label="CFOP"
-          name="cfop"
-          defaultValue={product?.cfop ?? ""}
-          slotProps={{ htmlInput: { maxLength: 4 } }}
-        />
-        <TextField
+          defaultValue={product?.origin ?? ""}
+          helperText="Classificação fiscal da origem da mercadoria."
           label="Origem fiscal"
           name="origin"
-          defaultValue={product?.origin ?? ""}
-          slotProps={{ htmlInput: { maxLength: 2 } }}
-        />
+          select
+        >
+          <MenuItem value="">Selecione</MenuItem>
+          {productOriginOptions.map((option) => (
+            <MenuItem key={option.code} value={option.code}>
+              {option.code} - {option.label}
+            </MenuItem>
+          ))}
+        </TextField>
       </FormRow>
       <TextField
         defaultValue={product?.description ?? ""}
@@ -459,29 +461,6 @@ export function ProductForm({
         rows={3}
         slotProps={{ htmlInput: { maxLength: 1000 } }}
       />
-      <div className="grid gap-1 border-t border-[#e4e9e5] pt-4">
-        <strong className="text-[#2c281e]">Tributacao para NF-e</strong>
-        <span className="text-sm text-[#5f665f]">
-          Campos usados pela integração fiscal quando houver emissão de nota.
-        </span>
-      </div>
-      <FormRow columns={3}>
-        <TextField
-          defaultValue={product?.icmsCst ?? ""}
-          label="CST/CSOSN ICMS"
-          name="icmsCst"
-        />
-        <TextField
-          defaultValue={product?.pisCst ?? ""}
-          label="CST PIS"
-          name="pisCst"
-        />
-        <TextField
-          defaultValue={product?.cofinsCst ?? ""}
-          label="CST COFINS"
-          name="cofinsCst"
-        />
-      </FormRow>
       <ActionGroup className="mt-1">
         {onCancel ? (
           <SecondaryButton
@@ -513,6 +492,45 @@ function suggestedSalePrice(costPrice: string, profitMarginPercentage: string) {
 
   return (cost * (1 + margin / 100)).toFixed(2);
 }
+
+const productOriginOptions = [
+  {
+    code: "0",
+    label: "Nacional, exceto as indicadas nos códigos 3 a 5",
+  },
+  {
+    code: "1",
+    label: "Estrangeira - Importação direta, exceto a indicada no código 6",
+  },
+  {
+    code: "2",
+    label: "Estrangeira - Adquirida no mercado interno, exceto a indicada no código 7",
+  },
+  {
+    code: "3",
+    label: "Nacional, mercadoria ou bem com conteúdo de importação superior a 40%",
+  },
+  {
+    code: "4",
+    label: "Nacional, produção em conformidade com processos básicos produtivos",
+  },
+  {
+    code: "5",
+    label: "Nacional, mercadoria ou bem com conteúdo de importação inferior ou igual a 40%",
+  },
+  {
+    code: "6",
+    label: "Estrangeira - Importação direta, sem similar nacional",
+  },
+  {
+    code: "7",
+    label: "Estrangeira - Adquirida no mercado interno, sem similar nacional",
+  },
+  {
+    code: "8",
+    label: "Nacional, mercadoria ou bem com conteúdo de importação superior a 70%",
+  },
+];
 
 function filterFiscalCodeOptions<
   Option extends {

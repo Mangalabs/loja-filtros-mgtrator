@@ -18,6 +18,26 @@ const fiscalSettingsSchema = z
       .union([z.string().trim().min(1).max(32), z.literal(""), z.null()])
       .transform((value) => value || null),
     allowProduction: z.boolean(),
+    defaultNatureOperation: z
+      .union([z.string().trim().min(1).max(60), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    defaultSaleCfop: z
+      .union([z.string().trim().min(1).max(4), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    defaultIcmsCst: z
+      .union([z.string().trim().min(1).max(3), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    defaultPisCst: z
+      .union([z.string().trim().min(1).max(2), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    defaultCofinsCst: z
+      .union([z.string().trim().min(1).max(2), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
     productionConfirmation: z
       .union([z.string().trim().min(1).max(64), z.literal(""), z.null()])
       .transform((value) => value || null)

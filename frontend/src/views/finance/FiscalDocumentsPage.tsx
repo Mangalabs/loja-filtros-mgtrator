@@ -1,11 +1,14 @@
+import Accordion from '@mui/material/Accordion'
+import AccordionDetails from '@mui/material/AccordionDetails'
+import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
-import Tooltip from '@mui/material/Tooltip'
-import { FileText } from 'lucide-react'
+import { ChevronDown, FileText } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import type {
   Client,
@@ -146,7 +149,12 @@ export function FiscalDocumentsPage({
             },
             {
               header: 'Prontidao',
-              render: (request) => <FiscalReadinessStatus request={request} />,
+              render: (request) => (
+                <FiscalReadinessStatus
+                  request={request}
+                  onResolveFiscalPendency={onResolveFiscalPendency}
+                />
+              ),
             },
             {
               header: 'Operador',
@@ -345,8 +353,30 @@ export type FiscalPendencyTarget = {
   view: 'clients' | 'edit-product' | 'fiscal-settings' | 'products'
 }
 type FiscalPendencyCategory = 'client' | 'configuration' | 'product'
+type FiscalPendencyItem = {
+  productId: string
+  productName: string
+}
 
 function fiscalPendencyTarget(request: FiscalRequest): FiscalPendencyTarget {
+  const priorityIssue =
+    request.readinessIssues.find(
+      (issue) => fiscalReadinessIssueCategory(issue) === 'configuration',
+    ) ??
+    request.readinessIssues.find(
+      (issue) => fiscalReadinessIssueCategory(issue) === 'client',
+    ) ??
+    request.readinessIssues[0]
+
+  return priorityIssue
+    ? fiscalPendencyTargetForIssue(request, priorityIssue)
+    : { view: 'fiscal-settings' }
+}
+
+function fiscalPendencyTargetForIssue(
+  request: FiscalRequest,
+  issue: string,
+): FiscalPendencyTarget {
   const targetByCategory: Record<
     FiscalPendencyCategory,
     () => FiscalPendencyTarget
@@ -357,48 +387,91 @@ function fiscalPendencyTarget(request: FiscalRequest): FiscalPendencyTarget {
     }),
     configuration: () => ({ view: 'fiscal-settings' }),
     product: () => ({
-      productId: request.productIds[0],
-      view: request.productIds[0] ? 'edit-product' : 'products',
+      productId: fiscalIssueProductId(request, issue),
+      view: fiscalIssueProductId(request, issue) ? 'edit-product' : 'products',
     }),
   }
-  const categoryPriority: FiscalPendencyCategory[] = [
-    'configuration',
-    'client',
-    'product',
-  ]
-  const issueCategories = request.readinessIssues.map(
-    fiscalReadinessIssueCategory,
-  )
-  const category =
-    categoryPriority.find((currentCategory) =>
-      issueCategories.includes(currentCategory),
-    ) ?? 'product'
+  const category = fiscalReadinessIssueCategory(issue)
 
   return targetByCategory[category]()
 }
 
-function FiscalReadinessStatus({ request }: { request: FiscalRequest }) {
-  const visibleIssues = request.readinessIssues.slice(0, 2)
-  const hiddenIssuesCount = request.readinessIssues.length - visibleIssues.length
+function FiscalReadinessStatus({
+  request,
+  onResolveFiscalPendency,
+}: {
+  request: FiscalRequest
+  onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
+}) {
   const issueSummary = fiscalReadinessIssueSummary(request.readinessIssues)
 
   return request.readinessIssues.length === 0 ? (
     <StatusChip label='Pronta' tone='success' />
   ) : (
-    <Stack spacing={0.75}>
-      <StatusChip
-        label={`${request.readinessIssues.length} pendencia(s)`}
-        tone='warning'
-      />
-      <InlineNote>{issueSummary}</InlineNote>
-      <Tooltip title={request.readinessIssues.join('\n')} placement='top'>
-        <InlineNote>
-          {visibleIssues.join(' ')}
-          {hiddenIssuesCount > 0 ? ` +${hiddenIssuesCount}` : ''}
-        </InlineNote>
-      </Tooltip>
-    </Stack>
+    <Accordion
+      disableGutters
+      elevation={0}
+      className='max-w-md rounded-xl border border-[#e4e9e5] bg-white before:hidden'>
+      <AccordionSummary
+        expandIcon={<ChevronDown size={16} />}
+        className='min-h-0 px-3 py-2'>
+        <Stack spacing={0.75}>
+          <StatusChip
+            label={`${request.readinessIssues.length} pendencia(s)`}
+            tone='warning'
+          />
+          <InlineNote>{issueSummary}</InlineNote>
+          <InlineNote>Ver detalhes e corrigir</InlineNote>
+        </Stack>
+      </AccordionSummary>
+      <AccordionDetails className='grid gap-2 px-3 pt-0 pb-3'>
+        {request.readinessIssues.map((issue, index) => (
+          <FiscalReadinessIssueAction
+            issue={issue}
+            key={`${issue}-${index}`}
+            request={request}
+            onResolveFiscalPendency={onResolveFiscalPendency}
+          />
+        ))}
+      </AccordionDetails>
+    </Accordion>
   )
+}
+
+function FiscalReadinessIssueAction({
+  issue,
+  request,
+  onResolveFiscalPendency,
+}: {
+  issue: string
+  request: FiscalRequest
+  onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
+}) {
+  const category = fiscalReadinessIssueCategory(issue)
+
+  return (
+    <div className='grid gap-2 rounded-lg border border-[#e4e9e5] bg-[#f9faf8] p-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center'>
+      <span className='text-sm text-[#2c281e]'>{issue}</span>
+      <Button
+        size='small'
+        variant='outlined'
+        onClick={() =>
+          onResolveFiscalPendency(fiscalPendencyTargetForIssue(request, issue))
+        }>
+        {fiscalPendencyActionLabel(category)}
+      </Button>
+    </div>
+  )
+}
+
+function fiscalPendencyActionLabel(category: FiscalPendencyCategory) {
+  const labels: Record<FiscalPendencyCategory, string> = {
+    client: 'Corrigir cliente',
+    configuration: 'Corrigir configuração',
+    product: 'Corrigir produto',
+  }
+
+  return labels[category]
 }
 
 function fiscalReadinessIssueSummary(issues: string[]) {
@@ -423,7 +496,11 @@ function fiscalReadinessIssueSummary(issues: string[]) {
 
 function fiscalReadinessIssueCategory(issue: string) {
   const categoryByPattern = [
-    { category: 'configuration', pattern: /configuracao|produção|producao/i },
+    {
+      category: 'configuration',
+      pattern:
+        /configura[cç][aã]o|produção|producao|natureza da opera[cç][aã]o|cfop padr[aã]o|cst\/csosn icms padr[aã]o|cst pis padr[aã]o|cst cofins padr[aã]o|cnpj fiscal da loja/i,
+    },
     { category: 'client', pattern: /cliente/i },
   ] as const
 
@@ -431,6 +508,31 @@ function fiscalReadinessIssueCategory(issue: string) {
     categoryByPattern.find(({ pattern }) => pattern.test(issue))?.category ??
     'product'
   )
+}
+
+function fiscalIssueProductId(request: FiscalRequest, issue: string) {
+  const normalizedIssue = normalizeFiscalIssueText(issue)
+  const matchedItem = fiscalRequestItems(request).find((item) =>
+    normalizedIssue.includes(normalizeFiscalIssueText(item.productName)),
+  )
+
+  return matchedItem?.productId ?? request.productIds[0]
+}
+
+function fiscalRequestItems(request: FiscalRequest): FiscalPendencyItem[] {
+  return (
+    request.sale?.items ??
+    request.shippingOrder?.items ??
+    request.pickupReservation?.items ??
+    []
+  )
+}
+
+function normalizeFiscalIssueText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
 }
 
 function FiscalDocumentStatus({ document }: { document: FiscalDocument }) {
@@ -624,6 +726,19 @@ function FiscalSettingsSummary({
           tone={settings?.allowProduction ? 'warning' : 'success'}
         />
       </div>
+      {settings ? (
+        <div className='flex flex-wrap gap-2'>
+          {fiscalSettingsDefaultChips(settings).map((chip) => (
+            <Chip
+              className='border-[#d8b769] text-[#2c281e]'
+              key={chip.label}
+              label={`${chip.label}: ${chip.value}`}
+              size='small'
+              variant='outlined'
+            />
+          ))}
+        </div>
+      ) : null}
       {alerts.map((alert) => (
         <Alert key={alert.message} severity={alert.severity}>
           {alert.message}
@@ -631,6 +746,31 @@ function FiscalSettingsSummary({
       ))}
     </Stack>
   )
+}
+
+function fiscalSettingsDefaultChips(settings: FiscalSettings) {
+  return [
+    {
+      label: 'Natureza',
+      value: settings.defaultNatureOperation ?? 'Pendente',
+    },
+    {
+      label: 'CFOP',
+      value: settings.defaultSaleCfop ?? 'Pendente',
+    },
+    {
+      label: 'ICMS',
+      value: settings.defaultIcmsCst ?? 'Pendente',
+    },
+    {
+      label: 'PIS',
+      value: settings.defaultPisCst ?? 'Pendente',
+    },
+    {
+      label: 'COFINS',
+      value: settings.defaultCofinsCst ?? 'Pendente',
+    },
+  ]
 }
 
 function fiscalSettingsAlerts(settings: FiscalSettings | null) {

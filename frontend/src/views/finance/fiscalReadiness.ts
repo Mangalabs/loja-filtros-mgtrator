@@ -60,11 +60,7 @@ function productReadinessIssues(
   const fieldChecks: Array<[unknown, string]> = [
     [product, `Produto ${label} deve estar cadastrado.`],
     [product?.ncm, `NCM pendente em ${label}.`],
-    [product?.cfop, `CFOP pendente em ${label}.`],
     [product?.origin, `Origem fiscal pendente em ${label}.`],
-    [product?.icmsCst, `CST ICMS pendente em ${label}.`],
-    [product?.pisCst, `CST PIS pendente em ${label}.`],
-    [product?.cofinsCst, `CST COFINS pendente em ${label}.`],
   ]
 
   return [
@@ -118,26 +114,10 @@ function productFiscalFormatIssues(product: Product | undefined, label: string) 
 
   const fieldChecks: Array<[unknown, RegExp, string]> = [
     [product?.ncm, /^\d{8}$/, `NCM de ${label} deve conter 8 digitos.`],
-    [product?.cfop, /^\d{4}$/, `CFOP de ${label} deve conter 4 digitos.`],
     [
       product?.origin,
       /^[0-8]$/,
       `Origem fiscal de ${label} deve estar entre 0 e 8.`,
-    ],
-    [
-      product?.icmsCst,
-      /^\d{2,3}$/,
-      `CST ICMS de ${label} deve conter 2 ou 3 digitos.`,
-    ],
-    [
-      product?.pisCst,
-      /^\d{2}$/,
-      `CST PIS de ${label} deve conter 2 digitos.`,
-    ],
-    [
-      product?.cofinsCst,
-      /^\d{2}$/,
-      `CST COFINS de ${label} deve conter 2 digitos.`,
     ],
   ]
 
