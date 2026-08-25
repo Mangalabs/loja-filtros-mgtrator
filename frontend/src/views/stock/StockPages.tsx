@@ -9,6 +9,7 @@ import {
   Plus,
   SlidersHorizontal,
 } from "lucide-react";
+import { useState } from "react";
 import type { FormEvent } from "react";
 import type {
   Product,
@@ -244,18 +245,29 @@ export function StockAdjustmentsPage({
 }
 
 export function LowStockPage({
+  catalogProducts,
   products,
   onToggleReplenishmentMonitor,
 }: {
+  catalogProducts: Product[];
   products: Product[];
   onToggleReplenishmentMonitor: (product: Product) => void;
 }) {
-  const { pagination, visibleItems } = usePaginatedRows<Product>(products);
+  const [search, setSearch] = useState("");
+  const searchIsActive = Boolean(search.trim());
+  const listProducts = searchIsActive
+    ? filterLowStockProducts(
+        catalogProducts.filter((product) => product.active),
+        search,
+      )
+    : products;
+  const { pagination, visibleItems } =
+    usePaginatedRows<Product>(listProducts);
   const summary = lowStockSummary(products);
 
   return (
     <section className="grid gap-4">
-      <PagePanel wide>
+      <PagePanel>
         <PageHeader
           description="Produtos ativos com saldo disponível igual ou menor que o mínimo definido."
           icon={<AlertTriangle size={18} />}
@@ -269,6 +281,23 @@ export function LowStockPage({
       </PagePanel>
 
       <PagePanel wide>
+        <PageHeader
+          actions={
+            <TextField
+              className="min-w-full md:min-w-80"
+              label="Buscar na reposição"
+              placeholder="Busque qualquer produto para monitorar"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          }
+          description={
+            searchIsActive
+              ? `${listProducts.length} produto(s) encontrado(s) no catálogo`
+              : `${listProducts.length} produto(s) em reposição`
+          }
+          title="Lista de reposição"
+        />
         <ResponsiveTable
           columns={[
             {
@@ -278,12 +307,12 @@ export function LowStockPage({
                   label={
                     product.replenishmentMonitorEnabled
                       ? "Monitorado"
-                      : lowStockPriorityLabel(product)
+                      : replenishmentPriorityLabel(product)
                   }
                   tone={
                     product.replenishmentMonitorEnabled
                       ? "warning"
-                      : lowStockPriorityTone(product)
+                      : replenishmentPriorityTone(product)
                   }
                 />
               ),
@@ -338,7 +367,11 @@ export function LowStockPage({
               ),
             },
           ]}
-          emptyMessage="Nenhum produto requer reposição."
+          emptyMessage={
+            search
+              ? "Nenhum produto encontrado para esta busca."
+              : "Nenhum produto requer reposição."
+          }
           getRowId={(product) => product.id}
           items={visibleItems}
           pagination={pagination}
@@ -350,11 +383,11 @@ export function LowStockPage({
 
 function LowStockMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-[#e4e9e5] bg-[#f9faf8] p-3">
+    <div className="rounded-xl border border-[#e4e9e5] bg-[#f9faf8] px-3 py-2.5">
       <span className="block text-xs font-semibold uppercase tracking-wide text-[#5f665f]">
         {label}
       </span>
-      <strong className="mt-1 block text-2xl text-[#203466]">{value}</strong>
+      <strong className="mt-0.5 block text-xl text-[#203466]">{value}</strong>
     </div>
   );
 }
@@ -369,16 +402,62 @@ function lowStockSummary(products: Product[]) {
   };
 }
 
+function filterLowStockProducts(products: Product[], search: string) {
+  const normalizedSearch = normalizeLowStockSearch(search);
+
+  if (!normalizedSearch) {
+    return products;
+  }
+
+  return products.filter((product) =>
+    [
+      product.name,
+      product.internalCode,
+      product.barcode,
+      product.brandName,
+      product.location,
+    ]
+      .filter(Boolean)
+      .some((value) =>
+        normalizeLowStockSearch(String(value)).includes(normalizedSearch),
+      ),
+  );
+}
+
+function normalizeLowStockSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 function lowStockMissing(product: Product) {
-  return String(Number(product.minimumStock) - Number(product.availableStock));
+  return String(
+    Math.max(0, Number(product.minimumStock) - Number(product.availableStock)),
+  );
 }
 
-function lowStockPriorityLabel(product: Product) {
-  return Number(product.availableStock) <= 0 ? "Zerado" : "Abaixo do mínimo";
+function replenishmentPriorityLabel(product: Product) {
+  const availableStock = Number(product.availableStock);
+  const minimumStock = Number(product.minimumStock);
+
+  if (availableStock <= 0) {
+    return "Zerado";
+  }
+
+  return availableStock <= minimumStock ? "Abaixo do mínimo" : "Estoque ok";
 }
 
-function lowStockPriorityTone(product: Product) {
-  return Number(product.availableStock) <= 0 ? "error" : "neutral";
+function replenishmentPriorityTone(product: Product) {
+  const availableStock = Number(product.availableStock);
+  const minimumStock = Number(product.minimumStock);
+
+  if (availableStock <= 0) {
+    return "error";
+  }
+
+  return availableStock <= minimumStock ? "neutral" : "success";
 }
 
 export function StockMovementsPage({

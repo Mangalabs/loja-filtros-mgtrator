@@ -33,7 +33,7 @@ export function AppWorkspaceHeader({
   brandCount,
   branches,
   cashRegister,
-  lowStockCount,
+  monitoredLowStockCount,
   productCount,
   supplierCount,
   user,
@@ -51,7 +51,7 @@ export function AppWorkspaceHeader({
   brandCount: number;
   branches: Branch[];
   cashRegister: CashRegisterSession | null;
-  lowStockCount: number;
+  monitoredLowStockCount: number;
   productCount: number;
   supplierCount: number;
   user: AuthUser;
@@ -256,14 +256,14 @@ export function AppWorkspaceHeader({
           active={view === "low-stock"}
           icon={<AlertTriangle size={18} />}
           label="Reposição"
-          value={lowStockCount}
+          value={monitoredLowStockCount}
           onClick={() => onSelectView("low-stock")}
         />
-        {lowStockCount > 0 ? (
+        {monitoredLowStockCount > 0 ? (
           <Chip
             className="sm:col-span-2 xl:col-span-4"
             color="warning"
-            label={`${lowStockCount} produto(s) precisam de reposicao`}
+            label={`${monitoredLowStockCount} produto(s) monitorado(s) para reposicao`}
             variant="outlined"
           />
         ) : null}

@@ -285,6 +285,7 @@ export function AppViewRenderer({
       ),
     "low-stock": (
       <LowStockPage
+        catalogProducts={products}
         products={lowStockProducts}
         onToggleReplenishmentMonitor={(product) =>
           void stockActions.toggleReplenishmentMonitor(product)
