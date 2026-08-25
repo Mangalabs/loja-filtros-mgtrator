@@ -36,6 +36,7 @@ export type ProductListItem = {
   currentStock: string;
   reservedStock: string;
   availableStock: string;
+  replenishmentMonitorEnabled: boolean;
   ncm: string | null;
   cest: string | null;
   cfop: string | null;
@@ -60,6 +61,7 @@ export type ProductCreateInput = {
   salePrice?: number;
   profitMarginPercentage?: number | null;
   minimumStock?: number;
+  replenishmentMonitorEnabled?: boolean;
   ncm?: string | null;
   cest?: string | null;
   cfop?: string | null;
@@ -126,6 +128,7 @@ export async function listLowStockProducts(filters: {
     .andWhereRaw(
       "products.current_stock - products.reserved_stock <= products.minimum_stock",
     )
+    .orderBy("products.replenishment_monitor_enabled", "desc")
     .orderByRaw("products.current_stock - products.reserved_stock asc")
     .orderBy("products.name", "asc");
 }
@@ -181,6 +184,7 @@ export async function createProduct(
       sale_price: input.salePrice,
       profit_margin_percentage: input.profitMarginPercentage,
       minimum_stock: input.minimumStock,
+      replenishment_monitor_enabled: input.replenishmentMonitorEnabled,
       ncm: input.ncm,
       cest: input.cest,
       cfop: input.cfop,
@@ -227,6 +231,7 @@ export async function updateProduct(
       sale_price: input.salePrice,
       profit_margin_percentage: input.profitMarginPercentage,
       minimum_stock: input.minimumStock,
+      replenishment_monitor_enabled: input.replenishmentMonitorEnabled,
       ncm: input.ncm,
       cest: input.cest,
       cfop: input.cfop,
@@ -255,6 +260,26 @@ export async function updateProductStatus(
     .where("id", id)
     .update({
       active,
+      updated_at: db.fn.now(),
+    })
+    .returning("id");
+
+  if (!updated) {
+    return undefined;
+  }
+
+  return findProductById(updated.id);
+}
+
+export async function updateProductReplenishmentMonitor(
+  id: string,
+  branchId: string,
+  enabled: boolean,
+): Promise<ProductListItem | undefined> {
+  const [updated] = await db("products")
+    .where({ id, branch_id: branchId })
+    .update({
+      replenishment_monitor_enabled: enabled,
       updated_at: db.fn.now(),
     })
     .returning("id");
@@ -300,6 +325,7 @@ function productListColumns() {
     db.raw("products.current_stock - products.reserved_stock as ??", [
       "availableStock",
     ]),
+    "products.replenishment_monitor_enabled as replenishmentMonitorEnabled",
     "products.ncm",
     "products.cest",
     "products.cfop",

@@ -737,6 +737,22 @@ export function ClientsPage({
   const [lookupValues, setLookupValues] = useState<
     Record<string, string | null>
   >({});
+  const [clientPersonType, setClientPersonType] = useState(
+    selectedClient?.personType ?? "PF",
+  );
+  const [clientStateRegistrationIndicator, setClientStateRegistrationIndicator] =
+    useState(selectedClient?.stateRegistrationIndicator ?? "9");
+
+  useEffect(() => {
+    setClientPersonType(selectedClient?.personType ?? "PF");
+    setClientStateRegistrationIndicator(
+      selectedClient?.stateRegistrationIndicator ?? "9",
+    );
+  }, [
+    selectedClient?.id,
+    selectedClient?.personType,
+    selectedClient?.stateRegistrationIndicator,
+  ]);
 
   async function lookupCompany() {
     const formElement = formRef.current;
@@ -754,6 +770,8 @@ export function ClientsPage({
 
     try {
       setLookupValues(clientLookupValues(await onLookupCompany(document)));
+      setClientPersonType("PJ");
+      setClientStateRegistrationIndicator("9");
       setLookupState("success");
     } catch {
       setLookupState("error");
@@ -786,10 +804,13 @@ export function ClientsPage({
           title={selectedClient ? "Editar cliente" : "Novo cliente"}
         />
         <TextField
-          defaultValue={selectedClient?.personType ?? "PF"}
           label="Tipo de cliente"
           name="clientPersonType"
           select
+          value={clientPersonType}
+          onChange={(event) =>
+            setClientPersonType(clientPersonTypeValue(event.target.value))
+          }
           required
         >
           <MenuItem value="PF">Pessoa fisica</MenuItem>
@@ -851,23 +872,45 @@ export function ClientsPage({
           </span>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
+          {clientPersonType === "PJ" ? (
+            <TextField
+              label="Inscricao estadual"
+              name="clientStateRegistration"
+              value={clientFieldValue(
+                "clientStateRegistration",
+                selectedClient?.stateRegistration,
+              )}
+              helperText="Obrigatoria somente quando o indicador IE for contribuinte ICMS."
+              onChange={(event) =>
+                updateLookupValue("clientStateRegistration", event.target.value)
+              }
+            />
+          ) : (
+            <>
+              <TextField
+                disabled
+                helperText="Pessoa fisica e estrangeiro sao enviados como nao contribuintes."
+                label="Inscricao estadual"
+                value=""
+              />
+              <input name="clientStateRegistration" type="hidden" value="" />
+            </>
+          )}
           <TextField
-            label="Inscricao estadual"
-            name="clientStateRegistration"
-            value={clientFieldValue(
-              "clientStateRegistration",
-              selectedClient?.stateRegistration,
-            )}
-            helperText="Consultas publicas de CNPJ normalmente nao retornam IE."
-            onChange={(event) =>
-              updateLookupValue("clientStateRegistration", event.target.value)
-            }
-          />
-          <TextField
-            defaultValue={selectedClient?.stateRegistrationIndicator ?? "9"}
             label="Indicador IE"
             name="clientStateRegistrationIndicator"
             select
+            value={
+              clientPersonType === "PJ"
+                ? clientStateRegistrationIndicator
+                : "9"
+            }
+            onChange={(event) =>
+              setClientStateRegistrationIndicator(
+                clientStateRegistrationIndicatorValue(event.target.value),
+              )
+            }
+            disabled={clientPersonType !== "PJ"}
           >
             <MenuItem value="9">Nao contribuinte</MenuItem>
             <MenuItem value="1">Contribuinte ICMS</MenuItem>
@@ -1076,4 +1119,27 @@ function clientLookupValues(company: ClientCompanyLookup) {
     clientPhone: company.phone,
     clientStateRegistration: company.stateRegistration,
   };
+}
+
+function clientPersonTypeValue(value: string): Client["personType"] {
+  const values: Record<string, Client["personType"]> = {
+    ES: "ES",
+    PF: "PF",
+    PJ: "PJ",
+  };
+
+  return values[value] ?? "PF";
+}
+
+function clientStateRegistrationIndicatorValue(
+  value: string,
+): NonNullable<Client["stateRegistrationIndicator"]> {
+  const values: Record<string, NonNullable<Client["stateRegistrationIndicator"]>> =
+    {
+      "1": "1",
+      "2": "2",
+      "9": "9",
+    };
+
+  return values[value] ?? "9";
 }

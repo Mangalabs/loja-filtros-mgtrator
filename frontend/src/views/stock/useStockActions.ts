@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import {
+  apiPatch,
   apiPost,
   apiPut,
   type ApiResult,
@@ -164,6 +165,17 @@ export function useStockActions({
     return createdProduct;
   }
 
+  async function toggleReplenishmentMonitor(product: Product) {
+    await runAction(async () => {
+      await apiPatch<ApiResult<Product>>(
+        `/products/${product.id}/replenishment-monitor`,
+        { enabled: !product.replenishmentMonitorEnabled },
+      );
+
+      await refreshStockFlow();
+    });
+  }
+
   return {
     cancelPurchaseInvoice,
     createProductFromPurchaseItem,
@@ -172,6 +184,7 @@ export function useStockActions({
     parsePurchaseInvoiceXml,
     postPurchaseInvoice,
     savePurchaseInvoiceReview,
+    toggleReplenishmentMonitor,
   };
 }
 

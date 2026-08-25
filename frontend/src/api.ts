@@ -50,6 +50,7 @@ export type Product = {
   currentStock: string;
   reservedStock: string;
   availableStock: string;
+  replenishmentMonitorEnabled: boolean;
   ncm: string | null;
   cest: string | null;
   cfop: string | null;

@@ -233,8 +233,7 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
     nome_destinatario:
       focusString(request.sale.clientName) ?? "Consumidor final",
     ...focusCustomerDocument(request),
-    inscricao_estadual_destinatario:
-      focusString(request.sale.clientStateRegistration) ?? undefined,
+    inscricao_estadual_destinatario: focusCustomerStateRegistration(request),
     indicador_inscricao_estadual_destinatario:
       focusCustomerStateRegistrationIndicator(request),
     logradouro_destinatario:
@@ -325,6 +324,10 @@ function focusCustomerDocument(request: FiscalIssueRequest) {
 function focusCustomerStateRegistrationIndicator(
   request: FiscalIssueRequest,
 ): 1 | 2 | 9 {
+  if (request.sale.clientPersonType !== "PJ") {
+    return 9;
+  }
+
   const indicator = Number(request.sale.clientStateRegistrationIndicator ?? 9);
   const indicators: Record<number, 1 | 2 | 9> = {
     1: 1,
@@ -333,6 +336,12 @@ function focusCustomerStateRegistrationIndicator(
   };
 
   return indicators[indicator] ?? 9;
+}
+
+function focusCustomerStateRegistration(request: FiscalIssueRequest) {
+  return focusCustomerStateRegistrationIndicator(request) === 1
+    ? focusString(request.sale.clientStateRegistration) ?? undefined
+    : undefined;
 }
 
 function focusNfeItemPayload(

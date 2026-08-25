@@ -23,7 +23,7 @@ export async function storeClient(
   input: Omit<ClientInput, "branchId">,
   branchId: string,
 ) {
-  const client = await createClient({ ...input, branchId });
+  const client = await createClient(normalizeClientInput({ ...input, branchId }));
 
   return {
     code: 201,
@@ -45,7 +45,11 @@ export async function replaceClient(
   input: Omit<ClientInput, "branchId">,
   branchId: string,
 ) {
-  const client = await updateClient(id, branchId, { ...input, branchId });
+  const client = await updateClient(
+    id,
+    branchId,
+    normalizeClientInput({ ...input, branchId }),
+  );
 
   if (!client) {
     throw new AppError("Client not found", 404);
@@ -55,6 +59,34 @@ export async function replaceClient(
     code: 200,
     status: "success",
     data: client,
+  };
+}
+
+function normalizeClientInput(input: ClientInput): ClientInput {
+  const fiscalByPersonType: Record<
+    ClientInput["personType"],
+    Pick<ClientInput, "stateRegistration" | "stateRegistrationIndicator">
+  > = {
+    ES: {
+      stateRegistration: null,
+      stateRegistrationIndicator: "9",
+    },
+    PF: {
+      stateRegistration: null,
+      stateRegistrationIndicator: "9",
+    },
+    PJ: {
+      stateRegistration:
+        input.stateRegistrationIndicator === "1"
+          ? input.stateRegistration
+          : null,
+      stateRegistrationIndicator: input.stateRegistrationIndicator ?? "9",
+    },
+  };
+
+  return {
+    ...input,
+    ...fiscalByPersonType[input.personType],
   };
 }
 

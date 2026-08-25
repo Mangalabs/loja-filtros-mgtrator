@@ -82,17 +82,22 @@ export function useCatalogActions({
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const personType = String(form.get("clientPersonType") ?? "PF");
+    const stateRegistrationIndicator =
+      personType === "PJ"
+        ? nullableFormValue(form, "clientStateRegistrationIndicator")
+        : "9";
     const body = {
-      personType: String(form.get("clientPersonType") ?? "PF"),
+      personType,
       name: String(form.get("clientName") ?? "").trim(),
       document: nullableFormValue(form, "clientDocument"),
       phone: nullableFormValue(form, "clientPhone"),
       email: nullableFormValue(form, "clientEmail"),
-      stateRegistration: nullableFormValue(form, "clientStateRegistration"),
-      stateRegistrationIndicator: nullableFormValue(
-        form,
-        "clientStateRegistrationIndicator",
-      ),
+      stateRegistration:
+        stateRegistrationIndicator === "1"
+          ? nullableFormValue(form, "clientStateRegistration")
+          : null,
+      stateRegistrationIndicator,
       addressStreet: nullableFormValue(form, "clientAddressStreet"),
       addressNumber: nullableFormValue(form, "clientAddressNumber"),
       addressComplement: nullableFormValue(form, "clientAddressComplement"),

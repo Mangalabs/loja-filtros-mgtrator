@@ -4,6 +4,8 @@ import {
   AlertTriangle,
   ArrowDownToLine,
   ArrowLeftRight,
+  Bell,
+  BellOff,
   Plus,
   SlidersHorizontal,
 } from "lucide-react";
@@ -23,7 +25,7 @@ import {
   PagePanel,
   ResponsiveTable,
 } from "../../components/layout";
-import { PrimaryButton } from "../../components/ui";
+import { PrimaryButton, StatusChip, TableActionButton } from "../../components/ui";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import {
   formatCurrency,
@@ -241,60 +243,142 @@ export function StockAdjustmentsPage({
   );
 }
 
-export function LowStockPage({ products }: { products: Product[] }) {
+export function LowStockPage({
+  products,
+  onToggleReplenishmentMonitor,
+}: {
+  products: Product[];
+  onToggleReplenishmentMonitor: (product: Product) => void;
+}) {
   const { pagination, visibleItems } = usePaginatedRows<Product>(products);
+  const summary = lowStockSummary(products);
 
   return (
-    <PagePanel wide>
-      <PageHeader
-        description="Produtos ativos com saldo disponível igual ou menor que o mínimo definido."
-        icon={<AlertTriangle size={18} />}
-        title="Produtos para reposição"
-      />
-      <ResponsiveTable
-        columns={[
-          {
-            header: "Produto",
-            render: (product) => productDisplayName(product),
-          },
-          {
-            header: "Fabricante",
-            render: (product) => product.brandName ?? "-",
-          },
-          {
-            header: "Locação",
-            render: (product) => product.location ?? "-",
-          },
-          {
-            header: "Disponível",
-            render: (product) => (
-              <strong className="text-[#9f3a2c]">
-                {formatQuantity(product.availableStock)}
-              </strong>
-            ),
-          },
-          {
-            header: "Mínimo",
-            render: (product) => formatQuantity(product.minimumStock),
-          },
-          {
-            header: "Faltam para o mínimo",
-            render: (product) =>
-              formatQuantity(
-                String(
-                  Number(product.minimumStock) -
-                    Number(product.availableStock),
-                ),
+    <section className="grid gap-4">
+      <PagePanel wide>
+        <PageHeader
+          description="Produtos ativos com saldo disponível igual ou menor que o mínimo definido."
+          icon={<AlertTriangle size={18} />}
+          title="Produtos para reposição"
+        />
+        <div className="grid gap-3 md:grid-cols-3">
+          <LowStockMetric label="Monitorados" value={summary.monitored} />
+          <LowStockMetric label="Zerados" value={summary.empty} />
+          <LowStockMetric label="Total em reposição" value={summary.total} />
+        </div>
+      </PagePanel>
+
+      <PagePanel wide>
+        <ResponsiveTable
+          columns={[
+            {
+              header: "Prioridade",
+              render: (product) => (
+                <StatusChip
+                  label={
+                    product.replenishmentMonitorEnabled
+                      ? "Monitorado"
+                      : lowStockPriorityLabel(product)
+                  }
+                  tone={
+                    product.replenishmentMonitorEnabled
+                      ? "warning"
+                      : lowStockPriorityTone(product)
+                  }
+                />
               ),
-          },
-        ]}
-        emptyMessage="Nenhum produto requer reposição."
-        getRowId={(product) => product.id}
-        items={visibleItems}
-        pagination={pagination}
-      />
-    </PagePanel>
+            },
+            {
+              header: "Produto",
+              render: (product) => productDisplayName(product),
+            },
+            {
+              header: "Fabricante",
+              render: (product) => product.brandName ?? "-",
+            },
+            {
+              header: "Locação",
+              render: (product) => product.location ?? "-",
+            },
+            {
+              header: "Disponível",
+              render: (product) => (
+                <strong className="text-[#9f3a2c]">
+                  {formatQuantity(product.availableStock)}
+                </strong>
+              ),
+            },
+            {
+              header: "Mínimo",
+              render: (product) => formatQuantity(product.minimumStock),
+            },
+            {
+              header: "Faltam",
+              render: (product) => formatQuantity(lowStockMissing(product)),
+            },
+            {
+              align: "right",
+              header: "Ações",
+              render: (product) => (
+                <TableActionButton
+                  icon={
+                    product.replenishmentMonitorEnabled ? (
+                      <BellOff size={15} />
+                    ) : (
+                      <Bell size={15} />
+                    )
+                  }
+                  type="button"
+                  onClick={() => onToggleReplenishmentMonitor(product)}
+                >
+                  {product.replenishmentMonitorEnabled
+                    ? "Parar monitoramento"
+                    : "Monitorar"}
+                </TableActionButton>
+              ),
+            },
+          ]}
+          emptyMessage="Nenhum produto requer reposição."
+          getRowId={(product) => product.id}
+          items={visibleItems}
+          pagination={pagination}
+        />
+      </PagePanel>
+    </section>
   );
+}
+
+function LowStockMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-[#e4e9e5] bg-[#f9faf8] p-3">
+      <span className="block text-xs font-semibold uppercase tracking-wide text-[#5f665f]">
+        {label}
+      </span>
+      <strong className="mt-1 block text-2xl text-[#203466]">{value}</strong>
+    </div>
+  );
+}
+
+function lowStockSummary(products: Product[]) {
+  return {
+    empty: products.filter((product) => Number(product.availableStock) <= 0)
+      .length,
+    monitored: products.filter((product) => product.replenishmentMonitorEnabled)
+      .length,
+    total: products.length,
+  };
+}
+
+function lowStockMissing(product: Product) {
+  return String(Number(product.minimumStock) - Number(product.availableStock));
+}
+
+function lowStockPriorityLabel(product: Product) {
+  return Number(product.availableStock) <= 0 ? "Zerado" : "Abaixo do mínimo";
+}
+
+function lowStockPriorityTone(product: Product) {
+  return Number(product.availableStock) <= 0 ? "error" : "neutral";
 }
 
 export function StockMovementsPage({

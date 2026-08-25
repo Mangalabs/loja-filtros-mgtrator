@@ -5,6 +5,7 @@ import {
   listProducts,
   listProductsPage,
   updateProduct,
+  updateProductReplenishmentMonitor,
   updateProductStatus,
   type ProductCreateInput,
   type ProductListFilters,
@@ -79,6 +80,24 @@ export async function replaceProduct(id: string, input: ProductUpdateInput) {
 
 export async function changeProductStatus(id: string, active: boolean) {
   const product = await updateProductStatus(id, active);
+
+  if (!product) {
+    throw new AppError("Product not found", 404);
+  }
+
+  return {
+    code: 200,
+    status: "success",
+    data: product,
+  };
+}
+
+export async function changeProductReplenishmentMonitor(
+  id: string,
+  branchId: string,
+  enabled: boolean,
+) {
+  const product = await updateProductReplenishmentMonitor(id, branchId, enabled);
 
   if (!product) {
     throw new AppError("Product not found", 404);

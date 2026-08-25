@@ -59,6 +59,7 @@ type Product = {
   currentStock: string;
   reservedStock: string;
   availableStock: string;
+  replenishmentMonitorEnabled: boolean;
   ncm: string | null;
   cest: string | null;
   cfop: string | null;
@@ -2826,9 +2827,9 @@ describe("catalog routes", () => {
     const client = await request<Client>("/clients", {
       method: "POST",
       body: {
-        personType: "PF",
+        personType: "PJ",
         name: "Cliente sem endereco fiscal",
-        document: "12345678901",
+        document: "12345678000199",
         stateRegistrationIndicator: "1",
       },
     });
@@ -3777,9 +3778,12 @@ describe("catalog routes", () => {
     const requestPayload = focusIssueRequest();
     let submittedPayload: Record<string, unknown> | null = null;
 
+    requestPayload.sale.clientPersonType = "PJ";
+    requestPayload.sale.clientDocument = "12345678000199";
     requestPayload.sale.clientName = " Cliente Focus ";
     requestPayload.sale.clientEmail = " fiscal@example.com ";
     requestPayload.sale.clientStateRegistration = " 123456 ";
+    requestPayload.sale.clientStateRegistrationIndicator = "1";
     requestPayload.sale.clientAddressStreet = " Rua Fiscal ";
     requestPayload.sale.clientAddressNumber = " 123 ";
     requestPayload.sale.clientAddressComplement = " Sala 1 ";
@@ -3842,6 +3846,51 @@ describe("catalog routes", () => {
       assert.equal(item.icms_situacao_tributaria, "500");
       assert.equal(item.pis_situacao_tributaria, "49");
       assert.equal(item.cofins_situacao_tributaria, "49");
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("does not send state registration for individual Focus customers", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const requestPayload = focusIssueRequest();
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    requestPayload.sale.clientStateRegistration = "123456";
+    requestPayload.sale.clientStateRegistrationIndicator = "1";
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocusprovidertest",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(requestPayload);
+      assert.ok(submittedPayload);
+
+      const payload = submittedPayload as Record<string, unknown>;
+
+      assert.equal(payload.inscricao_estadual_destinatario, undefined);
+      assert.equal(payload.indicador_inscricao_estadual_destinatario, 9);
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
@@ -6530,6 +6579,24 @@ describe("catalog routes", () => {
     assert.equal(active.body.data?.length, 0);
   });
 
+  it("normalizes individual clients as non ICMS taxpayers", async () => {
+    const created = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente pessoa fisica",
+        document: "12345678900",
+        stateRegistration: "123456789",
+        stateRegistrationIndicator: "1",
+      },
+    });
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.personType, "PF");
+    assert.equal(created.body.data?.stateRegistration, null);
+    assert.equal(created.body.data?.stateRegistrationIndicator, "9");
+  });
+
   it("keeps clients scoped to the active branch", async () => {
     const branch = await request<Branch>("/branches", {
       method: "POST",
@@ -6847,6 +6914,10 @@ describe("catalog routes", () => {
       method: "POST",
       body: { name: "Filtro em falta", minimumStock: 5 },
     });
+    const monitored = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro monitorado", minimumStock: 5 },
+    });
     const replenished = await request<Product>("/products", {
       method: "POST",
       body: { name: "Filtro reposto", minimumStock: 2 },
@@ -6873,14 +6944,25 @@ describe("catalog routes", () => {
       method: "PATCH",
       body: { active: false },
     });
+    const monitoredUpdate = await request<Product>(
+      `/products/${monitored.body.data?.id}/replenishment-monitor`,
+      {
+        method: "PATCH",
+        body: { enabled: true },
+      },
+    );
 
     const response = await request<Product[]>("/products/low-stock");
 
+    assert.equal(monitoredUpdate.status, 200);
+    assert.equal(monitoredUpdate.body.data?.replenishmentMonitorEnabled, true);
     assert.equal(response.status, 200);
-    assert.equal(response.body.data?.length, 1);
-    assert.equal(response.body.data?.[0]?.id, lowStock.body.data?.id);
-    assert.equal(response.body.data?.[0]?.currentStock, "0.000");
-    assert.equal(response.body.data?.[0]?.minimumStock, "5.000");
+    assert.equal(response.body.data?.length, 2);
+    assert.equal(response.body.data?.[0]?.id, monitored.body.data?.id);
+    assert.equal(response.body.data?.[0]?.replenishmentMonitorEnabled, true);
+    assert.equal(response.body.data?.[1]?.id, lowStock.body.data?.id);
+    assert.equal(response.body.data?.[1]?.currentStock, "0.000");
+    assert.equal(response.body.data?.[1]?.minimumStock, "5.000");
     assert.notEqual(response.body.data?.[0]?.id, notConfigured.body.data?.id);
   });
 

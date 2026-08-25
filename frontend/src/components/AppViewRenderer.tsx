@@ -283,7 +283,14 @@ export function AppViewRenderer({
           onSubmit={stockActions.createStockAdjustment}
         />
       ),
-    "low-stock": <LowStockPage products={lowStockProducts} />,
+    "low-stock": (
+      <LowStockPage
+        products={lowStockProducts}
+        onToggleReplenishmentMonitor={(product) =>
+          void stockActions.toggleReplenishmentMonitor(product)
+        }
+      />
+    ),
     "stock-movements": <StockMovementsPage movements={stockMovements} />,
     "payment-methods": (
         <PaymentMethodsPage

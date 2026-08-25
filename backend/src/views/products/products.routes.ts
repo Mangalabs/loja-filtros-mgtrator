@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  changeProductReplenishmentMonitor,
   changeProductStatus,
   indexLowStockProducts,
   indexProducts,
@@ -47,6 +48,10 @@ const updateProductSchema = createProductSchema.partial().refine((value) => {
 
 const updateProductStatusSchema = z.object({
   active: z.boolean(),
+});
+
+const updateProductReplenishmentMonitorSchema = z.object({
+  enabled: z.boolean(),
 });
 
 const productParamsSchema = z.object({
@@ -118,6 +123,21 @@ productsRoutes.patch("/products/:id/status", async (request, response) => {
 
   response.status(200).json(result);
 });
+
+productsRoutes.patch(
+  "/products/:id/replenishment-monitor",
+  async (request, response) => {
+    const { id } = productParamsSchema.parse(request.params);
+    const body = validateBody(request, updateProductReplenishmentMonitorSchema);
+    const result = await changeProductReplenishmentMonitor(
+      id,
+      requireActiveBranchId(response.locals),
+      body.enabled,
+    );
+
+    response.status(200).json(result);
+  },
+);
 
 function optionalText(max: number) {
   return z
