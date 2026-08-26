@@ -456,7 +456,13 @@ export function QuotesPage({
                 required
                 stockLabel='available'
                 value={item.productId}
-                onChange={(productId) => updateItem(index, { productId })}
+                onSelect={(product) =>
+                  updateItem(index, {
+                    productId: product?.id ?? '',
+                    description: product?.description ?? product?.name ?? '',
+                    unitPrice: product?.salePrice ?? '',
+                  })
+                }
               />
               <TextField
                 label='Descrição comercial'

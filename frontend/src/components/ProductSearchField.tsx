@@ -14,6 +14,7 @@ type ProductSearchFieldProps = {
   label: string;
   name: string;
   onChange?: (productId: string) => void;
+  onSelect?: (product: Product | null) => void;
   products: Product[];
   required?: boolean;
   size?: "medium" | "small";
@@ -28,6 +29,7 @@ export function ProductSearchField({
   label,
   name,
   onChange,
+  onSelect,
   products,
   required,
   size = "medium",
@@ -86,6 +88,7 @@ export function ProductSearchField({
       product ? uniqueProducts([product, ...currentProducts]) : currentProducts,
     );
     onChange?.(productId);
+    onSelect?.(product);
   }
 
   return (
