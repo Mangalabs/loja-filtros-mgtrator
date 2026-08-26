@@ -444,6 +444,7 @@ export type Sale = {
   }>;
   clientId: string | null;
   clientName: string | null;
+  paymentMethodCode: string;
   paymentMethodName: string;
   createdByUserName: string;
   createdAt: string;

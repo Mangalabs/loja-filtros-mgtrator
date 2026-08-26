@@ -38,6 +38,7 @@ export type FiscalIssueRequest = {
     clientAddressCity: string | null;
     clientAddressState: string | null;
     clientAddressZipCode: string | null;
+    paymentMethodCode: string;
     paymentMethodName: string;
     totalAmount: string;
     discountAmount: string;

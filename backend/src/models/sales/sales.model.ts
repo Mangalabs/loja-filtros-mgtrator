@@ -43,6 +43,7 @@ export type Sale = {
   clientAddressCity: string | null;
   clientAddressState: string | null;
   clientAddressZipCode: string | null;
+  paymentMethodCode: string;
   paymentMethodName: string;
   createdByUserName: string;
   createdAt: Date;
@@ -135,6 +136,7 @@ const saleColumns = [
   "clients.address_city as clientAddressCity",
   "clients.address_state as clientAddressState",
   "clients.address_zip_code as clientAddressZipCode",
+  "payment_methods.code as paymentMethodCode",
   "payment_methods.name as paymentMethodName",
   "users.name as createdByUserName",
   "sales.created_at as createdAt",

@@ -44,8 +44,15 @@ type FocusNfePayload = {
   valor_desconto_fatura?: number;
   valor_liquido_fatura?: number;
   duplicatas?: FocusNfeInstallmentPayload[];
+  formas_pagamento: FocusNfePaymentPayload[];
   modalidade_frete: 9;
   items: FocusNfeItemPayload[];
+};
+
+type FocusNfePaymentPayload = {
+  indicador_pagamento: 0 | 1;
+  forma_pagamento: string;
+  valor_pagamento: number;
 };
 
 type FocusNfeInstallmentPayload = {
@@ -258,9 +265,34 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
       productAmount,
       totalAmount,
     }),
+    formas_pagamento: [focusPaymentPayload(request, totalAmount)],
     modalidade_frete: 9,
     items: request.sale.items.map((item) => focusNfeItemPayload(item, request)),
   };
+}
+
+function focusPaymentPayload(
+  request: FiscalIssueRequest,
+  totalAmount: number,
+): FocusNfePaymentPayload {
+  const paymentCode = focusPaymentCode(request.sale.paymentMethodCode);
+
+  return {
+    indicador_pagamento: paymentCode === "15" ? 1 : 0,
+    forma_pagamento: paymentCode,
+    valor_pagamento: totalAmount,
+  };
+}
+
+function focusPaymentCode(paymentMethodCode: string) {
+  const paymentCodes: Record<string, string> = {
+    BOLETO: "15",
+    CREDIT: "03",
+    DEBIT: "04",
+    PIX: "20",
+  };
+
+  return paymentCodes[paymentMethodCode] ?? "99";
 }
 
 function focusBillingPayload(

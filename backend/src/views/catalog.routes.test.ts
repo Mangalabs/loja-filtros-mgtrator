@@ -226,6 +226,7 @@ type Sale = {
     position: number;
   }>;
   clientName: string | null;
+  paymentMethodCode: string;
   paymentMethodName: string;
   createdByUserName: string;
   cancelledByUserName: string | null;
@@ -1820,6 +1821,7 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.totalAmount, "65.00");
     assert.ok(created.body.data?.billingIssueDate?.startsWith("2026-07-10"));
     assert.ok(created.body.data?.billingDueDate?.startsWith("2026-07-20"));
+    assert.equal(created.body.data?.paymentMethodCode, "PIX");
     assert.equal(cash.body.data?.salesTotal, "65.00");
     assert.equal(cash.body.data?.paymentSummary[0]?.amount, "65.00");
   });
@@ -2114,6 +2116,7 @@ describe("catalog routes", () => {
       clientAddressCity: null,
       clientAddressState: null,
       clientAddressZipCode: null,
+      paymentMethodCode: "PIX",
       paymentMethodName: "PIX",
       createdByUserName: "Operador teste",
       createdAt: new Date("2026-07-09T12:00:00.000Z"),
@@ -3965,6 +3968,13 @@ describe("catalog routes", () => {
       assert.equal(payload.valor_original_fatura, 155);
       assert.equal(payload.valor_desconto_fatura, 15);
       assert.equal(payload.valor_liquido_fatura, 140);
+      assert.deepEqual(payload.formas_pagamento, [
+        {
+          indicador_pagamento: 0,
+          forma_pagamento: "20",
+          valor_pagamento: 140,
+        },
+      ]);
       assert.deepEqual(payload.duplicatas, [
         {
           numero: "001",
@@ -3976,6 +3986,56 @@ describe("catalog routes", () => {
       assert.equal(items[0]?.valor_desconto, 5);
       assert.equal(items[1]?.valor_bruto, 75);
       assert.equal(items[1]?.valor_desconto, 0);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("sends credit card payment details to Focus", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const requestPayload = focusIssueRequest();
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    requestPayload.sale.paymentMethodCode = "CREDIT";
+    requestPayload.sale.paymentMethodName = "Cartao de credito";
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocusprovidertest",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(requestPayload);
+      assert.ok(submittedPayload);
+
+      const payload = submittedPayload as Record<string, unknown>;
+
+      assert.deepEqual(payload.formas_pagamento, [
+        {
+          indicador_pagamento: 0,
+          forma_pagamento: "03",
+          valor_pagamento: 35,
+        },
+      ]);
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
@@ -6501,13 +6561,13 @@ describe("catalog routes", () => {
     assert.equal(listed.status, 200);
     assert.deepEqual(
       listed.body.data?.map((paymentMethod) => paymentMethod.code),
-      ["PIX", "DEBIT", "BOLETO"],
+      ["PIX", "DEBIT", "CREDIT", "BOLETO"],
     );
     assert.equal(deactivated.status, 200);
     assert.equal(deactivated.body.data?.active, false);
     assert.deepEqual(
       active.body.data?.map((paymentMethod) => paymentMethod.code),
-      ["PIX", "BOLETO"],
+      ["PIX", "CREDIT", "BOLETO"],
     );
   });
 
@@ -7890,6 +7950,7 @@ function focusIssueRequest(): FiscalIssueRequest {
       clientAddressCity: "Araguaina",
       clientAddressState: "TO",
       clientAddressZipCode: "77800000",
+      paymentMethodCode: "PIX",
       paymentMethodName: "PIX",
       totalAmount: "35.00",
       discountAmount: "0.00",
