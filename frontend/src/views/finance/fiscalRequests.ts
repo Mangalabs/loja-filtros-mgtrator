@@ -7,7 +7,11 @@ import type {
   Sale,
   ShippingOrder,
 } from '../../api'
-import { findClient, fiscalReadinessIssues } from './fiscalReadiness'
+import {
+  findClient,
+  fiscalReadinessIssues,
+  type FiscalReadinessItem,
+} from './fiscalReadiness'
 
 export type FiscalRequest = {
   sourceType: FiscalDocument['sourceType']
@@ -200,8 +204,10 @@ const fiscalRequestFactories: Array<
         document: findFiscalDocument(input.fiscalDocuments, 'SALE', sale.id),
       }))
   },
-  ({ clients, fiscalDocuments, fiscalSettings, products, shippingOrders }) =>
-    shippingOrders
+  (input) => {
+    const salesById = fiscalSalesById(input.sales)
+
+    return input.shippingOrders
       .filter((order) => order.status === 'COMPLETED')
       .map((order) => ({
         sourceType: 'SHIPPING_ORDER',
@@ -214,26 +220,23 @@ const fiscalRequestFactories: Array<
         operatorName: order.completedByUserName ?? order.createdByUserName,
         productIds: order.items.map((item) => item.productId),
         readinessIssues: sourceFiscalReadinessIssues({
-          client: findClient(clients, order.clientId),
-          fiscalSettings,
-          items: order.items,
-          products,
+          client: findClient(input.clients, order.clientId),
+          fiscalSettings: input.fiscalSettings,
+          items: fiscalOperationItems(order.items, order.saleId, salesById),
+          products: input.products,
         }),
         shippingOrder: order,
         document: findFiscalDocument(
-          fiscalDocuments,
+          input.fiscalDocuments,
           'SHIPPING_ORDER',
           order.id,
         ),
-      })),
-  ({
-    clients,
-    fiscalDocuments,
-    fiscalSettings,
-    pickupReservations,
-    products,
-  }) =>
-    pickupReservations
+      }))
+  },
+  (input) => {
+    const salesById = fiscalSalesById(input.sales)
+
+    return input.pickupReservations
       .filter((reservation) => reservation.status === 'COMPLETED')
       .map((reservation) => ({
         sourceType: 'PICKUP_RESERVATION',
@@ -247,18 +250,23 @@ const fiscalRequestFactories: Array<
           reservation.completedByUserName ?? reservation.createdByUserName,
         productIds: reservation.items.map((item) => item.productId),
         readinessIssues: sourceFiscalReadinessIssues({
-          client: findClient(clients, reservation.clientId),
-          fiscalSettings,
-          items: reservation.items,
-          products,
+          client: findClient(input.clients, reservation.clientId),
+          fiscalSettings: input.fiscalSettings,
+          items: fiscalOperationItems(
+            reservation.items,
+            reservation.saleId,
+            salesById,
+          ),
+          products: input.products,
         }),
         pickupReservation: reservation,
         document: findFiscalDocument(
-          fiscalDocuments,
+          input.fiscalDocuments,
           'PICKUP_RESERVATION',
           reservation.id,
         ),
-      })),
+      }))
+  },
 ]
 
 function sourceFiscalReadinessIssues({
@@ -269,7 +277,7 @@ function sourceFiscalReadinessIssues({
 }: {
   client?: Client
   fiscalSettings: FiscalSettings | null
-  items: Array<{ productId: string; productName: string }>
+  items: FiscalReadinessItem[]
   products: Product[]
 }) {
   const readinessByProvider: Record<string, string[]> = {
@@ -285,6 +293,18 @@ function sourceFiscalReadinessIssues({
     ...fiscalSettingsReadinessIssues(fiscalSettings),
     ...(readinessByProvider[fiscalSettings?.provider ?? ''] ?? []),
   ]
+}
+
+function fiscalSalesById(sales: Sale[]) {
+  return new Map(sales.map((sale) => [sale.id, sale]))
+}
+
+function fiscalOperationItems(
+  items: FiscalReadinessItem[],
+  saleId: string | null,
+  salesById: Map<string, Sale>,
+) {
+  return saleId ? (salesById.get(saleId)?.items ?? items) : items
 }
 
 function linkedFiscalSaleIds({

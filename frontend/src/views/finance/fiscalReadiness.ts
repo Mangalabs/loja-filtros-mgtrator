@@ -1,8 +1,15 @@
 import type { Client, Product } from '../../api'
 
+export type FiscalReadinessItem = {
+  productId: string
+  productName: string
+  productNcm?: string | null
+  productOrigin?: string | null
+}
+
 type FiscalReadinessInput = {
   client?: Client
-  items: Array<{ productId: string; productName: string }>
+  items: FiscalReadinessItem[]
   products: Product[]
 }
 
@@ -54,18 +61,18 @@ function clientReadinessIssues(client?: Client) {
 
 function productReadinessIssues(
   product: Product | undefined,
-  item: { productName: string },
+  item: FiscalReadinessItem,
 ) {
   const label = item.productName
   const fieldChecks: Array<[unknown, string]> = [
-    [product, `Produto ${label} deve estar cadastrado.`],
-    [product?.ncm, `NCM pendente em ${label}.`],
-    [product?.origin, `Origem fiscal pendente em ${label}.`],
+    [item.productId, `Produto ${label} deve estar cadastrado.`],
+    [item.productNcm ?? product?.ncm, `NCM pendente em ${label}.`],
+    [item.productOrigin ?? product?.origin, `Origem fiscal pendente em ${label}.`],
   ]
 
   return [
     ...missingMessages(fieldChecks),
-    ...productFiscalFormatIssues(product, label),
+    ...productFiscalFormatIssues(product, item, label),
   ]
 }
 
@@ -107,15 +114,22 @@ function clientFiscalFormatIssues(client?: Client) {
   return invalidMessages(fieldChecks)
 }
 
-function productFiscalFormatIssues(product: Product | undefined, label: string) {
-  if (!product) {
+function productFiscalFormatIssues(
+  product: Product | undefined,
+  item: FiscalReadinessItem,
+  label: string,
+) {
+  const ncm = item.productNcm ?? product?.ncm
+  const origin = item.productOrigin ?? product?.origin
+
+  if (!ncm && !origin) {
     return []
   }
 
   const fieldChecks: Array<[unknown, RegExp, string]> = [
-    [product?.ncm, /^\d{8}$/, `NCM de ${label} deve conter 8 digitos.`],
+    [ncm, /^\d{8}$/, `NCM de ${label} deve conter 8 digitos.`],
     [
-      product?.origin,
+      origin,
       /^[0-8]$/,
       `Origem fiscal de ${label} deve estar entre 0 e 8.`,
     ],
