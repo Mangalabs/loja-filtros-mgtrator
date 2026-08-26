@@ -318,6 +318,23 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     setPurchaseReport(purchaseReportResult.data);
   }
 
+  async function refreshReplenishmentFlow() {
+    const [productsResult, productPageResult, lowStockResult] =
+      await Promise.all([
+        fetchProductCatalog(),
+        fetchProductPage({
+          limit: productRowsPerPage,
+          page: productPageIndex + 1,
+          search,
+        }),
+        apiGet<ApiResult<Product[]>>("/products/low-stock"),
+      ]);
+
+    setProducts(productsResult);
+    setProductPage(productPageResult);
+    setLowStockProducts(lowStockResult.data);
+  }
+
   async function refreshCashFlow() {
     const [cashRegisterResult, reportsOverviewResult, cashReportResult] =
       await Promise.all([
@@ -565,6 +582,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     refreshFiscalFlow,
     refreshPaymentMethods,
     refreshQuoteFlow,
+    refreshReplenishmentFlow,
     refreshSalesFlow,
     refreshStockFlow,
     reportsOverview,

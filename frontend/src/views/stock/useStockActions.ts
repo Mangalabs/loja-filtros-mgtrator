@@ -15,6 +15,7 @@ import { nullableFormValue } from "../../utils/forms";
 
 type StockActionsOptions = {
   commercialSettings: CommercialSettings | null;
+  refreshReplenishmentFlow: () => Promise<void>;
   refreshStockFlow: () => Promise<void>;
   requestConfirmation: (
     message: string,
@@ -26,6 +27,7 @@ type StockActionsOptions = {
 
 export function useStockActions({
   commercialSettings,
+  refreshReplenishmentFlow,
   refreshStockFlow,
   requestConfirmation,
   runAction,
@@ -172,7 +174,7 @@ export function useStockActions({
         { enabled: !product.replenishmentMonitorEnabled },
       );
 
-      await refreshStockFlow();
+      await refreshReplenishmentFlow();
     });
   }
 

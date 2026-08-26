@@ -132,10 +132,7 @@ export function QuotesPage({
     totalBeforeGeneralDiscount,
     Number(discountPercentage || 0),
   )
-  const quoteTotal = Math.max(
-    totalBeforeGeneralDiscount - generalDiscount,
-    0,
-  )
+  const quoteTotal = Math.max(totalBeforeGeneralDiscount - generalDiscount, 0)
   const paymentInstallments = usesBankSlip
     ? quotePaymentInstallments(
         installmentCount,
@@ -350,7 +347,8 @@ export function QuotesPage({
             <div className='grid gap-2'>
               {paymentInstallments.map((installment) => (
                 <InlineNote key={installment.position}>
-                  Parcela {installment.position}: {formatDate(installment.dueDate)} -{' '}
+                  Parcela {installment.position}:{' '}
+                  {formatDate(installment.dueDate)} -{' '}
                   {formatCurrency(installment.amount)}
                 </InlineNote>
               ))}
@@ -461,14 +459,13 @@ export function QuotesPage({
                 onChange={(productId) => updateItem(index, { productId })}
               />
               <TextField
-                label='Descricao comercial'
+                label='Descrição comercial'
                 value={item.description}
                 size='medium'
                 onChange={(event) =>
                   updateItem(index, { description: event.target.value })
                 }
                 slotProps={{ htmlInput: { maxLength: 500 } }}
-                required
               />
               <FormRow>
                 <TextField
@@ -503,7 +500,9 @@ export function QuotesPage({
                   updateItem(index, { discountPercentage: event.target.value })
                 }
                 helperText={`Valor: ${formatCurrency(quoteItemDiscountAmount(item))}`}
-                slotProps={{ htmlInput: { min: '0', max: '100', step: '0.01' } }}
+                slotProps={{
+                  htmlInput: { min: '0', max: '100', step: '0.01' },
+                }}
               />
             </FormCard>
           ))}
@@ -903,10 +902,7 @@ function todayInputDate() {
   return new Date().toLocaleDateString('en-CA')
 }
 
-function quoteDueDate(
-  issueDate: string,
-  settings: CommercialSettings | null,
-) {
+function quoteDueDate(issueDate: string, settings: CommercialSettings | null) {
   const date = new Date(`${issueDate}T00:00:00`)
   date.setDate(date.getDate() + Number(settings?.defaultQuoteDueDays ?? 0))
 

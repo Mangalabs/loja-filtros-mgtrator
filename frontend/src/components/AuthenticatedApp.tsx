@@ -73,6 +73,7 @@ export function AuthenticatedApp({
     refreshFiscalFlow,
     refreshPaymentMethods,
     refreshQuoteFlow,
+    refreshReplenishmentFlow,
     refreshSalesFlow,
     refreshStockFlow,
     reportsOverview,
@@ -137,6 +138,7 @@ export function AuthenticatedApp({
 
   const stockActions = useStockActions({
     commercialSettings,
+    refreshReplenishmentFlow,
     refreshStockFlow,
     requestConfirmation,
     runAction,
