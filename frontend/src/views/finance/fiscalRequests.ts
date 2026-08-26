@@ -10,6 +10,7 @@ import type {
 import {
   findClient,
   fiscalReadinessIssues,
+  type FiscalReadinessClient,
   type FiscalReadinessItem,
 } from './fiscalReadiness'
 
@@ -195,7 +196,7 @@ const fiscalRequestFactories: Array<
         operatorName: sale.createdByUserName,
         productIds: sale.items.map((item) => item.productId),
         readinessIssues: sourceFiscalReadinessIssues({
-          client: findClient(input.clients, sale.clientId),
+          client: saleFiscalClient(sale),
           fiscalSettings: input.fiscalSettings,
           items: sale.items,
           products: input.products,
@@ -220,7 +221,11 @@ const fiscalRequestFactories: Array<
         operatorName: order.completedByUserName ?? order.createdByUserName,
         productIds: order.items.map((item) => item.productId),
         readinessIssues: sourceFiscalReadinessIssues({
-          client: findClient(input.clients, order.clientId),
+          client: fiscalOperationClient(
+            findClient(input.clients, order.clientId),
+            order.saleId,
+            salesById,
+          ),
           fiscalSettings: input.fiscalSettings,
           items: fiscalOperationItems(order.items, order.saleId, salesById),
           products: input.products,
@@ -250,7 +255,11 @@ const fiscalRequestFactories: Array<
           reservation.completedByUserName ?? reservation.createdByUserName,
         productIds: reservation.items.map((item) => item.productId),
         readinessIssues: sourceFiscalReadinessIssues({
-          client: findClient(input.clients, reservation.clientId),
+          client: fiscalOperationClient(
+            findClient(input.clients, reservation.clientId),
+            reservation.saleId,
+            salesById,
+          ),
           fiscalSettings: input.fiscalSettings,
           items: fiscalOperationItems(
             reservation.items,
@@ -275,7 +284,7 @@ function sourceFiscalReadinessIssues({
   items,
   products,
 }: {
-  client?: Client
+  client?: FiscalReadinessClient
   fiscalSettings: FiscalSettings | null
   items: FiscalReadinessItem[]
   products: Product[]
@@ -305,6 +314,34 @@ function fiscalOperationItems(
   salesById: Map<string, Sale>,
 ) {
   return saleId ? (salesById.get(saleId)?.items ?? items) : items
+}
+
+function fiscalOperationClient(
+  client: FiscalReadinessClient | undefined,
+  saleId: string | null,
+  salesById: Map<string, Sale>,
+) {
+  return saleId ? (saleFiscalClient(salesById.get(saleId)) ?? client) : client
+}
+
+function saleFiscalClient(sale?: Sale): FiscalReadinessClient | undefined {
+  if (!sale?.clientId) {
+    return undefined
+  }
+
+  return {
+    name: sale.clientName,
+    personType: sale.clientPersonType,
+    document: sale.clientDocument,
+    stateRegistration: sale.clientStateRegistration,
+    stateRegistrationIndicator: sale.clientStateRegistrationIndicator,
+    addressStreet: sale.clientAddressStreet,
+    addressNumber: sale.clientAddressNumber,
+    addressDistrict: sale.clientAddressDistrict,
+    addressCity: sale.clientAddressCity,
+    addressState: sale.clientAddressState,
+    addressZipCode: sale.clientAddressZipCode,
+  }
 }
 
 function linkedFiscalSaleIds({

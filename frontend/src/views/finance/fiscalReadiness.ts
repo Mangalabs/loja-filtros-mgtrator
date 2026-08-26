@@ -7,8 +7,22 @@ export type FiscalReadinessItem = {
   productOrigin?: string | null
 }
 
+export type FiscalReadinessClient = {
+  name?: string | null
+  personType?: Client['personType'] | null
+  document?: string | null
+  stateRegistration?: string | null
+  stateRegistrationIndicator?: Client['stateRegistrationIndicator']
+  addressStreet?: string | null
+  addressNumber?: string | null
+  addressDistrict?: string | null
+  addressCity?: string | null
+  addressState?: string | null
+  addressZipCode?: string | null
+}
+
 type FiscalReadinessInput = {
-  client?: Client
+  client?: FiscalReadinessClient
   items: FiscalReadinessItem[]
   products: Product[]
 }
@@ -30,8 +44,9 @@ export function findClient(clients: Client[], clientId: string | null) {
   return clients.find((client) => client.id === clientId)
 }
 
-function clientReadinessIssues(client?: Client) {
-  const documentRequired = client?.personType !== 'ES'
+function clientReadinessIssues(client?: FiscalReadinessClient) {
+  const personType = client?.personType ?? 'PF'
+  const documentRequired = personType !== 'ES'
   const fieldChecks: Array<[unknown, string]> = [
     [client, 'Cliente deve estar cadastrado.'],
     [client?.name, 'Nome do cliente pendente.'],
@@ -82,7 +97,7 @@ function missingMessages(fieldChecks: Array<[unknown, string]>) {
     .map(([_value, message]) => message)
 }
 
-function clientFiscalFormatIssues(client?: Client) {
+function clientFiscalFormatIssues(client?: FiscalReadinessClient) {
   if (!client) {
     return []
   }
@@ -96,7 +111,7 @@ function clientFiscalFormatIssues(client?: Client) {
   const fieldChecks: Array<[unknown, RegExp | null, string]> = [
     [
       fiscalDigits(client?.document),
-      documentPatternsByPersonType[client.personType],
+      documentPatternsByPersonType[client.personType ?? 'PF'],
       'CPF/CNPJ do cliente deve conter 11 ou 14 digitos.',
     ],
     [

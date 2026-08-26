@@ -397,6 +397,19 @@ export type Sale = {
   totalAmount: string;
   billingIssueDate: string | null;
   billingDueDate: string | null;
+  clientPersonType: "PF" | "PJ" | "ES" | null;
+  clientDocument: string | null;
+  clientEmail: string | null;
+  clientPhone: string | null;
+  clientStateRegistration: string | null;
+  clientStateRegistrationIndicator: "1" | "2" | "9" | null;
+  clientAddressStreet: string | null;
+  clientAddressNumber: string | null;
+  clientAddressComplement: string | null;
+  clientAddressDistrict: string | null;
+  clientAddressCity: string | null;
+  clientAddressState: string | null;
+  clientAddressZipCode: string | null;
   items: Array<{
     id: string;
     productId: string;
