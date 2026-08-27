@@ -108,12 +108,6 @@ export async function storeSale(
     }
 
     if (
-      !(await activePaymentMethodExists(transaction, input.paymentMethodId))
-    ) {
-      throw new AppError("Forma de pagamento informada nao disponivel.", 422);
-    }
-
-    if (
       input.clientId &&
       !(await activeClientExists(transaction, input.clientId, branchId))
     ) {
@@ -133,10 +127,22 @@ export async function storeSale(
     }
 
     const totalAmount = Number((subtotalAmount - discountAmount).toFixed(2));
+    const payments = normalizeSalePayments(input, totalAmount);
+
+    for (const payment of payments) {
+      if (
+        !(await activePaymentMethodExists(
+          transaction,
+          payment.paymentMethodId,
+        ))
+      ) {
+        throw new AppError("Forma de pagamento informada nao disponivel.", 422);
+      }
+    }
 
     return insertSale(
       transaction,
-      input,
+      { ...input, payments },
       cashRegister.id,
       createdByUserId,
       branchId,
@@ -302,6 +308,31 @@ function saleItemRefundAmount(
     (returnQuantity / Number(saleItem.quantity)) * Number(saleItem.totalAmount);
 
   return Number(amount.toFixed(2));
+}
+
+function normalizeSalePayments(input: SaleInput, totalAmount: number) {
+  const payments = input.payments ?? [
+    {
+      paymentMethodId: input.paymentMethodId as string,
+      amount: totalAmount,
+    },
+  ];
+  const totalPaymentsAmount = Number(
+    payments.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2),
+  );
+
+  if (payments.some((payment) => payment.amount <= 0)) {
+    throw new AppError("Valor de pagamento deve ser maior que zero.", 422);
+  }
+
+  if (totalPaymentsAmount !== totalAmount) {
+    throw new AppError(
+      "Total dos pagamentos deve ser igual ao total da venda.",
+      422,
+    );
+  }
+
+  return payments;
 }
 
 function aggregateSaleItems(

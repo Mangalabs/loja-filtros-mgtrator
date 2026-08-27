@@ -40,6 +40,11 @@ export type FiscalIssueRequest = {
     clientAddressZipCode: string | null;
     paymentMethodCode: string;
     paymentMethodName: string;
+    payments: Array<{
+      paymentMethodCode: string;
+      paymentMethodName: string;
+      amount: string;
+    }>;
     totalAmount: string;
     discountAmount: string;
     billingIssueDate: string | null;

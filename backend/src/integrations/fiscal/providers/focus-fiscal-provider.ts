@@ -265,22 +265,41 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
       productAmount,
       totalAmount,
     }),
-    formas_pagamento: [focusPaymentPayload(request, totalAmount)],
+    formas_pagamento: focusPaymentPayloads(request, totalAmount),
     modalidade_frete: 9,
     items: request.sale.items.map((item) => focusNfeItemPayload(item, request)),
   };
 }
 
-function focusPaymentPayload(
+function focusPaymentPayloads(
   request: FiscalIssueRequest,
   totalAmount: number,
+): FocusNfePaymentPayload[] {
+  const payments = request.sale.payments.length
+    ? request.sale.payments
+    : [
+        {
+          paymentMethodCode: request.sale.paymentMethodCode,
+          paymentMethodName: request.sale.paymentMethodName,
+          amount: String(totalAmount),
+        },
+      ];
+
+  return payments.map((payment) =>
+    focusPaymentPayload(payment.paymentMethodCode, moneyNumber(payment.amount)),
+  );
+}
+
+function focusPaymentPayload(
+  paymentMethodCode: string,
+  amount: number,
 ): FocusNfePaymentPayload {
-  const paymentCode = focusPaymentCode(request.sale.paymentMethodCode);
+  const paymentCode = focusPaymentCode(paymentMethodCode);
 
   return {
     indicador_pagamento: paymentCode === "15" ? 1 : 0,
     forma_pagamento: paymentCode,
-    valor_pagamento: totalAmount,
+    valor_pagamento: amount,
   };
 }
 

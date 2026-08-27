@@ -3,6 +3,7 @@ import {
   activePaymentMethodExists,
   findOpenCashRegister,
   insertSale,
+  type SaleInput,
 } from "../../models/sales/sales.model.js";
 import {
   activeShippingClientExists,
@@ -249,6 +250,7 @@ export async function confirmShippingOrderSeparation(
 export async function completeSeparatedShippingOrder(
   id: string,
   paymentMethodId: string | null | undefined,
+  payments: SaleInput["payments"] | undefined,
   completedByUserId: string,
   branchId: string,
   allowInsufficientStock = false,
@@ -283,13 +285,33 @@ export async function completeSeparatedShippingOrder(
 
     const resolvedPaymentMethodId =
       paymentMethodId ?? currentOrder.paymentMethodId;
+    const resolvedPayments =
+      payments ??
+      (resolvedPaymentMethodId
+        ? [
+            {
+              paymentMethodId: resolvedPaymentMethodId,
+              amount: Number(currentOrder.totalAmount),
+            },
+          ]
+        : undefined);
 
-    if (
-      !resolvedPaymentMethodId ||
-      !(await activePaymentMethodExists(transaction, resolvedPaymentMethodId))
-    ) {
+    if (!resolvedPayments) {
       throw new AppError("Forma de pagamento informada nao disponivel.", 422);
     }
+
+    for (const payment of resolvedPayments) {
+      if (
+        !(await activePaymentMethodExists(
+          transaction,
+          payment.paymentMethodId,
+        ))
+      ) {
+        throw new AppError("Forma de pagamento informada nao disponivel.", 422);
+      }
+    }
+
+    validateSalePaymentsTotal(resolvedPayments, Number(currentOrder.totalAmount));
 
     const reservedItems = aggregateShippingItems(currentOrder.items);
     const hasReservation = currentOrder.status !== "QUOTED";
@@ -350,7 +372,8 @@ export async function completeSeparatedShippingOrder(
         billingDueDate:
           billingDates.billingDueDate ?? currentOrder.billingDueDate,
         discountAmount: saleDiscountAmount,
-        paymentMethodId: resolvedPaymentMethodId,
+        paymentMethodId: resolvedPaymentMethodId ?? undefined,
+        payments: resolvedPayments,
         items: currentOrder.items.map((item) => ({
           productId: item.productId,
           quantity: Number(item.quantity),
@@ -372,6 +395,22 @@ export async function completeSeparatedShippingOrder(
     status: "success",
     data: order,
   };
+}
+
+function validateSalePaymentsTotal(
+  payments: NonNullable<SaleInput["payments"]>,
+  totalAmount: number,
+) {
+  const paymentsAmount = Number(
+    payments.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2),
+  );
+
+  if (paymentsAmount !== totalAmount) {
+    throw new AppError(
+      "Total dos pagamentos deve ser igual ao total da venda.",
+      422,
+    );
+  }
 }
 
 function aggregateShippingItems(

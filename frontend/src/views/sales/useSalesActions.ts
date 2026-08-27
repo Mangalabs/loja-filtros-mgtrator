@@ -264,8 +264,15 @@ export function useSalesActions({
     }
 
     await runAction(async () => {
+      const payments = formSalePayments(
+        form,
+        "shipping",
+        Number(order.totalAmount),
+      );
+
       await apiPatch(`/shipping-orders/${order.id}/complete`, {
         paymentMethodId: formStringValue(form, "shippingPaymentMethodId"),
+        ...optionalPayloadField("payments", payments.length ? payments : null),
         billingIssueDate: formDateValue(form, "shippingBillingIssueDate"),
         billingDueDate: formDateValue(form, "shippingBillingDueDate"),
         allowInsufficientStock,
@@ -349,8 +356,15 @@ export function useSalesActions({
     }
 
     await runAction(async () => {
+      const payments = formSalePayments(
+        form,
+        "pickup",
+        Number(reservation.totalAmount),
+      );
+
       await apiPatch(`/pickup-reservations/${reservation.id}/complete`, {
-        paymentMethodId: String(form.get("pickupPaymentMethodId") ?? ""),
+        paymentMethodId: formStringValue(form, "pickupPaymentMethodId"),
+        ...optionalPayloadField("payments", payments.length ? payments : null),
         billingIssueDate: formDateValue(form, "pickupBillingIssueDate"),
         billingDueDate: formDateValue(form, "pickupBillingDueDate"),
         allowInsufficientStock,
@@ -405,6 +419,24 @@ function formStringValue(form: FormData, field: string) {
 function formNumberValue(form: FormData, field: string) {
   const value = String(form.get(field) ?? "");
   return value ? Number(value) : null;
+}
+
+function formSalePayments(form: FormData, prefix: string, totalAmount: number) {
+  const methodIds = form
+    .getAll(`${prefix}PaymentMethodId`)
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+  const amounts = form
+    .getAll(`${prefix}PaymentAmount`)
+    .map((value) => String(value).trim());
+  const usesSinglePaymentTotal = methodIds.length === 1 && !amounts[0];
+
+  return methodIds.map((paymentMethodId, index) => ({
+    paymentMethodId,
+    amount: usesSinglePaymentTotal
+      ? Number(totalAmount.toFixed(2))
+      : Number(amounts[index] || 0),
+  }));
 }
 
 function optionalPayloadField<T>(field: string, value: T | null) {

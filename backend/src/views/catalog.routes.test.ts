@@ -228,6 +228,13 @@ type Sale = {
   clientName: string | null;
   paymentMethodCode: string;
   paymentMethodName: string;
+  payments: Array<{
+    id: string;
+    paymentMethodId: string;
+    paymentMethodCode: string;
+    paymentMethodName: string;
+    amount: string;
+  }>;
   createdByUserName: string;
   cancelledByUserName: string | null;
   cancelledAt: string | null;
@@ -1826,6 +1833,81 @@ describe("catalog routes", () => {
     assert.equal(cash.body.data?.paymentSummary[0]?.amount, "65.00");
   });
 
+  it("records a counter sale with multiple payment methods", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro com pagamento dividido", salePrice: 100 },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const pix = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "PIX",
+    );
+    const credit = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "CREDIT",
+    );
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo inicial para venda dividida",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const invalidTotal = await request("/sales", {
+      method: "POST",
+      body: {
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+        payments: [
+          { paymentMethodId: pix?.id, amount: 40 },
+          { paymentMethodId: credit?.id, amount: 50 },
+        ],
+      },
+    });
+    const created = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+        payments: [
+          { paymentMethodId: pix?.id, amount: 40 },
+          { paymentMethodId: credit?.id, amount: 60 },
+        ],
+      },
+    });
+    const cash = await request<CashRegisterSession | null>(
+      "/cash-register/current",
+    );
+
+    assert.equal(invalidTotal.status, 422);
+    assert.equal(
+      invalidTotal.body.message,
+      "Total dos pagamentos deve ser igual ao total da venda.",
+    );
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.paymentMethodCode, "MULTIPLE");
+    assert.equal(created.body.data?.payments.length, 2);
+    assert.deepEqual(
+      created.body.data?.payments
+        .map((payment) => payment.amount)
+        .sort(),
+      ["40.00", "60.00"],
+    );
+    assert.equal(cash.body.data?.salesTotal, "100.00");
+    assert.deepEqual(
+      cash.body.data?.paymentSummary
+        .map((payment) => payment.amount)
+        .sort(),
+      ["40.00", "60.00"],
+    );
+  });
+
   it("records a one-item counter sale and decreases product stock", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
@@ -2116,8 +2198,24 @@ describe("catalog routes", () => {
       clientAddressCity: null,
       clientAddressState: null,
       clientAddressZipCode: null,
-      paymentMethodCode: "PIX",
-      paymentMethodName: "PIX",
+      paymentMethodCode: "MULTIPLE",
+      paymentMethodName: "PIX + Cartao de credito",
+      payments: [
+        {
+          id: "sale-payment-1",
+          paymentMethodId: "payment-1",
+          paymentMethodCode: "PIX",
+          paymentMethodName: "PIX",
+          amount: "60.00",
+        },
+        {
+          id: "sale-payment-2",
+          paymentMethodId: "payment-2",
+          paymentMethodCode: "CREDIT",
+          paymentMethodName: "Cartao de credito",
+          amount: "40.00",
+        },
+      ],
       createdByUserName: "Operador teste",
       createdAt: new Date("2026-07-09T12:00:00.000Z"),
       cancelledByUserName: null,
@@ -2172,6 +2270,8 @@ describe("catalog routes", () => {
     });
 
     assert.match(html, /Devolucoes e estornos/);
+    assert.match(html, /Forma de pagamento/);
+    assert.match(html, /Cartao de credito/);
     assert.match(html, /Cliente devolveu uma unidade/);
     assert.match(html, /NSU123/);
     assert.match(html, /Estornos/);
@@ -3912,6 +4012,13 @@ describe("catalog routes", () => {
 
     requestPayload.sale.totalAmount = "140.00";
     requestPayload.sale.discountAmount = "10.00";
+    requestPayload.sale.payments = [
+      {
+        paymentMethodCode: "PIX",
+        paymentMethodName: "PIX",
+        amount: "140.00",
+      },
+    ];
     requestPayload.sale.billingIssueDate = "2026-07-10";
     requestPayload.sale.billingDueDate = "2026-07-25";
     requestPayload.sale.items[0].quantity = "2.000";
@@ -4004,6 +4111,13 @@ describe("catalog routes", () => {
 
     requestPayload.sale.paymentMethodCode = "CREDIT";
     requestPayload.sale.paymentMethodName = "Cartao de credito";
+    requestPayload.sale.payments = [
+      {
+        paymentMethodCode: "CREDIT",
+        paymentMethodName: "Cartao de credito",
+        amount: "35.00",
+      },
+    ];
 
     env.fiscal.provider = "focus";
     env.fiscal.focus.token = "token-focus-teste";
@@ -4034,6 +4148,73 @@ describe("catalog routes", () => {
           indicador_pagamento: 0,
           forma_pagamento: "03",
           valor_pagamento: 35,
+        },
+      ]);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("sends multiple payment methods to Focus", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const requestPayload = focusIssueRequest();
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    requestPayload.sale.paymentMethodCode = "MULTIPLE";
+    requestPayload.sale.paymentMethodName = "PIX + Cartao de credito";
+    requestPayload.sale.payments = [
+      {
+        paymentMethodCode: "PIX",
+        paymentMethodName: "PIX",
+        amount: "15.00",
+      },
+      {
+        paymentMethodCode: "CREDIT",
+        paymentMethodName: "Cartao de credito",
+        amount: "20.00",
+      },
+    ];
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocusprovidertest",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(requestPayload);
+      assert.ok(submittedPayload);
+
+      const payload = submittedPayload as Record<string, unknown>;
+
+      assert.deepEqual(payload.formas_pagamento, [
+        {
+          indicador_pagamento: 0,
+          forma_pagamento: "20",
+          valor_pagamento: 15,
+        },
+        {
+          indicador_pagamento: 0,
+          forma_pagamento: "03",
+          valor_pagamento: 20,
         },
       ]);
     } finally {
@@ -7952,6 +8133,13 @@ function focusIssueRequest(): FiscalIssueRequest {
       clientAddressZipCode: "77800000",
       paymentMethodCode: "PIX",
       paymentMethodName: "PIX",
+      payments: [
+        {
+          paymentMethodCode: "PIX",
+          paymentMethodName: "PIX",
+          amount: "35.00",
+        },
+      ],
       totalAmount: "35.00",
       discountAmount: "0.00",
       billingIssueDate: null,

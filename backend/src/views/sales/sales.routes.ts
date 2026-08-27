@@ -20,7 +20,18 @@ const createSaleSchema = z
   .object({
     productId: z.uuid().optional(),
     quantity: z.coerce.number().positive().optional(),
-    paymentMethodId: z.uuid(),
+    paymentMethodId: z.uuid().optional(),
+    payments: z
+      .array(
+        z
+          .object({
+            paymentMethodId: z.uuid(),
+            amount: z.coerce.number().positive(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .optional(),
     billingIssueDate: z
       .union([z.iso.date(), z.literal(""), z.null()])
       .transform((value) => value || null)
@@ -51,12 +62,21 @@ const createSaleSchema = z
   .superRefine((value, context) => {
     const hasItems = Boolean(value.items?.length);
     const hasSingleItem = Boolean(value.productId && value.quantity);
+    const hasPayment = Boolean(value.paymentMethodId || value.payments?.length);
 
     if (!hasItems && !hasSingleItem) {
       context.addIssue({
         code: "custom",
         message: "Informe ao menos um item para a venda.",
         path: ["items"],
+      });
+    }
+
+    if (!hasPayment) {
+      context.addIssue({
+        code: "custom",
+        message: "Informe ao menos uma forma de pagamento.",
+        path: ["payments"],
       });
     }
 
@@ -77,6 +97,7 @@ const createSaleSchema = z
   })
   .transform((value) => ({
     paymentMethodId: value.paymentMethodId,
+    payments: value.payments,
     clientId: value.clientId,
     billingIssueDate: value.billingIssueDate,
     billingDueDate: value.billingDueDate,

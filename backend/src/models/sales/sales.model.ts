@@ -2,7 +2,8 @@ import type { Knex } from "knex";
 import { db } from "../../database/knex.js";
 
 export type SaleInput = {
-  paymentMethodId: string;
+  paymentMethodId?: string;
+  payments?: SalePaymentInput[];
   clientId?: string | null;
   billingIssueDate?: string | null;
   billingDueDate?: string | null;
@@ -12,6 +13,11 @@ export type SaleInput = {
     productId: string;
     quantity: number;
   }>;
+};
+
+export type SalePaymentInput = {
+  paymentMethodId: string;
+  amount: number;
 };
 
 export type Sale = {
@@ -45,12 +51,21 @@ export type Sale = {
   clientAddressZipCode: string | null;
   paymentMethodCode: string;
   paymentMethodName: string;
+  payments: SalePayment[];
   createdByUserName: string;
   createdAt: Date;
   cancelledByUserName: string | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
   status: "COMPLETED" | "CANCELLED";
+};
+
+export type SalePayment = {
+  id: string;
+  paymentMethodId: string;
+  paymentMethodCode: string;
+  paymentMethodName: string;
+  amount: string;
 };
 
 export type SaleItem = {
@@ -136,8 +151,6 @@ const saleColumns = [
   "clients.address_city as clientAddressCity",
   "clients.address_state as clientAddressState",
   "clients.address_zip_code as clientAddressZipCode",
-  "payment_methods.code as paymentMethodCode",
-  "payment_methods.name as paymentMethodName",
   "users.name as createdByUserName",
   "sales.created_at as createdAt",
   "cancelled_users.name as cancelledByUserName",
@@ -168,9 +181,19 @@ const saleItemColumns = [
 
 type SaleRow = Omit<
   Sale,
-  "items" | "productId" | "productName" | "quantity" | "unitPrice"
+  | "items"
+  | "payments"
+  | "paymentMethodCode"
+  | "paymentMethodName"
+  | "productId"
+  | "productName"
+  | "quantity"
+  | "unitPrice"
 >;
 type SaleItemRow = Omit<SaleItem, "returnableQuantity" | "returns"> & {
+  saleId: string;
+};
+type SalePaymentRow = SalePayment & {
   saleId: string;
 };
 type SaleItemReturnRow = SaleItemReturn & {
@@ -499,6 +522,12 @@ export async function insertSale(
   subtotalAmount: number,
   totalAmount: number,
 ): Promise<Sale> {
+  const payments = input.payments ?? [
+    {
+      paymentMethodId: input.paymentMethodId as string,
+      amount: totalAmount,
+    },
+  ];
   const [created] = await transaction("sales")
     .insert({
       cash_register_session_id: cashRegisterSessionId,
@@ -525,11 +554,13 @@ export async function insertSale(
     })),
   );
 
-  await transaction("sale_payments").insert({
-    sale_id: created.id,
-    payment_method_id: input.paymentMethodId,
-    amount: totalAmount,
-  });
+  await transaction("sale_payments").insert(
+    payments.map((payment) => ({
+      sale_id: created.id,
+      payment_method_id: payment.paymentMethodId,
+      amount: payment.amount,
+    })),
+  );
 
   await transaction("stock_movements").insert(
     items.map((item) => ({
@@ -565,12 +596,6 @@ export async function insertSale(
 function saleQuery(database: Knex | Knex.Transaction) {
   return database("sales")
     .leftJoin("branches", "branches.id", "sales.branch_id")
-    .join("sale_payments", "sale_payments.sale_id", "sales.id")
-    .join(
-      "payment_methods",
-      "payment_methods.id",
-      "sale_payments.payment_method_id",
-    )
     .join("users", "users.id", "sales.created_by_user_id")
     .leftJoin(
       { cancelled_users: "users" },
@@ -590,6 +615,22 @@ async function withSaleItems(
   }
 
   const saleIds = sales.map((sale) => sale.id);
+  const payments = await database("sale_payments")
+    .join(
+      "payment_methods",
+      "payment_methods.id",
+      "sale_payments.payment_method_id",
+    )
+    .select<SalePaymentRow[]>([
+      "sale_payments.id",
+      "sale_payments.sale_id as saleId",
+      "sale_payments.payment_method_id as paymentMethodId",
+      "payment_methods.code as paymentMethodCode",
+      "payment_methods.name as paymentMethodName",
+      "sale_payments.amount",
+    ])
+    .whereIn("sale_payments.sale_id", saleIds)
+    .orderBy("payment_methods.name", "asc");
   const items = await database("sale_items")
     .join("products", "products.id", "sale_items.product_id")
     .select<SaleItemRow[]>([
@@ -641,7 +682,11 @@ async function withSaleItems(
         returnableQuantity: saleItemReturnableQuantity(item),
         returns: saleItemReturns(returns, item.id),
       }));
+    const salePayments = payments
+      .filter((payment) => payment.saleId === sale.id)
+      .map(({ saleId: _saleId, ...payment }) => payment);
     const firstItem = saleItems[0];
+    const firstPayment = salePayments[0];
 
     return {
       ...sale,
@@ -649,9 +694,27 @@ async function withSaleItems(
       productName: firstItem?.productName ?? "",
       quantity: firstItem?.quantity ?? "0.000",
       unitPrice: firstItem?.unitPrice ?? "0.00",
+      paymentMethodCode:
+        salePayments.length > 1
+          ? "MULTIPLE"
+          : (firstPayment?.paymentMethodCode ?? ""),
+      paymentMethodName: salePaymentSummary(salePayments),
+      payments: salePayments,
       items: saleItems,
     };
   });
+}
+
+function salePaymentSummary(payments: SalePayment[]) {
+  if (payments.length === 0) {
+    return "Nao informado";
+  }
+
+  if (payments.length === 1) {
+    return payments[0].paymentMethodName;
+  }
+
+  return payments.map((payment) => payment.paymentMethodName).join(" + ");
 }
 
 function saleItemReturns(returns: SaleItemReturnRow[], saleItemId: string) {

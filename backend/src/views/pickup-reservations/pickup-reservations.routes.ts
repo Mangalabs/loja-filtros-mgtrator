@@ -61,33 +61,55 @@ const cancelPickupReservationSchema = z.object({
   reason: z.string().trim().min(1).max(500),
 });
 
-const completePickupReservationSchema = z.object({
-  paymentMethodId: z.uuid(),
-  billingIssueDate: z
-    .union([z.iso.date(), z.literal(""), z.null()])
-    .transform((value) => value || null)
-    .optional(),
-  billingDueDate: z
-    .union([z.iso.date(), z.literal(""), z.null()])
-    .transform((value) => value || null)
-    .optional(),
-  allowInsufficientStock: z.boolean().optional(),
-}).superRefine((value, context) => {
-  const hasValidBillingDates =
-    !value.billingIssueDate ||
-    !value.billingDueDate ||
-    value.billingDueDate >= value.billingIssueDate;
+const salePaymentSchema = z
+  .object({
+    paymentMethodId: z.uuid(),
+    amount: z.coerce.number().positive(),
+  })
+  .strict();
 
-  if (hasValidBillingDates) {
-    return;
-  }
+const completePickupReservationSchema = z
+  .object({
+    paymentMethodId: z
+      .union([z.uuid(), z.literal(""), z.null()])
+      .transform((value) => value || undefined)
+      .optional(),
+    payments: z.array(salePaymentSchema).min(1).optional(),
+    billingIssueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    billingDueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    allowInsufficientStock: z.boolean().optional(),
+  })
+  .superRefine((value, context) => {
+    const hasPayment = Boolean(value.paymentMethodId || value.payments?.length);
+    const hasValidBillingDates =
+      !value.billingIssueDate ||
+      !value.billingDueDate ||
+      value.billingDueDate >= value.billingIssueDate;
 
-  context.addIssue({
-    code: "custom",
-    message: "Vencimento nao pode ser anterior a data da fatura.",
-    path: ["billingDueDate"],
+    if (!hasPayment) {
+      context.addIssue({
+        code: "custom",
+        message: "Informe ao menos uma forma de pagamento.",
+        path: ["payments"],
+      });
+    }
+
+    if (hasValidBillingDates) {
+      return;
+    }
+
+    context.addIssue({
+      code: "custom",
+      message: "Vencimento nao pode ser anterior a data da fatura.",
+      path: ["billingDueDate"],
+    });
   });
-});
 
 pickupReservationsRoutes.get(
   "/pickup-reservations",
@@ -153,6 +175,7 @@ pickupReservationsRoutes.patch(
         await completeReservedPickup(
           id,
           body.paymentMethodId,
+          body.payments,
           userId,
           requireActiveBranchId(response.locals),
           body.allowInsufficientStock ?? false,

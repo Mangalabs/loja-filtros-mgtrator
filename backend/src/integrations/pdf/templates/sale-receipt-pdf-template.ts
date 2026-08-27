@@ -7,6 +7,9 @@ import type { QuotePdfStore } from "./quote-pdf-template.js";
 
 export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
   const rows = sale.items.map((item) => saleItemRow(item)).join("");
+  const paymentRows = sale.payments
+    .map((payment) => salePaymentRow(payment))
+    .join("");
   const returnRows = sale.items
     .flatMap((item) =>
       item.returns.map((itemReturn) => saleReturnRow(item, itemReturn)),
@@ -54,6 +57,20 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
             <p><strong>Data da fatura:</strong> ${formatOptionalDate(sale.billingIssueDate)}</p>
             <p><strong>Vencimento:</strong> ${formatOptionalDate(sale.billingDueDate)}</p>
           </section>
+
+          ${
+            paymentRows
+              ? `<table class="payments-table">
+                  <thead>
+                    <tr>
+                      <th>Forma de pagamento</th>
+                      <th class="text-right">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>${paymentRows}</tbody>
+                </table>`
+              : ""
+          }
 
           <table class="items-table">
             <thead>
@@ -179,6 +196,15 @@ function saleReturnRow(item: SaleItem, itemReturn: SaleItemReturn) {
   `;
 }
 
+function salePaymentRow(payment: Sale["payments"][number]) {
+  return `
+    <tr>
+      <td>${escapeHtml(payment.paymentMethodName)}</td>
+      <td class="text-right">${formatCurrency(payment.amount)}</td>
+    </tr>
+  `;
+}
+
 function saleReceiptCss() {
   return `
     * { box-sizing: border-box; }
@@ -259,6 +285,9 @@ function saleReceiptCss() {
     table {
       border-collapse: collapse;
       width: 100%;
+    }
+    .payments-table {
+      margin-bottom: 12px;
     }
     th {
       background: #203466;

@@ -54,13 +54,22 @@ type PickupReservationDraftItem = {
   quantity: string
 }
 
+type SalePaymentDraft = {
+  paymentMethodId: string
+  amount: string
+}
+
 export type SaleDraftInput = {
   clientId?: string | null
   billingIssueDate?: string | null
   billingDueDate?: string | null
   discountAmount: number
   allowInsufficientStock?: boolean
-  paymentMethodId: string
+  paymentMethodId?: string
+  payments: Array<{
+    paymentMethodId: string
+    amount: number
+  }>
   items: Array<{
     productId: string
     quantity: number
@@ -103,7 +112,9 @@ export function SalesPage({
   const [billingIssueDate, setBillingIssueDate] = useState('')
   const [billingDueDate, setBillingDueDate] = useState('')
   const [discountAmount, setDiscountAmount] = useState('')
-  const [paymentMethodId, setPaymentMethodId] = useState('')
+  const [payments, setPayments] = useState<SalePaymentDraft[]>([
+    emptySalePayment(),
+  ])
   const [items, setItems] = useState<SaleDraftItem[]>([emptySaleItem()])
   const { pagination, visibleItems } = usePaginatedRows<Sale>(sales)
   const activeProducts = products.filter((product) => product.active)
@@ -136,7 +147,7 @@ export function SalesPage({
     setBillingIssueDate('')
     setBillingDueDate('')
     setDiscountAmount('')
-    setPaymentMethodId('')
+    setPayments([emptySalePayment()])
     setItems([emptySaleItem()])
   }
 
@@ -148,7 +159,8 @@ export function SalesPage({
       billingIssueDate: billingIssueDate || null,
       billingDueDate: billingDueDate || null,
       discountAmount: saleDiscount,
-      paymentMethodId,
+      paymentMethodId: payments[0]?.paymentMethodId,
+      payments: salePaymentPayloads(payments, saleTotal),
       items: items.map((item) => ({
         productId: item.productId,
         quantity: Number(item.quantity),
@@ -223,25 +235,14 @@ export function SalesPage({
         </ActionGroup>
 
         <FormRow>
-          <TextField
-            label='Pagamento'
-            select
-            size='medium'
-            value={paymentMethodId || ''}
-            onChange={(event) => setPaymentMethodId(event.target.value)}
-            required
-            disabled={!cashRegister}>
-            <MenuItem value='' disabled>
-              Pagamento
-            </MenuItem>
-            {paymentMethods
-              .filter((method) => method.active)
-              .map((method) => (
-                <MenuItem key={method.id} value={method.id}>
-                  {method.name}
-                </MenuItem>
-              ))}
-          </TextField>
+          <PaymentSplitFields
+            disabled={!cashRegister}
+            fieldPrefix='sale'
+            paymentMethods={paymentMethods}
+            payments={payments}
+            totalAmount={saleTotal}
+            onChange={setPayments}
+          />
           <TextField
             disabled
             label='Subtotal'
@@ -480,6 +481,150 @@ function emptySaleItem(): SaleDraftItem {
   }
 }
 
+function emptySalePayment(): SalePaymentDraft {
+  return {
+    paymentMethodId: '',
+    amount: '',
+  }
+}
+
+function PaymentSplitFields({
+  disabled,
+  fieldPrefix,
+  paymentMethods,
+  payments,
+  totalAmount,
+  onChange,
+}: {
+  disabled?: boolean
+  fieldPrefix: string
+  paymentMethods: PaymentMethod[]
+  payments: SalePaymentDraft[]
+  totalAmount: number
+  onChange: (payments: SalePaymentDraft[]) => void
+}) {
+  const activePaymentMethods = paymentMethods.filter((method) => method.active)
+  const paymentTotal = salePaymentDraftTotal(payments, totalAmount)
+  const difference = Number((totalAmount - paymentTotal).toFixed(2))
+  const hasMultiplePayments = payments.length > 1
+
+  function updatePayment(index: number, changes: Partial<SalePaymentDraft>) {
+    onChange(
+      payments.map((payment, paymentIndex) =>
+        paymentIndex === index ? { ...payment, ...changes } : payment,
+      ),
+    )
+  }
+
+  function removePayment(index: number) {
+    onChange(payments.filter((_payment, paymentIndex) => paymentIndex !== index))
+  }
+
+  return (
+    <FormCard className='gap-3'>
+      <div>
+        <strong>Formas de pagamento</strong>
+        <InlineNote>
+          Divida o total quando o cliente pagar em mais de uma forma.
+        </InlineNote>
+      </div>
+      {payments.map((payment, index) => (
+        <FormRow key={index} className='items-start'>
+          <TextField
+            disabled={disabled}
+            label={`Pagamento ${index + 1}`}
+            name={`${fieldPrefix}PaymentMethodId`}
+            onChange={(event) =>
+              updatePayment(index, { paymentMethodId: event.target.value })
+            }
+            required
+            select
+            size='small'
+            value={payment.paymentMethodId}>
+            <MenuItem value='' disabled>
+              Pagamento
+            </MenuItem>
+            {activePaymentMethods.map((method) => (
+              <MenuItem key={method.id} value={method.id}>
+                {method.name}
+              </MenuItem>
+            ))}
+          </TextField>
+          <div className='grid gap-2'>
+            <TextField
+              disabled={disabled}
+              helperText={
+                !hasMultiplePayments && index === 0
+                  ? 'Vazio usa o total final.'
+                  : undefined
+              }
+              label='Valor'
+              name={`${fieldPrefix}PaymentAmount`}
+              onChange={(event) =>
+                updatePayment(index, { amount: event.target.value })
+              }
+              required={hasMultiplePayments}
+              size='small'
+              slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+              type='number'
+              value={payment.amount}
+            />
+            {payments.length > 1 ? (
+              <TableActionButton
+                disabled={disabled}
+                type='button'
+                onClick={() => removePayment(index)}>
+                Remover pagamento
+              </TableActionButton>
+            ) : null}
+          </div>
+        </FormRow>
+      ))}
+      <ActionGroup align='start'>
+        <TableActionButton
+          disabled={disabled}
+          type='button'
+          onClick={() => onChange([...payments, emptySalePayment()])}>
+          Adicionar forma
+        </TableActionButton>
+      </ActionGroup>
+      <Alert
+        severity={Math.abs(difference) < 0.01 ? 'success' : 'info'}
+        variant='outlined'>
+        Total dos pagamentos: {formatCurrency(paymentTotal)}. Diferença:{' '}
+        {formatCurrency(Math.abs(difference))}.
+      </Alert>
+    </FormCard>
+  )
+}
+
+function salePaymentPayloads(
+  payments: SalePaymentDraft[],
+  totalAmount: number,
+) {
+  const filledPayments = payments.filter((payment) => payment.paymentMethodId)
+  const usesSinglePaymentTotal =
+    filledPayments.length === 1 && !filledPayments[0].amount
+
+  return filledPayments.map((payment) => ({
+    paymentMethodId: payment.paymentMethodId,
+    amount: usesSinglePaymentTotal
+      ? Number(totalAmount.toFixed(2))
+      : moneyInputValue(payment.amount),
+  }))
+}
+
+function salePaymentDraftTotal(
+  payments: SalePaymentDraft[],
+  totalAmount: number,
+) {
+  const payloads = salePaymentPayloads(payments, totalAmount)
+
+  return Number(
+    payloads.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2),
+  )
+}
+
 function moneyInputValue(value: string) {
   const parsedValue = Number(value || 0)
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0
@@ -629,6 +774,9 @@ function ShippingOrderCompleteActions({
   const [openAction, setOpenAction] = useState<'cancel' | 'complete' | null>(
     null,
   )
+  const [payments, setPayments] = useState<SalePaymentDraft[]>([
+    emptySalePayment(),
+  ])
   const usesQuoteBillingData = Boolean(order.quoteId && order.paymentMethodId)
   const actions: TableActionsMenuAction[] = [
     {
@@ -670,25 +818,14 @@ function ShippingOrderCompleteActions({
             </Alert>
           ) : (
             <>
-              <TextField
-                label='Pagamento'
-                name='shippingPaymentMethodId'
-                defaultValue=''
-                select
-                size='small'
-                required
-                disabled={!cashRegister}>
-                <MenuItem value='' disabled>
-                  Pagamento
-                </MenuItem>
-                {paymentMethods
-                  .filter((method) => method.active)
-                  .map((method) => (
-                    <MenuItem key={method.id} value={method.id}>
-                      {method.name}
-                    </MenuItem>
-                  ))}
-              </TextField>
+              <PaymentSplitFields
+                disabled={!cashRegister}
+                fieldPrefix='shipping'
+                paymentMethods={paymentMethods}
+                payments={payments}
+                totalAmount={Number(order.totalAmount)}
+                onChange={setPayments}
+              />
               <TextField
                 disabled={!cashRegister}
                 label='Data da fatura'
@@ -1112,6 +1249,9 @@ function PickupReservationActions({
   const [openAction, setOpenAction] = useState<'cancel' | 'complete' | null>(
     null,
   )
+  const [payments, setPayments] = useState<SalePaymentDraft[]>([
+    emptySalePayment(),
+  ])
 
   if (reservation.status === 'COMPLETED') {
     return 'Venda concluída'
@@ -1145,25 +1285,14 @@ function PickupReservationActions({
         <form
           className='grid w-full max-w-72 gap-2'
           onSubmit={(event) => onComplete(event, reservation)}>
-          <TextField
-            label='Pagamento'
-            name='pickupPaymentMethodId'
-            defaultValue=''
-            select
-            size='small'
-            required
-            disabled={!cashRegister}>
-            <MenuItem value='' disabled>
-              Pagamento
-            </MenuItem>
-            {paymentMethods
-              .filter((method) => method.active)
-              .map((method) => (
-                <MenuItem key={method.id} value={method.id}>
-                  {method.name}
-                </MenuItem>
-              ))}
-          </TextField>
+          <PaymentSplitFields
+            disabled={!cashRegister}
+            fieldPrefix='pickup'
+            paymentMethods={paymentMethods}
+            payments={payments}
+            totalAmount={Number(reservation.totalAmount)}
+            onChange={setPayments}
+          />
           <TextField
             disabled={!cashRegister}
             label='Data da fatura'

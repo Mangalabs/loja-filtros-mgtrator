@@ -446,6 +446,13 @@ export type Sale = {
   clientName: string | null;
   paymentMethodCode: string;
   paymentMethodName: string;
+  payments: Array<{
+    id: string;
+    paymentMethodId: string;
+    paymentMethodCode: string;
+    paymentMethodName: string;
+    amount: string;
+  }>;
   createdByUserName: string;
   createdAt: string;
   cancelledByUserName: string | null;

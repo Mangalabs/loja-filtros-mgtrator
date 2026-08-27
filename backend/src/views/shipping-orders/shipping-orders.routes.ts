@@ -30,36 +30,46 @@ const cancelShippingOrderSchema = z.object({
   reason: z.string().trim().min(1).max(500),
 });
 
-const completeShippingOrderSchema = z.object({
-  paymentMethodId: z
-    .union([z.uuid(), z.literal(""), z.null()])
-    .transform((value) => value || null)
-    .optional(),
-  billingIssueDate: z
-    .union([z.iso.date(), z.literal(""), z.null()])
-    .transform((value) => value || null)
-    .optional(),
-  billingDueDate: z
-    .union([z.iso.date(), z.literal(""), z.null()])
-    .transform((value) => value || null)
-    .optional(),
-  allowInsufficientStock: z.boolean().optional(),
-}).superRefine((value, context) => {
-  const hasValidBillingDates =
-    !value.billingIssueDate ||
-    !value.billingDueDate ||
-    value.billingDueDate >= value.billingIssueDate;
+const salePaymentSchema = z
+  .object({
+    paymentMethodId: z.uuid(),
+    amount: z.coerce.number().positive(),
+  })
+  .strict();
 
-  if (hasValidBillingDates) {
-    return;
-  }
+const completeShippingOrderSchema = z
+  .object({
+    paymentMethodId: z
+      .union([z.uuid(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    payments: z.array(salePaymentSchema).min(1).optional(),
+    billingIssueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    billingDueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    allowInsufficientStock: z.boolean().optional(),
+  })
+  .superRefine((value, context) => {
+    const hasValidBillingDates =
+      !value.billingIssueDate ||
+      !value.billingDueDate ||
+      value.billingDueDate >= value.billingIssueDate;
 
-  context.addIssue({
-    code: "custom",
-    message: "Vencimento nao pode ser anterior a data da fatura.",
-    path: ["billingDueDate"],
+    if (hasValidBillingDates) {
+      return;
+    }
+
+    context.addIssue({
+      code: "custom",
+      message: "Vencimento nao pode ser anterior a data da fatura.",
+      path: ["billingDueDate"],
+    });
   });
-});
 
 const approveShippingOrderSchema = z.object({
   allowInsufficientStock: z.boolean().optional(),
@@ -161,6 +171,7 @@ shippingOrdersRoutes.patch(
         await completeSeparatedShippingOrder(
           id,
           body.paymentMethodId,
+          body.payments,
           userId,
           requireActiveBranchId(response.locals),
           body.allowInsufficientStock ?? false,

@@ -3,6 +3,7 @@ import {
   activePaymentMethodExists,
   findOpenCashRegister,
   insertSale,
+  type SaleInput,
 } from "../../models/sales/sales.model.js";
 import {
   activePickupClientExists,
@@ -168,7 +169,8 @@ export async function cancelOpenPickupReservation(
 
 export async function completeReservedPickup(
   id: string,
-  paymentMethodId: string,
+  paymentMethodId: string | undefined,
+  payments: SaleInput["payments"] | undefined,
   completedByUserId: string,
   branchId: string,
   allowInsufficientStock = false,
@@ -208,9 +210,36 @@ export async function completeReservedPickup(
       );
     }
 
-    if (!(await activePaymentMethodExists(transaction, paymentMethodId))) {
+    const resolvedPayments =
+      payments ??
+      (paymentMethodId
+        ? [
+            {
+              paymentMethodId,
+              amount: Number(currentReservation.totalAmount),
+            },
+          ]
+        : undefined);
+
+    if (!resolvedPayments) {
       throw new AppError("Forma de pagamento informada nao disponivel.", 422);
     }
+
+    for (const payment of resolvedPayments) {
+      if (
+        !(await activePaymentMethodExists(
+          transaction,
+          payment.paymentMethodId,
+        ))
+      ) {
+        throw new AppError("Forma de pagamento informada nao disponivel.", 422);
+      }
+    }
+
+    validateSalePaymentsTotal(
+      resolvedPayments,
+      Number(currentReservation.totalAmount),
+    );
 
     const reservedItems = aggregatePickupItems(currentReservation.items);
 
@@ -250,6 +279,7 @@ export async function completeReservedPickup(
         billingDueDate: billingDates.billingDueDate,
         discountAmount: 0,
         paymentMethodId,
+        payments: resolvedPayments,
         items: currentReservation.items.map((item) => ({
           productId: item.productId,
           quantity: Number(item.quantity),
@@ -282,6 +312,22 @@ export async function completeReservedPickup(
     status: "success",
     data: reservation,
   };
+}
+
+function validateSalePaymentsTotal(
+  payments: NonNullable<SaleInput["payments"]>,
+  totalAmount: number,
+) {
+  const paymentsAmount = Number(
+    payments.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2),
+  );
+
+  if (paymentsAmount !== totalAmount) {
+    throw new AppError(
+      "Total dos pagamentos deve ser igual ao total da venda.",
+      422,
+    );
+  }
 }
 
 function aggregatePickupItems(
