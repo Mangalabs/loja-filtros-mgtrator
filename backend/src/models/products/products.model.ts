@@ -30,6 +30,8 @@ export type ProductListItem = {
   unit: string;
   location: string | null;
   costPrice: string;
+  accessoryExpenses: string;
+  otherExpenses: string;
   salePrice: string;
   profitMarginPercentage: string | null;
   minimumStock: string;
@@ -58,6 +60,8 @@ export type ProductCreateInput = {
   unit?: string;
   location?: string | null;
   costPrice?: number;
+  accessoryExpenses?: number;
+  otherExpenses?: number;
   salePrice?: number;
   profitMarginPercentage?: number | null;
   minimumStock?: number;
@@ -188,6 +192,8 @@ export async function createProduct(
       unit: input.unit,
       location: input.location,
       cost_price: input.costPrice,
+      accessory_expenses: input.accessoryExpenses,
+      other_expenses: input.otherExpenses,
       sale_price: input.salePrice,
       profit_margin_percentage: input.profitMarginPercentage,
       minimum_stock: input.minimumStock,
@@ -235,6 +241,8 @@ export async function updateProduct(
       unit: input.unit,
       location: input.location,
       cost_price: input.costPrice,
+      accessory_expenses: input.accessoryExpenses,
+      other_expenses: input.otherExpenses,
       sale_price: input.salePrice,
       profit_margin_percentage: input.profitMarginPercentage,
       minimum_stock: input.minimumStock,
@@ -324,6 +332,8 @@ function productListColumns() {
     "products.unit",
     "products.location",
     "products.cost_price as costPrice",
+    "products.accessory_expenses as accessoryExpenses",
+    "products.other_expenses as otherExpenses",
     "products.sale_price as salePrice",
     "products.profit_margin_percentage as profitMarginPercentage",
     "products.minimum_stock as minimumStock",

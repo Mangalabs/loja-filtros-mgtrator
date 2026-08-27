@@ -9,6 +9,8 @@ export function productFormBody(form: FormData) {
     unit: String(form.get("unit") ?? "UN").trim(),
     location: nullableFormValue(form, "location"),
     costPrice: Number(form.get("costPrice") || 0),
+    accessoryExpenses: Number(form.get("accessoryExpenses") || 0),
+    otherExpenses: Number(form.get("otherExpenses") || 0),
     salePrice: Number(form.get("salePrice") || 0),
     profitMarginPercentage: Number(form.get("profitMarginPercentage") || 0),
     minimumStock: Number(form.get("minimumStock") || 0),

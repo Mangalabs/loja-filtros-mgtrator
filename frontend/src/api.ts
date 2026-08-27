@@ -44,6 +44,8 @@ export type Product = {
   unit: string;
   location: string | null;
   costPrice: string;
+  accessoryExpenses: string;
+  otherExpenses: string;
   salePrice: string;
   profitMarginPercentage: string | null;
   minimumStock: string;

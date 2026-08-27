@@ -1,6 +1,6 @@
-import Autocomplete from "@mui/material/Autocomplete";
-import MenuItem from "@mui/material/MenuItem";
-import TextField from "@mui/material/TextField";
+import Autocomplete from '@mui/material/Autocomplete'
+import MenuItem from '@mui/material/MenuItem'
+import TextField from '@mui/material/TextField'
 import {
   PackagePlus,
   Pencil,
@@ -11,8 +11,8 @@ import {
   Truck,
   UserRound,
   X,
-} from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+} from 'lucide-react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type {
   Client,
   ClientCompanyLookup,
@@ -22,7 +22,7 @@ import type {
   NcmOption,
   Product,
   Supplier,
-} from "../../api";
+} from '../../api'
 import {
   ActionGroup,
   FormGrid,
@@ -30,19 +30,19 @@ import {
   PageHeader,
   PagePanel,
   ResponsiveTable,
-} from "../../components/layout";
+} from '../../components/layout'
 import {
   PrimaryButton,
   SecondaryButton,
   StatusChip,
   TableActionButton,
   TableActionsMenu,
-} from "../../components/ui";
-import { usePaginatedRows } from "../../hooks/usePaginatedRows";
-import { formatCurrency, formatQuantity } from "../../utils/format";
-import { productDisplayName } from "../../utils/productDisplay";
+} from '../../components/ui'
+import { usePaginatedRows } from '../../hooks/usePaginatedRows'
+import { formatCurrency, formatQuantity } from '../../utils/format'
+import { productDisplayName } from '../../utils/productDisplay'
 
-type LoadState = "idle" | "loading" | "ready" | "error";
+type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 export function ProductsPage({
   products,
@@ -56,31 +56,33 @@ export function ProductsPage({
   onEdit,
   onChangeStatus,
 }: {
-  products: Product[];
-  pageIndex: number;
-  rowsPerPage: number;
-  search: string;
-  state: LoadState;
-  totalProducts: number;
-  onPageChange: (pageIndex: number, rowsPerPage?: number) => void;
-  onSearchChange: (value: string) => void;
-  onEdit: (product: Product) => void;
-  onChangeStatus: (product: Product) => void;
+  products: Product[]
+  pageIndex: number
+  rowsPerPage: number
+  search: string
+  state: LoadState
+  totalProducts: number
+  onPageChange: (pageIndex: number, rowsPerPage?: number) => void
+  onSearchChange: (value: string) => void
+  onEdit: (product: Product) => void
+  onChangeStatus: (product: Product) => void
 }) {
   return (
     <PagePanel wide>
       <PageHeader
         actions={
           <TextField
-            className="min-w-full md:min-w-80"
-            label="Buscar produto"
-            placeholder="Nome, código, fabricante ou locação"
+            className='min-w-full md:min-w-80'
+            label='Buscar produto'
+            placeholder='Nome, código, fabricante ou locação'
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
           />
         }
-        description={state === "loading" ? "Carregando..." : "Dados do backend"}
-        title="Lista de produtos"
+        description={
+          state === 'loading' ? 'Carregando...' : 'Produtos cadastrados'
+        }
+        title='Lista de produtos'
       />
 
       <ProductTable
@@ -93,7 +95,7 @@ export function ProductsPage({
         onChangeStatus={onChangeStatus}
       />
     </PagePanel>
-  );
+  )
 }
 
 function ProductTable({
@@ -105,76 +107,76 @@ function ProductTable({
   onEdit,
   onChangeStatus,
 }: {
-  products: Product[];
-  pageIndex: number;
-  rowsPerPage: number;
-  totalProducts: number;
-  onPageChange: (pageIndex: number, rowsPerPage?: number) => void;
-  onEdit: (product: Product) => void;
-  onChangeStatus: (product: Product) => void;
+  products: Product[]
+  pageIndex: number
+  rowsPerPage: number
+  totalProducts: number
+  onPageChange: (pageIndex: number, rowsPerPage?: number) => void
+  onEdit: (product: Product) => void
+  onChangeStatus: (product: Product) => void
 }) {
   return (
     <ResponsiveTable
       columns={[
         {
-          header: "Produto",
+          header: 'Produto',
           render: (product) => productDisplayName(product),
         },
         {
-          header: "Codigo",
-          render: (product) => product.internalCode ?? "-",
+          header: 'Codigo',
+          render: (product) => product.internalCode ?? '-',
         },
         {
-          header: "Fabricante",
-          render: (product) => product.brandName ?? "-",
+          header: 'Fabricante',
+          render: (product) => product.brandName ?? '-',
         },
         {
-          header: "Un.",
+          header: 'Un.',
           render: (product) => product.unit,
         },
         {
-          header: "Locacao",
-          render: (product) => product.location ?? "-",
+          header: 'Locacao',
+          render: (product) => product.location ?? '-',
         },
         {
-          align: "right",
-          header: "Fisico",
+          align: 'right',
+          header: 'Fisico',
           render: (product) => formatQuantity(product.currentStock),
         },
         {
-          align: "right",
-          header: "Reservado",
+          align: 'right',
+          header: 'Reservado',
           render: (product) => formatQuantity(product.reservedStock),
         },
         {
-          align: "right",
-          header: "Disponivel",
+          align: 'right',
+          header: 'Disponivel',
           render: (product) => formatQuantity(product.availableStock),
         },
         {
-          align: "right",
-          header: "Venda",
+          align: 'right',
+          header: 'Venda',
           render: (product) => formatCurrency(product.salePrice),
         },
         {
-          header: "Status",
+          header: 'Status',
           render: (product) => (
             <StatusChip
-              label={product.active ? "Ativo" : "Inativo"}
-              tone={product.active ? "success" : "neutral"}
+              label={product.active ? 'Ativo' : 'Inativo'}
+              tone={product.active ? 'success' : 'neutral'}
             />
           ),
         },
         {
-          align: "right",
-          header: "Ações",
+          align: 'right',
+          header: 'Ações',
           render: (product) => (
-            <div className="flex justify-end">
+            <div className='flex justify-end'>
               <TableActionsMenu
                 actions={[
                   {
                     icon: <Pencil size={15} />,
-                    label: "Editar",
+                    label: 'Editar',
                     onSelect: () => onEdit(product),
                   },
                   {
@@ -183,7 +185,7 @@ function ProductTable({
                     ) : (
                       <Power size={15} />
                     ),
-                    label: product.active ? "Inativar" : "Ativar",
+                    label: product.active ? 'Inativar' : 'Ativar',
                     onSelect: () => onChangeStatus(product),
                   },
                 ]}
@@ -192,7 +194,7 @@ function ProductTable({
           ),
         },
       ]}
-      emptyMessage="Nenhum produto encontrado."
+      emptyMessage='Nenhum produto encontrado.'
       getRowId={(product) => product.id}
       items={products}
       pagination={{
@@ -204,7 +206,7 @@ function ProductTable({
           onPageChange(0, nextRowsPerPage),
       }}
     />
-  );
+  )
 }
 
 export function ProductForm({
@@ -217,88 +219,110 @@ export function ProductForm({
   onCancel,
   submitLabel,
 }: {
-  brands: NamedEntity[];
-  cestOptions: CestOption[];
-  commercialSettings: CommercialSettings | null;
-  ncmOptions: NcmOption[];
-  product?: Product;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onCancel?: () => void;
-  submitLabel: string;
+  brands: NamedEntity[]
+  cestOptions: CestOption[]
+  commercialSettings: CommercialSettings | null
+  ncmOptions: NcmOption[]
+  product?: Product
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onCancel?: () => void
+  submitLabel: string
 }) {
   const defaultProfitMarginPercentage = Number(
     commercialSettings?.defaultProfitMarginPercentage ?? 0,
-  );
-  const [costPrice, setCostPrice] = useState(product?.costPrice ?? "");
-  const [salePrice, setSalePrice] = useState(product?.salePrice ?? "");
+  )
+  const [costPrice, setCostPrice] = useState(product?.costPrice ?? '')
+  const [salePrice, setSalePrice] = useState(product?.salePrice ?? '')
   const [profitMarginPercentage, setProfitMarginPercentage] = useState(
     product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
-  );
+  )
+  const [accessoryExpenses, setAccessoryExpenses] = useState(
+    product?.accessoryExpenses ?? '',
+  )
+  const [otherExpenses, setOtherExpenses] = useState(
+    product?.otherExpenses ?? '',
+  )
   const [salePriceTouched, setSalePriceTouched] = useState(
     Boolean(product?.salePrice),
-  );
-  const [cestValue, setCestValue] = useState(product?.cest ?? "");
-  const [ncmValue, setNcmValue] = useState(product?.ncm ?? "");
+  )
+  const [cestValue, setCestValue] = useState(product?.cest ?? '')
+  const [ncmValue, setNcmValue] = useState(product?.ncm ?? '')
 
   useEffect(() => {
-    setCostPrice(product?.costPrice ?? "");
-    setSalePrice(product?.salePrice ?? "");
+    setCostPrice(product?.costPrice ?? '')
+    setSalePrice(product?.salePrice ?? '')
     setProfitMarginPercentage(
       product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
-    );
-    setSalePriceTouched(Boolean(product?.salePrice));
-    setCestValue(product?.cest ?? "");
-    setNcmValue(product?.ncm ?? "");
+    )
+    setAccessoryExpenses(product?.accessoryExpenses ?? '')
+    setOtherExpenses(product?.otherExpenses ?? '')
+    setSalePriceTouched(Boolean(product?.salePrice))
+    setCestValue(product?.cest ?? '')
+    setNcmValue(product?.ncm ?? '')
   }, [
     defaultProfitMarginPercentage,
+    product?.accessoryExpenses,
     product?.cest,
     product?.costPrice,
     product?.id,
     product?.ncm,
+    product?.otherExpenses,
     product?.profitMarginPercentage,
     product?.salePrice,
-  ]);
+  ])
 
   useEffect(() => {
     if (salePriceTouched) {
-      return;
+      return
     }
 
-    setSalePrice(suggestedSalePrice(costPrice, profitMarginPercentage));
-  }, [costPrice, profitMarginPercentage, salePriceTouched]);
+    setSalePrice(
+      suggestedSalePrice(
+        costPrice,
+        accessoryExpenses,
+        otherExpenses,
+        profitMarginPercentage,
+      ),
+    )
+  }, [
+    accessoryExpenses,
+    costPrice,
+    otherExpenses,
+    profitMarginPercentage,
+    salePriceTouched,
+  ])
 
   return (
-    <FormGrid className="max-w-5xl gap-5" onSubmit={onSubmit}>
+    <FormGrid className='max-w-5xl gap-5' onSubmit={onSubmit}>
       <PageHeader
         icon={product ? <Pencil size={18} /> : <PackagePlus size={18} />}
-        title={product ? "Editar produto" : "Dados do produto"}
+        title={product ? 'Editar produto' : 'Dados do produto'}
       />
       <TextField
-        label="Nome do produto"
-        name="productName"
+        label='Nome do produto'
+        name='productName'
         defaultValue={product?.name}
         required
       />
       <FormRow>
         <TextField
-          label="Codigo interno"
-          name="internalCode"
-          defaultValue={product?.internalCode ?? ""}
+          label='Codigo interno'
+          name='internalCode'
+          defaultValue={product?.internalCode ?? ''}
         />
         <TextField
-          label="Codigo de barras"
-          name="barcode"
-          defaultValue={product?.barcode ?? ""}
+          label='Codigo de barras'
+          name='barcode'
+          defaultValue={product?.barcode ?? ''}
         />
       </FormRow>
       <FormRow>
         <TextField
-          defaultValue={product?.brandId ?? ""}
-          label="Fabricante"
-          name="brandId"
-          select
-        >
-          <MenuItem value="">Sem fabricante</MenuItem>
+          defaultValue={product?.brandId ?? ''}
+          label='Fabricante'
+          name='brandId'
+          select>
+          <MenuItem value=''>Sem fabricante</MenuItem>
           {brands.map((brand) => (
             <MenuItem key={brand.id} value={brand.id}>
               {brand.name}
@@ -306,64 +330,108 @@ export function ProductForm({
           ))}
         </TextField>
         <TextField
-          label="Locacao"
-          name="location"
-          defaultValue={product?.location ?? ""}
+          label='Locacao'
+          name='location'
+          defaultValue={product?.location ?? ''}
         />
       </FormRow>
       <FormRow columns={3}>
         <TextField
-          defaultValue={product?.unit ?? "UN"}
-          label="Unidade"
-          name="unit"
-          select
-        >
-          <MenuItem value="UN">UN - Unidade</MenuItem>
-          <MenuItem value="KIT">KIT - Kit</MenuItem>
-          <MenuItem value="CJ">CJ - Conjunto</MenuItem>
+          defaultValue={product?.unit ?? 'UN'}
+          label='Unidade'
+          name='unit'
+          select>
+          <MenuItem value='UN'>UN - Unidade</MenuItem>
+          <MenuItem value='KIT'>KIT - Kit</MenuItem>
+          <MenuItem value='CJ'>CJ - Conjunto</MenuItem>
         </TextField>
-        <TextField
-          label="Custo"
-          name="costPrice"
-          type="number"
-          value={costPrice}
-          onChange={(event) => setCostPrice(event.target.value)}
-          slotProps={{ htmlInput: { step: "0.01" } }}
-        />
-        <TextField
-          helperText={profitMarginHelperText(defaultProfitMarginPercentage)}
-          label="Margem de lucro (%)"
-          name="profitMarginPercentage"
-          type="number"
-          value={profitMarginPercentage}
-          onChange={(event) => {
-            setProfitMarginPercentage(event.target.value);
-            setSalePriceTouched(false);
-          }}
-          slotProps={{ htmlInput: { min: "0", max: "1000", step: "0.01" } }}
-        />
       </FormRow>
+      <section className='grid gap-4 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4'>
+        <div>
+          <strong className='block text-sm text-[#2c281e]'>
+            Calculadora de preço de venda
+          </strong>
+          <span className='text-xs text-[#5f665f]'>
+            Some o custo unitário com despesas e aplique a margem desejada. O
+            preço sugerido pode ser alterado manualmente antes de salvar.
+          </span>
+        </div>
+        <FormRow columns={3}>
+          <TextField
+            label='Custo unitário'
+            name='costPrice'
+            type='number'
+            value={costPrice}
+            onChange={(event) => {
+              setCostPrice(event.target.value)
+              setSalePriceTouched(false)
+            }}
+            slotProps={{ htmlInput: { step: '0.01' } }}
+          />
+          <TextField
+            helperText='Compõe a base do preço de venda.'
+            label='Despesas acessórias'
+            name='accessoryExpenses'
+            type='number'
+            value={accessoryExpenses}
+            onChange={(event) => {
+              setAccessoryExpenses(event.target.value)
+              setSalePriceTouched(false)
+            }}
+            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+          />
+          <TextField
+            helperText='Compõe a base do preço de venda.'
+            label='Outras despesas'
+            name='otherExpenses'
+            type='number'
+            value={otherExpenses}
+            onChange={(event) => {
+              setOtherExpenses(event.target.value)
+              setSalePriceTouched(false)
+            }}
+            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+          />
+        </FormRow>
+        <FormRow columns={3}>
+          <TextField
+            helperText={profitMarginHelperText(defaultProfitMarginPercentage)}
+            label='Margem de lucro (%)'
+            name='profitMarginPercentage'
+            type='number'
+            value={profitMarginPercentage}
+            onChange={(event) => {
+              setProfitMarginPercentage(event.target.value)
+              setSalePriceTouched(false)
+            }}
+            slotProps={{ htmlInput: { min: '0', max: '1000', step: '0.01' } }}
+          />
+          <TextField
+            helperText={salePriceHelperText(
+              costPrice,
+              accessoryExpenses,
+              otherExpenses,
+              profitMarginPercentage,
+            )}
+            label='Valor de venda'
+            name='salePrice'
+            type='number'
+            value={salePrice}
+            onChange={(event) => {
+              setSalePrice(event.target.value)
+              setSalePriceTouched(true)
+            }}
+            slotProps={{ htmlInput: { step: '0.01' } }}
+          />
+        </FormRow>
+      </section>
       <FormRow columns={3}>
         <TextField
-          helperText={salePriceHelperText(profitMarginPercentage)}
-          label="Venda"
-          name="salePrice"
-          type="number"
-          value={salePrice}
-          onChange={(event) => {
-            setSalePrice(event.target.value);
-            setSalePriceTouched(true);
-          }}
-          slotProps={{ htmlInput: { step: "0.01" } }}
-        />
-      </FormRow>
-      <FormRow columns={3}>
-        <TextField
-          label="Estoque min."
-          name="minimumStock"
-          type="number"
+          label='Estoque min.'
+          name='minimumStock'
+          type='number'
           defaultValue={product?.minimumStock}
-          slotProps={{ htmlInput: { step: "0.001" } }}
+          slotProps={{ htmlInput: { step: '0.001' } }}
         />
         <Autocomplete
           freeSolo
@@ -373,33 +441,33 @@ export function ProductForm({
             filterFiscalCodeOptions(options, state.inputValue)
           }
           getOptionLabel={(option) =>
-            typeof option === "string" ? option : option.code
+            typeof option === 'string' ? option : option.code
           }
           onChange={(_event, option) =>
             setNcmValue(
-              typeof option === "string" ? option : option?.code ?? "",
+              typeof option === 'string' ? option : (option?.code ?? ''),
             )
           }
           onInputChange={(_event, value) => setNcmValue(value)}
           renderInput={(params) => (
             <TextField
               {...params}
-              helperText="Digite o NCM ou busque pelos produtos do inventário."
-              label="NCM"
+              helperText='Digite o NCM ou busque pelos produtos do inventário.'
+              label='NCM'
             />
           )}
           renderOption={(props, option) => (
             <li {...props} key={option.code}>
-              <div className="grid gap-0.5">
+              <div className='grid gap-0.5'>
                 <strong>{option.code}</strong>
-                <span className="text-xs text-[#5f665f]">
+                <span className='text-xs text-[#5f665f]'>
                   {option.label} ({option.productCount} itens)
                 </span>
               </div>
             </li>
           )}
         />
-        <input name="ncm" type="hidden" value={ncmValue.trim()} />
+        <input name='ncm' type='hidden' value={ncmValue.trim()} />
         <Autocomplete
           freeSolo
           inputValue={cestValue}
@@ -408,43 +476,42 @@ export function ProductForm({
             filterFiscalCodeOptions(options, state.inputValue)
           }
           getOptionLabel={(option) =>
-            typeof option === "string" ? option : option.code
+            typeof option === 'string' ? option : option.code
           }
           onChange={(_event, option) =>
             setCestValue(
-              typeof option === "string" ? option : option?.code ?? "",
+              typeof option === 'string' ? option : (option?.code ?? ''),
             )
           }
           onInputChange={(_event, value) => setCestValue(value)}
           renderInput={(params) => (
             <TextField
               {...params}
-              helperText="Digite o CEST ou busque pelos produtos cadastrados."
-              label="CEST"
+              helperText='Digite o CEST ou busque pelos produtos cadastrados.'
+              label='CEST'
             />
           )}
           renderOption={(props, option) => (
             <li {...props} key={option.code}>
-              <div className="grid gap-0.5">
+              <div className='grid gap-0.5'>
                 <strong>{option.code}</strong>
-                <span className="text-xs text-[#5f665f]">
+                <span className='text-xs text-[#5f665f]'>
                   {option.label} ({option.productCount} itens)
                 </span>
               </div>
             </li>
           )}
         />
-        <input name="cest" type="hidden" value={cestValue.trim()} />
+        <input name='cest' type='hidden' value={cestValue.trim()} />
       </FormRow>
       <FormRow>
         <TextField
-          defaultValue={product?.origin ?? ""}
-          helperText="Classificação fiscal da origem da mercadoria."
-          label="Origem fiscal"
-          name="origin"
-          select
-        >
-          <MenuItem value="">Selecione</MenuItem>
+          defaultValue={product?.origin ?? ''}
+          helperText='Classificação fiscal da origem da mercadoria.'
+          label='Origem fiscal'
+          name='origin'
+          select>
+          <MenuItem value=''>Selecione</MenuItem>
           {productOriginOptions.map((option) => (
             <MenuItem key={option.code} value={option.code}>
               {option.code} - {option.label}
@@ -453,137 +520,177 @@ export function ProductForm({
         </TextField>
       </FormRow>
       <TextField
-        defaultValue={product?.description ?? ""}
-        helperText="Texto exibido em orçamentos quando precisar separar o nome interno do texto comercial."
-        label="Descrição comercial para orçamento"
+        defaultValue={product?.description ?? ''}
+        helperText='Texto exibido em orçamentos quando precisar separar o nome interno do texto comercial.'
+        label='Descrição comercial para orçamento'
         multiline
-        name="description"
+        name='description'
         rows={3}
         slotProps={{ htmlInput: { maxLength: 1000 } }}
       />
-      <ActionGroup className="mt-1">
+      <ActionGroup className='mt-1'>
         {onCancel ? (
           <SecondaryButton
             icon={<X size={17} />}
-            type="button"
-            onClick={onCancel}
-          >
+            type='button'
+            onClick={onCancel}>
             Cancelar
           </SecondaryButton>
         ) : null}
         <PrimaryButton
           icon={product ? <Pencil size={17} /> : <Plus size={17} />}
-          type="submit"
-        >
+          type='submit'>
           {submitLabel}
         </PrimaryButton>
       </ActionGroup>
     </FormGrid>
-  );
+  )
 }
 
-function suggestedSalePrice(costPrice: string, profitMarginPercentage: string) {
-  const cost = Number(costPrice);
-  const margin = Number(profitMarginPercentage);
+function suggestedSalePrice(
+  costPrice: string,
+  accessoryExpenses: string,
+  otherExpenses: string,
+  profitMarginPercentage: string,
+) {
+  const cost = salePriceCalculationBase(
+    costPrice,
+    accessoryExpenses,
+    otherExpenses,
+  )
+  const margin = Number(profitMarginPercentage)
 
   if (!Number.isFinite(cost) || !Number.isFinite(margin) || cost <= 0) {
-    return "";
+    return ''
   }
 
-  return (cost * (1 + margin / 100)).toFixed(2);
+  return (cost * (1 + margin / 100)).toFixed(2)
+}
+
+function salePriceCalculationBase(
+  costPrice: string,
+  accessoryExpenses: string,
+  otherExpenses: string,
+) {
+  return (
+    numericCurrencyValue(costPrice) +
+    numericCurrencyValue(accessoryExpenses) +
+    numericCurrencyValue(otherExpenses)
+  )
+}
+
+function numericCurrencyValue(value: string) {
+  const numberValue = Number(value)
+
+  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : 0
 }
 
 const productOriginOptions = [
   {
-    code: "0",
-    label: "Nacional, exceto as indicadas nos códigos 3 a 5",
+    code: '0',
+    label: 'Nacional, exceto as indicadas nos códigos 3 a 5',
   },
   {
-    code: "1",
-    label: "Estrangeira - Importação direta, exceto a indicada no código 6",
+    code: '1',
+    label: 'Estrangeira - Importação direta, exceto a indicada no código 6',
   },
   {
-    code: "2",
-    label: "Estrangeira - Adquirida no mercado interno, exceto a indicada no código 7",
+    code: '2',
+    label:
+      'Estrangeira - Adquirida no mercado interno, exceto a indicada no código 7',
   },
   {
-    code: "3",
-    label: "Nacional, mercadoria ou bem com conteúdo de importação superior a 40%",
+    code: '3',
+    label:
+      'Nacional, mercadoria ou bem com conteúdo de importação superior a 40%',
   },
   {
-    code: "4",
-    label: "Nacional, produção em conformidade com processos básicos produtivos",
+    code: '4',
+    label:
+      'Nacional, produção em conformidade com processos básicos produtivos',
   },
   {
-    code: "5",
-    label: "Nacional, mercadoria ou bem com conteúdo de importação inferior ou igual a 40%",
+    code: '5',
+    label:
+      'Nacional, mercadoria ou bem com conteúdo de importação inferior ou igual a 40%',
   },
   {
-    code: "6",
-    label: "Estrangeira - Importação direta, sem similar nacional",
+    code: '6',
+    label: 'Estrangeira - Importação direta, sem similar nacional',
   },
   {
-    code: "7",
-    label: "Estrangeira - Adquirida no mercado interno, sem similar nacional",
+    code: '7',
+    label: 'Estrangeira - Adquirida no mercado interno, sem similar nacional',
   },
   {
-    code: "8",
-    label: "Nacional, mercadoria ou bem com conteúdo de importação superior a 70%",
+    code: '8',
+    label:
+      'Nacional, mercadoria ou bem com conteúdo de importação superior a 70%',
   },
-];
+]
 
 function filterFiscalCodeOptions<
   Option extends {
-    code: string;
-    label: string;
-    sampleProducts: string[];
+    code: string
+    label: string
+    sampleProducts: string[]
   },
->(
-  options: Option[],
-  inputValue: string,
-): Option[] {
-  const search = normalizeSearch(inputValue);
+>(options: Option[], inputValue: string): Option[] {
+  const search = normalizeSearch(inputValue)
 
   if (!search) {
-    return options;
+    return options
   }
 
-  return options.filter((option) => matchesFiscalCodeOption(option, search));
+  return options.filter((option) => matchesFiscalCodeOption(option, search))
 }
 
 function matchesFiscalCodeOption(
   option: {
-    code: string;
-    label: string;
-    sampleProducts: string[];
+    code: string
+    label: string
+    sampleProducts: string[]
   },
   search: string,
 ) {
   return [option.code, option.label, ...option.sampleProducts]
     .map((value) => normalizeSearch(value))
-    .some((value) => value.includes(search));
+    .some((value) => value.includes(search))
 }
 
 function normalizeSearch(value: string) {
   return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .trim();
+    .trim()
 }
 
-function salePriceHelperText(profitMarginPercentage: string) {
-  const margin = Number(profitMarginPercentage);
+function salePriceHelperText(
+  costPrice: string,
+  accessoryExpenses: string,
+  otherExpenses: string,
+  profitMarginPercentage: string,
+) {
+  const calculationBase = salePriceCalculationBase(
+    costPrice,
+    accessoryExpenses,
+    otherExpenses,
+  )
+  const margin = Number(profitMarginPercentage)
 
-  if (!Number.isFinite(margin) || margin <= 0) {
-    return "Configure uma margem comercial para sugerir o preço automaticamente.";
+  if (calculationBase <= 0 || !Number.isFinite(margin) || margin <= 0) {
+    return 'Configure uma margem comercial para sugerir o preço automaticamente.'
   }
 
-  return `Sugestao automatica pela margem de ${margin.toLocaleString("pt-BR")}%`;
+  return `Base R$ ${calculationBase.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} + margem de ${margin.toLocaleString('pt-BR')}%`
 }
 
 function profitMarginHelperText(defaultProfitMarginPercentage: number) {
-  return `Preenchido pela margem padrão de ${defaultProfitMarginPercentage.toLocaleString("pt-BR")}%, mas pode variar por produto.`;
+  return `Preenchido pela margem padrão de ${defaultProfitMarginPercentage.toLocaleString('pt-BR')}%, mas pode variar por produto.`
 }
 
 export function NamedEntityPage({
@@ -592,24 +699,24 @@ export function NamedEntityPage({
   items,
   onSubmit,
 }: {
-  title: string;
-  fieldName: string;
-  items: NamedEntity[];
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  title: string
+  fieldName: string
+  items: NamedEntity[]
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }) {
   return (
-    <section className="grid gap-4 xl:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)]">
+    <section className='grid gap-4 xl:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)]'>
       <FormGrid onSubmit={onSubmit}>
-        <PageHeader icon={<Tags size={18} />} title="Novo registro" />
-        <TextField label="Nome" name={fieldName} required />
-        <PrimaryButton icon={<Plus size={17} />} type="submit">
+        <PageHeader icon={<Tags size={18} />} title='Novo registro' />
+        <TextField label='Nome' name={fieldName} required />
+        <PrimaryButton icon={<Plus size={17} />} type='submit'>
           Cadastrar
         </PrimaryButton>
       </FormGrid>
 
       <EntityList title={title} items={items} />
     </section>
-  );
+  )
 }
 
 function EntityList({ title, items }: { title: string; items: NamedEntity[] }) {
@@ -617,59 +724,54 @@ function EntityList({ title, items }: { title: string; items: NamedEntity[] }) {
     <PagePanel>
       <PageHeader
         actions={
-          <span className="text-sm text-[#5f665f]">
+          <span className='text-sm text-[#5f665f]'>
             {items.length} registros
           </span>
         }
         title={`${title} cadastrados`}
       />
-      <div className="grid gap-2">
+      <div className='grid gap-2'>
         {items.map((item) => (
           <div
-            className="flex min-h-11 items-center justify-between gap-3 border-b border-[#e4e9e5] py-2 last:border-b-0"
-            key={item.id}
-          >
+            className='flex min-h-11 items-center justify-between gap-3 border-b border-[#e4e9e5] py-2 last:border-b-0'
+            key={item.id}>
             <strong>{item.name}</strong>
             <StatusChip
-              label={item.active ? "Ativo" : "Inativo"}
-              tone={item.active ? "success" : "neutral"}
+              label={item.active ? 'Ativo' : 'Inativo'}
+              tone={item.active ? 'success' : 'neutral'}
             />
           </div>
         ))}
         {items.length === 0 ? (
-          <p className="m-0 text-sm text-[#5f665f]">
+          <p className='m-0 text-sm text-[#5f665f]'>
             Nenhum registro cadastrado.
           </p>
         ) : null}
       </div>
     </PagePanel>
-  );
+  )
 }
 
 export function SuppliersPage({
   suppliers,
   onSubmit,
 }: {
-  suppliers: Supplier[];
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  suppliers: Supplier[]
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }) {
-  const { pagination, visibleItems } = usePaginatedRows<Supplier>(suppliers);
+  const { pagination, visibleItems } = usePaginatedRows<Supplier>(suppliers)
 
   return (
-    <section className="grid gap-4 xl:grid-cols-[minmax(300px,0.7fr)_minmax(0,1.3fr)]">
+    <section className='grid gap-4 xl:grid-cols-[minmax(300px,0.7fr)_minmax(0,1.3fr)]'>
       <FormGrid onSubmit={onSubmit}>
-        <PageHeader icon={<Truck size={18} />} title="Novo fornecedor" />
-        <TextField label="Nome" name="supplierName" required />
-        <TextField label="CPF/CNPJ" name="supplierDocument" />
+        <PageHeader icon={<Truck size={18} />} title='Novo fornecedor' />
+        <TextField label='Nome' name='supplierName' required />
+        <TextField label='CPF/CNPJ' name='supplierDocument' />
         <FormRow>
-          <TextField label="Telefone" name="supplierPhone" />
-          <TextField
-            label="Email"
-            name="supplierEmail"
-            type="email"
-          />
+          <TextField label='Telefone' name='supplierPhone' />
+          <TextField label='Email' name='supplierEmail' type='email' />
         </FormRow>
-        <PrimaryButton icon={<Plus size={17} />} type="submit">
+        <PrimaryButton icon={<Plus size={17} />} type='submit'>
           Cadastrar fornecedor
         </PrimaryButton>
       </FormGrid>
@@ -677,39 +779,39 @@ export function SuppliersPage({
       <PagePanel wide>
         <PageHeader
           actions={
-            <span className="text-sm text-[#5f665f]">
+            <span className='text-sm text-[#5f665f]'>
               {suppliers.length} registros
             </span>
           }
-          title="Fornecedores cadastrados"
+          title='Fornecedores cadastrados'
         />
         <ResponsiveTable
           columns={[
             {
-              header: "Nome",
+              header: 'Nome',
               render: (supplier) => supplier.name,
             },
             {
-              header: "Documento",
-              render: (supplier) => supplier.document ?? "-",
+              header: 'Documento',
+              render: (supplier) => supplier.document ?? '-',
             },
             {
-              header: "Telefone",
-              render: (supplier) => supplier.phone ?? "-",
+              header: 'Telefone',
+              render: (supplier) => supplier.phone ?? '-',
             },
             {
-              header: "Email",
-              render: (supplier) => supplier.email ?? "-",
+              header: 'Email',
+              render: (supplier) => supplier.email ?? '-',
             },
           ]}
-          emptyMessage="Nenhum fornecedor cadastrado."
+          emptyMessage='Nenhum fornecedor cadastrado.'
           getRowId={(supplier) => supplier.id}
           items={visibleItems}
           pagination={pagination}
         />
       </PagePanel>
     </section>
-  );
+  )
 }
 
 export function ClientsPage({
@@ -721,60 +823,62 @@ export function ClientsPage({
   onCancel,
   onChangeStatus,
 }: {
-  clients: Client[];
-  selectedClient?: Client;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onLookupCompany: (cnpj: string) => Promise<ClientCompanyLookup>;
-  onEdit: (client: Client) => void;
-  onCancel: () => void;
-  onChangeStatus: (client: Client) => void;
+  clients: Client[]
+  selectedClient?: Client
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onLookupCompany: (cnpj: string) => Promise<ClientCompanyLookup>
+  onEdit: (client: Client) => void
+  onCancel: () => void
+  onChangeStatus: (client: Client) => void
 }) {
-  const { pagination, visibleItems } = usePaginatedRows<Client>(clients);
-  const formRef = useRef<HTMLFormElement>(null);
+  const { pagination, visibleItems } = usePaginatedRows<Client>(clients)
+  const formRef = useRef<HTMLFormElement>(null)
   const [lookupState, setLookupState] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
+    'idle' | 'loading' | 'success' | 'error'
+  >('idle')
   const [lookupValues, setLookupValues] = useState<
     Record<string, string | null>
-  >({});
+  >({})
   const [clientPersonType, setClientPersonType] = useState(
-    selectedClient?.personType ?? "PF",
-  );
-  const [clientStateRegistrationIndicator, setClientStateRegistrationIndicator] =
-    useState(selectedClient?.stateRegistrationIndicator ?? "9");
+    selectedClient?.personType ?? 'PF',
+  )
+  const [
+    clientStateRegistrationIndicator,
+    setClientStateRegistrationIndicator,
+  ] = useState(selectedClient?.stateRegistrationIndicator ?? '9')
 
   useEffect(() => {
-    setClientPersonType(selectedClient?.personType ?? "PF");
+    setClientPersonType(selectedClient?.personType ?? 'PF')
     setClientStateRegistrationIndicator(
-      selectedClient?.stateRegistrationIndicator ?? "9",
-    );
+      selectedClient?.stateRegistrationIndicator ?? '9',
+    )
   }, [
     selectedClient?.id,
     selectedClient?.personType,
     selectedClient?.stateRegistrationIndicator,
-  ]);
+  ])
 
   async function lookupCompany() {
-    const formElement = formRef.current;
+    const formElement = formRef.current
     const documentInput = formElement?.elements.namedItem(
-      "clientDocument",
-    ) as HTMLInputElement | null;
-    const document = documentInput?.value.trim() ?? "";
+      'clientDocument',
+    ) as HTMLInputElement | null
+    const document = documentInput?.value.trim() ?? ''
 
     if (!document) {
-      setLookupState("error");
-      return;
+      setLookupState('error')
+      return
     }
 
-    setLookupState("loading");
+    setLookupState('loading')
 
     try {
-      setLookupValues(clientLookupValues(await onLookupCompany(document)));
-      setClientPersonType("PJ");
-      setClientStateRegistrationIndicator("9");
-      setLookupState("success");
+      setLookupValues(clientLookupValues(await onLookupCompany(document)))
+      setClientPersonType('PJ')
+      setClientStateRegistrationIndicator('9')
+      setLookupState('success')
     } catch {
-      setLookupState("error");
+      setLookupState('error')
     }
   }
 
@@ -782,232 +886,226 @@ export function ClientsPage({
     name: string,
     defaultValue: string | null | undefined,
   ) {
-    return lookupValues[name] ?? defaultValue ?? "";
+    return lookupValues[name] ?? defaultValue ?? ''
   }
 
   function updateLookupValue(name: string, value: string) {
     setLookupValues((currentValues) => ({
       ...currentValues,
       [name]: value,
-    }));
+    }))
   }
 
   return (
-    <section className="grid gap-4 xl:grid-cols-[minmax(320px,0.75fr)_minmax(0,1.25fr)]">
+    <section className='grid gap-4 xl:grid-cols-[minmax(320px,0.75fr)_minmax(0,1.25fr)]'>
       <FormGrid
-        key={selectedClient?.id ?? "new"}
+        key={selectedClient?.id ?? 'new'}
         ref={formRef}
-        onSubmit={onSubmit}
-      >
+        onSubmit={onSubmit}>
         <PageHeader
           icon={<UserRound size={18} />}
-          title={selectedClient ? "Editar cliente" : "Novo cliente"}
+          title={selectedClient ? 'Editar cliente' : 'Novo cliente'}
         />
         <TextField
-          label="Tipo de cliente"
-          name="clientPersonType"
+          label='Tipo de cliente'
+          name='clientPersonType'
           select
           value={clientPersonType}
           onChange={(event) =>
             setClientPersonType(clientPersonTypeValue(event.target.value))
           }
-          required
-        >
-          <MenuItem value="PF">Pessoa fisica</MenuItem>
-          <MenuItem value="PJ">Pessoa juridica</MenuItem>
-          <MenuItem value="ES">Estrangeiro</MenuItem>
+          required>
+          <MenuItem value='PF'>Pessoa fisica</MenuItem>
+          <MenuItem value='PJ'>Pessoa juridica</MenuItem>
+          <MenuItem value='ES'>Estrangeiro</MenuItem>
         </TextField>
         <TextField
-          label="Nome"
-          name="clientName"
-          value={clientFieldValue("clientName", selectedClient?.name)}
+          label='Nome'
+          name='clientName'
+          value={clientFieldValue('clientName', selectedClient?.name)}
           onChange={(event) =>
-            updateLookupValue("clientName", event.target.value)
+            updateLookupValue('clientName', event.target.value)
           }
           required
         />
         <TextField
-          label="CPF/CNPJ"
-          name="clientDocument"
-          value={clientFieldValue("clientDocument", selectedClient?.document)}
+          label='CPF/CNPJ'
+          name='clientDocument'
+          value={clientFieldValue('clientDocument', selectedClient?.document)}
           onChange={(event) =>
-            updateLookupValue("clientDocument", event.target.value)
+            updateLookupValue('clientDocument', event.target.value)
           }
         />
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-sm text-[#5f665f]">
+        <div className='flex flex-wrap items-center justify-between gap-2'>
+          <span className='text-sm text-[#5f665f]'>
             {clientLookupStatusLabel[lookupState]}
           </span>
           <SecondaryButton
-            type="button"
-            disabled={lookupState === "loading"}
-            onClick={() => void lookupCompany()}
-          >
+            type='button'
+            disabled={lookupState === 'loading'}
+            onClick={() => void lookupCompany()}>
             Buscar CNPJ
           </SecondaryButton>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className='grid gap-4 md:grid-cols-2'>
           <TextField
-            label="Telefone"
-            name="clientPhone"
-            value={clientFieldValue("clientPhone", selectedClient?.phone)}
+            label='Telefone'
+            name='clientPhone'
+            value={clientFieldValue('clientPhone', selectedClient?.phone)}
             onChange={(event) =>
-              updateLookupValue("clientPhone", event.target.value)
+              updateLookupValue('clientPhone', event.target.value)
             }
           />
           <TextField
-            label="Email"
-            name="clientEmail"
-            type="email"
-            value={clientFieldValue("clientEmail", selectedClient?.email)}
+            label='Email'
+            name='clientEmail'
+            type='email'
+            value={clientFieldValue('clientEmail', selectedClient?.email)}
             onChange={(event) =>
-              updateLookupValue("clientEmail", event.target.value)
+              updateLookupValue('clientEmail', event.target.value)
             }
           />
         </div>
-        <div className="grid gap-1 border-t border-[#e4e9e5] pt-4">
-          <strong className="text-[#2c281e]">Dados fiscais para NF-e</strong>
-          <span className="text-sm text-[#5f665f]">
+        <div className='grid gap-1 border-t border-[#e4e9e5] pt-4'>
+          <strong className='text-[#2c281e]'>Dados fiscais para NF-e</strong>
+          <span className='text-sm text-[#5f665f]'>
             Preencha quando o cliente solicitar nota fiscal.
           </span>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {clientPersonType === "PJ" ? (
+        <div className='grid gap-4 md:grid-cols-2'>
+          {clientPersonType === 'PJ' ? (
             <TextField
-              label="Inscricao estadual"
-              name="clientStateRegistration"
+              label='Inscricao estadual'
+              name='clientStateRegistration'
               value={clientFieldValue(
-                "clientStateRegistration",
+                'clientStateRegistration',
                 selectedClient?.stateRegistration,
               )}
-              helperText="Obrigatoria somente quando o indicador IE for contribuinte ICMS."
+              helperText='Obrigatoria somente quando o indicador IE for contribuinte ICMS.'
               onChange={(event) =>
-                updateLookupValue("clientStateRegistration", event.target.value)
+                updateLookupValue('clientStateRegistration', event.target.value)
               }
             />
           ) : (
             <>
               <TextField
                 disabled
-                helperText="Pessoa fisica e estrangeiro sao enviados como nao contribuintes."
-                label="Inscricao estadual"
-                value=""
+                helperText='Pessoa fisica e estrangeiro sao enviados como nao contribuintes.'
+                label='Inscricao estadual'
+                value=''
               />
-              <input name="clientStateRegistration" type="hidden" value="" />
+              <input name='clientStateRegistration' type='hidden' value='' />
             </>
           )}
           <TextField
-            label="Indicador IE"
-            name="clientStateRegistrationIndicator"
+            label='Indicador IE'
+            name='clientStateRegistrationIndicator'
             select
             value={
-              clientPersonType === "PJ"
-                ? clientStateRegistrationIndicator
-                : "9"
+              clientPersonType === 'PJ' ? clientStateRegistrationIndicator : '9'
             }
             onChange={(event) =>
               setClientStateRegistrationIndicator(
                 clientStateRegistrationIndicatorValue(event.target.value),
               )
             }
-            disabled={clientPersonType !== "PJ"}
-          >
-            <MenuItem value="9">Nao contribuinte</MenuItem>
-            <MenuItem value="1">Contribuinte ICMS</MenuItem>
-            <MenuItem value="2">Contribuinte isento</MenuItem>
+            disabled={clientPersonType !== 'PJ'}>
+            <MenuItem value='9'>Nao contribuinte</MenuItem>
+            <MenuItem value='1'>Contribuinte ICMS</MenuItem>
+            <MenuItem value='2'>Contribuinte isento</MenuItem>
           </TextField>
         </div>
         <TextField
-          label="Logradouro"
-          name="clientAddressStreet"
+          label='Logradouro'
+          name='clientAddressStreet'
           value={clientFieldValue(
-            "clientAddressStreet",
+            'clientAddressStreet',
             selectedClient?.addressStreet,
           )}
           onChange={(event) =>
-            updateLookupValue("clientAddressStreet", event.target.value)
+            updateLookupValue('clientAddressStreet', event.target.value)
           }
         />
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className='grid gap-4 md:grid-cols-2'>
           <TextField
-            label="Número"
-            name="clientAddressNumber"
+            label='Número'
+            name='clientAddressNumber'
             value={clientFieldValue(
-              "clientAddressNumber",
+              'clientAddressNumber',
               selectedClient?.addressNumber,
             )}
             onChange={(event) =>
-              updateLookupValue("clientAddressNumber", event.target.value)
+              updateLookupValue('clientAddressNumber', event.target.value)
             }
           />
           <TextField
-            label="Complemento"
-            name="clientAddressComplement"
+            label='Complemento'
+            name='clientAddressComplement'
             value={clientFieldValue(
-              "clientAddressComplement",
+              'clientAddressComplement',
               selectedClient?.addressComplement,
             )}
             onChange={(event) =>
-              updateLookupValue("clientAddressComplement", event.target.value)
+              updateLookupValue('clientAddressComplement', event.target.value)
             }
           />
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className='grid gap-4 md:grid-cols-2'>
           <TextField
-            label="Bairro"
-            name="clientAddressDistrict"
+            label='Bairro'
+            name='clientAddressDistrict'
             value={clientFieldValue(
-              "clientAddressDistrict",
+              'clientAddressDistrict',
               selectedClient?.addressDistrict,
             )}
             onChange={(event) =>
-              updateLookupValue("clientAddressDistrict", event.target.value)
+              updateLookupValue('clientAddressDistrict', event.target.value)
             }
           />
           <TextField
-            label="Cidade"
-            name="clientAddressCity"
+            label='Cidade'
+            name='clientAddressCity'
             value={clientFieldValue(
-              "clientAddressCity",
+              'clientAddressCity',
               selectedClient?.addressCity,
             )}
             onChange={(event) =>
-              updateLookupValue("clientAddressCity", event.target.value)
+              updateLookupValue('clientAddressCity', event.target.value)
             }
           />
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className='grid gap-4 md:grid-cols-2'>
           <TextField
-            label="UF"
-            name="clientAddressState"
+            label='UF'
+            name='clientAddressState'
             value={clientFieldValue(
-              "clientAddressState",
+              'clientAddressState',
               selectedClient?.addressState,
             )}
             onChange={(event) =>
-              updateLookupValue("clientAddressState", event.target.value)
+              updateLookupValue('clientAddressState', event.target.value)
             }
           />
           <TextField
-            label="CEP"
-            name="clientAddressZipCode"
+            label='CEP'
+            name='clientAddressZipCode'
             value={clientFieldValue(
-              "clientAddressZipCode",
+              'clientAddressZipCode',
               selectedClient?.addressZipCode,
             )}
             onChange={(event) =>
-              updateLookupValue("clientAddressZipCode", event.target.value)
+              updateLookupValue('clientAddressZipCode', event.target.value)
             }
           />
         </div>
-        <div className="mt-1 flex flex-wrap justify-end gap-2">
+        <div className='mt-1 flex flex-wrap justify-end gap-2'>
           {selectedClient ? (
-            <SecondaryButton type="button" onClick={onCancel}>
+            <SecondaryButton type='button' onClick={onCancel}>
               Cancelar
             </SecondaryButton>
           ) : null}
-          <PrimaryButton icon={<Plus size={17} />} type="submit">
-            {selectedClient ? "Salvar alteracoes" : "Cadastrar cliente"}
+          <PrimaryButton icon={<Plus size={17} />} type='submit'>
+            {selectedClient ? 'Salvar alteracoes' : 'Cadastrar cliente'}
           </PrimaryButton>
         </div>
       </FormGrid>
@@ -1015,58 +1113,58 @@ export function ClientsPage({
       <PagePanel wide>
         <PageHeader
           actions={
-            <span className="text-sm text-[#5f665f]">
+            <span className='text-sm text-[#5f665f]'>
               {clients.length} registros
             </span>
           }
-          title="Clientes cadastrados"
+          title='Clientes cadastrados'
         />
         <ResponsiveTable
           columns={[
             {
-              header: "Nome",
+              header: 'Nome',
               render: (client) => (
                 <>
                   <strong>{client.name}</strong>
-                  <span className="mt-1 block text-xs text-[#5f665f]">
+                  <span className='mt-1 block text-xs text-[#5f665f]'>
                     {client.addressCity && client.addressState
                       ? `${client.addressCity}/${client.addressState}`
-                      : "Sem endereco fiscal"}
+                      : 'Sem endereco fiscal'}
                   </span>
                 </>
               ),
             },
             {
-              header: "Tipo",
+              header: 'Tipo',
               render: (client) => client.personType,
             },
             {
-              header: "Documento",
-              render: (client) => client.document ?? "-",
+              header: 'Documento',
+              render: (client) => client.document ?? '-',
             },
             {
-              header: "Telefone",
-              render: (client) => client.phone ?? "-",
+              header: 'Telefone',
+              render: (client) => client.phone ?? '-',
             },
             {
-              header: "Status",
+              header: 'Status',
               render: (client) => (
                 <StatusChip
-                  label={client.active ? "Ativo" : "Inativo"}
-                  tone={client.active ? "success" : "neutral"}
+                  label={client.active ? 'Ativo' : 'Inativo'}
+                  tone={client.active ? 'success' : 'neutral'}
                 />
               ),
             },
             {
-              align: "right",
-              header: "Ações",
+              align: 'right',
+              header: 'Ações',
               render: (client) => (
-                <div className="flex justify-end">
+                <div className='flex justify-end'>
                   <TableActionsMenu
                     actions={[
                       {
                         icon: <Pencil size={14} />,
-                        label: "Editar",
+                        label: 'Editar',
                         onSelect: () => onEdit(client),
                       },
                       {
@@ -1075,7 +1173,7 @@ export function ClientsPage({
                         ) : (
                           <Power size={14} />
                         ),
-                        label: client.active ? "Inativar" : "Ativar",
+                        label: client.active ? 'Inativar' : 'Ativar',
                         onSelect: () => onChangeStatus(client),
                       },
                     ]}
@@ -1084,25 +1182,25 @@ export function ClientsPage({
               ),
             },
           ]}
-          emptyMessage="Nenhum cliente cadastrado."
+          emptyMessage='Nenhum cliente cadastrado.'
           getRowId={(client) => client.id}
           items={visibleItems}
           pagination={pagination}
         />
       </PagePanel>
     </section>
-  );
+  )
 }
 
 const clientLookupStatusLabel: Record<
-  "idle" | "loading" | "success" | "error",
+  'idle' | 'loading' | 'success' | 'error',
   string
 > = {
-  error: "Informe um CNPJ valido ou tente novamente.",
-  idle: "Preencha o CNPJ e busque os dados fiscais.",
-  loading: "Consultando CNPJ...",
-  success: "Dados encontrados. Revise antes de salvar.",
-};
+  error: 'Informe um CNPJ valido ou tente novamente.',
+  idle: 'Preencha o CNPJ e busque os dados fiscais.',
+  loading: 'Consultando CNPJ...',
+  success: 'Dados encontrados. Revise antes de salvar.',
+}
 
 function clientLookupValues(company: ClientCompanyLookup) {
   return {
@@ -1118,28 +1216,30 @@ function clientLookupValues(company: ClientCompanyLookup) {
     clientName: company.name,
     clientPhone: company.phone,
     clientStateRegistration: company.stateRegistration,
-  };
+  }
 }
 
-function clientPersonTypeValue(value: string): Client["personType"] {
-  const values: Record<string, Client["personType"]> = {
-    ES: "ES",
-    PF: "PF",
-    PJ: "PJ",
-  };
+function clientPersonTypeValue(value: string): Client['personType'] {
+  const values: Record<string, Client['personType']> = {
+    ES: 'ES',
+    PF: 'PF',
+    PJ: 'PJ',
+  }
 
-  return values[value] ?? "PF";
+  return values[value] ?? 'PF'
 }
 
 function clientStateRegistrationIndicatorValue(
   value: string,
-): NonNullable<Client["stateRegistrationIndicator"]> {
-  const values: Record<string, NonNullable<Client["stateRegistrationIndicator"]>> =
-    {
-      "1": "1",
-      "2": "2",
-      "9": "9",
-    };
+): NonNullable<Client['stateRegistrationIndicator']> {
+  const values: Record<
+    string,
+    NonNullable<Client['stateRegistrationIndicator']>
+  > = {
+    '1': '1',
+    '2': '2',
+    '9': '9',
+  }
 
-  return values[value] ?? "9";
+  return values[value] ?? '9'
 }

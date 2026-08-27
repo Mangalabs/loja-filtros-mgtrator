@@ -28,6 +28,8 @@ const createProductSchema = z.object({
   unit: z.enum(["UN", "KIT", "CJ"]).optional(),
   location: optionalText(80),
   costPrice: z.coerce.number().min(0).optional(),
+  accessoryExpenses: z.coerce.number().min(0).optional(),
+  otherExpenses: z.coerce.number().min(0).optional(),
   salePrice: z.coerce.number().min(0).optional(),
   profitMarginPercentage: z.coerce.number().min(0).max(1000).nullable().optional(),
   minimumStock: z.coerce.number().min(0).optional(),
