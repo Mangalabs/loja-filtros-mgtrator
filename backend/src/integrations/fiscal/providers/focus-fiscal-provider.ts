@@ -83,7 +83,9 @@ type FocusNfeItemPayload = {
 
 export class FocusFiscalProvider implements FiscalProvider {
   async cancel(request: FiscalCancelRequest): Promise<FiscalCancelResult> {
-    ensureFocusConfiguration(request.environment);
+    ensureFocusConfiguration(request.environment, request.companyCnpj, {
+      requireCompanyCnpj: false,
+    });
 
     const response = await focusFetch(
       focusNfeReferenceUrl(request.environment, request.providerReference),
@@ -92,7 +94,7 @@ export class FocusFiscalProvider implements FiscalProvider {
         headers: {
           Accept: "application/json",
           Authorization: focusAuthorizationHeader(
-            focusToken(request.environment),
+            focusToken(request.environment, request.companyCnpj),
           ),
           "Content-Type": "application/json",
         },
@@ -112,7 +114,9 @@ export class FocusFiscalProvider implements FiscalProvider {
   }
 
   async check(request: FiscalCheckRequest): Promise<FiscalCheckResult> {
-    ensureFocusConfiguration(request.environment);
+    ensureFocusConfiguration(request.environment, request.companyCnpj, {
+      requireCompanyCnpj: false,
+    });
 
     const response = await focusFetch(
       focusNfeReferenceUrl(request.environment, request.providerReference),
@@ -120,7 +124,7 @@ export class FocusFiscalProvider implements FiscalProvider {
         headers: {
           Accept: "application/json",
           Authorization: focusAuthorizationHeader(
-            focusToken(request.environment),
+            focusToken(request.environment, request.companyCnpj),
           ),
         },
       },
@@ -144,7 +148,9 @@ export class FocusFiscalProvider implements FiscalProvider {
       method: "POST",
       headers: {
         Accept: "application/json",
-        Authorization: focusAuthorizationHeader(focusToken(request.environment)),
+        Authorization: focusAuthorizationHeader(
+          focusToken(request.environment, request.companyCnpj),
+        ),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(buildFocusNfePayload(request)),
@@ -195,12 +201,17 @@ function focusResultFromPayload({
 function ensureFocusConfiguration(
   environment: FiscalIssueRequest["environment"],
   companyCnpj?: string | null,
+  options: { requireCompanyCnpj?: boolean } = {},
 ) {
   const companyCnpjDigits =
     companyCnpj === undefined ? true : digits(companyCnpj);
+  const requiresCompanyCnpj = options.requireCompanyCnpj ?? true;
   const missingFields = [
-    [`FOCUS_NFE_${environment}_TOKEN`, focusToken(environment)],
-    ["CNPJ fiscal da loja", companyCnpjDigits],
+    [
+      `FOCUS_NFE_${environment}_TOKEN`,
+      focusToken(environment, companyCnpj),
+    ],
+    ["CNPJ fiscal da loja", requiresCompanyCnpj ? companyCnpjDigits : true],
   ]
     .filter((field) => !field[1])
     .map(([field]) => field);
@@ -444,8 +455,22 @@ function focusBaseUrl(environment: FiscalIssueRequest["environment"]) {
   return `${baseUrl}${path}`;
 }
 
-function focusToken(environment: FiscalIssueRequest["environment"]) {
-  return env.fiscal.focus.tokens[environment] ?? env.fiscal.focus.token;
+function focusToken(
+  environment: FiscalIssueRequest["environment"],
+  companyCnpj?: string | null,
+) {
+  const companyToken =
+    companyCnpj === undefined
+      ? null
+      : env.fiscal.focus.tokensByCompanyCnpj[environment][
+          digits(companyCnpj) ?? ""
+        ];
+
+  return (
+    companyToken ??
+    env.fiscal.focus.tokens[environment] ??
+    env.fiscal.focus.token
+  );
 }
 
 function focusAuthorizationHeader(token: string | null) {

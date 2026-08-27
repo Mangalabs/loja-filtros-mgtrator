@@ -110,6 +110,22 @@ function focusToken(environment: "HOMOLOGATION" | "PRODUCTION") {
   );
 }
 
+function focusTokensByCompanyCnpj(
+  environment: "HOMOLOGATION" | "PRODUCTION",
+) {
+  const prefix = `FOCUS_NFE_${environment}_TOKEN_`;
+
+  return Object.fromEntries(
+    Object.entries(process.env)
+      .filter(([key, value]) => key.startsWith(prefix) && optionalEnv(value))
+      .map(([key, value]) => [
+        key.replace(prefix, "").replace(/\D/g, ""),
+        optionalEnv(value) as string,
+      ])
+      .filter(([companyCnpj]) => companyCnpj.length === 14),
+  );
+}
+
 const fiscalEnvironmentValue = fiscalEnvironment(process.env.FISCAL_ENVIRONMENT);
 
 export const env = {
@@ -159,6 +175,10 @@ export const env = {
       tokens: {
         HOMOLOGATION: focusToken("HOMOLOGATION"),
         PRODUCTION: focusToken("PRODUCTION"),
+      },
+      tokensByCompanyCnpj: {
+        HOMOLOGATION: focusTokensByCompanyCnpj("HOMOLOGATION"),
+        PRODUCTION: focusTokensByCompanyCnpj("PRODUCTION"),
       },
       companyCnpj: optionalEnv(process.env.FOCUS_NFE_COMPANY_CNPJ),
     },

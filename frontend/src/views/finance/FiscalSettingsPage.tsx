@@ -83,7 +83,7 @@ export function FiscalSettingsPage({
   const companyCnpjError = companyCnpjRequired && companyCnpjDigits.length !== 14
   const companyCnpjHelperText = companyCnpjError
     ? 'CNPJ da loja deve conter 14 digitos para usar Focus NFe.'
-    : 'Informe 14 digitos para usar Focus NFe. O token da Focus continua no .env.'
+    : 'Informe 14 digitos para usar Focus NFe. O token geral ou especifico por CNPJ continua no .env.'
   const productionEnvironment = draft.environment === 'PRODUCTION'
   const productionConfirmationError =
     productionEnvironment && !draft.allowProduction

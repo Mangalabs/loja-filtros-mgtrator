@@ -58,6 +58,9 @@ FOCUS_NFE_PRODUCTION_BASE_URL=
 FOCUS_NFE_TOKEN=
 FOCUS_NFE_HOMOLOGATION_TOKEN=
 FOCUS_NFE_PRODUCTION_TOKEN=
+# Opcional para multiplos CNPJs. Use o CNPJ da filial somente com numeros.
+FOCUS_NFE_HOMOLOGATION_TOKEN_12345678000190=
+FOCUS_NFE_PRODUCTION_TOKEN_12345678000190=
 FOCUS_NFE_COMPANY_CNPJ=
 ```
 
@@ -68,6 +71,8 @@ Observacoes:
 - `FOCUS_NFE_BASE_URL` e legado e so deve ser usado para homologacao. Para producao, use `FOCUS_NFE_PRODUCTION_BASE_URL` apenas se precisar sobrescrever a URL oficial.
 - `FOCUS_NFE_HOMOLOGATION_TOKEN` e `FOCUS_NFE_PRODUCTION_TOKEN` permitem manter os dois tokens configurados sem trocar manualmente.
 - `FOCUS_NFE_TOKEN` continua como fallback para ambientes locais simples ou compatibilidade com configuracoes antigas.
+- Para multiplos CNPJs, configure tokens especificos por filial quando a Focus fornecer token proprio por empresa. Exemplo: `FOCUS_NFE_PRODUCTION_TOKEN_12345678000190`, usando o CNPJ somente com numeros. Esse token tem prioridade sobre o token geral do ambiente.
+- O sistema nao cadastra automaticamente a empresa na Focus durante a emissao. O CNPJ da filial ativa precisa existir no painel/conta da Focus antes da primeira NF-e real.
 - Serie e proximo numero da NF-e continuam controlados pelo painel da Focus. O sistema apenas armazena `numero` e `serie` retornados pela API.
 - Com envio sincrono habilitado na Focus, a resposta tende a trazer o status final da emissao imediatamente. Se vier `PROCESSING`, a tela central de notas continua usando a acao de sincronizar.
 
@@ -98,6 +103,8 @@ Regras atuais:
 
 - cada filial possui seus proprios dados comerciais e fiscais;
 - o CNPJ enviado para a Focus deve ser o CNPJ da filial ativa;
+- quando houver token Focus especifico para o CNPJ da filial, o backend deve usa-lo na emissao, sincronizacao e cancelamento;
+- quando nao houver token especifico, o backend usa o token geral do ambiente como fallback;
 - a tela de configuracao fiscal deve refletir o CNPJ da filial ativa;
 - o PDF de orcamento e o comprovante comercial usam os dados da filial ativa;
 - fabricantes continuam globais, pois nao pertencem a uma filial especifica;

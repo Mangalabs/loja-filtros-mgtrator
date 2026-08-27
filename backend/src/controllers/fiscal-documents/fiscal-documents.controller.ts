@@ -87,8 +87,10 @@ export async function syncFiscalDocument(id: string, branchId: string) {
     throw new AppError("Documento fiscal sem referencia do provedor.", 422);
   }
 
+  const fiscalSettings = await currentFiscalSettings(branchId);
   const provider = makeFiscalProviderByName(fiscalDocument.provider);
   const result = await provider.check({
+    companyCnpj: fiscalSettings.companyCnpj,
     documentType: fiscalDocument.documentType,
     environment: fiscalDocument.environment,
     providerReference: fiscalDocument.providerReference,
@@ -221,8 +223,10 @@ export async function cancelFiscalDocument(
     throw new AppError("Somente nota autorizada pode ser cancelada.", 422);
   }
 
+  const fiscalSettings = await currentFiscalSettings(branchId);
   const provider = makeFiscalProviderByName(fiscalDocument.provider);
   const result = await provider.cancel({
+    companyCnpj: fiscalSettings.companyCnpj,
     documentType: fiscalDocument.documentType,
     environment: fiscalDocument.environment,
     providerReference: fiscalDocument.providerReference,

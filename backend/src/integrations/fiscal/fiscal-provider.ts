@@ -85,6 +85,7 @@ export type FiscalIssueResult = {
 export type FiscalCheckRequest = {
   documentType: FiscalDocumentType;
   environment: FiscalEnvironment;
+  companyCnpj?: string | null;
   providerReference: string;
 };
 
@@ -93,6 +94,7 @@ export type FiscalCheckResult = FiscalIssueResult;
 export type FiscalCancelRequest = {
   documentType: FiscalDocumentType;
   environment: FiscalEnvironment;
+  companyCnpj?: string | null;
   providerReference: string;
   reason: string;
 };

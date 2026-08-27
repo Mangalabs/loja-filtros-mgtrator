@@ -3463,12 +3463,18 @@ describe("catalog routes", () => {
     const originalFocusToken = env.fiscal.focus.token;
     const originalFocusHomologationToken =
       env.fiscal.focus.tokens.HOMOLOGATION;
+    const originalFocusHomologationTokensByCompanyCnpj = {
+      ...env.fiscal.focus.tokensByCompanyCnpj.HOMOLOGATION,
+    };
     const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
     const originalFetch = globalThis.fetch;
 
     env.fiscal.provider = "focus";
-    env.fiscal.focus.token = "token-focus-teste";
-    env.fiscal.focus.tokens.HOMOLOGATION = "token-focus-teste";
+    env.fiscal.focus.token = "token-focus-fallback";
+    env.fiscal.focus.tokens.HOMOLOGATION = "token-focus-homologacao";
+    env.fiscal.focus.tokensByCompanyCnpj.HOMOLOGATION = {
+      "98765432000110": "token-focus-sao-luis",
+    };
     env.fiscal.focus.companyCnpj = "12.345.678/0001-99";
 
     const branch = await request<Branch>("/branches", {
@@ -3522,6 +3528,7 @@ describe("catalog routes", () => {
       (paymentMethod) => paymentMethod.code === "PIX",
     );
     let submittedPayload: Record<string, unknown> | null = null;
+    let submittedAuthorization: string | null = null;
 
     await request("/stock-adjustments", {
       method: "POST",
@@ -3558,6 +3565,11 @@ describe("catalog routes", () => {
         string,
         unknown
       >;
+      submittedAuthorization =
+        init?.headers instanceof Headers
+          ? init.headers.get("Authorization")
+          : ((init?.headers as Record<string, string> | undefined)
+              ?.Authorization ?? null);
 
       return new Response(
         JSON.stringify({
@@ -3589,11 +3601,17 @@ describe("catalog routes", () => {
         (submittedPayload as Record<string, unknown>).cnpj_emitente,
         "98765432000110",
       );
+      assert.equal(
+        submittedAuthorization,
+        `Basic ${Buffer.from("token-focus-sao-luis:").toString("base64")}`,
+      );
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
       env.fiscal.focus.tokens.HOMOLOGATION =
         originalFocusHomologationToken;
+      env.fiscal.focus.tokensByCompanyCnpj.HOMOLOGATION =
+        originalFocusHomologationTokensByCompanyCnpj;
       env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
       globalThis.fetch = originalFetch;
     }
