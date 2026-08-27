@@ -197,6 +197,7 @@ async function authenticatedResult(user: User) {
     role: user.role,
     branchId: user.branchId,
     branchName: user.branchName,
+    branches: user.branches,
     active: user.active,
     permissions: user.permissions,
     lastLoginAt: user.lastLoginAt,

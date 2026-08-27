@@ -10,10 +10,16 @@ export type User = {
   role: UserRole;
   branchId: string | null;
   branchName: string | null;
+  branches: UserBranch[];
   active: boolean;
   permissions: EmployeePermission[];
   lastLoginAt?: string | null;
   mustChangePassword: boolean;
+};
+
+export type UserBranch = {
+  id: string;
+  name: string;
 };
 
 export type UserRole = "ADMIN" | "EMPLOYEE";
@@ -28,6 +34,7 @@ export type UserCreateInput = {
   phone?: string | null;
   role?: UserRole;
   branchId?: string | null;
+  branchIds?: string[];
   passwordHash: string;
   permissions?: EmployeePermission[];
   mustChangePassword?: boolean;
@@ -38,6 +45,7 @@ export type UserUpdateInput = {
   email: string;
   phone?: string | null;
   branchId: string;
+  branchIds?: string[];
   passwordHash?: string;
   permissions?: EmployeePermission[];
   mustChangePassword?: boolean;
@@ -93,6 +101,7 @@ export async function createUser(
     .returning("id");
 
   await replaceUserPermissions(database, user.id, input.permissions ?? []);
+  await replaceUserBranches(database, user.id, employeeBranchIds(input));
 
   const created = await findActiveUserById(user.id, database);
 
@@ -179,6 +188,8 @@ export async function updateUser(
     await replaceUserPermissions(database, id, input.permissions);
   }
 
+  await replaceUserBranches(database, id, employeeBranchIds(input));
+
   return findUserById(id, database);
 }
 
@@ -223,7 +234,10 @@ async function attachUserDetails<T extends User>(
   database: Database,
   users: T[],
 ) {
-  return attachLastLogin(database, await attachPermissions(database, users));
+  return attachLastLogin(
+    database,
+    await attachBranches(database, await attachPermissions(database, users)),
+  );
 }
 
 async function attachPermissions<T extends User>(
@@ -254,6 +268,43 @@ async function attachPermissions<T extends User>(
   return users.map((user) => ({
     ...user,
     permissions: permissionsByUser[user.id] ?? [],
+  }));
+}
+
+async function attachBranches<T extends User>(
+  database: Database,
+  users: T[],
+): Promise<T[]> {
+  const userIds = users.map((user) => user.id);
+
+  if (userIds.length === 0) {
+    return users;
+  }
+
+  const rows = await database("user_branches")
+    .join("branches", "branches.id", "user_branches.branch_id")
+    .whereIn("user_branches.user_id", userIds)
+    .where("branches.active", true)
+    .select<Array<{ userId: string; id: string; name: string }>>([
+      "user_branches.user_id as userId",
+      "branches.id",
+      "branches.name",
+    ])
+    .orderBy("branches.name", "asc");
+  const branchesByUser = rows.reduce<Record<string, UserBranch[]>>(
+    (branches, row) => ({
+      ...branches,
+      [row.userId]: [
+        ...(branches[row.userId] ?? []),
+        { id: row.id, name: row.name },
+      ],
+    }),
+    {},
+  );
+
+  return users.map((user) => ({
+    ...user,
+    branches: userBranchList(user, branchesByUser[user.id] ?? []),
   }));
 }
 
@@ -289,6 +340,35 @@ async function attachLastLogin<T extends User>(
   }));
 }
 
+function employeeBranchIds(input: {
+  role?: UserRole;
+  branchId?: string | null;
+  branchIds?: string[];
+}) {
+  return input.role === "ADMIN"
+    ? []
+    : [
+        ...new Set(
+          [input.branchId, ...(input.branchIds ?? [])].filter(
+            (branchId): branchId is string => Boolean(branchId),
+          ),
+        ),
+      ];
+}
+
+function userBranchList(user: User, branches: UserBranch[]) {
+  const hasPrimaryBranch = branches.some((branch) => branch.id === user.branchId);
+
+  if (!user.branchId || hasPrimaryBranch) {
+    return branches;
+  }
+
+  return [
+    { id: user.branchId, name: user.branchName ?? "Filial principal" },
+    ...branches,
+  ];
+}
+
 async function replaceUserPermissions(
   database: Database,
   userId: string,
@@ -304,6 +384,25 @@ async function replaceUserPermissions(
     [...new Set(permissions)].map((permission) => ({
       user_id: userId,
       permission,
+    })),
+  );
+}
+
+async function replaceUserBranches(
+  database: Database,
+  userId: string,
+  branchIds: string[],
+) {
+  await database("user_branches").where("user_id", userId).del();
+
+  if (branchIds.length === 0) {
+    return;
+  }
+
+  await database("user_branches").insert(
+    branchIds.map((branchId) => ({
+      user_id: userId,
+      branch_id: branchId,
     })),
   );
 }

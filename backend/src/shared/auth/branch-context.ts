@@ -43,7 +43,7 @@ async function activeBranchContext(
   requestedBranchId?: string,
 ): Promise<ActiveBranchContext> {
   if (user.role === "EMPLOYEE") {
-    return employeeBranchContext(user);
+    return employeeBranchContext(user, requestedBranchId);
   }
 
   const branchId = requestedBranchId?.trim();
@@ -61,13 +61,30 @@ async function activeBranchContext(
   return { branchId: branch.id, branchName: branch.name };
 }
 
-function employeeBranchContext(user: AuthenticatedUser): ActiveBranchContext {
+async function employeeBranchContext(
+  user: AuthenticatedUser,
+  requestedBranchId?: string,
+): Promise<ActiveBranchContext> {
   if (!user.branchId) {
     throw new AppError("Usuario sem filial vinculada.", 403);
   }
 
+  const branchId = requestedBranchId?.trim() || user.branchId;
+  const allowedBranches = user.branches ?? [];
+  const allowedBranch = allowedBranches.find((branch) => branch.id === branchId);
+
+  if (!allowedBranch) {
+    throw new AppError("Usuario sem acesso a filial selecionada.", 403);
+  }
+
+  const branch = await findActiveBranchById(branchId);
+
+  if (!branch) {
+    throw new AppError("Filial ativa nao encontrada.", 404);
+  }
+
   return {
-    branchId: user.branchId,
-    branchName: user.branchName ?? null,
+    branchId: branch.id,
+    branchName: branch.name,
   };
 }

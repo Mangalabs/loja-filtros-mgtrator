@@ -682,34 +682,40 @@ async function fetchBranches(user: AuthUser) {
   }
 
   return emptyResult<Branch[]>(
-    user.branchId
-      ? [
-          {
-            id: user.branchId,
-            name: user.branchName ?? "Filial vinculada",
-            code: null,
-            legalName: null,
-            tradeName: null,
-            document: null,
-            stateRegistration: null,
-            addressStreet: null,
-            addressNumber: null,
-            addressComplement: null,
-            addressDistrict: null,
-            addressCity: null,
-            addressState: null,
-            addressZipCode: null,
-            phone: null,
-            email: null,
-            active: true,
-          },
-        ]
-      : [],
+    employeeBranches(user).map((branch) => ({
+      id: branch.id,
+      name: branch.name,
+      code: null,
+      legalName: null,
+      tradeName: null,
+      document: null,
+      stateRegistration: null,
+      addressStreet: null,
+      addressNumber: null,
+      addressComplement: null,
+      addressDistrict: null,
+      addressCity: null,
+      addressState: null,
+      addressZipCode: null,
+      phone: null,
+      email: null,
+      active: true,
+    })),
   );
 }
 
-function requiresBranchSelection(user: AuthUser, activeBranchId: string) {
-  return user.role === "ADMIN" && !activeBranchId;
+function employeeBranches(user: AuthUser) {
+  if (user.branches.length > 0) {
+    return user.branches;
+  }
+
+  return user.branchId
+    ? [{ id: user.branchId, name: user.branchName ?? "Filial vinculada" }]
+    : [];
+}
+
+function requiresBranchSelection(_user: AuthUser, activeBranchId: string) {
+  return !activeBranchId;
 }
 
 async function fetchCommercialSettings() {

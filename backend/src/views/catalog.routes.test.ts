@@ -390,6 +390,7 @@ type User = {
   role: "ADMIN" | "EMPLOYEE";
   branchId: string | null;
   branchName: string | null;
+  branches: Array<{ id: string; name: string }>;
   active: boolean;
   permissions: string[];
   lastLoginAt?: string | null;
@@ -900,6 +901,7 @@ describe("catalog routes", () => {
     const employeeCreate = await request("/users", {
       method: "POST",
       cookie: changedEmployeePassword.cookie,
+      headers: { "x-active-branch-id": branch.body.data?.id ?? "" },
       body: {
         name: "Criado por funcionario",
         email: "bloqueado@example.com",
@@ -910,19 +912,24 @@ describe("catalog routes", () => {
     });
     const employeeBranches = await request("/branches", {
       cookie: changedEmployeePassword.cookie,
+      headers: { "x-active-branch-id": branch.body.data?.id ?? "" },
     });
     const employeeUsers = await request("/users", {
       cookie: changedEmployeePassword.cookie,
+      headers: { "x-active-branch-id": branch.body.data?.id ?? "" },
     });
     const employeeAuthEvents = await request("/auth-events", {
       cookie: changedEmployeePassword.cookie,
+      headers: { "x-active-branch-id": branch.body.data?.id ?? "" },
     });
     const employeeReports = await request("/reports/sales", {
       cookie: changedEmployeePassword.cookie,
+      headers: { "x-active-branch-id": branch.body.data?.id ?? "" },
     });
     const employeeCash = await request("/cash-register/open", {
       method: "POST",
       cookie: changedEmployeePassword.cookie,
+      headers: { "x-active-branch-id": branch.body.data?.id ?? "" },
       body: {
         openingBalance: 0,
       },
@@ -1121,6 +1128,115 @@ describe("catalog routes", () => {
       authEvents.some(
         (event) => event.eventType === "EMPLOYEE_STATUS_CHANGED",
       ),
+    );
+  });
+
+  it("allows employees to operate multiple assigned branches", async () => {
+    const norte = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Usuario Norte",
+        code: "USER-NORTE",
+      },
+    });
+    const sul = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Usuario Sul",
+        code: "USER-SUL",
+      },
+    });
+    const bloqueada = await request<Branch>("/branches", {
+      method: "POST",
+      body: {
+        name: "Filial Usuario Bloqueada",
+        code: "USER-BLOCK",
+      },
+    });
+    const employee = await request<User>("/users", {
+      method: "POST",
+      body: {
+        name: "Funcionario multifilial",
+        email: "multifilial@example.com",
+        branchId: norte.body.data?.id,
+        branchIds: [norte.body.data?.id, sul.body.data?.id],
+        permissions: [],
+        password: "senha-segura-456",
+      },
+    });
+
+    const login = await request<User>("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "multifilial@example.com",
+        password: "senha-segura-456",
+      },
+    });
+
+    const productNorte = await request<Product>("/products", {
+      method: "POST",
+      headers: { "x-active-branch-id": norte.body.data?.id ?? "" },
+      body: {
+        name: "Produto multifilial norte",
+        salePrice: 10,
+      },
+    });
+    const productSul = await request<Product>("/products", {
+      method: "POST",
+      headers: { "x-active-branch-id": sul.body.data?.id ?? "" },
+      body: {
+        name: "Produto multifilial sul",
+        salePrice: 20,
+      },
+    });
+
+    const defaultBranchProducts = await request<ProductListPage>(
+      "/products?includeMeta=true&page=1&limit=10",
+      {
+        cookie: login.cookie,
+        headers: { "x-active-branch-id": "" },
+      },
+    );
+    const allowedBranchProducts = await request<ProductListPage>(
+      "/products?includeMeta=true&page=1&limit=10",
+      {
+        cookie: login.cookie,
+        headers: { "x-active-branch-id": sul.body.data?.id ?? "" },
+      },
+    );
+    const blockedBranchProducts = await request<ProductListPage>(
+      "/products?includeMeta=true&page=1&limit=10",
+      {
+        cookie: login.cookie,
+        headers: { "x-active-branch-id": bloqueada.body.data?.id ?? "" },
+      },
+    );
+
+    assert.equal(employee.status, 201);
+    assert.deepEqual(
+      employee.body.data?.branches.map((branch) => branch.name),
+      ["Filial Usuario Norte", "Filial Usuario Sul"],
+    );
+    assert.equal(login.status, 200);
+    assert.deepEqual(
+      login.body.data?.branches.map((branch) => branch.name),
+      ["Filial Usuario Norte", "Filial Usuario Sul"],
+    );
+    assert.equal(defaultBranchProducts.status, 200);
+    assert.deepEqual(
+      defaultBranchProducts.body.data?.items.map((product) => product.id),
+      [productNorte.body.data?.id],
+    );
+    assert.equal(allowedBranchProducts.status, 200);
+    assert.deepEqual(
+      allowedBranchProducts.body.data?.items.map((product) => product.id),
+      [productSul.body.data?.id],
+    );
+    assert.equal(blockedBranchProducts.status, 403);
+    assert.equal(
+      blockedBranchProducts.body.message,
+      "Usuario sem acesso a filial selecionada.",
     );
   });
 

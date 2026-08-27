@@ -102,11 +102,10 @@ export function AuthenticatedApp({
         .length,
     [lowStockProducts],
   );
-  const fallbackBranchId = user.role === "ADMIN" ? branches[0]?.id : undefined;
+  const fallbackBranchId = branches[0]?.id;
 
   useEffect(() => {
     const branchSelectionIsValid =
-      user.role === "EMPLOYEE" ||
       branches.length === 0 ||
       branches.some((branch) => branch.id === activeBranchId);
 
@@ -323,15 +322,25 @@ function readInitialView(user: AuthUser): View {
 }
 
 function readInitialBranchId(user: AuthUser) {
-  if (user.role === "EMPLOYEE") {
+  if (typeof window === "undefined") {
     return user.branchId ?? "";
   }
 
-  if (typeof window === "undefined") {
-    return "";
+  const storedBranchId = window.localStorage.getItem(activeBranchStorageKey);
+
+  if (
+    user.role === "EMPLOYEE" &&
+    storedBranchId &&
+    user.branches.some((branch) => branch.id === storedBranchId)
+  ) {
+    return storedBranchId;
   }
 
-  return window.localStorage.getItem(activeBranchStorageKey) ?? "";
+  if (user.role === "EMPLOYEE") {
+    return user.branchId ?? user.branches[0]?.id ?? "";
+  }
+
+  return storedBranchId ?? "";
 }
 
 function storeActiveView(view: View) {

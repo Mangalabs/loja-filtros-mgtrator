@@ -18,6 +18,7 @@ export type StoreUserInput = {
   email: string;
   phone?: string | null;
   branchId: string;
+  branchIds?: string[];
   permissions?: EmployeePermission[];
   password: string;
 };
@@ -47,7 +48,7 @@ export async function storeUser(
   input: StoreUserInput,
   administrator: AuthenticatedAdministratorInput,
 ) {
-  await ensureEmployeeBranch(input.branchId);
+  await ensureEmployeeBranches(employeeBranchIds(input));
 
   const user = await createUser({
     name: input.name,
@@ -55,6 +56,7 @@ export async function storeUser(
     phone: input.phone,
     role: "EMPLOYEE",
     branchId: input.branchId,
+    branchIds: input.branchIds,
     permissions: input.permissions ?? [],
     mustChangePassword: true,
     passwordHash: await hashPassword(input.password),
@@ -80,13 +82,14 @@ export async function replaceEmployee(
   administrator: AuthenticatedAdministratorInput,
 ) {
   await ensureEmployee(id);
-  await ensureEmployeeBranch(input.branchId);
+  await ensureEmployeeBranches(employeeBranchIds(input));
 
   const user = await updateUser(id, {
     name: input.name,
     email: input.email,
     phone: input.phone,
     branchId: input.branchId,
+    branchIds: input.branchIds,
     permissions: input.permissions ?? [],
     mustChangePassword: Boolean(input.password),
     passwordHash: input.password
@@ -179,6 +182,16 @@ async function ensureEmployeeBranch(branchId: string) {
   if (!branch) {
     throw new AppError("Filial informada nao encontrada.", 404);
   }
+}
+
+async function ensureEmployeeBranches(branchIds: string[]) {
+  for (const branchId of branchIds) {
+    await ensureEmployeeBranch(branchId);
+  }
+}
+
+function employeeBranchIds(input: { branchId: string; branchIds?: string[] }) {
+  return [...new Set([input.branchId, ...(input.branchIds ?? [])])];
 }
 
 async function ensureEmployee(id: string) {

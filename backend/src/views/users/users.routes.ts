@@ -22,6 +22,7 @@ const createUserSchema = z
       .transform((email) => email.trim().toLowerCase()),
     phone: optionalText(32),
     branchId: z.uuid(),
+    branchIds: z.array(z.uuid()).default([]),
     permissions: z.array(z.enum(employeePermissionValues)).default([]),
     password: z.string().min(12).max(128),
   })
@@ -40,6 +41,7 @@ const replaceEmployeeSchema = z
       .transform((email) => email.trim().toLowerCase()),
     phone: optionalText(32),
     branchId: z.uuid(),
+    branchIds: z.array(z.uuid()).default([]),
     permissions: z.array(z.enum(employeePermissionValues)).default([]),
     password: z
       .union([z.string().min(12).max(128), z.literal("")])

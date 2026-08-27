@@ -262,6 +262,10 @@ export type AuthUser = {
   role: "ADMIN" | "EMPLOYEE";
   branchId: string | null;
   branchName: string | null;
+  branches: Array<{
+    id: string;
+    name: string;
+  }>;
   active: boolean;
   permissions: EmployeePermission[];
   lastLoginAt?: string | null;

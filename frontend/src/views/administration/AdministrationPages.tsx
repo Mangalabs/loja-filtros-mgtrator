@@ -467,7 +467,7 @@ export function EmployeesPage({
           </FormRow>
           <TextField
             defaultValue={selectedEmployee?.branchId ?? ""}
-            label="Filial"
+            label="Filial principal"
             name="branchId"
             required
             select
@@ -483,6 +483,37 @@ export function EmployeesPage({
                 </MenuItem>
               ))}
           </TextField>
+          <section className="grid gap-3 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4">
+            <div>
+              <strong className="block text-sm text-[#2c281e]">
+                Filiais liberadas
+              </strong>
+              <span className="text-xs text-[#5f665f]">
+                Marque todas as filiais em que esse funcionário pode operar. A
+                filial principal também será liberada automaticamente.
+              </span>
+            </div>
+            <div className="grid gap-1 sm:grid-cols-2">
+              {administration.branches
+                .filter((branch) => branch.active)
+                .map((branch) => (
+                  <FormControlLabel
+                    key={branch.id}
+                    control={
+                      <Switch
+                        defaultChecked={employeeHasBranch(
+                          selectedEmployee,
+                          branch.id,
+                        )}
+                        name="branchIds"
+                        value={branch.id}
+                      />
+                    }
+                    label={branch.name}
+                  />
+                ))}
+            </div>
+          </section>
           <TextField
             autoComplete="new-password"
             helperText={
@@ -583,7 +614,14 @@ export function EmployeesPage({
               },
               {
                 header: "Filial",
-                render: (employee: AuthUser) => employee.branchName ?? "-",
+                render: (employee: AuthUser) => (
+                  <div className="grid gap-1">
+                    <span>{employee.branchName ?? "-"}</span>
+                    <span className="text-xs text-[#5f665f]">
+                      {formatEmployeeBranches(employee)}
+                    </span>
+                  </div>
+                ),
               },
               {
                 header: "Telefone",
@@ -896,6 +934,23 @@ function formatEmployeePermissions(permissions: EmployeePermission[]) {
   return otherPermissions.length === 0
     ? firstPermissionLabel
     : `${firstPermissionLabel} +${otherPermissions.length}`;
+}
+
+function employeeHasBranch(employee: AuthUser | undefined, branchId: string) {
+  return Boolean(
+    employee?.branchId === branchId ||
+      employee?.branches.some((branch) => branch.id === branchId),
+  );
+}
+
+function formatEmployeeBranches(employee: AuthUser) {
+  const branchNames = employee.branches.map((branch) => branch.name);
+
+  if (branchNames.length <= 1) {
+    return "1 filial liberada";
+  }
+
+  return `${branchNames.length} filiais liberadas`;
 }
 
 async function confirmEmployeeStatus(
