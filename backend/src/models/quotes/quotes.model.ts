@@ -47,6 +47,7 @@ export type QuoteItem = {
 
 export type Quote = {
   id: string
+  quoteNumber: number
   branchId: string | null
   branchName: string | null
   clientId: string
@@ -114,6 +115,7 @@ type LockedQuote = {
 
 const quoteColumns = [
   'quotes.id',
+  'quotes.quote_number as quoteNumber',
   'quotes.branch_id as branchId',
   'branches.name as branchName',
   'quotes.client_id as clientId',
@@ -262,6 +264,7 @@ export async function insertQuote(
 ): Promise<Quote> {
   const [created] = await transaction('quotes')
     .insert({
+      quote_number: await nextQuoteNumber(transaction, branchId),
       client_id: input.clientId,
       payment_method_id: input.paymentMethodId,
       created_by_user_id: createdByUserId,
@@ -309,6 +312,22 @@ export async function insertQuote(
 
   const [withItems] = await withQuoteItems(transaction, [quote])
   return withItems
+}
+
+async function nextQuoteNumber(
+  transaction: Knex.Transaction,
+  branchId: string,
+): Promise<number> {
+  await transaction.raw('select pg_advisory_xact_lock(hashtext(?))', [
+    `quote-number:${branchId}`,
+  ])
+
+  const current = await transaction('quotes')
+    .where('branch_id', branchId)
+    .max<{ max: string | null }>('quote_number as max')
+    .first()
+
+  return Number(current?.max ?? 0) + 1
 }
 
 export async function updateQuote(

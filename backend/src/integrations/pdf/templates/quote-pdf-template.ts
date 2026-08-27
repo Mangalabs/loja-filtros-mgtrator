@@ -15,6 +15,9 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
     .map((item, index) => quoteItemRow(item, index, quote.showBrand))
     .join("");
   const storeContact = [store.phone, store.email].filter(Boolean).join(" | ");
+  const quoteLabel = quote.quoteNumber
+    ? `Orcamento no ${quote.quoteNumber}`
+    : `Orcamento ${quote.id}`;
   const itemDiscountAmount = quote.items.reduce(
     (sum, item) => sum + Number(item.discountAmount),
     0,
@@ -25,7 +28,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
     <html lang="pt-BR">
       <head>
         <meta charset="utf-8" />
-        <title>Orcamento no ${escapeHtml(quote.id)}</title>
+        <title>${escapeHtml(quoteLabel)}</title>
         <style>
           ${quotePdfCss()}
         </style>
@@ -56,7 +59,11 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
           <section class="quote-number">
             <div>
               <span>Numero do orcamento</span>
-              <strong>#${escapeHtml(quote.id)}</strong>
+              <strong>${escapeHtml(quoteLabel)}</strong>
+            </div>
+            <div>
+              <span>Referencia interna</span>
+              <strong>${escapeHtml(quote.id)}</strong>
             </div>
             <div>
               <span>Filial</span>

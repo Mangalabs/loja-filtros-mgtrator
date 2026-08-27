@@ -534,6 +534,10 @@ export function QuotesPage({
         <ResponsiveTable
           columns={[
             {
+              header: 'Nº',
+              render: (quote) => `Orçamento Nº ${quote.quoteNumber}`,
+            },
+            {
               header: 'Data',
               render: (quote) => formatDateTime(quote.createdAt),
             },

@@ -18,13 +18,16 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
   const refundAmount = saleRefundAmount(sale);
   const netAmount = Math.max(Number(sale.totalAmount) - refundAmount, 0);
   const storeContact = [store.phone, store.email].filter(Boolean).join(" | ");
+  const saleLabel = sale.saleNumber
+    ? `Venda no ${sale.saleNumber}`
+    : `Venda ${sale.id}`;
 
   return `
     <!doctype html>
     <html lang="pt-BR">
       <head>
         <meta charset="utf-8" />
-        <title>Comprovante de venda ${escapeHtml(sale.id)}</title>
+        <title>Comprovante de ${escapeHtml(saleLabel)}</title>
         <style>${saleReceiptCss()}</style>
       </head>
       <body>
@@ -48,7 +51,8 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
           </section>
 
           <section class="info-grid">
-            <p><strong>Venda:</strong> ${escapeHtml(sale.id)}</p>
+            <p><strong>Venda:</strong> ${escapeHtml(saleLabel)}</p>
+            <p><strong>Referencia interna:</strong> ${escapeHtml(sale.id)}</p>
             <p><strong>Data:</strong> ${formatDateTime(sale.createdAt)}</p>
             <p><strong>Operador:</strong> ${escapeHtml(sale.createdByUserName)}</p>
             <p><strong>Cliente:</strong> ${escapeHtml(sale.clientName ?? "Nao identificado")}</p>

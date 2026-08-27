@@ -194,6 +194,7 @@ type ParsedPurchaseInvoice = {
 
 type Sale = {
   id: string;
+  saleNumber: number;
   productId: string;
   productName: string;
   quantity: string;
@@ -309,6 +310,7 @@ type PickupReservation = {
 
 type Quote = {
   id: string;
+  quoteNumber: number;
   clientName: string;
   clientPhone: string | null;
   paymentMethodId: string | null;
@@ -1941,6 +1943,7 @@ describe("catalog routes", () => {
       "Vencimento nao pode ser anterior a data da fatura.",
     );
     assert.equal(created.status, 201);
+    assert.equal(created.body.data?.saleNumber, 1);
     assert.equal(created.body.data?.subtotalAmount, "80.00");
     assert.equal(created.body.data?.discountAmount, "15.00");
     assert.equal(created.body.data?.totalAmount, "65.00");
@@ -2290,6 +2293,7 @@ describe("catalog routes", () => {
   it("includes return refunds in sale receipt html", () => {
     const sale = {
       id: "sale-receipt-return",
+      saleNumber: 1,
       branchId: "branch-1",
       branchName: "Matriz Teste",
       productId: "product-1",
@@ -6197,6 +6201,7 @@ describe("catalog routes", () => {
     );
 
     assert.equal(created.status, 201);
+    assert.equal(created.body.data?.quoteNumber, 1);
     assert.equal(created.body.data?.status, "DRAFT");
     assert.equal(created.body.data?.clientName, "Cliente orcamento");
     assert.equal(created.body.data?.paymentMethodName, "PIX");

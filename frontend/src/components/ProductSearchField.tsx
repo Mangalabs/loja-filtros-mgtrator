@@ -50,25 +50,47 @@ export function ProductSearchField({
   const selectedProductId = value ?? internalProductId;
   const selectedProduct =
     sortedProducts.find((product) => product.id === selectedProductId) ?? null;
+  const selectedProductLabel = selectedProduct
+    ? productSearchLabel(selectedProduct)
+    : "";
 
   useEffect(() => {
     const term = inputValue.trim();
 
     if (term.length < 2) {
       setLoading(false);
-      setRemoteProducts([]);
+      setRemoteProducts((currentProducts) =>
+        selectedProductId
+          ? currentProducts.filter((product) => product.id === selectedProductId)
+          : [],
+      );
+      return;
+    }
+
+    if (selectedProductLabel && term === selectedProductLabel) {
+      setLoading(false);
       return;
     }
 
     const timeout = window.setTimeout(() => {
       setLoading(true);
-      void searchProducts(term, setRemoteProducts)
+      void searchProducts(term)
+        .then((products) =>
+          setRemoteProducts((currentProducts) =>
+            uniqueProducts([
+              ...currentProducts.filter(
+                (product) => product.id === selectedProductId,
+              ),
+              ...products,
+            ]),
+          ),
+        )
         .catch(() => undefined)
         .finally(() => setLoading(false));
     }, 250);
 
     return () => window.clearTimeout(timeout);
-  }, [inputValue]);
+  }, [inputValue, selectedProductId, selectedProductLabel]);
 
   useEffect(() => {
     if (!selectedProductId || selectedProduct) {
@@ -84,6 +106,7 @@ export function ProductSearchField({
     const productId = product?.id ?? "";
 
     setInternalProductId(productId);
+    setInputValue(product ? productSearchLabel(product) : "");
     setRemoteProducts((currentProducts) =>
       product ? uniqueProducts([product, ...currentProducts]) : currentProducts,
     );
@@ -108,8 +131,19 @@ export function ProductSearchField({
         }
         onChange={(_event, product) => selectProduct(product)}
         onInputChange={(_event, nextValue, reason) => {
-          if (reason === "reset") {
+          if (reason === "reset" && selectedProductId) {
+            setInputValue(nextValue);
             return;
+          }
+
+          if (
+            reason === "input" &&
+            selectedProductId &&
+            nextValue !== selectedProductLabel
+          ) {
+            setInternalProductId("");
+            onChange?.("");
+            onSelect?.(null);
           }
 
           setInputValue(nextValue);
@@ -158,8 +192,7 @@ function uniqueProducts(products: Product[]) {
 
 async function searchProducts(
   term: string,
-  setRemoteProducts: (products: Product[]) => void,
-) {
+): Promise<Product[]> {
   const params = new URLSearchParams({
     limit: "50",
     page: "1",
@@ -169,7 +202,7 @@ async function searchProducts(
     `/products?${params.toString()}`,
   );
 
-  setRemoteProducts(result.data);
+  return result.data;
 }
 
 async function fetchSelectedProduct(

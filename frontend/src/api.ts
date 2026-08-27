@@ -392,6 +392,7 @@ export type ReportsOverview = {
 
 export type Sale = {
   id: string;
+  saleNumber: number;
   branchId: string | null;
   branchName: string | null;
   productId: string;
@@ -733,6 +734,7 @@ export type PickupReservation = {
 
 export type Quote = {
   id: string;
+  quoteNumber: number;
   branchId: string | null;
   branchName: string | null;
   clientId: string;

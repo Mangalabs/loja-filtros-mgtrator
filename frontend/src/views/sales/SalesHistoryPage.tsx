@@ -46,6 +46,7 @@ type SalesHistoryFiscalFilter =
 
 type SalesHistoryRow = {
   id: string
+  saleNumber: number | null
   sourceId: string
   sourceType: FiscalDocument['sourceType']
   originLabel: string
@@ -148,6 +149,11 @@ export function SalesHistoryPage({
 
       <ResponsiveTable
         columns={[
+          {
+            header: 'Nº',
+            render: (row) =>
+              row.saleNumber ? `Venda Nº ${row.saleNumber}` : '-',
+          },
           {
             header: 'Data',
             render: (row) => formatDateTime(row.completedAt),
@@ -369,6 +375,7 @@ function buildSalesHistoryRows({
       refundAmount: saleRefundAmount(sale),
       sale,
       saleId: sale.id,
+      saleNumber: sale.saleNumber,
       sourceId: sale.id,
       sourceType: 'SALE',
       totalAmount: sale.totalAmount,
@@ -393,6 +400,7 @@ function buildSalesHistoryRows({
         refundAmount: saleRefundAmount(sale),
         sale,
         saleId: order.saleId,
+        saleNumber: sale?.saleNumber ?? null,
         sourceId: order.id,
         sourceType: 'SHIPPING_ORDER',
         totalAmount: order.totalAmount,
@@ -419,6 +427,7 @@ function buildSalesHistoryRows({
         refundAmount: saleRefundAmount(sale),
         sale,
         saleId: reservation.saleId,
+        saleNumber: sale?.saleNumber ?? null,
         sourceId: reservation.id,
         sourceType: 'PICKUP_RESERVATION',
         totalAmount: reservation.totalAmount,
@@ -483,9 +492,13 @@ function filterSalesHistoryRows(
         : row.fiscalDocument?.status === filters.fiscalStatus)
     const matchesSearch =
       !normalizedSearch ||
-      [row.clientName, row.operatorName, row.sourceId, row.originLabel].some(
-        (value) => value.toLowerCase().includes(normalizedSearch),
-      )
+      [
+        row.clientName,
+        row.operatorName,
+        row.sourceId,
+        row.originLabel,
+        row.saleNumber ? String(row.saleNumber) : '',
+      ].some((value) => value.toLowerCase().includes(normalizedSearch))
 
     return matchesOrigin && matchesFiscalStatus && matchesSearch
   })

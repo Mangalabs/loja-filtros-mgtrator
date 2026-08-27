@@ -22,6 +22,7 @@ export type SalePaymentInput = {
 
 export type Sale = {
   id: string;
+  saleNumber: number;
   branchId: string | null;
   branchName: string | null;
   productId: string;
@@ -129,6 +130,7 @@ export type SaleProduct = {
 
 const saleColumns = [
   "sales.id",
+  "sales.sale_number as saleNumber",
   "sales.branch_id as branchId",
   "branches.name as branchName",
   "sales.subtotal_amount as subtotalAmount",
@@ -530,6 +532,7 @@ export async function insertSale(
   ];
   const [created] = await transaction("sales")
     .insert({
+      sale_number: await nextSaleNumber(transaction, branchId),
       cash_register_session_id: cashRegisterSessionId,
       created_by_user_id: createdByUserId,
       branch_id: branchId,
@@ -591,6 +594,22 @@ export async function insertSale(
 
   const [withItems] = await withSaleItems(transaction, [sale]);
   return withItems;
+}
+
+async function nextSaleNumber(
+  transaction: Knex.Transaction,
+  branchId: string,
+): Promise<number> {
+  await transaction.raw("select pg_advisory_xact_lock(hashtext(?))", [
+    `sale-number:${branchId}`,
+  ]);
+
+  const current = await transaction("sales")
+    .where("branch_id", branchId)
+    .max<{ max: string | null }>("sale_number as max")
+    .first();
+
+  return Number(current?.max ?? 0) + 1;
 }
 
 function saleQuery(database: Knex | Knex.Transaction) {
