@@ -253,7 +253,7 @@ export function SalesPage({
         <FormRow>
           <TextField
             disabled={!cashRegister}
-            label='Data da fatura'
+            label='Data de emissão/fatura'
             size='medium'
             type='date'
             value={billingIssueDate}
@@ -262,7 +262,7 @@ export function SalesPage({
           />
           <TextField
             disabled={!cashRegister}
-            label='Vencimento'
+            label='Vencimento do boleto/fatura'
             size='medium'
             type='date'
             value={billingDueDate}
@@ -806,12 +806,12 @@ function ShippingOrderCompleteActions({
             <Alert severity='info' variant='outlined'>
               Pagamento: {order.paymentMethodName ?? 'definido no orçamento'}
               <br />
-              Fatura:{' '}
+              Emissão/fatura:{' '}
               {order.billingIssueDate
                 ? formatDate(order.billingIssueDate)
                 : 'sem data'}
               <br />
-              Vencimento:{' '}
+              Vencimento do boleto/fatura:{' '}
               {order.billingDueDate
                 ? formatDate(order.billingDueDate)
                 : 'sem data'}
@@ -828,7 +828,7 @@ function ShippingOrderCompleteActions({
               />
               <TextField
                 disabled={!cashRegister}
-                label='Data da fatura'
+                label='Data de emissão/fatura'
                 name='shippingBillingIssueDate'
                 size='small'
                 type='date'
@@ -836,7 +836,7 @@ function ShippingOrderCompleteActions({
               />
               <TextField
                 disabled={!cashRegister}
-                label='Vencimento'
+                label='Vencimento do boleto/fatura'
                 name='shippingBillingDueDate'
                 size='small'
                 type='date'
@@ -1295,7 +1295,7 @@ function PickupReservationActions({
           />
           <TextField
             disabled={!cashRegister}
-            label='Data da fatura'
+            label='Data de emissão/fatura'
             name='pickupBillingIssueDate'
             size='small'
             type='date'
@@ -1303,7 +1303,7 @@ function PickupReservationActions({
           />
           <TextField
             disabled={!cashRegister}
-            label='Vencimento'
+            label='Vencimento do boleto/fatura'
             name='pickupBillingDueDate'
             size='small'
             type='date'

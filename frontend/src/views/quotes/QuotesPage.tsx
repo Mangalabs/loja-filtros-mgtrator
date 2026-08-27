@@ -104,7 +104,6 @@ export function QuotesPage({
   const [validUntil, setValidUntil] = useState(() =>
     quoteValidityDate(todayInputDate(), commercialSettings),
   )
-  const [validUntilTouched, setValidUntilTouched] = useState(false)
   const [notes, setNotes] = useState('')
   const [showBrand, setShowBrand] = useState(true)
   const [discountPercentage, setDiscountPercentage] = useState('')
@@ -142,7 +141,7 @@ export function QuotesPage({
     : []
 
   useEffect(() => {
-    if (isEditing || validUntilTouched) {
+    if (isEditing) {
       return
     }
 
@@ -151,7 +150,6 @@ export function QuotesPage({
     billingIssueDate,
     commercialSettings?.defaultQuoteValidityDays,
     isEditing,
-    validUntilTouched,
   ])
 
   useEffect(() => {
@@ -209,7 +207,6 @@ export function QuotesPage({
     setBillingDueDate(quoteDueDate(issueDate, commercialSettings))
     setBillingDueDateTouched(false)
     setValidUntil(quoteValidityDate(issueDate, commercialSettings))
-    setValidUntilTouched(false)
     setNotes('')
     setShowBrand(true)
     setDiscountPercentage('')
@@ -259,7 +256,6 @@ export function QuotesPage({
     setBillingDueDate(quote.billingDueDate?.slice(0, 10) ?? '')
     setBillingDueDateTouched(true)
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
-    setValidUntilTouched(true)
     setNotes(quote.notes ?? '')
     setShowBrand(quote.showBrand)
     setDiscountPercentage(quote.discountPercentage)
@@ -328,7 +324,7 @@ export function QuotesPage({
         {usesBankSlip ? (
           <FormCard>
             <PageHeader
-              description='As parcelas são divididas igualmente a partir do vencimento informado.'
+              description='As parcelas são divididas igualmente a partir do primeiro vencimento do boleto.'
               title='Parcelamento do boleto'
             />
             <TextField
@@ -357,7 +353,7 @@ export function QuotesPage({
         ) : null}
         <FormRow>
           <TextField
-            label='Data da fatura'
+            label='Data de emissão do orçamento'
             size='medium'
             type='date'
             value={billingIssueDate}
@@ -365,7 +361,7 @@ export function QuotesPage({
             slotProps={{ inputLabel: { shrink: true } }}
           />
           <TextField
-            label='Vencimento'
+            label='Primeiro vencimento do boleto/fatura'
             size='medium'
             type='date'
             value={billingDueDate}
@@ -378,15 +374,11 @@ export function QuotesPage({
         </FormRow>
         <FormRow>
           <TextField
-            label='Validade'
+            disabled
+            helperText={`Calculada pela configuração comercial: ${quoteValidityDays(commercialSettings)} dia(s).`}
+            label='Validade do orçamento'
             size='medium'
-            type='date'
-            value={validUntil}
-            onChange={(event) => {
-              setValidUntil(event.target.value)
-              setValidUntilTouched(true)
-            }}
-            slotProps={{ inputLabel: { shrink: true } }}
+            value={quoteValidityLabel(validUntil, commercialSettings)}
           />
           <TextField
             disabled
@@ -588,7 +580,7 @@ export function QuotesPage({
                     ? formatDate(quote.billingIssueDate)
                     : '-'}
                   <InlineNote>
-                    Venc.{' '}
+                    Primeiro vencimento:{' '}
                     {quote.billingDueDate
                       ? formatDate(quote.billingDueDate)
                       : '-'}
@@ -597,7 +589,7 @@ export function QuotesPage({
               ),
             },
             {
-              header: 'Validade',
+              header: 'Validade do orçamento',
               render: (quote) =>
                 quote.validUntil ? formatDate(quote.validUntil) : '-',
             },
@@ -920,9 +912,23 @@ function quoteValidityDate(
   settings: CommercialSettings | null,
 ) {
   const date = new Date(`${issueDate}T00:00:00`)
-  date.setDate(date.getDate() + Number(settings?.defaultQuoteValidityDays ?? 7))
+  date.setDate(date.getDate() + quoteValidityDays(settings))
 
   return date.toLocaleDateString('en-CA')
+}
+
+function quoteValidityDays(settings: CommercialSettings | null) {
+  return Number(settings?.defaultQuoteValidityDays ?? 7)
+}
+
+function quoteValidityLabel(
+  validUntil: string,
+  settings: CommercialSettings | null,
+) {
+  const days = quoteValidityDays(settings)
+  const dateLabel = validUntil ? `, até ${formatDate(validUntil)}` : ''
+
+  return `${days} dia(s)${dateLabel}`
 }
 
 function quotePaymentInstallments(

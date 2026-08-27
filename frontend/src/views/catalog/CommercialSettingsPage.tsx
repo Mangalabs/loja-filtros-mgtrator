@@ -36,8 +36,8 @@ export function CommercialSettingsPage({
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
             defaultValue={settings?.defaultQuoteDueDays ?? 0}
-            helperText="Quantidade de dias somada à data de emissão para sugerir o vencimento."
-            label="Vencimento padrão (dias)"
+            helperText="Quantidade de dias somada à emissão para sugerir o primeiro vencimento do boleto/fatura."
+            label="Vencimento padrão do boleto/fatura (dias)"
             name="defaultQuoteDueDays"
             required
             type="number"
@@ -45,8 +45,8 @@ export function CommercialSettingsPage({
           />
           <TextField
             defaultValue={settings?.defaultQuoteValidityDays ?? 7}
-            helperText="Quantidade de dias somada à data de emissão para preencher a validade."
-            label="Validade padrão (dias)"
+            helperText="Quantidade de dias em que a proposta comercial permanece válida."
+            label="Validade padrão do orçamento (dias)"
             name="defaultQuoteValidityDays"
             required
             type="number"
@@ -70,9 +70,8 @@ export function CommercialSettingsPage({
           evitar alterações automáticas em cadastros existentes.
         </p>
         <p className="m-0 text-sm leading-6 text-[#5f665f]">
-          O vencimento e a validade padrão do orçamento são preenchidos
-          automaticamente a partir da emissão, mas continuam editáveis no
-          momento de montar a proposta.
+          O vencimento padrão sugere a data do boleto ou fatura. A validade
+          padrão indica por quantos dias a proposta comercial continua válida.
         </p>
       </FormCard>
     </section>
