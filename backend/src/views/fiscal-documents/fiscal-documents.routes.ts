@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   cancelFiscalDocument,
+  downloadFiscalDocumentFile,
   indexFiscalDocuments,
   issuePickupReservationFiscalDocument,
   issueSaleFiscalDocument,
@@ -18,6 +19,10 @@ export const fiscalDocumentsRoutes = Router();
 
 const fiscalDocumentParamsSchema = z.object({
   id: z.uuid(),
+});
+
+const fiscalDocumentFileParamsSchema = fiscalDocumentParamsSchema.extend({
+  fileType: z.enum(["danfe", "xml"]),
 });
 
 const saleParamsSchema = z.object({
@@ -91,6 +96,30 @@ fiscalDocumentsRoutes.get(
     response
       .status(200)
       .json(await showFiscalDocument(id, requireActiveBranchId(response.locals)));
+  },
+);
+
+fiscalDocumentsRoutes.get(
+  "/fiscal-documents/:id/files/:fileType",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { fileType, id } = fiscalDocumentFileParamsSchema.parse(
+      request.params,
+    );
+    const file = await downloadFiscalDocumentFile(
+      id,
+      requireActiveBranchId(response.locals),
+      fileType,
+    );
+
+    response
+      .status(200)
+      .setHeader("Content-Type", file.contentType)
+      .setHeader(
+        "Content-Disposition",
+        `attachment; filename="${file.fileName}"`,
+      )
+      .send(file.content);
   },
 );
 

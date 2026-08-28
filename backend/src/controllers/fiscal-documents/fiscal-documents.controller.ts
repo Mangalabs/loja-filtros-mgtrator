@@ -1,4 +1,5 @@
 import { db } from "../../database/knex.js";
+import { env } from "../../config/env.js";
 import type { FiscalIssueRequest } from "../../integrations/fiscal/fiscal-provider.js";
 import { makeFiscalProviderByName } from "../../integrations/fiscal/fiscal-provider-factory.js";
 import { currentFiscalSettings } from "../fiscal-settings/fiscal-settings.controller.js";
@@ -44,6 +45,49 @@ export async function showFiscalDocument(id: string, branchId: string) {
   };
 }
 
+export async function downloadFiscalDocumentFile(
+  id: string,
+  branchId: string,
+  fileType: "danfe" | "xml",
+) {
+  const fiscalDocument = await getFiscalDocumentById(id, { branchId });
+
+  if (!fiscalDocument) {
+    throw new AppError("Documento fiscal nao encontrado.", 404);
+  }
+
+  const fileUrl =
+    fileType === "xml" ? fiscalDocument.xmlUrl : fiscalDocument.pdfUrl;
+
+  if (!fileUrl) {
+    throw new AppError("Arquivo fiscal ainda nao disponivel.", 404);
+  }
+
+  if (fiscalDocument.provider === "MOCK" && fileUrl.startsWith("/mock/")) {
+    const file = mockFiscalDocumentFile(
+      fiscalDocument.providerReference ?? fiscalDocument.id,
+      fileType === "xml" ? "xml" : "pdf",
+    );
+
+    return file;
+  }
+
+  const remoteUrl = validatedFiscalFileUrl(fileUrl);
+  const response = await fetch(remoteUrl);
+
+  if (!response.ok) {
+    throw new AppError("Nao foi possivel baixar o arquivo fiscal agora.", 502);
+  }
+
+  return {
+    content: Buffer.from(await response.arrayBuffer()),
+    contentType:
+      response.headers.get("content-type") ??
+      (fileType === "xml" ? "application/xml" : "application/pdf"),
+    fileName: fiscalDocumentFileName(fiscalDocument, fileType),
+  };
+}
+
 export function mockFiscalDocumentFile(
   reference: string,
   extension: "pdf" | "xml",
@@ -63,6 +107,58 @@ export function mockFiscalDocumentFile(
   };
 
   return files[extension];
+}
+
+function validatedFiscalFileUrl(fileUrl: string) {
+  const parsedUrl = fiscalFileUrl(fileUrl);
+  const allowedOrigins = focusFileAllowedOrigins();
+
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    throw new AppError("URL do arquivo fiscal invalida.", 422);
+  }
+
+  if (!allowedOrigins.has(parsedUrl.origin)) {
+    throw new AppError(
+      "URL do arquivo fiscal fora do provedor configurado.",
+      422,
+    );
+  }
+
+  return parsedUrl.toString();
+}
+
+function fiscalFileUrl(fileUrl: string) {
+  try {
+    return new URL(fileUrl);
+  } catch {
+    throw new AppError("URL do arquivo fiscal invalida.", 422);
+  }
+}
+
+function focusFileAllowedOrigins() {
+  return new Set(
+    [
+      "https://homologacao.focusnfe.com.br",
+      "https://api.focusnfe.com.br",
+      env.fiscal.focus.baseUrls.HOMOLOGATION,
+      env.fiscal.focus.baseUrls.PRODUCTION,
+      env.fiscal.focus.baseUrl,
+    ].map((baseUrl) => new URL(baseUrl).origin),
+  );
+}
+
+function fiscalDocumentFileName(
+  fiscalDocument: Awaited<ReturnType<typeof getFiscalDocumentById>>,
+  fileType: "danfe" | "xml",
+) {
+  const extension = fileType === "xml" ? "xml" : "pdf";
+  const reference =
+    fiscalDocument?.providerReference ??
+    fiscalDocument?.accessKey ??
+    fiscalDocument?.id ??
+    "documento-fiscal";
+
+  return `${reference.replace(/[^a-zA-Z0-9_-]/g, "")}.${extension}`;
 }
 
 export async function syncFiscalDocument(id: string, branchId: string) {

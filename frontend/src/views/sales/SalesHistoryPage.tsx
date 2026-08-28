@@ -10,7 +10,7 @@ import type {
   Sale,
   ShippingOrder,
 } from '../../api'
-import { apiUrl, downloadApiFile } from '../../api'
+import { downloadApiFile } from '../../api'
 import {
   ActionStack,
   InlineNote,
@@ -276,16 +276,25 @@ function SalesHistoryActions({
     returnBlockingFiscalStatuses.includes(row.fiscalDocument.status),
   )
   const fiscalLinks = [
-    { label: 'DANFE', url: row.fiscalDocument?.pdfUrl },
-    { label: 'XML', url: row.fiscalDocument?.xmlUrl },
-  ].filter((link): link is { label: 'DANFE' | 'XML'; url: string } =>
-    Boolean(link.url),
+    { fileType: 'danfe', label: 'DANFE', url: row.fiscalDocument?.pdfUrl },
+    { fileType: 'xml', label: 'XML', url: row.fiscalDocument?.xmlUrl },
+  ].filter(
+    (link): link is {
+      fileType: 'danfe' | 'xml'
+      label: 'DANFE' | 'XML'
+      url: string
+    } => Boolean(link.url),
   )
   const actions: TableActionsMenuAction[] = [
     ...fiscalLinks.map((link) => ({
-      href: fiscalDocumentFileHref(link.url),
       icon: <FileText size={14} />,
       label: `Baixar ${link.label}`,
+      onSelect: () =>
+        row.fiscalDocument &&
+        void downloadApiFile(
+          `/fiscal-documents/${row.fiscalDocument.id}/files/${link.fileType}`,
+          fiscalDocumentDownloadName(row.fiscalDocument, link.label),
+        ),
     })),
   ]
 
@@ -607,6 +616,15 @@ function findFiscalDocument(
   )
 }
 
-function fiscalDocumentFileHref(url: string) {
-  return url.startsWith('/') ? apiUrl(url) : url
+function fiscalDocumentDownloadName(
+  document: FiscalDocument,
+  label: 'DANFE' | 'XML',
+) {
+  const extensionByLabel = {
+    DANFE: 'pdf',
+    XML: 'xml',
+  }
+  const reference = document.providerReference ?? document.id
+
+  return `${reference}.${extensionByLabel[label]}`
 }

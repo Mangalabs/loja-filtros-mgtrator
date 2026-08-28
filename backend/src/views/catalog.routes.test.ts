@@ -4096,6 +4096,81 @@ describe("catalog routes", () => {
     }
   });
 
+  it("downloads authorized fiscal files through an authenticated attachment endpoint", async () => {
+    const originalFetch = globalThis.fetch;
+    const administrator = await db("users")
+      .select("id")
+      .where("email", "admin@example.com")
+      .first();
+    const [inserted] = await db("fiscal_documents")
+      .insert({
+        branch_id: defaultBranchId,
+        source_type: "SALE",
+        source_id: randomUUID(),
+        document_type: "NFE",
+        provider: "FOCUS",
+        environment: "HOMOLOGATION",
+        status: "AUTHORIZED",
+        access_key: "12345678901234567890123456789012345678901234",
+        provider_reference: "SALEfiledownloadtest",
+        number: 123,
+        series: 1,
+        xml_url: "https://homologacao.focusnfe.com.br/arquivos/nfe/teste.xml",
+        pdf_url: "https://homologacao.focusnfe.com.br/arquivos/nfe/teste.pdf",
+        request_payload: {},
+        response_payload: {},
+        issued_by_user_id: administrator.id,
+      })
+      .returning("id");
+
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+
+      if (url.startsWith(baseUrl)) {
+        return originalFetch(input, init);
+      }
+
+      const responseByExtension = {
+        pdf: new Response(Buffer.from("%PDF-test"), {
+          headers: { "content-type": "application/pdf" },
+          status: 200,
+        }),
+        xml: new Response("<nfe>autorizada</nfe>", {
+          headers: { "content-type": "application/xml" },
+          status: 200,
+        }),
+      };
+
+      return url.endsWith(".xml")
+        ? responseByExtension.xml
+        : responseByExtension.pdf;
+    }) as typeof fetch;
+
+    try {
+      const xml = await requestRaw(
+        `/fiscal-documents/${inserted.id}/files/xml`,
+      );
+      const danfe = await requestRaw(
+        `/fiscal-documents/${inserted.id}/files/danfe`,
+      );
+
+      assert.equal(xml.status, 200);
+      assert.equal(xml.body.toString(), "<nfe>autorizada</nfe>");
+      assert.equal(
+        xml.contentDisposition,
+        'attachment; filename="SALEfiledownloadtest.xml"',
+      );
+      assert.equal(danfe.status, 200);
+      assert.equal(danfe.body.toString(), "%PDF-test");
+      assert.equal(
+        danfe.contentDisposition,
+        'attachment; filename="SALEfiledownloadtest.pdf"',
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("normalizes blank Focus optional fields before saving fiscal metadata", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
@@ -8532,5 +8607,6 @@ async function requestRaw(
     status: response.status,
     body,
     contentType: response.headers.get("content-type"),
+    contentDisposition: response.headers.get("content-disposition"),
   };
 }

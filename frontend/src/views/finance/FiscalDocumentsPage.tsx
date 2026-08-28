@@ -5,7 +5,6 @@ import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
-import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import { ChevronDown, FileText } from 'lucide-react'
@@ -19,7 +18,7 @@ import type {
   Sale,
   ShippingOrder,
 } from '../../api'
-import { apiUrl } from '../../api'
+import { downloadApiFile } from '../../api'
 import {
   InlineNote,
   PageHeader,
@@ -596,33 +595,36 @@ function fiscalDocumentDetailLabel(document: FiscalDocument) {
 
 function FiscalDocumentLinks({ document }: { document: FiscalDocument }) {
   const links = [
-    { label: 'DANFE', url: document.pdfUrl },
-    { label: 'XML', url: document.xmlUrl },
+    { fileType: 'danfe', label: 'DANFE', url: document.pdfUrl },
+    { fileType: 'xml', label: 'XML', url: document.xmlUrl },
   ].filter(
-    (link): link is { label: 'DANFE' | 'XML'; url: string } =>
+    (link): link is {
+      fileType: 'danfe' | 'xml'
+      label: 'DANFE' | 'XML'
+      url: string
+    } =>
       Boolean(link.url),
   )
 
   return links.length > 0 ? (
     <div className='flex flex-wrap justify-end gap-2'>
       {links.map((link) => (
-        <Link
-          download={fiscalDocumentDownloadName(document, link.label)}
-          href={fiscalDocumentFileHref(link.url)}
+        <TableActionButton
           key={link.label}
-          target='_blank'
-          rel='noreferrer'>
+          type='button'
+          onClick={() =>
+            void downloadApiFile(
+              `/fiscal-documents/${document.id}/files/${link.fileType}`,
+              fiscalDocumentDownloadName(document, link.label),
+            )
+          }>
           {link.label}
-        </Link>
+        </TableActionButton>
       ))}
     </div>
   ) : (
     <span className='text-sm text-[#5f665f]'>Sem arquivos</span>
   )
-}
-
-function fiscalDocumentFileHref(url: string) {
-  return url.startsWith('/') ? apiUrl(url) : url
 }
 
 function fiscalDocumentDownloadName(
