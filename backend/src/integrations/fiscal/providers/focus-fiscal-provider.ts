@@ -241,7 +241,7 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
   return {
     natureza_operacao:
       focusString(request.defaultNatureOperation) ?? "Venda de mercadoria",
-    data_emissao: new Date().toISOString(),
+    data_emissao: focusBrazilIssueDateTime(),
     tipo_documento: 1,
     local_destino: 1,
     finalidade_emissao: 1,
@@ -280,6 +280,18 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
     modalidade_frete: 9,
     items: request.sale.items.map((item) => focusNfeItemPayload(item, request)),
   };
+}
+
+function focusBrazilIssueDateTime(date = new Date()) {
+  const brazilOffsetHours = 3;
+  const brazilOffset = "-03:00";
+  const localDateTime = new Date(
+    date.getTime() - brazilOffsetHours * 60 * 60 * 1000,
+  )
+    .toISOString()
+    .slice(0, 19);
+
+  return `${localDateTime}${brazilOffset}`;
 }
 
 function focusPaymentPayloads(

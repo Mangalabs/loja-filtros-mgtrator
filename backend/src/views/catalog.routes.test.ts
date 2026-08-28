@@ -4410,6 +4410,10 @@ describe("catalog routes", () => {
       assert.equal(payload.valor_produtos, 155);
       assert.equal(payload.valor_desconto, 15);
       assert.equal(payload.valor_total, 140);
+      assert.match(
+        String(payload.data_emissao),
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-03:00$/,
+      );
       assert.equal(payload.numero_fatura, "salefocusprovidertest");
       assert.equal(payload.valor_original_fatura, 155);
       assert.equal(payload.valor_desconto_fatura, 15);
