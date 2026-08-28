@@ -159,8 +159,7 @@ export function SalesHistoryPage({
         columns={[
           {
             header: 'Nº',
-            render: (row) =>
-              row.saleNumber ? `Venda Nº ${row.saleNumber}` : '-',
+            render: (row) => row.saleNumber ?? '-',
           },
           {
             header: 'Data',

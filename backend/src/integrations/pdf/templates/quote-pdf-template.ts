@@ -15,9 +15,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
     .map((item, index) => quoteItemRow(item, index, quote.showBrand))
     .join('')
   const storeContact = [store.phone, store.email].filter(Boolean).join(' | ')
-  const quoteLabel = quote.quoteNumber
-    ? `Orçamento no ${quote.quoteNumber}`
-    : `Orçamento ${quote.id}`
+  const quoteLabel = quote.quoteNumber ? String(quote.quoteNumber) : quote.id
   const itemDiscountAmount = quote.items.reduce(
     (sum, item) => sum + Number(item.discountAmount),
     0,
@@ -58,7 +56,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
 
           <section class="quote-number">
             <div>
-              <span>Numero do orçamento</span>
+              <span>Número</span>
               <strong>${escapeHtml(quoteLabel)}</strong>
             </div>
             <div>

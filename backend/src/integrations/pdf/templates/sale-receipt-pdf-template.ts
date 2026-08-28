@@ -18,9 +18,7 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
   const refundAmount = saleRefundAmount(sale);
   const netAmount = Math.max(Number(sale.totalAmount) - refundAmount, 0);
   const storeContact = [store.phone, store.email].filter(Boolean).join(" | ");
-  const saleLabel = sale.saleNumber
-    ? `Venda no ${sale.saleNumber}`
-    : `Venda ${sale.id}`;
+  const saleLabel = sale.saleNumber ? String(sale.saleNumber) : sale.id;
 
   return `
     <!doctype html>
@@ -51,12 +49,14 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
           </section>
 
           <section class="info-grid">
-            <p><strong>Venda:</strong> ${escapeHtml(saleLabel)}</p>
+            <p><strong>Número:</strong> ${escapeHtml(saleLabel)}</p>
             <p><strong>Referencia interna:</strong> ${escapeHtml(sale.id)}</p>
             <p><strong>Data:</strong> ${formatDateTime(sale.createdAt)}</p>
             <p><strong>Operador:</strong> ${escapeHtml(sale.createdByUserName)}</p>
             <p><strong>Cliente:</strong> ${escapeHtml(sale.clientName ?? "Nao identificado")}</p>
-            <p><strong>Documento:</strong> ${escapeHtml(sale.clientDocument ?? "Nao informado")}</p>
+            <p><strong>CPF/CNPJ:</strong> ${escapeHtml(sale.clientDocument ?? "Nao informado")}</p>
+            <p><strong>Telefone:</strong> ${escapeHtml(sale.clientPhone ?? "Nao informado")}</p>
+            <p><strong>Email:</strong> ${escapeHtml(sale.clientEmail ?? "Nao informado")}</p>
             <p><strong>Pagamento:</strong> ${escapeHtml(sale.paymentMethodName)}</p>
             <p><strong>Data de emissão/fatura:</strong> ${formatOptionalDate(sale.billingIssueDate)}</p>
             <p><strong>Vencimento do boleto/fatura:</strong> ${formatOptionalDate(sale.billingDueDate)}</p>

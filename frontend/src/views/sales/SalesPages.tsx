@@ -327,7 +327,7 @@ export function SalesPage({
                 <div className='flex flex-wrap items-start justify-between gap-2'>
                   <div>
                     <strong className='text-[#203466]'>
-                      Venda Nº {sale.saleNumber}
+                      Nº {sale.saleNumber}
                     </strong>
                     <InlineNote>{formatDateTime(sale.createdAt)}</InlineNote>
                   </div>

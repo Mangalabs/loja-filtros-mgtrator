@@ -535,7 +535,7 @@ export function QuotesPage({
           columns={[
             {
               header: 'Nº',
-              render: (quote) => `Orçamento Nº ${quote.quoteNumber}`,
+              render: (quote) => quote.quoteNumber,
             },
             {
               header: 'Data',
