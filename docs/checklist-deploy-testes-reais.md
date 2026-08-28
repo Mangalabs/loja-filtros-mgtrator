@@ -31,16 +31,18 @@ Observacao: a primeira tentativa de testes backend falhou porque o Postgres loca
    - `PUPPETEER_NO_SANDBOX=true` quando necessario no container;
    - `FISCAL_PROVIDER=focus`;
    - `FISCAL_ENVIRONMENT=production` somente quando a emissao real for liberada;
-   - `FOCUS_NFE_PRODUCTION_TOKEN` preenchido;
-   - `FOCUS_NFE_COMPANY_CNPJ` correto.
+   - `FOCUS_NFE_PRODUCTION_TOKEN` preenchido como fallback, quando aplicavel;
+   - `FOCUS_NFE_PRODUCTION_TOKEN_12345678000190` preenchido para cada CNPJ cadastrado na Focus, usando somente os numeros do CNPJ no nome da variavel;
+   - `FOCUS_NFE_COMPANY_CNPJ` preenchido como fallback fiscal, sem substituir o CNPJ da filial ativa.
 4. Conferir no sistema a tela de configuracao fiscal:
    - provedor Focus;
    - ambiente Producao;
-   - CNPJ da empresa;
+   - CNPJ da filial ativa;
    - producao liberada somente com confirmacao `EMITIR EM PRODUCAO`.
-5. Confirmar que o plano pago da Focus esta ativo antes da primeira emissao real.
-6. Confirmar serie/proximo numero da NF-e no painel Focus antes da primeira nota real.
-7. Confirmar que as notas de teste em homologacao nao serao confundidas com producao.
+5. Confirmar que cada CNPJ emissor da filial existe no painel Focus e possui token proprio, quando a Focus fornecer tokens por empresa.
+6. Confirmar que o plano pago da Focus esta ativo antes da primeira emissao real.
+7. Confirmar serie/proximo numero da NF-e no painel Focus antes da primeira nota real de cada CNPJ.
+8. Confirmar que as notas de teste em homologacao nao serao confundidas com producao.
 
 ## Importacao inicial de estoque
 
@@ -107,7 +109,8 @@ Executar com usuario administrador:
     - sincronizar;
     - baixar XML;
     - baixar DANFE;
-    - conferir chave, numero, serie, cliente, itens, totais e vencimento.
+    - conferir chave, numero, serie, cliente, itens, totais e vencimento;
+    - conferir se o CNPJ, a razao social e o endereco do emitente pertencem a filial ativa.
 
 ## Pontos de atencao para uso real
 

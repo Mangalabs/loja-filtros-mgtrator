@@ -122,7 +122,7 @@ Trava de startup em `NODE_ENV=production`:
 - o backend nao sobe se `JWT_SECRET` parecer placeholder;
 - o backend nao sobe se `DATABASE_URL` estiver invalida, sem senha ou usando a senha padrao `postgres`;
 - o backend nao sobe se `PUPPETEER_EXECUTABLE_PATH` apontar para arquivo inexistente;
-- o backend nao sobe se Focus estiver em producao sem `FOCUS_NFE_PRODUCTION_TOKEN`.
+- o backend nao sobe se Focus estiver em producao sem token de producao geral ou especifico por CNPJ.
 
 ## 3. Validar Chromium no servidor
 
@@ -248,6 +248,9 @@ FISCAL_PROVIDER=
 FISCAL_ENVIRONMENT=
 FOCUS_NFE_HOMOLOGATION_TOKEN=
 FOCUS_NFE_PRODUCTION_TOKEN=
+# Opcional para multiplos CNPJs. Repetir uma variavel por CNPJ, usando apenas numeros.
+FOCUS_NFE_HOMOLOGATION_TOKEN_12345678000190=
+FOCUS_NFE_PRODUCTION_TOKEN_12345678000190=
 FOCUS_NFE_COMPANY_CNPJ=
 ```
 
@@ -257,6 +260,8 @@ Cuidados:
 - Nao colar tokens em issues, commits ou docs.
 - Usar homologacao Focus ate concluir checklist fiscal final.
 - Producao fiscal so deve ser liberada depois de validacao manual com dados reais.
+- Em lojas com multiplas filiais/CNPJs, conferir se cada filial possui dados fiscais completos no sistema e token correspondente no `.env` do backend.
+- O token especifico por CNPJ tem prioridade sobre o token geral do ambiente. O token geral permanece como fallback operacional.
 
 ## 8. Firewall e exposicao
 

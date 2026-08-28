@@ -18,6 +18,9 @@ docs/*
 !docs/plano-producao.md
 !docs/pontos-atencao-revisao.md
 !docs/projeto-loja-filtros.md
+!docs/checklist-deploy-testes-reais.md
+!docs/manual-inicial-uso.md
+!docs/notas-atualizacao-usuarios-*.md
 gestaoclick (3).apib
 
 # Environment files stay local
