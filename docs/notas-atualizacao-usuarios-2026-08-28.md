@@ -15,6 +15,7 @@ Pacote planejado para deploy em 28/08/2026.
 - Historico de vendas permite ajustar dados comerciais da venda, como datas de fatura e vencimento, quando ainda nao houver NF-e ativa bloqueando a alteracao.
 - Tela de notas fiscais facilita a correcao de pendencias, direcionando para cliente, produto ou configuracao fiscal.
 - Sistema fiscal passa a respeitar o CNPJ da filial ativa e pode usar token Focus especifico por CNPJ.
+- Os nomes das telas de venda ficaram mais diretos: **Venda direta** e **Pedidos com envio**.
 
 ## Cuidados no uso
 

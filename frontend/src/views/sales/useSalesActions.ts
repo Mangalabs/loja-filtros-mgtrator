@@ -146,7 +146,7 @@ export function useSalesActions({
 
   async function issueShippingOrderFiscalDocument(order: ShippingOrder) {
     const confirmed = await requestConfirmation(
-      `Emitir NF-e para o pedido de envio de ${order.clientName} no valor de ${order.totalAmount}?`,
+      `Emitir NF-e para o pedido com envio de ${order.clientName} no valor de ${order.totalAmount}?`,
       "Emitir NF-e?",
       "Emitir NF-e",
     );

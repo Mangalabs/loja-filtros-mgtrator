@@ -188,7 +188,7 @@ const fiscalRequestFactories: Array<
       .map((sale) => ({
         sourceType: 'SALE',
         sourceId: sale.id,
-        sourceLabel: 'Balcao',
+        sourceLabel: 'Venda direta',
         pendingLabel: 'Pendente',
         clientId: sale.clientId,
         clientName: sale.clientName ?? 'Nao identificado',
@@ -213,7 +213,7 @@ const fiscalRequestFactories: Array<
       .map((order) => ({
         sourceType: 'SHIPPING_ORDER',
         sourceId: order.id,
-        sourceLabel: 'Envio',
+        sourceLabel: 'Com envio',
         pendingLabel: 'Pendente',
         clientId: order.clientId,
         clientName: order.clientName,

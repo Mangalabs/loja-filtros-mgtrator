@@ -114,7 +114,7 @@ export function FiscalDocumentsPage({
 
       <PagePanel className='min-w-0'>
         <PageHeader
-          description='Centralize a emissão fiscal de balcão, envio e retirada.'
+          description='Centralize a emissão fiscal de vendas diretas, com envio e retirada.'
           icon={<FileText size={18} />}
           title='Fila de emissão'
         />

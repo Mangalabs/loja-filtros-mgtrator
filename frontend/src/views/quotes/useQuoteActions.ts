@@ -35,8 +35,8 @@ export function useQuoteActions({
 
   async function createShippingOrderFromQuote(quote: Quote) {
     const confirmed = await requestConfirmation(
-      `Criar pedido para envio a partir do orçamento de ${quote.clientName}?`,
-      'Criar pedido para envio?',
+      `Criar pedido com envio a partir do orçamento de ${quote.clientName}?`,
+      'Criar pedido com envio?',
       'Criar pedido',
     )
 

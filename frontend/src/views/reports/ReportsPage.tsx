@@ -165,7 +165,7 @@ function ReportsOverviewContent({
             />
             <ReportMetric
               icon={<Send size={18} />}
-              label="Pedidos para envio em aberto"
+              label="Pedidos com envio em aberto"
               value={String(overview.openShippingOrdersCount)}
             />
             <ReportMetric

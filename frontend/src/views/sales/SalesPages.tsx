@@ -168,9 +168,9 @@ export function SalesPage({
     <section className='grid items-start gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]'>
       <FormGrid className='gap-5 sm:gap-6' onSubmit={submit}>
         <PageHeader
-          description='Monte uma venda de balcao com um ou mais itens.'
+          description='Monte uma venda direta com um ou mais itens.'
           icon={<ShoppingCart size={18} />}
-          title='Nova venda'
+          title='Nova venda direta'
         />
         {!cashRegister ? (
           <Alert severity='warning' variant='outlined'>
@@ -550,7 +550,7 @@ export function ShippingOrdersPage({
           title='Novo pedido por orçamento'
         />
         <InlineNote>
-          Pedidos para envio nascem de orçamentos salvos. Quando o cliente
+          Pedidos com envio nascem de orçamentos salvos. Quando o cliente
           confirmar, informe o pagamento e conclua a venda em um único passo.
         </InlineNote>
         <PrimaryButton
@@ -569,7 +569,7 @@ export function ShippingOrdersPage({
             </span>
           }
           description='Conclua a venda em um passo quando o cliente confirmar o envio.'
-          title='Pedidos para envio'
+          title='Pedidos com envio'
         />
         <ResponsiveTable
           columns={[
@@ -615,7 +615,7 @@ export function ShippingOrdersPage({
                 }),
             },
           ]}
-          emptyMessage='Nenhum pedido para envio registrado.'
+          emptyMessage='Nenhum pedido com envio registrado.'
           getRowId={(order) => order.id}
           items={visibleItems}
           pagination={pagination}

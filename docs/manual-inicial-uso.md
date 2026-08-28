@@ -1,6 +1,6 @@
 # Manual inicial de uso
 
-Este manual descreve o uso inicial do sistema da filial de filtros. Ele cobre as telas que ja existem no sistema: produtos, fabricantes, clientes, fornecedores, entrada manual de mercadoria, ajuste manual de estoque, historico de estoque, consulta de reposicao, formas de pagamento, abertura de caixa, venda de balcao e pedidos para envio.
+Este manual descreve o uso inicial do sistema da filial de filtros. Ele cobre as telas que ja existem no sistema: produtos, fabricantes, clientes, fornecedores, entrada manual de mercadoria, ajuste manual de estoque, historico de estoque, consulta de reposicao, formas de pagamento, abertura de caixa, venda direta e pedidos com envio.
 
 As rotinas de venda, saida por venda, permissoes detalhadas, relatorios e emissao fiscal ainda fazem parte das proximas fases do projeto.
 
@@ -21,7 +21,7 @@ Ao abrir o sistema, o usuario encontra uma barra lateral com as areas principais
 - **Cadastros**: cadastro de fabricantes e clientes.
 - **Fornecedores**: cadastro dos fornecedores da loja.
 - **Caixa**: abertura da sessao operacional antes das futuras vendas.
-- **Vendas**: registro inicial de vendas imediatas de balcao e orcamentos para envio.
+- **Vendas**: registro inicial de vendas diretas, orcamentos e pedidos com envio.
 
 No topo da area principal existe um botao de atualizar. Use esse botao quando quiser recarregar os dados do backend, principalmente depois de alguma alteracao feita por outro usuario ou em outro computador.
 
@@ -247,9 +247,9 @@ O sistema calcula o saldo esperado somando o saldo inicial, as vendas liquidas r
 
 Sangria, suprimento e detalhamento de conferencia por forma de pagamento serao entregues em etapas posteriores.
 
-## Venda de balcao
+## Venda direta
 
-A tela **Vendas > Balcao** registra uma venda imediata com baixa de estoque. Antes de vender, abra o caixa em **Caixa > Abertura**.
+A tela **Vendas > Venda direta** registra uma venda imediata com baixa de estoque. Antes de vender, abra o caixa em **Caixa > Abertura**.
 
 Cada venda aceita:
 
@@ -265,9 +265,9 @@ Quando algum item nao tiver saldo disponivel, o sistema exibe uma confirmacao ex
 
 Vendas concluidas podem receber devolucao por item pela propria lista de vendas ou pelo **Historico de vendas**. Informe o item, a quantidade e o motivo. O sistema devolve a quantidade ao estoque e registra a movimentacao no **Historico de estoque** como **Devolucao de venda**. Quando houver NF-e pendente, processando ou autorizada, cancele a NF-e antes de registrar a devolucao.
 
-## Pedido para envio
+## Pedido com envio
 
-A tela **Vendas > Para envio** atende inicialmente o pedido recebido por telefone ou WhatsApp. Cadastre o cliente com seu telefone antes de iniciar o orcamento.
+A tela **Vendas > Pedidos com envio** atende inicialmente o pedido recebido por telefone ou WhatsApp. Cadastre o cliente com seu telefone antes de iniciar o orcamento.
 
 O fluxo recomendado comeca em **Orcamentos**. O orcamento aceita cliente, forma de pagamento, datas de fatura/vencimento, varios produtos, quantidade por item, desconto percentual por item e desconto percentual geral. O valor e calculado pelo preco de venda cadastrado no produto, podendo ser ajustado pelos descontos informados.
 
@@ -291,11 +291,11 @@ Se o cliente desistir, informe o motivo e use **Cancelar**. Um orcamento cancela
 
 Quando a peca separada for sair para envio, abra o caixa, confira a forma ou as formas de pagamento combinadas com o cliente e clique em **Concluir venda e saida**. O sistema converte o pedido em venda, registra os pagamentos, baixa o estoque fisico e libera o saldo reservado.
 
-Endereco/frete detalhado, integracao bancaria do boleto e acompanhamento de entrega serao implementados em etapas posteriores. A emissao fiscal ja possui tela central em **Financeiro > Notas fiscais**, onde vendas de balcao, pedidos para envio e reservas para retirada podem entrar na fila de emissao.
+Endereco/frete detalhado, integracao bancaria do boleto e acompanhamento de entrega serao implementados em etapas posteriores. A emissao fiscal ja possui tela central em **Financeiro > Notas fiscais**, onde vendas diretas, pedidos com envio e reservas para retirada podem entrar na fila de emissao.
 
 ## Historico de vendas
 
-A tela **Vendas > Historico de vendas** centraliza vendas concluidas de balcao, envio e retirada. Use os filtros para buscar por cliente, operador, origem ou status da NF-e.
+A tela **Vendas > Historico de vendas** centraliza vendas concluidas diretas, com envio e retirada. Use os filtros para buscar por cliente, operador, origem ou status da NF-e.
 
 Nessa tela e possivel:
 

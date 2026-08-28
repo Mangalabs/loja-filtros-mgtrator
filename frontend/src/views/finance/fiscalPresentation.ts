@@ -63,8 +63,8 @@ export function fiscalReadinessIssueLabel(issue: string) {
 const fiscalDocumentSourceLabels: Record<FiscalDocument['sourceType'], string> =
   {
     PICKUP_RESERVATION: 'Reserva',
-    SALE: 'Venda',
-    SHIPPING_ORDER: 'Envio',
+    SALE: 'Venda direta',
+    SHIPPING_ORDER: 'Com envio',
   }
 
 const fiscalDocumentEnvironmentLabels: Record<

@@ -248,9 +248,9 @@ export const viewTitles: Record<View, { title: string; description: string }> =
         "Monte orçamentos com cliente, múltiplos produtos e valores personalizados.",
     },
     sales: {
-      title: "Venda de balcão",
+      title: "Venda direta",
       description:
-        "Registre a venda imediata de um produto com baixa de estoque.",
+        "Registre vendas imediatas com baixa de estoque.",
     },
     "sales-history": {
       title: "Histórico de vendas",
@@ -258,9 +258,9 @@ export const viewTitles: Record<View, { title: string; description: string }> =
         "Consulte vendas fechadas, comprovantes e documentos fiscais.",
     },
     "shipping-orders": {
-      title: "Pedidos para envio",
+      title: "Pedidos com envio",
       description:
-        "Conclua pedidos originados de orçamentos aprovados pelo cliente.",
+        "Conclua pedidos originados de orçamentos aprovados para envio.",
     },
     "pickup-reservations": {
       title: "Reservas para retirada",

@@ -289,7 +289,7 @@ export function AppSidebar({
             icon={<ShoppingCart size={18} />}
             onClick={() => onSelectView("sales")}
           >
-            Balcão
+            Venda direta
           </NavButton>
           <NavButton
             active={view === "sales-history"}
@@ -303,7 +303,7 @@ export function AppSidebar({
             icon={<Send size={18} />}
             onClick={() => onSelectView("shipping-orders")}
           >
-            Para envio
+            Pedidos com envio
           </NavButton>
           <NavButton
             active={view === "pickup-reservations"}

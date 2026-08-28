@@ -35,7 +35,11 @@ import {
 } from '../finance/fiscalPresentation'
 import { SaleReturnForm, type SaleReturnHandler } from './SaleReturnForm'
 
-type SalesHistoryOrigin = 'ALL' | 'PICKUP_RESERVATION' | 'SALE' | 'SHIPPING_ORDER'
+type SalesHistoryOrigin =
+  | 'ALL'
+  | 'PICKUP_RESERVATION'
+  | 'SALE'
+  | 'SHIPPING_ORDER'
 type SalesHistoryFiscalFilter =
   | 'ALL'
   | 'AUTHORIZED'
@@ -99,21 +103,29 @@ export function SalesHistoryPage({
         }),
         { fiscalStatus, origin, search },
       ),
-    [fiscalDocuments, fiscalStatus, origin, pickupReservations, sales, search, shippingOrders],
+    [
+      fiscalDocuments,
+      fiscalStatus,
+      origin,
+      pickupReservations,
+      sales,
+      search,
+      shippingOrders,
+    ],
   )
   const { pagination, visibleItems } = usePaginatedRows(rows)
 
   return (
     <PagePanel className='min-w-0' wide>
       <PageHeader
-        description='Consulte vendas fechadas de balcão, envio e retirada.'
+        description='Consulte vendas fechadas diretas, com envio e retirada.'
         icon={<ReceiptText size={18} />}
         title='Histórico de vendas fechadas'
       />
       <div className='mb-4 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] p-3 text-sm text-[#2c281e]'>
-        <strong className='text-[#203466]'>Comprovante de venda:</strong>{' '}
-        use o botão de comprovante para baixar um resumo comercial da venda
-        concluída. Este arquivo não substitui NF-e, NFC-e, DANFE ou XML fiscal.
+        <strong className='text-[#203466]'>Comprovante de venda:</strong> use o
+        botão de comprovante para baixar um resumo comercial da venda concluída.
+        Este arquivo não substitui NF-e, NFC-e, DANFE ou XML fiscal.
       </div>
 
       <div className='mb-4 grid gap-3 md:grid-cols-[minmax(220px,1fr)_190px_190px]'>
@@ -133,8 +145,8 @@ export function SalesHistoryPage({
             setOrigin(event.target.value as SalesHistoryOrigin)
           }>
           <MenuItem value='ALL'>Todas</MenuItem>
-          <MenuItem value='SALE'>Balcão</MenuItem>
-          <MenuItem value='SHIPPING_ORDER'>Para envio</MenuItem>
+          <MenuItem value='SALE'>Venda direta</MenuItem>
+          <MenuItem value='SHIPPING_ORDER'>Com envio</MenuItem>
           <MenuItem value='PICKUP_RESERVATION'>Retirada</MenuItem>
         </TextField>
         <TextField
@@ -261,14 +273,13 @@ function SalesHistoryActions({
     useState(false)
   const fiscalDocumentBlocksReturn = Boolean(
     row.fiscalDocument &&
-      returnBlockingFiscalStatuses.includes(row.fiscalDocument.status),
+    returnBlockingFiscalStatuses.includes(row.fiscalDocument.status),
   )
   const fiscalLinks = [
     { label: 'DANFE', url: row.fiscalDocument?.pdfUrl },
     { label: 'XML', url: row.fiscalDocument?.xmlUrl },
-  ].filter(
-    (link): link is { label: 'DANFE' | 'XML'; url: string } =>
-      Boolean(link.url),
+  ].filter((link): link is { label: 'DANFE' | 'XML'; url: string } =>
+    Boolean(link.url),
   )
   const actions: TableActionsMenuAction[] = [
     ...fiscalLinks.map((link) => ({
@@ -308,9 +319,7 @@ function SalesHistoryActions({
       <div className='flex justify-end'>
         <TableActionsMenu actions={actions} />
       </div>
-      {showCommercialDetailsForm &&
-      row.sale &&
-      !fiscalDocumentBlocksReturn ? (
+      {showCommercialDetailsForm && row.sale && !fiscalDocumentBlocksReturn ? (
         <SaleCommercialDetailsForm
           onCancel={() => setShowCommercialDetailsForm(false)}
           sale={row.sale}
@@ -445,23 +454,27 @@ function buildSalesHistoryRows({
     ),
   ])
   const directSaleRows = sales
-    .filter((sale) => sale.status === 'COMPLETED' && !linkedSaleIds.has(sale.id))
-    .map((sale): SalesHistoryRow => ({
-      clientName: sale.clientName ?? 'Nao identificado',
-      completedAt: sale.createdAt,
-      fiscalDocument: findFiscalDocument(fiscalDocuments, 'SALE', sale.id),
-      id: `SALE-${sale.id}`,
-      netAmount: saleNetAmount(sale, sale.totalAmount),
-      operatorName: sale.createdByUserName,
-      originLabel: 'Balcão',
-      refundAmount: saleRefundAmount(sale),
-      sale,
-      saleId: sale.id,
-      saleNumber: sale.saleNumber,
-      sourceId: sale.id,
-      sourceType: 'SALE',
-      totalAmount: sale.totalAmount,
-    }))
+    .filter(
+      (sale) => sale.status === 'COMPLETED' && !linkedSaleIds.has(sale.id),
+    )
+    .map(
+      (sale): SalesHistoryRow => ({
+        clientName: sale.clientName ?? 'Nao identificado',
+        completedAt: sale.createdAt,
+        fiscalDocument: findFiscalDocument(fiscalDocuments, 'SALE', sale.id),
+        id: `SALE-${sale.id}`,
+        netAmount: saleNetAmount(sale, sale.totalAmount),
+        operatorName: sale.createdByUserName,
+        originLabel: 'Venda direta',
+        refundAmount: saleRefundAmount(sale),
+        sale,
+        saleId: sale.id,
+        saleNumber: sale.saleNumber,
+        sourceId: sale.id,
+        sourceType: 'SALE',
+        totalAmount: sale.totalAmount,
+      }),
+    )
   const shippingRows = shippingOrders
     .filter((order) => order.status === 'COMPLETED')
     .map((order): SalesHistoryRow => {
@@ -478,7 +491,7 @@ function buildSalesHistoryRows({
         id: `SHIPPING_ORDER-${order.id}`,
         netAmount: saleNetAmount(sale, order.totalAmount),
         operatorName: order.completedByUserName ?? order.createdByUserName,
-        originLabel: 'Para envio',
+        originLabel: 'Com envio',
         refundAmount: saleRefundAmount(sale),
         sale,
         saleId: order.saleId,
@@ -524,21 +537,18 @@ function buildSalesHistoryRows({
 }
 
 function findSale(sales: Sale[], saleId: string | null) {
-  return saleId ? sales.find((sale) => sale.id === saleId) ?? null : null
+  return saleId ? (sales.find((sale) => sale.id === saleId) ?? null) : null
 }
 
 function saleRefundAmount(sale: Sale | null) {
-  return (
-    saleItems(sale).reduce(
-      (total, item) =>
-        total +
-        saleItemReturns(item).reduce(
-          (itemTotal, itemReturn) =>
-            itemTotal + Number(itemReturn.refundAmount),
-          0,
-        ),
-      0,
-    )
+  return saleItems(sale).reduce(
+    (total, item) =>
+      total +
+      saleItemReturns(item).reduce(
+        (itemTotal, itemReturn) => itemTotal + Number(itemReturn.refundAmount),
+        0,
+      ),
+    0,
   )
 }
 

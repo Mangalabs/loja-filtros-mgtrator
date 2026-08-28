@@ -723,7 +723,7 @@ function QuoteActions({
         <div className='inline-flex justify-end'>
           <TableActionsMenu actions={actions} />
         </div>
-        <InlineNote>Pedido de envio criado</InlineNote>
+        <InlineNote>Pedido com envio criado</InlineNote>
       </ActionStack>
     )
   }
@@ -795,7 +795,7 @@ function quoteActions({
         onSelect: onEditQuote,
       },
       {
-        label: 'Criar pedido para envio',
+        label: 'Criar pedido com envio',
         onSelect: onCreateShippingOrder,
       },
       {
@@ -815,10 +815,10 @@ const quoteShippingStatusLabels: Record<
   NonNullable<Quote['shippingOrderStatus']>,
   string
 > = {
-  APPROVED: 'Envio aprovado',
-  CANCELLED: 'Envio cancelado',
+  APPROVED: 'Pedido com envio aprovado',
+  CANCELLED: 'Pedido com envio cancelado',
   COMPLETED: 'Venda concluída',
-  QUOTED: 'Pedido para envio criado',
+  QUOTED: 'Pedido com envio criado',
   SEPARATED: 'Separado para envio',
 }
 
