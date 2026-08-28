@@ -6287,7 +6287,7 @@ describe("catalog routes", () => {
     assert.equal(repeatedShippingOrder.status, 409);
     assert.equal(
       repeatedShippingOrder.body.message,
-      "Este orcamento ja foi enviado para pedidos de envio.",
+      "Este orçamento ja foi enviado para pedidos de envio.",
     );
     assert.equal(
       listedAfterShippingOrder.body.data?.[0]?.shippingOrderId,
@@ -6402,7 +6402,7 @@ describe("catalog routes", () => {
     assert.equal(updateAfterShippingOrder.status, 409);
     assert.equal(
       updateAfterShippingOrder.body.message,
-      "Orcamento enviado para pedido de envio deve seguir o fluxo do pedido.",
+      "Orçamento enviado para pedido de envio deve seguir o fluxo do pedido.",
     );
   });
 
@@ -6524,17 +6524,17 @@ describe("catalog routes", () => {
     assert.equal(repeatedCancellation.status, 409);
     assert.equal(
       repeatedCancellation.body.message,
-      "Este orcamento ja foi cancelado.",
+      "Este orçamento ja foi cancelado.",
     );
     assert.equal(shippingOrderAfterCancellation.status, 409);
     assert.equal(
       shippingOrderAfterCancellation.body.message,
-      "Orcamento cancelado nao pode gerar pedido de envio.",
+      "Orçamento cancelado nao pode gerar pedido de envio.",
     );
     assert.equal(cancellationAfterShippingOrder.status, 409);
     assert.equal(
       cancellationAfterShippingOrder.body.message,
-      "Orcamento enviado para pedido de envio deve seguir o fluxo do pedido.",
+      "Orçamento enviado para pedido de envio deve seguir o fluxo do pedido.",
     );
     assert.ok(listed.body.data?.some((quote) => quote.status === "CANCELLED"));
   });
@@ -6592,7 +6592,7 @@ describe("catalog routes", () => {
     assert.equal(inactiveProduct.status, 422);
     assert.equal(
       inactiveProduct.body.message,
-      "Um ou mais produtos informados nao estao disponiveis para orcamento.",
+      "Um ou mais produtos informados nao estao disponiveis para orçamento.",
     );
   });
 
@@ -6726,7 +6726,7 @@ describe("catalog routes", () => {
     );
 
     assert.equal(blockedQuote.status, 422);
-    assert.equal(blockedQuote.body.message, "Quantidade indisponivel para este orcamento.");
+    assert.equal(blockedQuote.body.message, "Quantidade indisponivel para este orçamento.");
     assert.equal(quoted.status, 201);
     assert.equal(blockedApproval.status, 422);
     assert.equal(
@@ -7613,7 +7613,7 @@ describe("catalog routes", () => {
     assert.equal(blockedShippingOrder.status, 422);
     assert.equal(
       blockedShippingOrder.body.message,
-      "Produto informado nao disponivel para orcamento.",
+      "Produto informado nao disponivel para orçamento.",
     );
     assert.equal(blockedPickupReservation.status, 422);
     assert.equal(

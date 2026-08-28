@@ -808,7 +808,7 @@ function quoteActions({
 }
 
 function downloadQuotePdf(quote: Quote) {
-  return downloadApiFile(`/quotes/${quote.id}/pdf`, `orcamento-${quote.id}.pdf`)
+  return downloadApiFile(`/quotes/${quote.id}/pdf`, `orçamento-${quote.id}.pdf`)
 }
 
 const quoteShippingStatusLabels: Record<

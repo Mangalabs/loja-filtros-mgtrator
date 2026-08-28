@@ -1,10 +1,10 @@
-import { db } from "../../database/knex.js";
+import { db } from '../../database/knex.js'
 import {
   activePaymentMethodExists,
   findOpenCashRegister,
   insertSale,
   type SaleInput,
-} from "../../models/sales/sales.model.js";
+} from '../../models/sales/sales.model.js'
 import {
   activeShippingClientExists,
   approveShippingOrder,
@@ -17,15 +17,15 @@ import {
   releaseShippingOrderReservation,
   separateShippingOrder,
   type ShippingOrderInput,
-} from "../../models/shipping-orders/shipping-orders.model.js";
-import { AppError } from "../../shared/errors/app-error.js";
+} from '../../models/shipping-orders/shipping-orders.model.js'
+import { AppError } from '../../shared/errors/app-error.js'
 
 export async function indexShippingOrders(filters: { branchId: string }) {
   return {
     code: 200,
-    status: "success",
+    status: 'success',
     data: await listShippingOrders(filters),
-  };
+  }
 }
 
 export async function storeShippingOrder(
@@ -37,31 +37,31 @@ export async function storeShippingOrder(
     if (
       !(await activeShippingClientExists(transaction, input.clientId, branchId))
     ) {
-      throw new AppError("Cliente informado nao disponivel.", 422);
+      throw new AppError('Cliente informado nao disponivel.', 422)
     }
 
     const product = await lockReservableProduct(
       transaction,
       input.productId,
       branchId,
-    );
+    )
 
     if (!product || !product.active) {
       throw new AppError(
-        "Produto informado nao disponivel para orcamento.",
+        'Produto informado nao disponivel para orçamento.',
         422,
-      );
+      )
     }
 
     const availableStock =
-      Number(product.currentStock) - Number(product.reservedStock);
+      Number(product.currentStock) - Number(product.reservedStock)
 
     if (availableStock < input.quantity && !input.allowInsufficientStock) {
-      throw new AppError("Quantidade indisponivel para este orcamento.", 422);
+      throw new AppError('Quantidade indisponivel para este orçamento.', 422)
     }
 
-    const unitPrice = Number(product.salePrice);
-    const totalAmount = Number((unitPrice * input.quantity).toFixed(2));
+    const unitPrice = Number(product.salePrice)
+    const totalAmount = Number((unitPrice * input.quantity).toFixed(2))
 
     return insertShippingOrder(
       transaction,
@@ -70,14 +70,14 @@ export async function storeShippingOrder(
       branchId,
       unitPrice,
       totalAmount,
-    );
-  });
+    )
+  })
 
   return {
     code: 201,
-    status: "success",
+    status: 'success',
     data: order,
-  };
+  }
 }
 
 export async function approveQuotedShippingOrder(
@@ -87,55 +87,55 @@ export async function approveQuotedShippingOrder(
   allowInsufficientStock = false,
 ) {
   const order = await db.transaction(async (transaction) => {
-    const quotedOrder = await lockShippingOrder(transaction, id, branchId);
+    const quotedOrder = await lockShippingOrder(transaction, id, branchId)
 
     if (!quotedOrder) {
-      throw new AppError("Orcamento para envio nao encontrado.", 404);
+      throw new AppError('Orçamento para envio nao encontrado.', 404)
     }
 
-    if (quotedOrder.status === "CANCELLED") {
+    if (quotedOrder.status === 'CANCELLED') {
       throw new AppError(
-        "Pedido cancelado nao pode ser aprovado para separacao.",
+        'Pedido cancelado nao pode ser aprovado para separacao.',
         409,
-      );
+      )
     }
 
-    if (quotedOrder.status === "APPROVED") {
-      throw new AppError("Este orcamento ja foi aprovado para separacao.", 409);
+    if (quotedOrder.status === 'APPROVED') {
+      throw new AppError('Este orçamento ja foi aprovado para separacao.', 409)
     }
 
-    if (quotedOrder.status === "SEPARATED") {
-      throw new AppError("A separacao deste pedido ja foi confirmada.", 409);
+    if (quotedOrder.status === 'SEPARATED') {
+      throw new AppError('A separacao deste pedido ja foi confirmada.', 409)
     }
 
-    if (quotedOrder.status === "COMPLETED") {
-      throw new AppError("Este pedido ja foi concluido como venda.", 409);
+    if (quotedOrder.status === 'COMPLETED') {
+      throw new AppError('Este pedido ja foi concluido como venda.', 409)
     }
 
-    const reservedItems = aggregateShippingItems(quotedOrder.items);
+    const reservedItems = aggregateShippingItems(quotedOrder.items)
 
     for (const item of reservedItems) {
       const product = await lockReservableProduct(
         transaction,
         item.productId,
         branchId,
-      );
+      )
 
       if (!product || !product.active) {
         throw new AppError(
-          "Produto informado nao disponivel para separacao.",
+          'Produto informado nao disponivel para separacao.',
           422,
-        );
+        )
       }
 
       const availableStock =
-        Number(product.currentStock) - Number(product.reservedStock);
+        Number(product.currentStock) - Number(product.reservedStock)
 
       if (availableStock < item.quantity && !allowInsufficientStock) {
         throw new AppError(
-          "Estoque insuficiente para separar este pedido.",
+          'Estoque insuficiente para separar este pedido.',
           422,
-        );
+        )
       }
     }
 
@@ -144,14 +144,14 @@ export async function approveQuotedShippingOrder(
       id,
       reservedItems,
       approvedByUserId,
-    );
-  });
+    )
+  })
 
   return {
     code: 200,
-    status: "success",
+    status: 'success',
     data: order,
-  };
+  }
 }
 
 export async function cancelOpenShippingOrder(
@@ -161,31 +161,31 @@ export async function cancelOpenShippingOrder(
   branchId: string,
 ) {
   const order = await db.transaction(async (transaction) => {
-    const currentOrder = await lockShippingOrder(transaction, id, branchId);
+    const currentOrder = await lockShippingOrder(transaction, id, branchId)
 
     if (!currentOrder) {
-      throw new AppError("Pedido para envio nao encontrado.", 404);
+      throw new AppError('Pedido para envio nao encontrado.', 404)
     }
 
-    if (currentOrder.status === "CANCELLED") {
-      throw new AppError("Este pedido para envio ja foi cancelado.", 409);
+    if (currentOrder.status === 'CANCELLED') {
+      throw new AppError('Este pedido para envio ja foi cancelado.', 409)
     }
 
-    if (currentOrder.status === "COMPLETED") {
+    if (currentOrder.status === 'COMPLETED') {
       throw new AppError(
-        "Venda concluida nao pode ser cancelada por este fluxo.",
+        'Venda concluida nao pode ser cancelada por este fluxo.',
         409,
-      );
+      )
     }
 
-    const reservedItems = aggregateShippingItems(currentOrder.items);
+    const reservedItems = aggregateShippingItems(currentOrder.items)
 
     if (
-      currentOrder.status === "APPROVED" ||
-      currentOrder.status === "SEPARATED"
+      currentOrder.status === 'APPROVED' ||
+      currentOrder.status === 'SEPARATED'
     ) {
       for (const item of reservedItems) {
-        await lockReservableProduct(transaction, item.productId, branchId);
+        await lockReservableProduct(transaction, item.productId, branchId)
       }
     }
 
@@ -193,17 +193,17 @@ export async function cancelOpenShippingOrder(
       transaction,
       id,
       reservedItems,
-      currentOrder.status === "APPROVED" || currentOrder.status === "SEPARATED",
+      currentOrder.status === 'APPROVED' || currentOrder.status === 'SEPARATED',
       cancelledByUserId,
       reason,
-    );
-  });
+    )
+  })
 
   return {
     code: 200,
-    status: "success",
+    status: 'success',
     data: order,
-  };
+  }
 }
 
 export async function confirmShippingOrderSeparation(
@@ -212,79 +212,79 @@ export async function confirmShippingOrderSeparation(
   branchId: string,
 ) {
   const order = await db.transaction(async (transaction) => {
-    const currentOrder = await lockShippingOrder(transaction, id, branchId);
+    const currentOrder = await lockShippingOrder(transaction, id, branchId)
 
     if (!currentOrder) {
-      throw new AppError("Pedido para envio nao encontrado.", 404);
+      throw new AppError('Pedido para envio nao encontrado.', 404)
     }
 
-    if (currentOrder.status === "QUOTED") {
+    if (currentOrder.status === 'QUOTED') {
       throw new AppError(
-        "Aprove o orcamento antes de confirmar a separacao.",
+        'Aprove o orçamento antes de confirmar a separacao.',
         409,
-      );
+      )
     }
 
-    if (currentOrder.status === "CANCELLED") {
-      throw new AppError("Pedido cancelado nao pode ser separado.", 409);
+    if (currentOrder.status === 'CANCELLED') {
+      throw new AppError('Pedido cancelado nao pode ser separado.', 409)
     }
 
-    if (currentOrder.status === "SEPARATED") {
-      throw new AppError("A separacao deste pedido ja foi confirmada.", 409);
+    if (currentOrder.status === 'SEPARATED') {
+      throw new AppError('A separacao deste pedido ja foi confirmada.', 409)
     }
 
-    if (currentOrder.status === "COMPLETED") {
-      throw new AppError("Este pedido ja foi concluido como venda.", 409);
+    if (currentOrder.status === 'COMPLETED') {
+      throw new AppError('Este pedido ja foi concluido como venda.', 409)
     }
 
-    return separateShippingOrder(transaction, id, separatedByUserId);
-  });
+    return separateShippingOrder(transaction, id, separatedByUserId)
+  })
 
   return {
     code: 200,
-    status: "success",
+    status: 'success',
     data: order,
-  };
+  }
 }
 
 export async function completeSeparatedShippingOrder(
   id: string,
   paymentMethodId: string | null | undefined,
-  payments: SaleInput["payments"] | undefined,
+  payments: SaleInput['payments'] | undefined,
   completedByUserId: string,
   branchId: string,
   allowInsufficientStock = false,
   billingDates: {
-    billingIssueDate?: string | null;
-    billingDueDate?: string | null;
+    billingIssueDate?: string | null
+    billingDueDate?: string | null
   } = {},
 ) {
   const order = await db.transaction(async (transaction) => {
-    const currentOrder = await lockShippingOrder(transaction, id, branchId);
+    const currentOrder = await lockShippingOrder(transaction, id, branchId)
 
     if (!currentOrder) {
-      throw new AppError("Pedido para envio nao encontrado.", 404);
+      throw new AppError('Pedido para envio nao encontrado.', 404)
     }
 
-    if (currentOrder.status === "CANCELLED") {
-      throw new AppError("Pedido cancelado nao pode ser concluido.", 409);
+    if (currentOrder.status === 'CANCELLED') {
+      throw new AppError('Pedido cancelado nao pode ser concluido.', 409)
     }
 
-    if (currentOrder.status === "COMPLETED") {
-      throw new AppError("Este pedido ja foi concluido como venda.", 409);
+    if (currentOrder.status === 'COMPLETED') {
+      throw new AppError('Este pedido ja foi concluido como venda.', 409)
     }
 
-    const cashRegister = await findOpenCashRegister(transaction, branchId);
+    const cashRegister = await findOpenCashRegister(transaction, branchId)
 
     if (!cashRegister) {
       throw new AppError(
-        "Abra o caixa antes de concluir a venda para envio.",
+        'Abra o caixa antes de concluir a venda para envio.',
         422,
-      );
+      )
     }
 
     const resolvedPaymentMethodId =
-      paymentMethodId ?? currentOrder.paymentMethodId;
+      paymentMethodId ?? currentOrder.paymentMethodId
     const resolvedPayments =
       payments ??
       (resolvedPaymentMethodId
@@ -294,34 +294,34 @@ export async function completeSeparatedShippingOrder(
               amount: Number(currentOrder.totalAmount),
             },
           ]
-        : undefined);
+        : undefined)
 
     if (!resolvedPayments) {
-      throw new AppError("Forma de pagamento informada nao disponivel.", 422);
+      throw new AppError('Forma de pagamento informada nao disponivel.', 422)
     }
 
     for (const payment of resolvedPayments) {
       if (
-        !(await activePaymentMethodExists(
-          transaction,
-          payment.paymentMethodId,
-        ))
+        !(await activePaymentMethodExists(transaction, payment.paymentMethodId))
       ) {
-        throw new AppError("Forma de pagamento informada nao disponivel.", 422);
+        throw new AppError('Forma de pagamento informada nao disponivel.', 422)
       }
     }
 
-    validateSalePaymentsTotal(resolvedPayments, Number(currentOrder.totalAmount));
+    validateSalePaymentsTotal(
+      resolvedPayments,
+      Number(currentOrder.totalAmount),
+    )
 
-    const reservedItems = aggregateShippingItems(currentOrder.items);
-    const hasReservation = currentOrder.status !== "QUOTED";
+    const reservedItems = aggregateShippingItems(currentOrder.items)
+    const hasReservation = currentOrder.status !== 'QUOTED'
 
     for (const item of reservedItems) {
       const product = await lockReservableProduct(
         transaction,
         item.productId,
         branchId,
-      );
+      )
 
       if (
         !product ||
@@ -331,10 +331,10 @@ export async function completeSeparatedShippingOrder(
       ) {
         throw new AppError(
           hasReservation
-            ? "Reserva insuficiente para concluir esta venda."
-            : "Estoque insuficiente para concluir esta venda.",
+            ? 'Reserva insuficiente para concluir esta venda.'
+            : 'Estoque insuficiente para concluir esta venda.',
           422,
-        );
+        )
       }
     }
 
@@ -344,7 +344,7 @@ export async function completeSeparatedShippingOrder(
           transaction,
           item.productId,
           item.quantity,
-        );
+        )
       }
     }
 
@@ -354,14 +354,14 @@ export async function completeSeparatedShippingOrder(
       unitPrice: Number(item.unitPrice),
       totalAmount: Number(item.totalAmount),
       position: item.position,
-    }));
+    }))
     const saleSubtotalAmount = Number(
       saleItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
-    );
-    const saleTotalAmount = Number(currentOrder.totalAmount);
+    )
+    const saleTotalAmount = Number(currentOrder.totalAmount)
     const saleDiscountAmount = Number(
       (saleSubtotalAmount - saleTotalAmount).toFixed(2),
-    );
+    )
 
     const sale = await insertSale(
       transaction,
@@ -385,31 +385,31 @@ export async function completeSeparatedShippingOrder(
       saleItems,
       saleSubtotalAmount,
       saleTotalAmount,
-    );
+    )
 
-    return completeShippingOrder(transaction, id, sale.id, completedByUserId);
-  });
+    return completeShippingOrder(transaction, id, sale.id, completedByUserId)
+  })
 
   return {
     code: 200,
-    status: "success",
+    status: 'success',
     data: order,
-  };
+  }
 }
 
 function validateSalePaymentsTotal(
-  payments: NonNullable<SaleInput["payments"]>,
+  payments: NonNullable<SaleInput['payments']>,
   totalAmount: number,
 ) {
   const paymentsAmount = Number(
     payments.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2),
-  );
+  )
 
   if (paymentsAmount !== totalAmount) {
     throw new AppError(
-      "Total dos pagamentos deve ser igual ao total da venda.",
+      'Total dos pagamentos deve ser igual ao total da venda.',
       422,
-    );
+    )
   }
 }
 
@@ -420,20 +420,20 @@ function aggregateShippingItems(
     (aggregatedItems, item) => {
       const existing = aggregatedItems.find(
         (currentItem) => currentItem.productId === item.productId,
-      );
+      )
 
       if (existing) {
-        existing.quantity += Number(item.quantity);
-        return aggregatedItems;
+        existing.quantity += Number(item.quantity)
+        return aggregatedItems
       }
 
       aggregatedItems.push({
         productId: item.productId,
         quantity: Number(item.quantity),
-      });
+      })
 
-      return aggregatedItems;
+      return aggregatedItems
     },
     [],
-  );
+  )
 }

@@ -1,27 +1,27 @@
-import type { Quote, QuoteItem } from "../../../models/quotes/quotes.model.js";
+import type { Quote, QuoteItem } from '../../../models/quotes/quotes.model.js'
 
 export type QuotePdfStore = {
-  name: string;
-  address: string;
-  city: string;
-  document: string;
-  phone: string | null;
-  email: string | null;
-  logoDataUri?: string | null;
-};
+  name: string
+  address: string
+  city: string
+  document: string
+  phone: string | null
+  email: string | null
+  logoDataUri?: string | null
+}
 
 export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
   const rows = quote.items
     .map((item, index) => quoteItemRow(item, index, quote.showBrand))
-    .join("");
-  const storeContact = [store.phone, store.email].filter(Boolean).join(" | ");
+    .join('')
+  const storeContact = [store.phone, store.email].filter(Boolean).join(' | ')
   const quoteLabel = quote.quoteNumber
-    ? `Orcamento no ${quote.quoteNumber}`
-    : `Orcamento ${quote.id}`;
+    ? `Orçamento no ${quote.quoteNumber}`
+    : `Orçamento ${quote.id}`
   const itemDiscountAmount = quote.items.reduce(
     (sum, item) => sum + Number(item.discountAmount),
     0,
-  );
+  )
 
   return `
     <!doctype html>
@@ -41,9 +41,9 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
             </div>
 
             <section class="seller-box">
-              <h1>ORCAMENTO</h1>
+              <h1>ORÇAMENTO</h1>
               <p><strong>Vendedor:</strong> ${escapeHtml(quote.createdByUserName)}</p>
-              <p><strong>Contato:</strong> ${escapeHtml(quote.createdByUserPhone ?? "Nao informado")}</p>
+              <p><strong>Contato:</strong> ${escapeHtml(quote.createdByUserPhone ?? 'Nao informado')}</p>
               <p><strong>Email:</strong> ${escapeHtml(quote.createdByUserEmail)}</p>
             </section>
 
@@ -52,13 +52,13 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
               <span>${escapeHtml(store.address)}</span>
               <span>${escapeHtml(store.city)}</span>
               <span>${escapeHtml(store.document)}</span>
-              ${storeContact ? `<span>${escapeHtml(storeContact)}</span>` : ""}
+              ${storeContact ? `<span>${escapeHtml(storeContact)}</span>` : ''}
             </section>
           </header>
 
           <section class="quote-number">
             <div>
-              <span>Numero do orcamento</span>
+              <span>Numero do orçamento</span>
               <strong>${escapeHtml(quoteLabel)}</strong>
             </div>
             <div>
@@ -67,7 +67,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
             </div>
             <div>
               <span>Filial</span>
-              <strong>${escapeHtml(quote.branchName ?? "Nao informada")}</strong>
+              <strong>${escapeHtml(quote.branchName ?? 'Nao informada')}</strong>
             </div>
           </section>
 
@@ -75,19 +75,19 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
             <h2>Informacoes do comprador</h2>
             <div class="buyer-grid">
               <p><strong>Nome:</strong> ${escapeHtml(quote.clientName)}</p>
-              <p><strong>Documento:</strong> ${escapeHtml(quote.clientDocument ?? "Nao informado")}</p>
-              <p><strong>Telefone:</strong> ${escapeHtml(quote.clientPhone ?? "Nao informado")}</p>
-              <p><strong>Email:</strong> ${escapeHtml(quote.clientEmail ?? "Nao informado")}</p>
+              <p><strong>Documento:</strong> ${escapeHtml(quote.clientDocument ?? 'Nao informado')}</p>
+              <p><strong>Telefone:</strong> ${escapeHtml(quote.clientPhone ?? 'Nao informado')}</p>
+              <p><strong>Email:</strong> ${escapeHtml(quote.clientEmail ?? 'Nao informado')}</p>
               <p><strong>Emissao:</strong> ${formatDate(quote.createdAt)}</p>
               <p><strong>Data de emissão/fatura:</strong> ${formatOptionalDate(quote.billingIssueDate)}</p>
               <p><strong>Vencimento do boleto/fatura:</strong> ${formatOptionalDate(quote.billingDueDate)}</p>
-              <p><strong>Validade do orçamento:</strong> ${quote.validUntil ? formatDate(quote.validUntil) : "Nao informada"}</p>
+              <p><strong>Validade do orçamento:</strong> ${quote.validUntil ? formatDate(quote.validUntil) : 'Nao informada'}</p>
             </div>
             <div class="payment-highlight">
               <span>Forma de pagamento</span>
-              <strong>${escapeHtml(quote.paymentMethodName ?? "Nao informada")}</strong>
+              <strong>${escapeHtml(quote.paymentMethodName ?? 'Nao informada')}</strong>
             </div>
-            ${quote.paymentInstallments.length > 0 ? quoteInstallmentsHtml(quote) : ""}
+            ${quote.paymentInstallments.length > 0 ? quoteInstallmentsHtml(quote) : ''}
           </section>
 
           <table class="items-table">
@@ -97,7 +97,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
                 <th class="text-center">Qtde</th>
                 <th>Produto</th>
                 <th>Descricao</th>
-                ${quote.showBrand ? "<th>Marca</th>" : ""}
+                ${quote.showBrand ? '<th>Marca</th>' : ''}
                 <th class="text-center">NCM</th>
                 <th class="text-right">Preco unit.</th>
                 <th class="text-right">Desc.</th>
@@ -112,7 +112,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
           <section class="summary-row">
             <div class="notes-box">
               <h2>Observacoes</h2>
-              <p>${quote.notes ? escapeHtml(quote.notes) : "Sem observacoes adicionais."}</p>
+              <p>${quote.notes ? escapeHtml(quote.notes) : 'Sem observacoes adicionais.'}</p>
             </div>
 
             <table class="summary-table">
@@ -147,7 +147,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
         </div>
       </body>
     </html>
-  `;
+  `
 }
 
 function quoteInstallmentsHtml(quote: Quote) {
@@ -161,7 +161,7 @@ function quoteInstallmentsHtml(quote: Quote) {
         </tr>
       `,
     )
-    .join("");
+    .join('')
 
   return `
     <div class="installments-box">
@@ -170,25 +170,25 @@ function quoteInstallmentsHtml(quote: Quote) {
         <tbody>${rows}</tbody>
       </table>
     </div>
-  `;
+  `
 }
 
 function quoteItemRow(item: QuoteItem, index: number, showBrand: boolean) {
   return `
     <tr>
-      <td class="text-center">${String(index + 1).padStart(2, "0")}</td>
+      <td class="text-center">${String(index + 1).padStart(2, '0')}</td>
       <td class="text-center">${formatQuantity(item.quantity)}</td>
-      <td>${escapeHtml(item.productInternalCode ?? "-")}</td>
+      <td>${escapeHtml(item.productInternalCode ?? '-')}</td>
       <td>${escapeHtml(item.description)}</td>
-      ${showBrand ? `<td>${escapeHtml(item.productBrandName ?? "-")}</td>` : ""}
-      <td class="text-center">${escapeHtml(item.productNcm ?? "-")}</td>
+      ${showBrand ? `<td>${escapeHtml(item.productBrandName ?? '-')}</td>` : ''}
+      <td class="text-center">${escapeHtml(item.productNcm ?? '-')}</td>
       <td class="text-right">${formatCurrency(item.unitPrice)}</td>
       <td class="text-right">${formatPercentage(item.discountPercentage)} (${formatCurrency(item.discountAmount)})</td>
       <td class="text-right">-</td>
       <td class="text-right">-</td>
       <td class="text-right">${formatCurrency(item.totalAmount)}</td>
     </tr>
-  `;
+  `
 }
 
 function quotePdfCss() {
@@ -440,43 +440,43 @@ function quotePdfCss() {
       right: 8mm;
       text-align: center;
     }
-  `;
+  `
 }
 
 function escapeHtml(value: string) {
   return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
 }
 
 function formatCurrency(value: string | number) {
-  return Number(value).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+  return Number(value).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  })
 }
 
 function formatPercentage(value: string | number) {
-  return `${Number(value).toLocaleString("pt-BR", {
+  return `${Number(value).toLocaleString('pt-BR', {
     maximumFractionDigits: 2,
     minimumFractionDigits: 0,
-  })}%`;
+  })}%`
 }
 
 function formatQuantity(value: string) {
-  return Number(value).toLocaleString("pt-BR", {
+  return Number(value).toLocaleString('pt-BR', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 3,
-  });
+  })
 }
 
 function formatDate(value: Date | string) {
-  return new Date(value).toLocaleDateString("pt-BR");
+  return new Date(value).toLocaleDateString('pt-BR')
 }
 
 function formatOptionalDate(value: Date | string | null) {
-  return value ? formatDate(value) : "Nao informada";
+  return value ? formatDate(value) : 'Nao informada'
 }
