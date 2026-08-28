@@ -377,15 +377,10 @@ export function AppViewRenderer({
         <SalesPage
           cashRegister={cashRegister}
           clients={clients}
-          fiscalDocuments={fiscalDocuments}
           paymentMethods={paymentMethods}
-          pickupReservations={pickupReservations}
           products={products}
           sales={sales}
-          shippingOrders={shippingOrders}
-          onReturnItem={(event, sale) =>
-            void salesActions.returnSaleItem(event, sale)
-          }
+          onOpenSalesHistory={() => onSelectView("sales-history")}
           onSubmit={salesActions.createSale}
         />
       ),

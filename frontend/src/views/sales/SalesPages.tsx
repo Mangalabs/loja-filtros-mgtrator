@@ -6,14 +6,12 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import type {
   CashRegisterSession,
   Client,
-  FiscalDocument,
   PaymentMethod,
   PickupReservation,
   Product,
   Sale,
   ShippingOrder,
 } from '../../api'
-import { apiUrl, downloadApiFile } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
 import {
   ActionGroup,
@@ -88,24 +86,18 @@ export type PickupReservationDraftInput = {
 export function SalesPage({
   cashRegister,
   clients,
-  fiscalDocuments,
   paymentMethods,
-  pickupReservations,
   products,
   sales,
-  shippingOrders,
-  onReturnItem,
+  onOpenSalesHistory,
   onSubmit,
 }: {
   cashRegister: CashRegisterSession | null
   clients: Client[]
-  fiscalDocuments: FiscalDocument[]
   paymentMethods: PaymentMethod[]
-  pickupReservations: PickupReservation[]
   products: Product[]
   sales: Sale[]
-  shippingOrders: ShippingOrder[]
-  onReturnItem: SaleReturnHandler
+  onOpenSalesHistory: () => void
   onSubmit: (input: SaleDraftInput) => Promise<boolean>
 }) {
   const [clientId, setClientId] = useState('')
@@ -116,8 +108,10 @@ export function SalesPage({
     emptySalePayment(),
   ])
   const [items, setItems] = useState<SaleDraftItem[]>([emptySaleItem()])
-  const { pagination, visibleItems } = usePaginatedRows<Sale>(sales)
   const activeProducts = products.filter((product) => product.active)
+  const recentSales = sales
+    .filter((sale) => sale.status === 'COMPLETED')
+    .slice(0, 3)
   const saleSubtotal = items.reduce((sum, item) => {
     const product = activeProducts.find(
       (currentProduct) => currentProduct.id === item.productId,
@@ -319,160 +313,48 @@ export function SalesPage({
         </ActionGroup>
       </FormGrid>
 
-      <PagePanel wide>
+      <PagePanel>
         <PageHeader
-          description={`${sales.length} registros`}
-          title='Vendas registradas'
+          description='As ações completas ficam no histórico geral.'
+          title='Últimas vendas'
         />
-        <ResponsiveTable
-          columns={[
-            {
-              header: 'Data',
-              render: (sale) => formatDateTime(sale.createdAt),
-            },
-            {
-              header: 'Produto',
-              render: (sale) => <SaleItemsSummary sale={sale} />,
-            },
-            {
-              header: 'Qtd.',
-              render: (sale) => formatQuantity(totalSaleQuantity(sale)),
-            },
-            {
-              header: 'Total',
-              render: (sale) => <SaleAmountSummary sale={sale} />,
-            },
-            {
-              header: 'Pagamento',
-              render: (sale) => sale.paymentMethodName,
-            },
-            {
-              header: 'Cliente',
-              render: (sale) => sale.clientName ?? 'Nao identificado',
-            },
-            {
-              header: 'Operador',
-              render: (sale) => sale.createdByUserName,
-            },
-            {
-              header: 'Ações',
-              render: (sale) => (
-                <SaleActions
-                  sale={sale}
-                  fiscalDocumentBlocksReturn={saleReturnBlockedByFiscalDocument(
-                    sale,
-                    fiscalDocuments,
-                    pickupReservations,
-                    shippingOrders,
-                  )}
-                  paymentMethods={paymentMethods}
-                  onReturnItem={onReturnItem}
-                />
-              ),
-            },
-          ]}
-          emptyMessage='Nenhuma venda registrada.'
-          getRowId={(sale) => sale.id}
-          items={visibleItems}
-          pagination={pagination}
-        />
+        <div className='grid gap-3'>
+          {recentSales.length > 0 ? (
+            recentSales.map((sale) => (
+              <div
+                className='rounded-xl border border-[#e4e9e5] bg-white p-3'
+                key={sale.id}>
+                <div className='flex flex-wrap items-start justify-between gap-2'>
+                  <div>
+                    <strong className='text-[#203466]'>
+                      Venda Nº {sale.saleNumber}
+                    </strong>
+                    <InlineNote>{formatDateTime(sale.createdAt)}</InlineNote>
+                  </div>
+                  <strong>{formatCurrency(sale.totalAmount)}</strong>
+                </div>
+                <div className='mt-2 text-sm text-[#2c281e]'>
+                  <SaleItemsSummary sale={sale} />
+                </div>
+                <InlineNote>
+                  {sale.clientName ?? 'Cliente não identificado'} |{' '}
+                  {sale.paymentMethodName}
+                </InlineNote>
+              </div>
+            ))
+          ) : (
+            <InlineNote>Nenhuma venda concluída ainda.</InlineNote>
+          )}
+        </div>
+        <ActionGroup>
+          <SecondaryButton type='button' onClick={onOpenSalesHistory}>
+            Abrir histórico completo
+          </SecondaryButton>
+        </ActionGroup>
       </PagePanel>
     </section>
   )
 }
-
-function downloadSaleReceipt(sale: Sale) {
-  return downloadApiFile(
-    `/sales/${sale.id}/receipt`,
-    `comprovante-${sale.id}.pdf`,
-  )
-}
-
-function SaleActions({
-  sale,
-  fiscalDocumentBlocksReturn,
-  paymentMethods,
-  onReturnItem,
-}: {
-  sale: Sale
-  fiscalDocumentBlocksReturn: boolean
-  paymentMethods: PaymentMethod[]
-  onReturnItem: SaleReturnHandler
-}) {
-  const [showReturnForm, setShowReturnForm] = useState(false)
-  const actions: TableActionsMenuAction[] = [
-    {
-      label: 'Baixar comprovante',
-      onSelect: () => void downloadSaleReceipt(sale),
-    },
-    {
-      disabled: fiscalDocumentBlocksReturn,
-      label: 'Registrar devolucao',
-      onSelect: () => setShowReturnForm(true),
-    },
-  ]
-
-  return sale.status === 'COMPLETED' ? (
-    <ActionStack>
-      <div className='flex justify-end'>
-        <TableActionsMenu actions={actions} />
-      </div>
-      <InlineNote>Comprovante sem valor fiscal</InlineNote>
-      {fiscalDocumentBlocksReturn ? (
-        <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>
-      ) : null}
-      {showReturnForm && !fiscalDocumentBlocksReturn ? (
-        <SaleReturnForm
-          onCancel={() => setShowReturnForm(false)}
-          paymentMethods={paymentMethods}
-          sale={sale}
-          onReturnItem={onReturnItem}
-        />
-      ) : null}
-    </ActionStack>
-  ) : (
-    <InlineNote>Venda cancelada</InlineNote>
-  )
-}
-
-function saleReturnBlockedByFiscalDocument(
-  sale: Sale,
-  fiscalDocuments: FiscalDocument[],
-  pickupReservations: PickupReservation[],
-  shippingOrders: ShippingOrder[],
-) {
-  const sourceRefs = [
-    { sourceType: 'SALE', sourceId: sale.id },
-    ...shippingOrders
-      .filter((order) => order.saleId === sale.id)
-      .map((order) => ({ sourceType: 'SHIPPING_ORDER', sourceId: order.id })),
-    ...pickupReservations
-      .filter((reservation) => reservation.saleId === sale.id)
-      .map((reservation) => ({
-        sourceType: 'PICKUP_RESERVATION',
-        sourceId: reservation.id,
-      })),
-  ]
-
-  return fiscalDocuments.some((fiscalDocument) => {
-    const matchingSource = sourceRefs.some(
-      (sourceRef) =>
-        sourceRef.sourceType === fiscalDocument.sourceType &&
-        sourceRef.sourceId === fiscalDocument.sourceId,
-    )
-
-    return (
-      matchingSource &&
-      returnBlockingFiscalStatuses.includes(fiscalDocument.status)
-    )
-  })
-}
-
-const returnBlockingFiscalStatuses: FiscalDocument['status'][] = [
-  'AUTHORIZED',
-  'PENDING',
-  'PROCESSING',
-]
 
 function emptySaleItem(): SaleDraftItem {
   return {
@@ -1144,22 +1026,6 @@ function SaleItemsSummary({ sale }: { sale: Sale }) {
   )
 }
 
-function SaleAmountSummary({ sale }: { sale: Sale }) {
-  const discountAmount = Number(sale.discountAmount)
-
-  return (
-    <>
-      <strong>{formatCurrency(sale.totalAmount)}</strong>
-      {discountAmount > 0 ? (
-        <InlineNote>
-          Subtotal {formatCurrency(sale.subtotalAmount)} | Desconto{' '}
-          {formatCurrency(sale.discountAmount)}
-        </InlineNote>
-      ) : null}
-    </>
-  )
-}
-
 function ShippingOrderItemsSummary({ order }: { order: ShippingOrder }) {
   return (
     <ActionStack>
@@ -1343,12 +1209,6 @@ function PickupReservationActions({
         </form>
       ) : null}
     </ActionStack>
-  )
-}
-
-function totalSaleQuantity(sale: Sale) {
-  return String(
-    sale.items.reduce((sum, item) => sum + Number(item.quantity), 0),
   )
 }
 
