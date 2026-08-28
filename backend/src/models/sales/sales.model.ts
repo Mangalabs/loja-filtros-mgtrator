@@ -119,6 +119,11 @@ export type SaleReturnRefundInput = {
   refundReference?: string | null;
 };
 
+export type SaleCommercialDetailsInput = {
+  billingIssueDate?: string | null;
+  billingDueDate?: string | null;
+};
+
 export type SaleProduct = {
   id: string;
   name: string;
@@ -503,6 +508,25 @@ export async function returnSaleItem(
 
   if (!sale) {
     throw new Error("Sale was not found after item return");
+  }
+
+  return sale;
+}
+
+export async function updateSaleCommercialDetails(
+  transaction: Knex.Transaction,
+  saleId: string,
+  input: SaleCommercialDetailsInput,
+): Promise<Sale> {
+  await transaction("sales").where("id", saleId).update({
+    billing_issue_date: input.billingIssueDate,
+    billing_due_date: input.billingDueDate,
+  });
+
+  const sale = await getSaleById(saleId, transaction);
+
+  if (!sale) {
+    throw new Error("Sale was not found after commercial details update");
   }
 
   return sale;

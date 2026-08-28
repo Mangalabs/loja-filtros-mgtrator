@@ -1,7 +1,8 @@
 import MenuItem from '@mui/material/MenuItem'
+import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import { FileText, ReceiptText } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import type {
   FiscalDocument,
   PaymentMethod,
@@ -61,12 +62,18 @@ type SalesHistoryRow = {
   fiscalDocument?: FiscalDocument
 }
 
+export type SaleCommercialDetailsHandler = (
+  event: FormEvent<HTMLFormElement>,
+  sale: Sale,
+) => Promise<boolean | void> | boolean | void
+
 export function SalesHistoryPage({
   fiscalDocuments = [],
   paymentMethods = [],
   pickupReservations = [],
   sales = [],
   shippingOrders = [],
+  onUpdateSaleCommercialDetails,
   onReturnItem,
 }: {
   fiscalDocuments: FiscalDocument[]
@@ -74,6 +81,7 @@ export function SalesHistoryPage({
   pickupReservations: PickupReservation[]
   sales: Sale[]
   shippingOrders: ShippingOrder[]
+  onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
   onReturnItem: SaleReturnHandler
 }) {
   const [search, setSearch] = useState('')
@@ -191,6 +199,7 @@ export function SalesHistoryPage({
               <SalesHistoryActions
                 paymentMethods={paymentMethods}
                 row={row}
+                onUpdateSaleCommercialDetails={onUpdateSaleCommercialDetails}
                 onReturnItem={onReturnItem}
               />
             ),
@@ -240,13 +249,17 @@ function SalesHistoryTotal({ row }: { row: SalesHistoryRow }) {
 function SalesHistoryActions({
   paymentMethods,
   row,
+  onUpdateSaleCommercialDetails,
   onReturnItem,
 }: {
   paymentMethods: PaymentMethod[]
   row: SalesHistoryRow
+  onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
   onReturnItem: SaleReturnHandler
 }) {
   const [showReturnForm, setShowReturnForm] = useState(false)
+  const [showCommercialDetailsForm, setShowCommercialDetailsForm] =
+    useState(false)
   const fiscalDocumentBlocksReturn = Boolean(
     row.fiscalDocument &&
       returnBlockingFiscalStatuses.includes(row.fiscalDocument.status),
@@ -280,6 +293,13 @@ function SalesHistoryActions({
   row.sale &&
     actions.push({
       disabled: fiscalDocumentBlocksReturn,
+      label: 'Corrigir dados comerciais',
+      onSelect: () => setShowCommercialDetailsForm(true),
+    })
+
+  row.sale &&
+    actions.push({
+      disabled: fiscalDocumentBlocksReturn,
       label: 'Registrar devolucao',
       onSelect: () => setShowReturnForm(true),
     })
@@ -289,6 +309,15 @@ function SalesHistoryActions({
       <div className='flex justify-end'>
         <TableActionsMenu actions={actions} />
       </div>
+      {showCommercialDetailsForm &&
+      row.sale &&
+      !fiscalDocumentBlocksReturn ? (
+        <SaleCommercialDetailsForm
+          onCancel={() => setShowCommercialDetailsForm(false)}
+          sale={row.sale}
+          onUpdateSaleCommercialDetails={onUpdateSaleCommercialDetails}
+        />
+      ) : null}
       {showReturnForm && row.sale && !fiscalDocumentBlocksReturn ? (
         <SaleReturnForm
           onCancel={() => setShowReturnForm(false)}
@@ -298,13 +327,67 @@ function SalesHistoryActions({
         />
       ) : null}
       {row.sale && fiscalDocumentBlocksReturn ? (
-        <InlineNote>Cancele a NF-e antes de devolver itens.</InlineNote>
+        <InlineNote>
+          Cancele a NF-e antes de editar dados comerciais ou devolver itens.
+        </InlineNote>
       ) : null}
       {!row.saleId && fiscalLinks.length === 0 ? (
         <InlineNote>Sem arquivos</InlineNote>
       ) : null}
       {row.sale ? <SaleReturnSummary sale={row.sale} /> : null}
     </ActionStack>
+  )
+}
+
+function SaleCommercialDetailsForm({
+  sale,
+  onCancel,
+  onUpdateSaleCommercialDetails,
+}: {
+  sale: Sale
+  onCancel: () => void
+  onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
+}) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    const saved = await onUpdateSaleCommercialDetails(event, sale)
+
+    if (saved !== false) {
+      onCancel()
+    }
+  }
+
+  return (
+    <form
+      className='grid gap-3 rounded-xl border border-[#d8b769]/60 bg-white p-3 text-left'
+      onSubmit={(event) => void handleSubmit(event)}>
+      <strong className='text-sm text-[#203466]'>
+        Corrigir dados comerciais
+      </strong>
+      <TextField
+        defaultValue={sale.billingIssueDate?.slice(0, 10) ?? ''}
+        label='Data da fatura'
+        name='saleBillingIssueDate'
+        size='small'
+        slotProps={{ inputLabel: { shrink: true } }}
+        type='date'
+      />
+      <TextField
+        defaultValue={sale.billingDueDate?.slice(0, 10) ?? ''}
+        label='Vencimento do boleto/fatura'
+        name='saleBillingDueDate'
+        size='small'
+        slotProps={{ inputLabel: { shrink: true } }}
+        type='date'
+      />
+      <div className='flex flex-wrap justify-end gap-2'>
+        <Button color='inherit' size='small' type='button' onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button size='small' type='submit' variant='contained'>
+          Salvar
+        </Button>
+      </div>
+    </form>
   )
 }
 

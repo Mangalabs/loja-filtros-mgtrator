@@ -6,6 +6,7 @@ import {
   returnCounterSaleItem,
   showSaleReceiptPdf,
   storeSale,
+  updateCompletedSaleCommercialDetails,
 } from "../../controllers/sales/sales.controller.js";
 import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
@@ -117,6 +118,35 @@ const cancelSaleSchema = z
   })
   .strict();
 
+const updateSaleCommercialDetailsSchema = z
+  .object({
+    billingIssueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    billingDueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const hasValidBillingDates =
+      !value.billingIssueDate ||
+      !value.billingDueDate ||
+      value.billingDueDate >= value.billingIssueDate;
+
+    if (hasValidBillingDates) {
+      return;
+    }
+
+    context.addIssue({
+      code: "custom",
+      message: "Vencimento nao pode ser anterior a data da fatura.",
+      path: ["billingDueDate"],
+    });
+  });
+
 const returnSaleItemSchema = z
   .object({
     saleItemId: z.uuid(),
@@ -176,6 +206,19 @@ salesRoutes.patch("/sales/:id/cancel", async (request, response) => {
       id,
       body.reason,
       userId,
+      requireActiveBranchId(response.locals),
+    ),
+  );
+});
+
+salesRoutes.patch("/sales/:id/commercial-details", async (request, response) => {
+  const { id } = saleParamsSchema.parse(request.params);
+  const body = validateBody(request, updateSaleCommercialDetailsSchema);
+
+  response.status(200).json(
+    await updateCompletedSaleCommercialDetails(
+      id,
+      body,
       requireActiveBranchId(response.locals),
     ),
   );

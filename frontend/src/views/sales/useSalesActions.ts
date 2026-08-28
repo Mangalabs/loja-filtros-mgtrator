@@ -118,6 +118,32 @@ export function useSalesActions({
     });
   }
 
+  async function updateSaleCommercialDetails(
+    event: FormEvent<HTMLFormElement>,
+    sale: Sale,
+  ) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const confirmed = await requestConfirmation(
+      `Atualizar dados comerciais da venda Nº ${sale.saleNumber}?`,
+      "Atualizar venda?",
+      "Atualizar",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiPatch(`/sales/${sale.id}/commercial-details`, {
+        billingIssueDate: formDateValue(form, "saleBillingIssueDate"),
+        billingDueDate: formDateValue(form, "saleBillingDueDate"),
+      });
+      await refreshSalesFlow();
+    });
+  }
+
   async function issueShippingOrderFiscalDocument(order: ShippingOrder) {
     const confirmed = await requestConfirmation(
       `Emitir NF-e para o pedido de envio de ${order.clientName} no valor de ${order.totalAmount}?`,
@@ -387,6 +413,7 @@ export function useSalesActions({
     issueShippingOrderFiscalDocument,
     returnSaleItem,
     separateShippingOrder,
+    updateSaleCommercialDetails,
   };
 
   async function confirmInsufficientStockIfNeeded(

@@ -2029,6 +2029,130 @@ describe("catalog routes", () => {
     );
   });
 
+  it("updates completed sale commercial dates before fiscal issue", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro venda com datas editaveis", salePrice: 120 },
+    });
+    const paymentMethod = await activePaymentMethod();
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo inicial para venda com datas editaveis",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        quantity: 1,
+        billingIssueDate: "2026-08-10",
+        billingDueDate: "2026-08-20",
+      },
+    });
+    const invalidDates = await request(
+      `/sales/${sale.body.data?.id}/commercial-details`,
+      {
+        method: "PATCH",
+        body: {
+          billingIssueDate: "2026-08-20",
+          billingDueDate: "2026-08-10",
+        },
+      },
+    );
+    const updated = await request<Sale>(
+      `/sales/${sale.body.data?.id}/commercial-details`,
+      {
+        method: "PATCH",
+        body: {
+          billingIssueDate: "2026-08-11",
+          billingDueDate: "2026-08-25",
+        },
+      },
+    );
+
+    assert.equal(invalidDates.status, 422);
+    assert.equal(
+      invalidDates.body.errors?.[0]?.message,
+      "Vencimento nao pode ser anterior a data da fatura.",
+    );
+    assert.equal(updated.status, 200);
+    assert.ok(updated.body.data?.billingIssueDate?.startsWith("2026-08-11"));
+    assert.ok(updated.body.data?.billingDueDate?.startsWith("2026-08-25"));
+  });
+
+  it("blocks completed sale commercial date updates when fiscal document is active", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro venda com fiscal ativo", salePrice: 90 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente fiscal bloqueio",
+        document: "12345678901",
+      },
+    });
+    const paymentMethod = await activePaymentMethod();
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo inicial para venda bloqueada por fiscal",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        quantity: 1,
+      },
+    });
+    const issued = await request<FiscalDocument>(
+      `/sales/${sale.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
+    const blocked = await request(
+      `/sales/${sale.body.data?.id}/commercial-details`,
+      {
+        method: "PATCH",
+        body: {
+          billingIssueDate: "2026-08-11",
+          billingDueDate: "2026-08-25",
+        },
+      },
+    );
+
+    assert.equal(issued.status, 201);
+    assert.equal(blocked.status, 409);
+    assert.equal(
+      blocked.body.message,
+      "Cancele a NF-e antes de editar os dados comerciais desta venda.",
+    );
+  });
+
   it("records a one-item counter sale and decreases product stock", async () => {
     const product = await request<Product>("/products", {
       method: "POST",

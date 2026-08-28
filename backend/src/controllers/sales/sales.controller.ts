@@ -17,6 +17,8 @@ import {
   salePaymentMethodId,
   saleHasBlockingFiscalDocument,
   saleHasLinkedOperation,
+  updateSaleCommercialDetails,
+  type SaleCommercialDetailsInput,
   type SaleInput,
 } from "../../models/sales/sales.model.js";
 import { AppError } from "../../shared/errors/app-error.js";
@@ -195,6 +197,43 @@ export async function cancelCounterSale(
     }
 
     return cancelSale(transaction, id, cancelledByUserId, reason);
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: sale,
+  };
+}
+
+export async function updateCompletedSaleCommercialDetails(
+  id: string,
+  input: SaleCommercialDetailsInput,
+  branchId: string,
+) {
+  const sale = await db.transaction(async (transaction) => {
+    const lockedSale = await lockSaleForCancellation(
+      transaction,
+      id,
+      branchId,
+    );
+
+    if (!lockedSale) {
+      throw new AppError("Venda nao encontrada.", 404);
+    }
+
+    if (lockedSale.status === "CANCELLED") {
+      throw new AppError("Venda cancelada nao pode ser editada.", 409);
+    }
+
+    if (await saleHasBlockingFiscalDocument(transaction, id)) {
+      throw new AppError(
+        "Cancele a NF-e antes de editar os dados comerciais desta venda.",
+        409,
+      );
+    }
+
+    return updateSaleCommercialDetails(transaction, id, input);
   });
 
   return {

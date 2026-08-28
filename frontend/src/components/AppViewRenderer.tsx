@@ -396,6 +396,9 @@ export function AppViewRenderer({
           pickupReservations={pickupReservations}
           sales={sales}
           shippingOrders={shippingOrders}
+          onUpdateSaleCommercialDetails={(event, sale) =>
+            void salesActions.updateSaleCommercialDetails(event, sale)
+          }
           onReturnItem={(event, sale) =>
             void salesActions.returnSaleItem(event, sale)
           }
