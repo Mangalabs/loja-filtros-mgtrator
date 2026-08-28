@@ -76,9 +76,9 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
               <p><strong>Documento:</strong> ${escapeHtml(quote.clientDocument ?? 'Nao informado')}</p>
               <p><strong>Telefone:</strong> ${escapeHtml(quote.clientPhone ?? 'Nao informado')}</p>
               <p><strong>Email:</strong> ${escapeHtml(quote.clientEmail ?? 'Nao informado')}</p>
-              <p><strong>Emissao:</strong> ${formatDate(quote.createdAt)}</p>
-              <p><strong>Data de emissão/fatura:</strong> ${formatOptionalDate(quote.billingIssueDate)}</p>
-              <p><strong>Vencimento do boleto/fatura:</strong> ${formatOptionalDate(quote.billingDueDate)}</p>
+              <p><strong>Gerado em:</strong> ${formatDate(quote.createdAt)}</p>
+              <p><strong>Data de emissão do orçamento:</strong> ${formatOptionalDate(quote.billingIssueDate)}</p>
+              <p><strong>Primeiro vencimento do boleto/fatura:</strong> ${formatOptionalDate(quote.billingDueDate)}</p>
               <p><strong>Validade do orçamento:</strong> ${quote.validUntil ? formatDate(quote.validUntil) : 'Nao informada'}</p>
             </div>
             <div class="payment-highlight">

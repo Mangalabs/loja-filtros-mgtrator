@@ -58,7 +58,7 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
             <p><strong>Telefone:</strong> ${escapeHtml(sale.clientPhone ?? "Nao informado")}</p>
             <p><strong>Email:</strong> ${escapeHtml(sale.clientEmail ?? "Nao informado")}</p>
             <p><strong>Pagamento:</strong> ${escapeHtml(sale.paymentMethodName)}</p>
-            <p><strong>Data de emissão/fatura:</strong> ${formatOptionalDate(sale.billingIssueDate)}</p>
+            <p><strong>Data da fatura:</strong> ${formatOptionalDate(sale.billingIssueDate)}</p>
             <p><strong>Vencimento do boleto/fatura:</strong> ${formatOptionalDate(sale.billingDueDate)}</p>
           </section>
 

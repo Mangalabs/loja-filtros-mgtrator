@@ -247,7 +247,7 @@ export function SalesPage({
         <FormRow>
           <TextField
             disabled={!cashRegister}
-            label='Data de emissão/fatura'
+            label='Data da fatura'
             size='medium'
             type='date'
             value={billingIssueDate}
@@ -688,7 +688,7 @@ function ShippingOrderCompleteActions({
             <Alert severity='info' variant='outlined'>
               Pagamento: {order.paymentMethodName ?? 'definido no orçamento'}
               <br />
-              Emissão/fatura:{' '}
+              Data da fatura:{' '}
               {order.billingIssueDate
                 ? formatDate(order.billingIssueDate)
                 : 'sem data'}
@@ -710,7 +710,7 @@ function ShippingOrderCompleteActions({
               />
               <TextField
                 disabled={!cashRegister}
-                label='Data de emissão/fatura'
+                label='Data da fatura'
                 name='shippingBillingIssueDate'
                 size='small'
                 type='date'
@@ -1161,7 +1161,7 @@ function PickupReservationActions({
           />
           <TextField
             disabled={!cashRegister}
-            label='Data de emissão/fatura'
+            label='Data da fatura'
             name='pickupBillingIssueDate'
             size='small'
             type='date'
