@@ -119,11 +119,13 @@ type LockedShippingOrderItem = {
 
 type LockedShippingOrder = {
   id: string;
+  quoteId: string | null;
   clientId: string;
   totalAmount: string;
   paymentMethodId: string | null;
   billingIssueDate: string | null;
   billingDueDate: string | null;
+  paymentInstallments: Quote["paymentInstallments"];
   status: ShippingOrder["status"];
   items: LockedShippingOrderItem[];
 };
@@ -272,6 +274,7 @@ export async function lockShippingOrder(
   const order = await transaction("shipping_orders")
     .select([
       "shipping_orders.id",
+      "shipping_orders.quote_id as quoteId",
       "shipping_orders.client_id as clientId",
       "shipping_orders.total_amount as totalAmount",
       "quotes.payment_method_id as paymentMethodId",
@@ -301,8 +304,20 @@ export async function lockShippingOrder(
     ])
     .where("shipping_order_id", id)
     .orderBy("position", "asc");
+  const paymentInstallments = order.quoteId
+    ? await transaction("quote_payment_installments")
+        .select([
+          "id",
+          "quote_id as quoteId",
+          "position",
+          transaction.raw("due_date::text as ??", ["dueDate"]),
+          "amount",
+        ])
+        .where("quote_id", order.quoteId)
+        .orderBy("position", "asc")
+    : [];
 
-  return { ...order, items };
+  return { ...order, items, paymentInstallments };
 }
 
 export async function approveShippingOrder(

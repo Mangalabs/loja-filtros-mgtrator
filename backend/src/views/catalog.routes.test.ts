@@ -2462,6 +2462,22 @@ describe("catalog routes", () => {
           amount: "40.00",
         },
       ],
+      paymentInstallments: [
+        {
+          id: "sale-installment-1",
+          saleId: "sale-receipt-return",
+          position: 1,
+          dueDate: "2026-07-20",
+          amount: "50.00",
+        },
+        {
+          id: "sale-installment-2",
+          saleId: "sale-receipt-return",
+          position: 2,
+          dueDate: "2026-08-20",
+          amount: "50.00",
+        },
+      ],
       createdByUserName: "Operador teste",
       createdAt: new Date("2026-07-09T12:00:00.000Z"),
       cancelledByUserName: null,
@@ -2518,6 +2534,11 @@ describe("catalog routes", () => {
     assert.match(html, /Devolucoes e estornos/);
     assert.match(html, /Forma de pagamento/);
     assert.match(html, /Cartao de credito/);
+    assert.match(html, /Parcelas \/ vencimentos/);
+    assert.match(html, /001/);
+    assert.match(html, /002/);
+    assert.match(html, /20\/07\/2026/);
+    assert.match(html, /20\/08\/2026/);
     assert.match(html, /Cliente devolveu uma unidade/);
     assert.match(html, /NSU123/);
     assert.match(html, /Estornos/);

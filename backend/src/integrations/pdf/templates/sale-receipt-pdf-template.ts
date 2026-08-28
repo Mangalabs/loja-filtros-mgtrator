@@ -10,6 +10,9 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
   const paymentRows = sale.payments
     .map((payment) => salePaymentRow(payment))
     .join("");
+  const installmentRows = sale.paymentInstallments
+    .map((installment) => salePaymentInstallmentRow(installment))
+    .join("");
   const returnRows = sale.items
     .flatMap((item) =>
       item.returns.map((itemReturn) => saleReturnRow(item, itemReturn)),
@@ -73,6 +76,25 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
                   </thead>
                   <tbody>${paymentRows}</tbody>
                 </table>`
+              : ""
+          }
+
+          ${
+            installmentRows
+              ? `<section class="installments-section">
+                  <h2>Parcelas / vencimentos</h2>
+                  <table class="installments-table">
+                    <thead>
+                      <tr>
+                        <th>Parcela</th>
+                        <th>Vencimento</th>
+                        <th>Forma de pagamento</th>
+                        <th class="text-right">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>${installmentRows}</tbody>
+                  </table>
+                </section>`
               : ""
           }
 
@@ -209,6 +231,19 @@ function salePaymentRow(payment: Sale["payments"][number]) {
   `;
 }
 
+function salePaymentInstallmentRow(
+  installment: Sale["paymentInstallments"][number],
+) {
+  return `
+    <tr>
+      <td>${String(installment.position).padStart(3, "0")}</td>
+      <td>${formatOptionalDate(installment.dueDate)}</td>
+      <td>Fatura / boleto</td>
+      <td class="text-right">${formatCurrency(installment.amount)}</td>
+    </tr>
+  `;
+}
+
 function saleReceiptCss() {
   return `
     * { box-sizing: border-box; }
@@ -293,6 +328,16 @@ function saleReceiptCss() {
     .payments-table {
       margin-bottom: 12px;
     }
+    .installments-section,
+    .returns-section {
+      margin-top: 12px;
+    }
+    h2 {
+      color: #203466;
+      font-size: 10pt;
+      margin: 0 0 6px;
+      text-transform: uppercase;
+    }
     th {
       background: #203466;
       color: #ffffff;
@@ -318,15 +363,6 @@ function saleReceiptCss() {
       margin-left: auto;
       margin-top: 14px;
       width: 260px;
-    }
-    .returns-section {
-      margin-top: 14px;
-    }
-    .returns-section h2 {
-      color: #203466;
-      font-size: 10pt;
-      margin: 0 0 6px;
-      text-transform: uppercase;
     }
     .total-row {
       color: #203466;

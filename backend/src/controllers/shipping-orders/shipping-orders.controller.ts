@@ -374,6 +374,13 @@ export async function completeSeparatedShippingOrder(
         discountAmount: saleDiscountAmount,
         paymentMethodId: resolvedPaymentMethodId ?? undefined,
         payments: resolvedPayments,
+        paymentInstallments: currentOrder.paymentInstallments.map(
+          (installment) => ({
+            amount: Number(installment.amount),
+            dueDate: installment.dueDate,
+            position: installment.position,
+          }),
+        ),
         items: currentOrder.items.map((item) => ({
           productId: item.productId,
           quantity: Number(item.quantity),

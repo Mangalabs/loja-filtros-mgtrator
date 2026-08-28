@@ -4,6 +4,7 @@ import { db } from "../../database/knex.js";
 export type SaleInput = {
   paymentMethodId?: string;
   payments?: SalePaymentInput[];
+  paymentInstallments?: SalePaymentInstallmentInput[];
   clientId?: string | null;
   billingIssueDate?: string | null;
   billingDueDate?: string | null;
@@ -18,6 +19,12 @@ export type SaleInput = {
 export type SalePaymentInput = {
   paymentMethodId: string;
   amount: number;
+};
+
+export type SalePaymentInstallmentInput = {
+  dueDate: string;
+  amount: number;
+  position: number;
 };
 
 export type Sale = {
@@ -53,6 +60,7 @@ export type Sale = {
   paymentMethodCode: string;
   paymentMethodName: string;
   payments: SalePayment[];
+  paymentInstallments: SalePaymentInstallment[];
   createdByUserName: string;
   createdAt: Date;
   cancelledByUserName: string | null;
@@ -66,6 +74,14 @@ export type SalePayment = {
   paymentMethodId: string;
   paymentMethodCode: string;
   paymentMethodName: string;
+  amount: string;
+};
+
+export type SalePaymentInstallment = {
+  id: string;
+  saleId: string;
+  position: number;
+  dueDate: string;
   amount: string;
 };
 
@@ -190,6 +206,7 @@ type SaleRow = Omit<
   Sale,
   | "items"
   | "payments"
+  | "paymentInstallments"
   | "paymentMethodCode"
   | "paymentMethodName"
   | "productId"
@@ -203,6 +220,7 @@ type SaleItemRow = Omit<SaleItem, "returnableQuantity" | "returns"> & {
 type SalePaymentRow = SalePayment & {
   saleId: string;
 };
+type SalePaymentInstallmentRow = SalePaymentInstallment;
 type SaleItemReturnRow = SaleItemReturn & {
   saleItemId: string;
 };
@@ -554,6 +572,7 @@ export async function insertSale(
       amount: totalAmount,
     },
   ];
+  const paymentInstallments = salePaymentInstallments(input, payments);
   const [created] = await transaction("sales")
     .insert({
       sale_number: await nextSaleNumber(transaction, branchId),
@@ -588,6 +607,17 @@ export async function insertSale(
       amount: payment.amount,
     })),
   );
+
+  if (paymentInstallments.length > 0) {
+    await transaction("sale_payment_installments").insert(
+      paymentInstallments.map((installment) => ({
+        sale_id: created.id,
+        position: installment.position,
+        due_date: installment.dueDate,
+        amount: installment.amount,
+      })),
+    );
+  }
 
   await transaction("stock_movements").insert(
     items.map((item) => ({
@@ -674,6 +704,18 @@ async function withSaleItems(
     ])
     .whereIn("sale_payments.sale_id", saleIds)
     .orderBy("payment_methods.name", "asc");
+  const paymentInstallments = await database("sale_payment_installments")
+    .select<SalePaymentInstallmentRow[]>([
+      "sale_payment_installments.id",
+      "sale_payment_installments.sale_id as saleId",
+      "sale_payment_installments.position",
+      database.raw("sale_payment_installments.due_date::text as ??", [
+        "dueDate",
+      ]),
+      "sale_payment_installments.amount",
+    ])
+    .whereIn("sale_payment_installments.sale_id", saleIds)
+    .orderBy("sale_payment_installments.position", "asc");
   const items = await database("sale_items")
     .join("products", "products.id", "sale_items.product_id")
     .select<SaleItemRow[]>([
@@ -728,6 +770,9 @@ async function withSaleItems(
     const salePayments = payments
       .filter((payment) => payment.saleId === sale.id)
       .map(({ saleId: _saleId, ...payment }) => payment);
+    const saleInstallments = paymentInstallments.filter(
+      (installment) => installment.saleId === sale.id,
+    );
     const firstItem = saleItems[0];
     const firstPayment = salePayments[0];
 
@@ -743,9 +788,29 @@ async function withSaleItems(
           : (firstPayment?.paymentMethodCode ?? ""),
       paymentMethodName: salePaymentSummary(salePayments),
       payments: salePayments,
+      paymentInstallments: saleInstallments,
       items: saleItems,
     };
   });
+}
+
+function salePaymentInstallments(
+  input: SaleInput,
+  payments: SalePaymentInput[],
+): SalePaymentInstallmentInput[] {
+  if (input.paymentInstallments?.length) {
+    return input.paymentInstallments;
+  }
+
+  if (!input.billingDueDate) {
+    return [];
+  }
+
+  return payments.map((payment, index) => ({
+    amount: payment.amount,
+    dueDate: input.billingDueDate as string,
+    position: index + 1,
+  }));
 }
 
 function salePaymentSummary(payments: SalePayment[]) {
