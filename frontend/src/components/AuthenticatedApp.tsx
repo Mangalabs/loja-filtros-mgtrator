@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { AuthUser, Client, Product } from "../api";
+import {
+  apiGet,
+  type ApiResult,
+  type AuthUser,
+  type Client,
+  type Product,
+} from "../api";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useConfirmation } from "../hooks/useConfirmation";
 import { useNavigationState } from "../hooks/useNavigationState";
@@ -188,6 +194,16 @@ export function AuthenticatedApp({
         setView("edit-product");
         return;
       }
+
+      void runAction(async () => {
+        const result = await apiGet<ApiResult<Product>>(
+          `/products/${target.productId}`,
+        );
+
+        setSelectedProduct(result.data);
+        setView("edit-product");
+      });
+      return;
     }
 
     setView(target.view === "edit-product" ? "products" : target.view);
