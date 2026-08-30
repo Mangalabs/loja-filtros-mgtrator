@@ -1,7 +1,7 @@
-import Alert from "@mui/material/Alert";
-import Button from "@mui/material/Button";
-import Skeleton from "@mui/material/Skeleton";
-import TextField from "@mui/material/TextField";
+import Alert from '@mui/material/Alert'
+import Button from '@mui/material/Button'
+import Skeleton from '@mui/material/Skeleton'
+import TextField from '@mui/material/TextField'
 import {
   AlertTriangle,
   Banknote,
@@ -12,23 +12,23 @@ import {
   Send,
   ShoppingCart,
   Truck,
-} from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
+} from 'lucide-react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import type {
   CashReport,
   PurchaseReport,
   ReportsOverview,
   SalesReport,
   StockReport,
-} from "../../api";
-import { PageHeader, PagePanel, ResponsiveTable } from "../../components/layout";
-import { StatusChip, type StatusTone } from "../../components/ui";
-import { frontendPalette } from "../../theme";
+} from '../../api'
+import { PageHeader, PagePanel, ResponsiveTable } from '../../components/layout'
+import { StatusChip, type StatusTone } from '../../components/ui'
+import { frontendPalette } from '../../theme'
 import {
   formatCurrency,
   formatDateTime,
   formatQuantity,
-} from "../../utils/format";
+} from '../../utils/format'
 
 export function ReportsPage({
   cashReport,
@@ -41,15 +41,15 @@ export function ReportsPage({
   salesReport,
   stockReport,
 }: {
-  cashReport: CashReport | null;
-  onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>;
-  onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
-  onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>;
-  onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>;
-  overview: ReportsOverview | null;
-  purchaseReport: PurchaseReport | null;
-  salesReport: SalesReport | null;
-  stockReport: StockReport | null;
+  cashReport: CashReport | null
+  onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>
+  onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>
+  onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>
+  onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>
+  overview: ReportsOverview | null
+  purchaseReport: PurchaseReport | null
+  salesReport: SalesReport | null
+  stockReport: StockReport | null
 }) {
   const contentByState = {
     loading: <ReportsLoading />,
@@ -67,29 +67,29 @@ export function ReportsPage({
           stockReport={stockReport}
         />
       ) : null,
-  };
+  }
   const state =
     overview && salesReport && stockReport && purchaseReport && cashReport
-      ? "ready"
-      : "loading";
+      ? 'ready'
+      : 'loading'
 
-  return contentByState[state];
+  return contentByState[state]
 }
 
 function ReportsLoading() {
   return (
     <PagePanel wide>
       <PageHeader
-        description="Carregando indicadores operacionais..."
-        title="Resumo gerencial"
+        description='Carregando indicadores operacionais...'
+        title='Resumo gerencial'
       />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-3'>
         {Array.from({ length: 3 }).map((_, index) => (
-          <Skeleton height={110} key={index} variant="rounded" />
+          <Skeleton height={110} key={index} variant='rounded' />
         ))}
       </div>
     </PagePanel>
-  );
+  )
 }
 
 function ReportsOverviewContent({
@@ -103,39 +103,39 @@ function ReportsOverviewContent({
   salesReport,
   stockReport,
 }: {
-  cashReport: CashReport;
-  onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>;
-  onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>;
-  onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
-  onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>;
-  overview: ReportsOverview;
-  purchaseReport: PurchaseReport;
-  salesReport: SalesReport;
-  stockReport: StockReport;
+  cashReport: CashReport
+  onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>
+  onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>
+  onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>
+  onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>
+  overview: ReportsOverview
+  purchaseReport: PurchaseReport
+  salesReport: SalesReport
+  stockReport: StockReport
 }) {
   return (
-    <section className="grid gap-4">
-      <section className="grid gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.4fr)]">
-        <PagePanel className="content-start">
+    <section className='grid gap-4'>
+      <section className='grid gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.4fr)]'>
+        <PagePanel className='content-start'>
           <PageHeader
-            description="Status operacional do caixa."
+            description='Status operacional do caixa.'
             icon={<Banknote size={18} />}
-            title="Caixa atual"
+            title='Caixa atual'
           />
           {overview.openCashRegister ? (
-            <div className="grid gap-3">
-              <ReportDetail label="Status" value="Aberto" />
+            <div className='grid gap-3'>
+              <ReportDetail label='Status' value='Aberto' />
               <ReportDetail
-                label="Operador"
+                label='Operador'
                 value={overview.openCashRegister.openedByUserName}
               />
               <ReportDetail
-                label="Abertura"
+                label='Abertura'
                 value={formatDateTime(overview.openCashRegister.openedAt)}
               />
             </div>
           ) : (
-            <Alert severity="warning" variant="outlined">
+            <Alert severity='warning' variant='outlined'>
               Nenhum caixa aberto no momento.
             </Alert>
           )}
@@ -143,34 +143,34 @@ function ReportsOverviewContent({
 
         <PagePanel wide>
           <PageHeader
-            actions={<StatusChip label="Atualizado" tone="success" />}
-            description="Primeiros indicadores operacionais da filial."
-            title="Resumo gerencial"
+            actions={<StatusChip label='Atualizado' tone='success' />}
+            description='Primeiros indicadores operacionais da filial.'
+            title='Resumo gerencial'
           />
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-3'>
             <ReportMetric
               icon={<ShoppingCart size={18} />}
-              label="Vendas concluidas"
+              label='Vendas concluidas'
               value={String(overview.salesCount)}
             />
             <ReportMetric
               icon={<Banknote size={18} />}
-              label="Total vendido"
+              label='Total vendido'
               value={formatCurrency(overview.salesTotalAmount)}
             />
             <ReportMetric
               icon={<AlertTriangle size={18} />}
-              label="Produtos em reposicao"
+              label='Produtos em reposicao'
               value={String(overview.lowStockProductsCount)}
             />
             <ReportMetric
               icon={<Send size={18} />}
-              label="Pedidos com envio em aberto"
+              label='Vendas em aberto'
               value={String(overview.openShippingOrdersCount)}
             />
             <ReportMetric
               icon={<PackagePlus size={18} />}
-              label="Reservas para retirada em aberto"
+              label='Reservas para retirada em aberto'
               value={String(overview.openPickupReservationsCount)}
             />
           </div>
@@ -194,35 +194,35 @@ function ReportsOverviewContent({
         onLoadStockReport={onLoadStockReport}
       />
     </section>
-  );
+  )
 }
 
 function SalesReportSection({
   onLoadSalesReport,
   salesReport,
 }: {
-  onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>;
-  salesReport: SalesReport;
+  onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>
+  salesReport: SalesReport
 }) {
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function filterSalesReport(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
+    event.preventDefault()
+    setLoading(true)
 
-    await onLoadSalesReport({ dateFrom, dateTo });
-    setLoading(false);
+    await onLoadSalesReport({ dateFrom, dateTo })
+    setLoading(false)
   }
 
   async function clearSalesReportFilters() {
-    setDateFrom("");
-    setDateTo("");
-    setLoading(true);
+    setDateFrom('')
+    setDateTo('')
+    setLoading(true)
 
-    await onLoadSalesReport();
-    setLoading(false);
+    await onLoadSalesReport()
+    setLoading(false)
   }
 
   return (
@@ -230,112 +230,110 @@ function SalesReportSection({
       <PageHeader
         actions={
           <form
-            className="grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto"
-            onSubmit={filterSalesReport}
-          >
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto'
+            onSubmit={filterSalesReport}>
             <TextField
-              label="De"
-              size="small"
-              type="date"
+              label='De'
+              size='small'
+              type='date'
               value={dateFrom}
               onChange={(event) => setDateFrom(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
             <TextField
-              label="Ate"
-              size="small"
-              type="date"
+              label='Ate'
+              size='small'
+              type='date'
               value={dateTo}
               onChange={(event) => setDateTo(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            <Button disabled={loading} type="submit" variant="contained">
+            <Button disabled={loading} type='submit' variant='contained'>
               Filtrar
             </Button>
             <Button
               disabled={loading || (!dateFrom && !dateTo)}
-              type="button"
-              variant="outlined"
-              onClick={() => void clearSalesReportFilters()}
-            >
+              type='button'
+              variant='outlined'
+              onClick={() => void clearSalesReportFilters()}>
               Limpar
             </Button>
           </form>
         }
-        description="Vendas concluidas agrupadas por produto, cliente e forma de pagamento."
+        description='Vendas concluidas agrupadas por produto, cliente e forma de pagamento.'
         icon={<CircleDollarSign size={18} />}
-        title="Relatorio comercial"
+        title='Relatorio comercial'
       />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>
         <ReportMetric
           icon={<ShoppingCart size={18} />}
-          label="Vendas"
+          label='Vendas'
           value={String(salesReport.summary.salesCount)}
         />
         <ReportMetric
           icon={<PackagePlus size={18} />}
-          label="Itens vendidos"
+          label='Itens vendidos'
           value={formatQuantity(salesReport.summary.itemsQuantity)}
         />
         <ReportMetric
           icon={<Banknote size={18} />}
-          label="Bruto"
+          label='Bruto'
           value={formatCurrency(salesReport.summary.grossAmount)}
         />
         <ReportMetric
           icon={<PackageSearch size={18} />}
-          label="Custo"
+          label='Custo'
           value={formatCurrency(salesReport.summary.costAmount)}
         />
         <ReportMetric
           icon={<CircleDollarSign size={18} />}
-          label="Lucro"
+          label='Lucro'
           value={formatCurrency(salesReport.summary.grossProfitAmount)}
         />
         <ReportMetric
           icon={<CircleDollarSign size={18} />}
-          label="Liquido"
+          label='Liquido'
           value={formatCurrency(salesReport.summary.netAmount)}
         />
       </div>
-      <span className="text-sm text-[#5f665f]">
+      <span className='text-sm text-[#5f665f]'>
         Margem geral: {salesReport.summary.grossMarginPercentage}%
       </span>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+      <div className='mt-5 grid gap-4 xl:grid-cols-3'>
         <ResponsiveTable
           columns={[
             {
-              header: "Produto",
+              header: 'Produto',
               render: (item) => item.productName,
             },
             {
-              align: "right",
-              header: "Qtde",
+              align: 'right',
+              header: 'Qtde',
               render: (item) => formatQuantity(item.quantity),
             },
             {
-              align: "right",
-              header: "Total",
+              align: 'right',
+              header: 'Total',
               render: (item) => formatCurrency(item.totalAmount),
             },
             {
-              align: "right",
-              header: "Custo",
+              align: 'right',
+              header: 'Custo',
               render: (item) => formatCurrency(item.costAmount),
             },
             {
-              align: "right",
-              header: "Lucro",
+              align: 'right',
+              header: 'Lucro',
               render: (item) => formatCurrency(item.grossProfitAmount),
             },
             {
-              align: "right",
-              header: "Margem",
+              align: 'right',
+              header: 'Margem',
               render: (item) => `${item.grossMarginPercentage}%`,
             },
           ]}
-          emptyMessage="Nenhuma venda por produto."
+          emptyMessage='Nenhuma venda por produto.'
           getRowId={(item) => item.productId}
           items={salesReport.byProduct ?? []}
         />
@@ -343,21 +341,21 @@ function SalesReportSection({
         <ResponsiveTable
           columns={[
             {
-              header: "Cliente",
+              header: 'Cliente',
               render: (item) => item.clientName,
             },
             {
-              align: "right",
-              header: "Vendas",
+              align: 'right',
+              header: 'Vendas',
               render: (item) => item.salesCount,
             },
             {
-              align: "right",
-              header: "Total",
+              align: 'right',
+              header: 'Total',
               render: (item) => formatCurrency(item.totalAmount),
             },
           ]}
-          emptyMessage="Nenhuma venda por cliente."
+          emptyMessage='Nenhuma venda por cliente.'
           getRowId={(item) => item.clientId ?? item.clientName}
           items={salesReport.byClient ?? []}
         />
@@ -365,90 +363,93 @@ function SalesReportSection({
         <ResponsiveTable
           columns={[
             {
-              header: "Pagamento",
+              header: 'Pagamento',
               render: (item) => (
-                <span className="inline-flex items-center gap-2">
+                <span className='inline-flex items-center gap-2'>
                   <CreditCard size={15} />
                   {item.paymentMethodName}
                 </span>
               ),
             },
             {
-              align: "right",
-              header: "Total",
+              align: 'right',
+              header: 'Total',
               render: (item) => formatCurrency(item.totalAmount),
             },
           ]}
-          emptyMessage="Nenhuma venda por pagamento."
+          emptyMessage='Nenhuma venda por pagamento.'
           getRowId={(item) => item.paymentMethodId}
           items={salesReport.byPaymentMethod ?? []}
         />
       </div>
 
-      <div className="mt-5">
+      <div className='mt-5'>
         <ResponsiveTable
           columns={[
             {
-              header: "Produto",
+              header: 'Produto',
               render: (item) => item.productName,
             },
             {
-              align: "right",
-              header: "Faturamento",
+              align: 'right',
+              header: 'Faturamento',
               render: (item) => formatCurrency(item.totalAmount),
             },
             {
-              align: "right",
-              header: "Part.",
+              align: 'right',
+              header: 'Part.',
               render: (item) => `${item.revenueSharePercentage}%`,
             },
             {
-              align: "right",
-              header: "Acumulado",
+              align: 'right',
+              header: 'Acumulado',
               render: (item) => `${item.cumulativeRevenuePercentage}%`,
             },
             {
-              header: "Classe",
+              header: 'Classe',
               render: (item) => (
-                <StatusChip label={item.abcClass} tone={abcTone(item.abcClass)} />
+                <StatusChip
+                  label={item.abcClass}
+                  tone={abcTone(item.abcClass)}
+                />
               ),
             },
           ]}
-          emptyMessage="Nenhum produto para curva ABC."
+          emptyMessage='Nenhum produto para curva ABC.'
           getRowId={(item) => item.productId}
           items={salesReport.abcProducts ?? []}
         />
       </div>
     </PagePanel>
-  );
+  )
 }
 
 function PurchaseReportSection({
   onLoadPurchaseReport,
   purchaseReport,
 }: {
-  onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>;
-  purchaseReport: PurchaseReport;
+  onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>
+  purchaseReport: PurchaseReport
 }) {
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function filterPurchaseReport(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
+    event.preventDefault()
+    setLoading(true)
 
-    await onLoadPurchaseReport({ dateFrom, dateTo });
-    setLoading(false);
+    await onLoadPurchaseReport({ dateFrom, dateTo })
+    setLoading(false)
   }
 
   async function clearPurchaseReportFilters() {
-    setDateFrom("");
-    setDateTo("");
-    setLoading(true);
+    setDateFrom('')
+    setDateTo('')
+    setLoading(true)
 
-    await onLoadPurchaseReport();
-    setLoading(false);
+    await onLoadPurchaseReport()
+    setLoading(false)
   }
 
   return (
@@ -456,90 +457,88 @@ function PurchaseReportSection({
       <PageHeader
         actions={
           <form
-            className="grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto"
-            onSubmit={filterPurchaseReport}
-          >
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto'
+            onSubmit={filterPurchaseReport}>
             <TextField
-              label="De"
-              size="small"
-              type="date"
+              label='De'
+              size='small'
+              type='date'
               value={dateFrom}
               onChange={(event) => setDateFrom(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
             <TextField
-              label="Ate"
-              size="small"
-              type="date"
+              label='Ate'
+              size='small'
+              type='date'
               value={dateTo}
               onChange={(event) => setDateTo(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            <Button disabled={loading} type="submit" variant="contained">
+            <Button disabled={loading} type='submit' variant='contained'>
               Filtrar compras
             </Button>
             <Button
               disabled={loading || (!dateFrom && !dateTo)}
-              type="button"
-              variant="outlined"
-              onClick={() => void clearPurchaseReportFilters()}
-            >
+              type='button'
+              variant='outlined'
+              onClick={() => void clearPurchaseReportFilters()}>
               Limpar
             </Button>
           </form>
         }
-        description="Gastos com entradas manuais e compras importadas por XML."
+        description='Gastos com entradas manuais e compras importadas por XML.'
         icon={<Truck size={18} />}
-        title="Gastos com compras"
+        title='Gastos com compras'
       />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
         <ReportMetric
           icon={<Truck size={18} />}
-          label="Entradas"
+          label='Entradas'
           value={String(purchaseReport.summary.entriesCount)}
         />
         <ReportMetric
           icon={<PackagePlus size={18} />}
-          label="Qtde comprada"
+          label='Qtde comprada'
           value={formatQuantity(purchaseReport.summary.totalQuantity)}
         />
         <ReportMetric
           icon={<Banknote size={18} />}
-          label="Total comprado"
+          label='Total comprado'
           value={formatCurrency(purchaseReport.summary.totalAmount)}
         />
         <ReportMetric
           icon={<PackageSearch size={18} />}
-          label="Entrada manual"
+          label='Entrada manual'
           value={formatCurrency(purchaseReport.summary.manualAmount)}
         />
         <ReportMetric
           icon={<CreditCard size={18} />}
-          label="XML NF-e"
+          label='XML NF-e'
           value={formatCurrency(purchaseReport.summary.xmlAmount)}
         />
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+      <div className='mt-5 grid gap-4 xl:grid-cols-3'>
         <ResponsiveTable
           columns={[
             {
-              header: "Origem",
+              header: 'Origem',
               render: (item) =>
-                item.source === "XML" ? "XML de compra" : "Entrada manual",
+                item.source === 'XML' ? 'XML de compra' : 'Entrada manual',
             },
             {
-              align: "right",
-              header: "Entradas",
+              align: 'right',
+              header: 'Entradas',
               render: (item) => item.entriesCount,
             },
             {
-              align: "right",
-              header: "Total",
+              align: 'right',
+              header: 'Total',
               render: (item) => formatCurrency(item.totalAmount),
             },
           ]}
-          emptyMessage="Nenhuma compra por origem."
+          emptyMessage='Nenhuma compra por origem.'
           getRowId={(item) => item.source}
           items={purchaseReport.bySource ?? []}
         />
@@ -547,21 +546,21 @@ function PurchaseReportSection({
         <ResponsiveTable
           columns={[
             {
-              header: "Fornecedor",
+              header: 'Fornecedor',
               render: (item) => item.supplierName,
             },
             {
-              align: "right",
-              header: "Entradas",
+              align: 'right',
+              header: 'Entradas',
               render: (item) => item.entriesCount,
             },
             {
-              align: "right",
-              header: "Total",
+              align: 'right',
+              header: 'Total',
               render: (item) => formatCurrency(item.totalAmount),
             },
           ]}
-          emptyMessage="Nenhuma compra por fornecedor."
+          emptyMessage='Nenhuma compra por fornecedor.'
           getRowId={(item) => item.supplierId}
           items={purchaseReport.bySupplier ?? []}
         />
@@ -569,55 +568,55 @@ function PurchaseReportSection({
         <ResponsiveTable
           columns={[
             {
-              header: "Produto",
+              header: 'Produto',
               render: (item) => item.productName,
             },
             {
-              align: "right",
-              header: "Qtde",
+              align: 'right',
+              header: 'Qtde',
               render: (item) => formatQuantity(item.quantity),
             },
             {
-              align: "right",
-              header: "Total",
+              align: 'right',
+              header: 'Total',
               render: (item) => formatCurrency(item.totalAmount),
             },
           ]}
-          emptyMessage="Nenhuma compra por produto."
+          emptyMessage='Nenhuma compra por produto.'
           getRowId={(item) => item.productId}
           items={purchaseReport.byProduct ?? []}
         />
       </div>
     </PagePanel>
-  );
+  )
 }
 
 function CashReportSection({
   cashReport,
   onLoadCashReport,
 }: {
-  cashReport: CashReport;
-  onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>;
+  cashReport: CashReport
+  onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>
 }) {
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function filterCashReport(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
+    event.preventDefault()
+    setLoading(true)
 
-    await onLoadCashReport({ dateFrom, dateTo });
-    setLoading(false);
+    await onLoadCashReport({ dateFrom, dateTo })
+    setLoading(false)
   }
 
   async function clearCashReportFilters() {
-    setDateFrom("");
-    setDateTo("");
-    setLoading(true);
+    setDateFrom('')
+    setDateTo('')
+    setLoading(true)
 
-    await onLoadCashReport();
-    setLoading(false);
+    await onLoadCashReport()
+    setLoading(false)
   }
 
   return (
@@ -625,99 +624,97 @@ function CashReportSection({
       <PageHeader
         actions={
           <form
-            className="grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto"
-            onSubmit={filterCashReport}
-          >
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto'
+            onSubmit={filterCashReport}>
             <TextField
-              label="De"
-              size="small"
-              type="date"
+              label='De'
+              size='small'
+              type='date'
               value={dateFrom}
               onChange={(event) => setDateFrom(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
             <TextField
-              label="Ate"
-              size="small"
-              type="date"
+              label='Ate'
+              size='small'
+              type='date'
               value={dateTo}
               onChange={(event) => setDateTo(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            <Button disabled={loading} type="submit" variant="contained">
+            <Button disabled={loading} type='submit' variant='contained'>
               Filtrar caixa
             </Button>
             <Button
               disabled={loading || (!dateFrom && !dateTo)}
-              type="button"
-              variant="outlined"
-              onClick={() => void clearCashReportFilters()}
-            >
+              type='button'
+              variant='outlined'
+              onClick={() => void clearCashReportFilters()}>
               Limpar
             </Button>
           </form>
         }
-        description="Conferencia de vendas, entradas, sangrias e fechamento por caixa aberto no periodo."
+        description='Conferencia de vendas, entradas, sangrias e fechamento por caixa aberto no periodo.'
         icon={<Banknote size={18} />}
-        title="Relatorio financeiro de caixa"
+        title='Relatorio financeiro de caixa'
       />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>
         <ReportMetric
           icon={<Banknote size={18} />}
-          label="Caixas"
+          label='Caixas'
           value={String(cashReport.summary.sessionsCount)}
         />
         <ReportMetric
           icon={<ShoppingCart size={18} />}
-          label="Vendas liquidas"
+          label='Vendas liquidas'
           value={formatCurrency(cashReport.summary.netSalesAmount)}
         />
         <ReportMetric
           icon={<CircleDollarSign size={18} />}
-          label="Suprimentos"
+          label='Suprimentos'
           value={formatCurrency(cashReport.summary.supplyAmount)}
         />
         <ReportMetric
           icon={<CreditCard size={18} />}
-          label="Sangrias"
+          label='Sangrias'
           value={formatCurrency(cashReport.summary.withdrawalAmount)}
         />
         <ReportMetric
           icon={<Banknote size={18} />}
-          label="Fechamento esperado"
+          label='Fechamento esperado'
           value={formatCurrency(cashReport.summary.expectedClosingAmount)}
         />
         <ReportMetric
           icon={<AlertTriangle size={18} />}
-          label="Divergencia fechada"
+          label='Divergencia fechada'
           value={formatCurrency(cashReport.summary.closedDifferenceAmount)}
         />
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)]">
+      <div className='mt-5 grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)]'>
         <ResponsiveTable
           columns={[
             {
-              header: "Pagamento",
+              header: 'Pagamento',
               render: (item) => item.paymentMethodName,
             },
             {
-              align: "right",
-              header: "Bruto",
+              align: 'right',
+              header: 'Bruto',
               render: (item) => formatCurrency(item.grossAmount),
             },
             {
-              align: "right",
-              header: "Devol.",
+              align: 'right',
+              header: 'Devol.',
               render: (item) => formatCurrency(item.refundAmount),
             },
             {
-              align: "right",
-              header: "Liquido",
+              align: 'right',
+              header: 'Liquido',
               render: (item) => formatCurrency(item.netAmount),
             },
           ]}
-          emptyMessage="Nenhum pagamento registrado no periodo."
+          emptyMessage='Nenhum pagamento registrado no periodo.'
           getRowId={(item) => item.paymentMethodId}
           items={cashReport.byPaymentMethod ?? []}
         />
@@ -725,77 +722,77 @@ function CashReportSection({
         <ResponsiveTable
           columns={[
             {
-              header: "Caixa",
+              header: 'Caixa',
               render: (item) => (
-                <div className="grid gap-1">
+                <div className='grid gap-1'>
                   <strong>{item.openedByUserName}</strong>
-                  <span className="text-xs text-[#5f665f]">
+                  <span className='text-xs text-[#5f665f]'>
                     {formatDateTime(item.openedAt)}
                   </span>
                 </div>
               ),
             },
             {
-              header: "Status",
+              header: 'Status',
               render: (item) =>
-                item.status === "OPEN" ? (
-                  <StatusChip label="Aberto" tone="warning" />
+                item.status === 'OPEN' ? (
+                  <StatusChip label='Aberto' tone='warning' />
                 ) : (
-                  <StatusChip label="Fechado" tone="success" />
+                  <StatusChip label='Fechado' tone='success' />
                 ),
             },
             {
-              align: "right",
-              header: "Vendas",
+              align: 'right',
+              header: 'Vendas',
               render: (item) => formatCurrency(item.salesAmount),
             },
             {
-              align: "right",
-              header: "Esperado",
+              align: 'right',
+              header: 'Esperado',
               render: (item) => formatCurrency(item.expectedClosingBalance),
             },
             {
-              align: "right",
-              header: "Diverg.",
+              align: 'right',
+              header: 'Diverg.',
               render: (item) =>
-                item.difference ? formatCurrency(item.difference) : "-",
+                item.difference ? formatCurrency(item.difference) : '-',
             },
           ]}
-          emptyMessage="Nenhum caixa no periodo."
+          emptyMessage='Nenhum caixa no periodo.'
           getRowId={(item) => item.id}
           items={cashReport.sessions ?? []}
         />
       </div>
     </PagePanel>
-  );
+  )
 }
 
 function StockReportSection({
   onLoadStockReport,
   stockReport,
 }: {
-  onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>;
-  stockReport: StockReport;
+  onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>
+  stockReport: StockReport
 }) {
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function filterStockReport(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
+    event.preventDefault()
+    setLoading(true)
 
-    await onLoadStockReport({ dateFrom, dateTo });
-    setLoading(false);
+    await onLoadStockReport({ dateFrom, dateTo })
+    setLoading(false)
   }
 
   async function clearStockReportFilters() {
-    setDateFrom("");
-    setDateTo("");
-    setLoading(true);
+    setDateFrom('')
+    setDateTo('')
+    setLoading(true)
 
-    await onLoadStockReport();
-    setLoading(false);
+    await onLoadStockReport()
+    setLoading(false)
   }
 
   return (
@@ -803,84 +800,82 @@ function StockReportSection({
       <PageHeader
         actions={
           <form
-            className="grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto"
-            onSubmit={filterStockReport}
-          >
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto'
+            onSubmit={filterStockReport}>
             <TextField
-              label="De"
-              size="small"
-              type="date"
+              label='De'
+              size='small'
+              type='date'
               value={dateFrom}
               onChange={(event) => setDateFrom(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
             <TextField
-              label="Ate"
-              size="small"
-              type="date"
+              label='Ate'
+              size='small'
+              type='date'
               value={dateTo}
               onChange={(event) => setDateTo(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            <Button disabled={loading} type="submit" variant="contained">
+            <Button disabled={loading} type='submit' variant='contained'>
               Filtrar giro
             </Button>
             <Button
               disabled={loading || (!dateFrom && !dateTo)}
-              type="button"
-              variant="outlined"
-              onClick={() => void clearStockReportFilters()}
-            >
+              type='button'
+              variant='outlined'
+              onClick={() => void clearStockReportFilters()}>
               Limpar
             </Button>
           </form>
         }
-        description="Estoque baixo, produtos sem movimentacao e giro por vendas."
+        description='Estoque baixo, produtos sem movimentacao e giro por vendas.'
         icon={<PackageSearch size={18} />}
-        title="Relatorio de estoque"
+        title='Relatorio de estoque'
       />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
         <ReportMetric
           icon={<PackageSearch size={18} />}
-          label="Produtos ativos"
+          label='Produtos ativos'
           value={String(stockReport.summary.activeProductsCount)}
         />
         <ReportMetric
           icon={<AlertTriangle size={18} />}
-          label="Estoque baixo"
+          label='Estoque baixo'
           value={String(stockReport.summary.lowStockProductsCount)}
         />
         <ReportMetric
           icon={<PackagePlus size={18} />}
-          label="Sem movimentacao"
+          label='Sem movimentacao'
           value={String(stockReport.summary.productsWithoutMovementCount)}
         />
         <ReportMetric
           icon={<ShoppingCart size={18} />}
-          label="Qtde vendida"
+          label='Qtde vendida'
           value={formatQuantity(stockReport.summary.soldQuantity)}
         />
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+      <div className='mt-5 grid gap-4 xl:grid-cols-3'>
         <ResponsiveTable
           columns={[
             {
-              header: "Estoque baixo",
+              header: 'Estoque baixo',
               render: (item) => item.productName,
             },
             {
-              align: "right",
-              header: "Disp.",
+              align: 'right',
+              header: 'Disp.',
               render: (item) => formatQuantity(item.availableStock),
             },
             {
-              align: "right",
-              header: "Min.",
+              align: 'right',
+              header: 'Min.',
               render: (item) => formatQuantity(item.minimumStock),
             },
           ]}
-          emptyMessage="Nenhum produto em estoque baixo."
+          emptyMessage='Nenhum produto em estoque baixo.'
           getRowId={(item) => item.productId}
           items={stockReport.lowStockProducts ?? []}
         />
@@ -888,21 +883,21 @@ function StockReportSection({
         <ResponsiveTable
           columns={[
             {
-              header: "Sem movimentacao",
+              header: 'Sem movimentacao',
               render: (item) => item.productName,
             },
             {
-              align: "right",
-              header: "Estoque",
+              align: 'right',
+              header: 'Estoque',
               render: (item) => formatQuantity(item.currentStock),
             },
             {
-              align: "right",
-              header: "Min.",
+              align: 'right',
+              header: 'Min.',
               render: (item) => formatQuantity(item.minimumStock),
             },
           ]}
-          emptyMessage="Nenhum produto sem movimentacao."
+          emptyMessage='Nenhum produto sem movimentacao.'
           getRowId={(item) => item.productId}
           items={stockReport.productsWithoutMovement ?? []}
         />
@@ -910,53 +905,53 @@ function StockReportSection({
         <ResponsiveTable
           columns={[
             {
-              header: "Giro por venda",
+              header: 'Giro por venda',
               render: (item) => item.productName,
             },
             {
-              align: "right",
-              header: "Qtde",
+              align: 'right',
+              header: 'Qtde',
               render: (item) => formatQuantity(item.soldQuantity),
             },
             {
-              header: "Ultima venda",
+              header: 'Ultima venda',
               render: (item) =>
-                item.lastSaleAt ? formatDateTime(item.lastSaleAt) : "-",
+                item.lastSaleAt ? formatDateTime(item.lastSaleAt) : '-',
             },
           ]}
-          emptyMessage="Nenhum giro de vendas no periodo."
+          emptyMessage='Nenhum giro de vendas no periodo.'
           getRowId={(item) => item.productId}
           items={stockReport.turnoverProducts ?? []}
         />
       </div>
     </PagePanel>
-  );
+  )
 }
 
 type SalesReportFilters = {
-  dateFrom?: string;
-  dateTo?: string;
-};
+  dateFrom?: string
+  dateTo?: string
+}
 
-function abcTone(abcClass: "A" | "B" | "C"): StatusTone {
-  if (abcClass === "A") {
-    return "success";
+function abcTone(abcClass: 'A' | 'B' | 'C'): StatusTone {
+  if (abcClass === 'A') {
+    return 'success'
   }
 
-  if (abcClass === "B") {
-    return "warning";
+  if (abcClass === 'B') {
+    return 'warning'
   }
 
-  return "neutral";
+  return 'neutral'
 }
 
 function ReportDetail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4">
-      <span className="text-sm text-[#5f665f]">{label}</span>
-      <strong className="mt-1 block text-[#2c281e]">{value}</strong>
+    <div className='rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4'>
+      <span className='text-sm text-[#5f665f]'>{label}</span>
+      <strong className='mt-1 block text-[#2c281e]'>{value}</strong>
     </div>
-  );
+  )
 }
 
 function ReportMetric({
@@ -964,23 +959,22 @@ function ReportMetric({
   label,
   value,
 }: {
-  icon: ReactNode;
-  label: string;
-  value: string;
+  icon: ReactNode
+  label: string
+  value: string
 }) {
   return (
-    <div className="grid min-h-28 content-start gap-2 rounded-2xl border border-[#dfe5e1] bg-white p-4 shadow-sm">
+    <div className='grid min-h-28 content-start gap-2 rounded-2xl border border-[#dfe5e1] bg-white p-4 shadow-sm'>
       <span
-        className="flex h-9 w-9 items-center justify-center rounded-full"
+        className='flex h-9 w-9 items-center justify-center rounded-full'
         style={{
-          backgroundColor: "rgba(32, 52, 102, 0.08)",
+          backgroundColor: 'rgba(32, 52, 102, 0.08)',
           color: frontendPalette.primaryNavy,
-        }}
-      >
+        }}>
         {icon}
       </span>
-      <span className="text-sm text-[#5f665f]">{label}</span>
-      <strong className="text-2xl text-[#2c281e]">{value}</strong>
+      <span className='text-sm text-[#5f665f]'>{label}</span>
+      <strong className='text-2xl text-[#2c281e]'>{value}</strong>
     </div>
-  );
+  )
 }

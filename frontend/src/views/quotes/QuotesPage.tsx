@@ -795,7 +795,7 @@ function quoteActions({
         onSelect: onEditQuote,
       },
       {
-        label: 'Criar pedido com envio',
+        label: 'Criar venda',
         onSelect: onCreateShippingOrder,
       },
       {

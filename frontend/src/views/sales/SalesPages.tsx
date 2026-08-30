@@ -399,7 +399,9 @@ function PaymentSplitFields({
   }
 
   function removePayment(index: number) {
-    onChange(payments.filter((_payment, paymentIndex) => paymentIndex !== index))
+    onChange(
+      payments.filter((_payment, paymentIndex) => paymentIndex !== index),
+    )
   }
 
   return (
@@ -538,8 +540,7 @@ export function ShippingOrdersPage({
   onComplete: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
   onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
 }) {
-  const { pagination, visibleItems } =
-    usePaginatedRows<ShippingOrder>(orders)
+  const { pagination, visibleItems } = usePaginatedRows<ShippingOrder>(orders)
 
   return (
     <section className='grid items-start gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]'>
@@ -569,7 +570,7 @@ export function ShippingOrdersPage({
             </span>
           }
           description='Conclua a venda em um passo quando o cliente confirmar o envio.'
-          title='Pedidos com envio'
+          title='Vendas'
         />
         <ResponsiveTable
           columns={[
@@ -759,9 +760,7 @@ function ShippingOrderCancelForm({
   onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
 }) {
   return (
-    <form
-      className='grid gap-2'
-      onSubmit={(event) => onCancel(event, order)}>
+    <form className='grid gap-2' onSubmit={(event) => onCancel(event, order)}>
       <TextField
         label='Motivo do cancelamento'
         name='shippingCancellationReason'
@@ -981,8 +980,7 @@ export function PickupReservationsPage({
             },
             {
               header: 'Total',
-              render: (reservation) =>
-                formatCurrency(reservation.totalAmount),
+              render: (reservation) => formatCurrency(reservation.totalAmount),
             },
             {
               header: 'Operador',
@@ -1021,7 +1019,9 @@ function SaleItemsSummary({ sale }: { sale: Sale }) {
   return (
     <>
       {sale.items.length} item(ns)
-      <InlineNote>{sale.items.map((item) => item.productName).join(', ')}</InlineNote>
+      <InlineNote>
+        {sale.items.map((item) => item.productName).join(', ')}
+      </InlineNote>
     </>
   )
 }
@@ -1226,7 +1226,9 @@ function totalPickupReservationQuantity(reservation: PickupReservation) {
 
 function shippingOrderAuditNotes(order: ShippingOrder) {
   return [
-    order.approvedByUserName ? `Aprovado por ${order.approvedByUserName}` : null,
+    order.approvedByUserName
+      ? `Aprovado por ${order.approvedByUserName}`
+      : null,
     order.separatedByUserName
       ? `Separado por ${order.separatedByUserName}`
       : null,
