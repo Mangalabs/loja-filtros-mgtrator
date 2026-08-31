@@ -430,6 +430,10 @@ export async function issueSaleFiscalDocument(
     throw new AppError("Venda cancelada nao pode emitir NF-e.", 422);
   }
 
+  if (sale.status === "OPEN") {
+    throw new AppError("Conclua a venda antes de emitir NF-e.", 422);
+  }
+
   return issueFiscalDocument({
     branchId,
     sourceType: "SALE",
@@ -438,6 +442,34 @@ export async function issueSaleFiscalDocument(
     issuedByUserId,
     documentType,
     duplicateMessage: "Documento fiscal ja emitido para esta venda.",
+  });
+}
+
+export async function previewSaleFiscalDocument(
+  saleId: string,
+  documentType: FiscalDocumentType,
+  branchId: string,
+) {
+  const sale = await getSaleById(saleId, db, { branchId });
+
+  if (!sale) {
+    throw new AppError("Venda informada nao encontrada.", 404);
+  }
+
+  if (sale.status === "CANCELLED") {
+    throw new AppError("Venda cancelada nao pode gerar previa de NF-e.", 422);
+  }
+
+  if (sale.status === "OPEN") {
+    throw new AppError("Conclua a venda antes de gerar previa de NF-e.", 422);
+  }
+
+  return previewFiscalDocument({
+    branchId,
+    sourceType: "SALE",
+    sourceId: sale.id,
+    saleId: sale.id,
+    documentType,
   });
 }
 
@@ -467,6 +499,32 @@ export async function issueShippingOrderFiscalDocument(
     issuedByUserId,
     documentType,
     duplicateMessage: "Documento fiscal ja emitido para este pedido.",
+  });
+}
+
+export async function previewShippingOrderFiscalDocument(
+  shippingOrderId: string,
+  documentType: FiscalDocumentType,
+  branchId: string,
+) {
+  const shippingOrder = await getShippingOrderById(shippingOrderId, db, {
+    branchId,
+  });
+
+  if (!shippingOrder) {
+    throw new AppError("Pedido para envio nao encontrado.", 404);
+  }
+
+  if (shippingOrder.status !== "COMPLETED" || !shippingOrder.saleId) {
+    throw new AppError("Pedido para envio ainda nao concluido.", 422);
+  }
+
+  return previewFiscalDocument({
+    branchId,
+    sourceType: "SHIPPING_ORDER",
+    sourceId: shippingOrder.id,
+    saleId: shippingOrder.saleId,
+    documentType,
   });
 }
 
@@ -501,6 +559,34 @@ export async function issuePickupReservationFiscalDocument(
   });
 }
 
+export async function previewPickupReservationFiscalDocument(
+  pickupReservationId: string,
+  documentType: FiscalDocumentType,
+  branchId: string,
+) {
+  const pickupReservation = await getPickupReservationById(
+    pickupReservationId,
+    db,
+    { branchId },
+  );
+
+  if (!pickupReservation) {
+    throw new AppError("Reserva para retirada nao encontrada.", 404);
+  }
+
+  if (pickupReservation.status !== "COMPLETED" || !pickupReservation.saleId) {
+    throw new AppError("Reserva para retirada ainda nao concluida.", 422);
+  }
+
+  return previewFiscalDocument({
+    branchId,
+    sourceType: "PICKUP_RESERVATION",
+    sourceId: pickupReservation.id,
+    saleId: pickupReservation.saleId,
+    documentType,
+  });
+}
+
 type IssueFiscalDocumentInput = {
   branchId: string;
   sourceType: FiscalDocumentSourceType;
@@ -511,16 +597,13 @@ type IssueFiscalDocumentInput = {
   duplicateMessage: string;
 };
 
+type FiscalDocumentRequestInput = Omit<
+  IssueFiscalDocumentInput,
+  "duplicateMessage" | "issuedByUserId"
+>;
+
 async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
   const fiscalDocument = await db.transaction(async (transaction) => {
-    const sale = await getSaleById(input.saleId, transaction, {
-      branchId: input.branchId,
-    });
-
-    if (!sale) {
-      throw new AppError("Venda informada nao encontrada.", 404);
-    }
-
     if (
       input.sourceType === "SALE" &&
       (await saleHasLinkedOperation(transaction, input.saleId))
@@ -555,21 +638,13 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       );
     }
 
-    const fiscalSettings = await currentFiscalSettings(input.branchId);
+    const { fiscalSettings, requestPayload } = await fiscalDocumentRequest(
+      input,
+      transaction,
+    );
     ensureFiscalSettingsCanIssue(fiscalSettings);
     const provider = makeFiscalProviderByName(fiscalSettings.provider);
-    const requestPayload = {
-      reference: fiscalReference(input.sourceType, input.sourceId),
-      documentType: input.documentType,
-      environment: fiscalSettings.environment,
-      companyCnpj: fiscalSettings.companyCnpj,
-      defaultNatureOperation: fiscalSettings.defaultNatureOperation,
-      defaultSaleCfop: fiscalSettings.defaultSaleCfop,
-      defaultIcmsCst: fiscalSettings.defaultIcmsCst,
-      defaultPisCst: fiscalSettings.defaultPisCst,
-      defaultCofinsCst: fiscalSettings.defaultCofinsCst,
-      sale,
-    };
+
     ensureFiscalReadiness(requestPayload, fiscalSettings.provider);
     const result = await provider.issue(requestPayload);
 
@@ -608,6 +683,53 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
     code: 201,
     status: "success",
     data: fiscalDocument,
+  };
+}
+
+async function previewFiscalDocument(input: FiscalDocumentRequestInput) {
+  const { fiscalSettings, requestPayload } = await fiscalDocumentRequest(
+    input,
+    db,
+  );
+  const provider = makeFiscalProviderByName(fiscalSettings.provider);
+
+  ensureFiscalReadiness(requestPayload, fiscalSettings.provider);
+
+  return provider.preview(requestPayload);
+}
+
+async function fiscalDocumentRequest(
+  input: FiscalDocumentRequestInput,
+  database: typeof db | Parameters<typeof getSaleById>[1],
+) {
+  const sale = await getSaleById(input.saleId, database, {
+    branchId: input.branchId,
+  });
+
+  if (!sale) {
+    throw new AppError("Venda informada nao encontrada.", 404);
+  }
+
+  if (sale.status !== "COMPLETED") {
+    throw new AppError("Conclua a venda antes de emitir NF-e.", 422);
+  }
+
+  const fiscalSettings = await currentFiscalSettings(input.branchId);
+
+  return {
+    fiscalSettings,
+    requestPayload: {
+      reference: fiscalReference(input.sourceType, input.sourceId),
+      documentType: input.documentType,
+      environment: fiscalSettings.environment,
+      companyCnpj: fiscalSettings.companyCnpj,
+      defaultNatureOperation: fiscalSettings.defaultNatureOperation,
+      defaultSaleCfop: fiscalSettings.defaultSaleCfop,
+      defaultIcmsCst: fiscalSettings.defaultIcmsCst,
+      defaultPisCst: fiscalSettings.defaultPisCst,
+      defaultCofinsCst: fiscalSettings.defaultCofinsCst,
+      sale,
+    },
   };
 }
 
@@ -655,6 +777,7 @@ function fiscalReadinessErrors(request: FiscalIssueRequest): AppErrorDetail[] {
   return [
     ...requiredClientFiscalFields(request.sale),
     ...requiredFiscalSettingsFields(request),
+    ...invalidBillingFields(request.sale),
     ...request.sale.items.flatMap((item, index) =>
       requiredItemFiscalFields(item, index + 1),
     ),
@@ -826,6 +949,72 @@ function invalidClientFiscalFields(
   ];
 
   return invalidFieldDetails(fieldChecks);
+}
+
+function invalidBillingFields(
+  sale: FiscalIssueRequest["sale"],
+): AppErrorDetail[] {
+  const firstBillingDueDate = saleFirstBillingDueDate(sale);
+
+  if (!hasBillingPayment(sale) || !firstBillingDueDate) {
+    return [];
+  }
+
+  if (firstBillingDueDate > fiscalBrazilDate()) {
+    return [];
+  }
+
+  return [
+    {
+      field: "billingDueDate",
+      message:
+        "Vencimento do boleto/fatura deve ser posterior a data de emissao da NF-e.",
+    },
+  ];
+}
+
+function hasBillingPayment(sale: FiscalIssueRequest["sale"]) {
+  const payments = sale.payments.length
+    ? sale.payments
+    : [{ paymentMethodCode: sale.paymentMethodCode }];
+
+  return payments.some(
+    (payment) => paymentFiscalCode(payment.paymentMethodCode) === "15",
+  );
+}
+
+function saleFirstBillingDueDate(sale: FiscalIssueRequest["sale"]) {
+  return (
+    sale.paymentInstallments
+      .map((installment) => fiscalDateOnly(installment.dueDate))
+      .filter((date): date is string => Boolean(date))
+      .sort()[0] ??
+    fiscalDateOnly(sale.billingDueDate) ??
+    fiscalDateOnly(sale.billingIssueDate)
+  );
+}
+
+function paymentFiscalCode(paymentMethodCode: string) {
+  const paymentCodes: Record<string, string> = {
+    BOLETO: "15",
+    CREDIT: "03",
+    DEBIT: "04",
+    PIX: "20",
+  };
+
+  return paymentCodes[paymentMethodCode] ?? "99";
+}
+
+function fiscalDateOnly(value?: string | null) {
+  return value?.slice(0, 10) || null;
+}
+
+function fiscalBrazilDate(date = new Date()) {
+  const brazilOffsetHours = 3;
+
+  return new Date(date.getTime() - brazilOffsetHours * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 }
 
 function requiredItemFiscalFields(

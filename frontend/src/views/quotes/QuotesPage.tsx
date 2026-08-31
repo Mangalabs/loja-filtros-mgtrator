@@ -723,7 +723,7 @@ function QuoteActions({
         <div className='inline-flex justify-end'>
           <TableActionsMenu actions={actions} />
         </div>
-        <InlineNote>Pedido com envio criado</InlineNote>
+        <InlineNote>Pedido criado</InlineNote>
       </ActionStack>
     )
   }
@@ -815,10 +815,10 @@ const quoteShippingStatusLabels: Record<
   NonNullable<Quote['shippingOrderStatus']>,
   string
 > = {
-  APPROVED: 'Pedido com envio aprovado',
-  CANCELLED: 'Pedido com envio cancelado',
+  APPROVED: 'Pedido aprovado',
+  CANCELLED: 'Pedido cancelado',
   COMPLETED: 'Venda concluída',
-  QUOTED: 'Pedido com envio criado',
+  QUOTED: 'Pedido criado',
   SEPARATED: 'Separado para envio',
 }
 

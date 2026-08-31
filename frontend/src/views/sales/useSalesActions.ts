@@ -2,6 +2,7 @@ import type { FormEvent } from "react";
 import {
   apiPatch,
   apiPost,
+  openApiFile,
   type Sale,
   type PickupReservation,
   type Product,
@@ -72,6 +73,12 @@ export function useSalesActions({
     });
   }
 
+  async function previewSaleFiscalDocument(sale: Sale) {
+    await openApiFile(`/sales/${sale.id}/fiscal-documents/preview`, {
+      documentType: "NFE",
+    });
+  }
+
   async function returnSaleItem(
     event: FormEvent<HTMLFormElement>,
     sale: Sale,
@@ -139,7 +146,46 @@ export function useSalesActions({
       await apiPatch(`/sales/${sale.id}/commercial-details`, {
         billingIssueDate: formDateValue(form, "saleBillingIssueDate"),
         billingDueDate: formDateValue(form, "saleBillingDueDate"),
+        payments: formSalePayments(
+          form,
+          "saleCommercial",
+          Number(sale.totalAmount),
+        ),
       });
+      await refreshSalesFlow();
+    });
+  }
+
+  async function reopenSale(sale: Sale) {
+    const confirmed = await requestConfirmation(
+      `Reabrir a venda Nº ${sale.saleNumber} para correcao antes da NF-e?`,
+      "Reabrir venda?",
+      "Reabrir",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiPatch(`/sales/${sale.id}/reopen`, {});
+      await refreshSalesFlow();
+    });
+  }
+
+  async function completeReopenedSale(sale: Sale) {
+    const confirmed = await requestConfirmation(
+      `Concluir novamente a venda Nº ${sale.saleNumber}?`,
+      "Concluir venda?",
+      "Concluir",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiPatch(`/sales/${sale.id}/complete`, {});
       await refreshSalesFlow();
     });
   }
@@ -164,6 +210,12 @@ export function useSalesActions({
     });
   }
 
+  async function previewShippingOrderFiscalDocument(order: ShippingOrder) {
+    await openApiFile(`/shipping-orders/${order.id}/fiscal-documents/preview`, {
+      documentType: "NFE",
+    });
+  }
+
   async function issuePickupReservationFiscalDocument(
     reservation: PickupReservation,
   ) {
@@ -184,6 +236,17 @@ export function useSalesActions({
       showFiscalDocuments();
       await refreshSalesFlow();
     });
+  }
+
+  async function previewPickupReservationFiscalDocument(
+    reservation: PickupReservation,
+  ) {
+    await openApiFile(
+      `/pickup-reservations/${reservation.id}/fiscal-documents/preview`,
+      {
+        documentType: "NFE",
+      },
+    );
   }
 
   async function approveShippingOrder(order: ShippingOrder) {
@@ -404,6 +467,7 @@ export function useSalesActions({
     approveShippingOrder,
     cancelPickupReservation,
     cancelShippingOrder,
+    completeReopenedSale,
     completePickupReservation,
     completeShippingOrder,
     createPickupReservation,
@@ -411,6 +475,10 @@ export function useSalesActions({
     issuePickupReservationFiscalDocument,
     issueSaleFiscalDocument,
     issueShippingOrderFiscalDocument,
+    previewPickupReservationFiscalDocument,
+    previewSaleFiscalDocument,
+    previewShippingOrderFiscalDocument,
+    reopenSale,
     returnSaleItem,
     separateShippingOrder,
     updateSaleCommercialDetails,

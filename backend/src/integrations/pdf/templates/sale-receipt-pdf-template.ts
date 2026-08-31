@@ -423,5 +423,15 @@ function formatDateTime(value: Date | string) {
 }
 
 function formatOptionalDate(value: Date | string | null) {
-  return value ? new Date(value).toLocaleDateString("pt-BR") : "Nao informada";
+  if (!value) {
+    return "Nao informada";
+  }
+
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-");
+
+    return `${day}/${month}/${year}`;
+  }
+
+  return new Date(value).toLocaleDateString("pt-BR");
 }

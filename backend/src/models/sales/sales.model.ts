@@ -66,7 +66,7 @@ export type Sale = {
   cancelledByUserName: string | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
-  status: "COMPLETED" | "CANCELLED";
+  status: "OPEN" | "COMPLETED" | "CANCELLED";
 };
 
 export type SalePayment = {
@@ -138,6 +138,7 @@ export type SaleReturnRefundInput = {
 export type SaleCommercialDetailsInput = {
   billingIssueDate?: string | null;
   billingDueDate?: string | null;
+  payments?: SalePaymentInput[];
 };
 
 export type SaleProduct = {
@@ -270,9 +271,11 @@ export async function lockSaleForCancellation(
   transaction: Knex.Transaction,
   id: string,
   branchId: string,
-): Promise<{ id: string; status: Sale["status"] } | undefined> {
+): Promise<
+  { id: string; status: Sale["status"]; totalAmount: string } | undefined
+> {
   return transaction("sales")
-    .select(["id", "status"])
+    .select(["id", "status", "total_amount as totalAmount"])
     .where({ id, branch_id: branchId })
     .forUpdate()
     .first();
@@ -484,6 +487,24 @@ export async function cancelSale(
   return sale;
 }
 
+export async function updateSaleStatus(
+  transaction: Knex.Transaction,
+  id: string,
+  status: Extract<Sale["status"], "OPEN" | "COMPLETED">,
+): Promise<Sale> {
+  await transaction("sales").where("id", id).update({
+    status,
+  });
+
+  const sale = await getSaleById(id, transaction);
+
+  if (!sale) {
+    throw new Error("Sale was not found after status update");
+  }
+
+  return sale;
+}
+
 export async function returnSaleItem(
   transaction: Knex.Transaction,
   saleId: string,
@@ -540,6 +561,37 @@ export async function updateSaleCommercialDetails(
     billing_issue_date: input.billingIssueDate,
     billing_due_date: input.billingDueDate,
   });
+
+  if (input.payments) {
+    await transaction("sale_payments").where("sale_id", saleId).delete();
+    await transaction("sale_payments").insert(
+      input.payments.map((payment) => ({
+        sale_id: saleId,
+        payment_method_id: payment.paymentMethodId,
+        amount: payment.amount,
+      })),
+    );
+  }
+
+  await transaction("sale_payment_installments")
+    .where("sale_id", saleId)
+    .delete();
+
+  if (input.billingDueDate) {
+    const payments = await transaction("sale_payments")
+      .select("payment_method_id as paymentMethodId", "amount")
+      .where("sale_id", saleId)
+      .orderBy("id", "asc");
+
+    await transaction("sale_payment_installments").insert(
+      payments.map((payment, index) => ({
+        sale_id: saleId,
+        position: index + 1,
+        due_date: input.billingDueDate,
+        amount: payment.amount,
+      })),
+    );
+  }
 
   const sale = await getSaleById(saleId, transaction);
 

@@ -74,4 +74,45 @@ export class MockFiscalProvider implements FiscalProvider {
       },
     };
   }
+
+  async preview(request: FiscalIssueRequest) {
+    return {
+      content: Buffer.from(
+        `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 86 >>
+stream
+BT
+/Helvetica 14 Tf
+72 760 Td
+(Previa DANFE mock - ${request.reference}) Tj
+ET
+endstream
+endobj
+xref
+0 5
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000204 00000 n 
+trailer
+<< /Root 1 0 R /Size 5 >>
+startxref
+340
+%%EOF`,
+      ),
+      contentType: "application/pdf",
+      fileName: `previa-${request.reference}.pdf`,
+    };
+  }
 }

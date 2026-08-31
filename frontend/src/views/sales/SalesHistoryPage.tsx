@@ -71,12 +71,18 @@ export type SaleCommercialDetailsHandler = (
   sale: Sale,
 ) => Promise<boolean | void> | boolean | void
 
+export type SaleStatusActionHandler = (
+  sale: Sale,
+) => Promise<boolean | void> | boolean | void
+
 export function SalesHistoryPage({
   fiscalDocuments = [],
   paymentMethods = [],
   pickupReservations = [],
   sales = [],
   shippingOrders = [],
+  onCompleteReopenedSale,
+  onReopenSale,
   onUpdateSaleCommercialDetails,
   onReturnItem,
 }: {
@@ -85,6 +91,8 @@ export function SalesHistoryPage({
   pickupReservations: PickupReservation[]
   sales: Sale[]
   shippingOrders: ShippingOrder[]
+  onCompleteReopenedSale: SaleStatusActionHandler
+  onReopenSale: SaleStatusActionHandler
   onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
   onReturnItem: SaleReturnHandler
 }) {
@@ -208,6 +216,8 @@ export function SalesHistoryPage({
             header: 'Ações',
             render: (row) => (
               <SalesHistoryActions
+                onCompleteReopenedSale={onCompleteReopenedSale}
+                onReopenSale={onReopenSale}
                 paymentMethods={paymentMethods}
                 row={row}
                 onUpdateSaleCommercialDetails={onUpdateSaleCommercialDetails}
@@ -226,6 +236,15 @@ export function SalesHistoryPage({
 }
 
 function SalesHistoryFiscalStatus({ row }: { row: SalesHistoryRow }) {
+  if (row.sale?.status === 'OPEN') {
+    return (
+      <>
+        <StatusChip label='Aberta para correção' tone='warning' />
+        <InlineNote>Conclua a venda para emitir NF-e.</InlineNote>
+      </>
+    )
+  }
+
   return row.fiscalDocument ? (
     <>
       <StatusChip
@@ -258,11 +277,15 @@ function SalesHistoryTotal({ row }: { row: SalesHistoryRow }) {
 }
 
 function SalesHistoryActions({
+  onCompleteReopenedSale,
+  onReopenSale,
   paymentMethods,
   row,
   onUpdateSaleCommercialDetails,
   onReturnItem,
 }: {
+  onCompleteReopenedSale: SaleStatusActionHandler
+  onReopenSale: SaleStatusActionHandler
   paymentMethods: PaymentMethod[]
   row: SalesHistoryRow
   onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
@@ -299,6 +322,7 @@ function SalesHistoryActions({
   ]
 
   row.saleId &&
+    row.sale?.status === 'COMPLETED' &&
     actions.unshift({
       icon: <ReceiptText size={14} />,
       label: 'Baixar comprovante',
@@ -309,14 +333,27 @@ function SalesHistoryActions({
         ),
     })
 
-  row.sale &&
+  row.sale?.status === 'COMPLETED' &&
     actions.push({
       disabled: fiscalDocumentBlocksReturn,
-      label: 'Corrigir dados comerciais',
-      onSelect: () => setShowCommercialDetailsForm(true),
+      label: 'Reabrir venda',
+      onSelect: () => void onReopenSale(row.sale as Sale),
+    })
+
+  row.sale?.status === 'OPEN' &&
+    actions.push({
+      label: 'Concluir venda',
+      onSelect: () => void onCompleteReopenedSale(row.sale as Sale),
     })
 
   row.sale &&
+    actions.push({
+      disabled: fiscalDocumentBlocksReturn,
+      label: 'Corrigir pagamento e fatura',
+      onSelect: () => setShowCommercialDetailsForm(true),
+    })
+
+  row.sale?.status === 'COMPLETED' &&
     actions.push({
       disabled: fiscalDocumentBlocksReturn,
       label: 'Registrar devolucao',
@@ -331,6 +368,7 @@ function SalesHistoryActions({
       {showCommercialDetailsForm && row.sale && !fiscalDocumentBlocksReturn ? (
         <SaleCommercialDetailsForm
           onCancel={() => setShowCommercialDetailsForm(false)}
+          paymentMethods={paymentMethods}
           sale={row.sale}
           onUpdateSaleCommercialDetails={onUpdateSaleCommercialDetails}
         />
@@ -348,23 +386,42 @@ function SalesHistoryActions({
           Cancele a NF-e antes de editar dados comerciais ou devolver itens.
         </InlineNote>
       ) : null}
+      {row.sale?.status === 'OPEN' ? (
+        <InlineNote>
+          Venda aberta para correção. Conclua novamente antes de emitir NF-e.
+        </InlineNote>
+      ) : null}
       {!row.saleId && fiscalLinks.length === 0 ? (
         <InlineNote>Sem arquivos</InlineNote>
       ) : null}
-      {row.sale ? <SaleReturnSummary sale={row.sale} /> : null}
+      {row.sale?.status === 'COMPLETED' ? (
+        <SaleReturnSummary sale={row.sale} />
+      ) : null}
     </ActionStack>
   )
 }
 
 function SaleCommercialDetailsForm({
+  paymentMethods,
   sale,
   onCancel,
   onUpdateSaleCommercialDetails,
 }: {
+  paymentMethods: PaymentMethod[]
   sale: Sale
   onCancel: () => void
   onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
 }) {
+  const [payments, setPayments] = useState(() => saleCommercialPaymentDrafts(sale))
+  const availablePaymentMethods = paymentMethods.filter(
+    (method) =>
+      method.active ||
+      payments.some((payment) => payment.paymentMethodId === method.id),
+  )
+  const paymentTotal = saleCommercialPaymentTotal(payments)
+  const difference = Number((Number(sale.totalAmount) - paymentTotal).toFixed(2))
+  const hasPaymentDifference = Math.abs(difference) >= 0.01
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const saved = await onUpdateSaleCommercialDetails(event, sale)
 
@@ -378,8 +435,86 @@ function SaleCommercialDetailsForm({
       className='grid gap-3 rounded-xl border border-[#d8b769]/60 bg-white p-3 text-left'
       onSubmit={(event) => void handleSubmit(event)}>
       <strong className='text-sm text-[#203466]'>
-        Corrigir dados comerciais
+        Corrigir pagamento e fatura
       </strong>
+      <div className='grid gap-2'>
+        {payments.map((payment, index) => (
+          <div className='grid gap-2 sm:grid-cols-[1fr_120px_auto]' key={index}>
+            <TextField
+              label={`Pagamento ${index + 1}`}
+              name='saleCommercialPaymentMethodId'
+              onChange={(event) =>
+                setPayments((currentPayments) =>
+                  updateSaleCommercialPayment(currentPayments, index, {
+                    paymentMethodId: event.target.value,
+                  }),
+                )
+              }
+              required
+              select
+              size='small'
+              value={payment.paymentMethodId}>
+              <MenuItem value='' disabled>
+                Pagamento
+              </MenuItem>
+              {availablePaymentMethods.map((method) => (
+                <MenuItem key={method.id} value={method.id}>
+                  {method.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label='Valor'
+              name='saleCommercialPaymentAmount'
+              onChange={(event) =>
+                setPayments((currentPayments) =>
+                  updateSaleCommercialPayment(currentPayments, index, {
+                    amount: event.target.value,
+                  }),
+                )
+              }
+              required
+              size='small'
+              slotProps={{ htmlInput: { min: '0.01', step: '0.01' } }}
+              type='number'
+              value={payment.amount}
+            />
+            {payments.length > 1 ? (
+              <Button
+                color='inherit'
+                size='small'
+                type='button'
+                onClick={() =>
+                  setPayments((currentPayments) =>
+                    currentPayments.filter(
+                      (_payment, paymentIndex) => paymentIndex !== index,
+                    ),
+                  )
+                }>
+                Remover
+              </Button>
+            ) : null}
+          </div>
+        ))}
+        <div className='flex flex-wrap items-center justify-between gap-2'>
+          <Button
+            color='inherit'
+            size='small'
+            type='button'
+            onClick={() =>
+              setPayments((currentPayments) => [
+                ...currentPayments,
+                { amount: '', paymentMethodId: '' },
+              ])
+            }>
+            Adicionar forma
+          </Button>
+          <InlineNote>
+            Pagamentos {formatCurrency(paymentTotal)} | Diferença{' '}
+            {formatCurrency(Math.abs(difference))}
+          </InlineNote>
+        </div>
+      </div>
       <TextField
         defaultValue={sale.billingIssueDate?.slice(0, 10) ?? ''}
         label='Data da fatura'
@@ -400,11 +535,49 @@ function SaleCommercialDetailsForm({
         <Button color='inherit' size='small' type='button' onClick={onCancel}>
           Cancelar
         </Button>
-        <Button size='small' type='submit' variant='contained'>
+        <Button
+          disabled={hasPaymentDifference}
+          size='small'
+          type='submit'
+          variant='contained'>
           Salvar
         </Button>
       </div>
     </form>
+  )
+}
+
+type SaleCommercialPaymentDraft = {
+  amount: string
+  paymentMethodId: string
+}
+
+function saleCommercialPaymentDrafts(sale: Sale): SaleCommercialPaymentDraft[] {
+  const payments = Array.isArray(sale.payments) ? sale.payments : []
+
+  return payments.length
+    ? payments.map((payment) => ({
+        amount: String(payment.amount),
+        paymentMethodId: payment.paymentMethodId,
+      }))
+    : [{ amount: String(sale.totalAmount), paymentMethodId: '' }]
+}
+
+function updateSaleCommercialPayment(
+  payments: SaleCommercialPaymentDraft[],
+  index: number,
+  changes: Partial<SaleCommercialPaymentDraft>,
+) {
+  return payments.map((payment, paymentIndex) =>
+    paymentIndex === index ? { ...payment, ...changes } : payment,
+  )
+}
+
+function saleCommercialPaymentTotal(payments: SaleCommercialPaymentDraft[]) {
+  return Number(
+    payments
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+      .toFixed(2),
   )
 }
 
@@ -464,7 +637,7 @@ function buildSalesHistoryRows({
   ])
   const directSaleRows = sales
     .filter(
-      (sale) => sale.status === 'COMPLETED' && !linkedSaleIds.has(sale.id),
+      (sale) => sale.status !== 'CANCELLED' && !linkedSaleIds.has(sale.id),
     )
     .map(
       (sale): SalesHistoryRow => ({

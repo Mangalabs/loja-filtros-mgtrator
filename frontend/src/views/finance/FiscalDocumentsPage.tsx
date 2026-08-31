@@ -36,7 +36,6 @@ import { formatCurrency, formatDateTime } from '../../utils/format'
 import {
   fiscalDocumentAuditDetail,
   fiscalDocumentEnvironmentLabel,
-  fiscalDocumentSourceLabel,
   fiscalDocumentStatusDetail,
   fiscalDocumentStatusLabel,
   fiscalDocumentStatusTone,
@@ -62,6 +61,9 @@ export function FiscalDocumentsPage({
   onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
   onIssueShippingOrderFiscalDocument,
+  onPreviewPickupReservationFiscalDocument,
+  onPreviewSaleFiscalDocument,
+  onPreviewShippingOrderFiscalDocument,
   onResolveFiscalPendency,
   onCancelFiscalDocument,
   onSyncFiscalDocument,
@@ -78,6 +80,11 @@ export function FiscalDocumentsPage({
   ) => void
   onIssueSaleFiscalDocument: (sale: Sale) => void
   onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
+  onPreviewPickupReservationFiscalDocument: (
+    reservation: PickupReservation,
+  ) => void
+  onPreviewSaleFiscalDocument: (sale: Sale) => void
+  onPreviewShippingOrderFiscalDocument: (order: ShippingOrder) => void
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
   onCancelFiscalDocument: (
     event: FormEvent<HTMLFormElement>,
@@ -95,10 +102,13 @@ export function FiscalDocumentsPage({
     shippingOrders,
   })
   const fiscalSummary = fiscalDocumentSummary(fiscalRequests, fiscalDocuments)
-  const {
-    pagination: requestPagination,
-    visibleItems: visibleFiscalRequests,
-  } = usePaginatedRows<FiscalRequest>(fiscalRequests)
+  const fiscalDocumentSourceNumbers = buildFiscalDocumentSourceNumbers({
+    pickupReservations,
+    sales,
+    shippingOrders,
+  })
+  const { pagination: requestPagination, visibleItems: visibleFiscalRequests } =
+    usePaginatedRows<FiscalRequest>(fiscalRequests)
   const {
     pagination: documentPagination,
     visibleItems: visibleFiscalDocuments,
@@ -120,11 +130,15 @@ export function FiscalDocumentsPage({
         <ResponsiveTable
           columns={[
             {
-              header: 'Origem',
+              header: 'Nº',
               render: (request) => (
                 <>
-                  <strong>{request.sourceLabel}</strong>
-                  <InlineNote>{request.sourceId}</InlineNote>
+                  <strong>
+                    {request.sourceNumber
+                      ? String(request.sourceNumber)
+                      : shortFiscalSourceId(request.sourceId)}
+                  </strong>
+                  <InlineNote>{request.sourceLabel}</InlineNote>
                 </>
               ),
             },
@@ -173,6 +187,13 @@ export function FiscalDocumentsPage({
                     onIssueShippingOrderFiscalDocument={
                       onIssueShippingOrderFiscalDocument
                     }
+                    onPreviewPickupReservationFiscalDocument={
+                      onPreviewPickupReservationFiscalDocument
+                    }
+                    onPreviewSaleFiscalDocument={onPreviewSaleFiscalDocument}
+                    onPreviewShippingOrderFiscalDocument={
+                      onPreviewShippingOrderFiscalDocument
+                    }
                     onResolveFiscalPendency={onResolveFiscalPendency}
                   />
                 </div>
@@ -207,13 +228,17 @@ export function FiscalDocumentsPage({
               ),
             },
             {
-              header: 'Origem',
+              header: 'Nº',
               render: (document) => (
                 <>
                   <strong>
-                    {fiscalDocumentSourceLabel(document.sourceType)}
+                    {fiscalDocumentSourceNumbers.get(
+                      `${document.sourceType}-${document.sourceId}`,
+                    ) ?? shortFiscalSourceId(document.sourceId)}
                   </strong>
-                  <InlineNote>{document.sourceId}</InlineNote>
+                  <InlineNote>
+                    {fiscalSourceTypeLabel(document.sourceType)}
+                  </InlineNote>
                 </>
               ),
             },
@@ -247,9 +272,7 @@ export function FiscalDocumentsPage({
                   <strong>
                     {formatDateTime(document.issuedAt ?? document.createdAt)}
                   </strong>
-                  <InlineNote>
-                    {document.issuedByUserName}
-                  </InlineNote>
+                  <InlineNote>{document.issuedByUserName}</InlineNote>
                   {fiscalDocumentAuditDetail(document) ? (
                     <InlineNote>
                       {fiscalDocumentAuditDetail(document)}
@@ -298,11 +321,66 @@ export function FiscalDocumentsPage({
   )
 }
 
+function buildFiscalDocumentSourceNumbers({
+  pickupReservations,
+  sales,
+  shippingOrders,
+}: {
+  pickupReservations: PickupReservation[]
+  sales: Sale[]
+  shippingOrders: ShippingOrder[]
+}) {
+  const saleNumbersById = new Map(
+    sales.map((sale) => [sale.id, sale.saleNumber]),
+  )
+  const sourceNumbers = new Map<string, string>()
+
+  sales.forEach((sale) => {
+    sourceNumbers.set(`SALE-${sale.id}`, String(sale.saleNumber))
+  })
+  shippingOrders.forEach((order) => {
+    const saleNumber = saleNumbersById.get(order.saleId ?? '')
+
+    if (saleNumber) {
+      sourceNumbers.set(`SHIPPING_ORDER-${order.id}`, String(saleNumber))
+    }
+  })
+  pickupReservations.forEach((reservation) => {
+    const saleNumber = saleNumbersById.get(reservation.saleId ?? '')
+
+    if (saleNumber) {
+      sourceNumbers.set(
+        `PICKUP_RESERVATION-${reservation.id}`,
+        String(saleNumber),
+      )
+    }
+  })
+
+  return sourceNumbers
+}
+
+function shortFiscalSourceId(sourceId: string) {
+  return sourceId.slice(0, 8)
+}
+
+function fiscalSourceTypeLabel(sourceType: FiscalDocument['sourceType']) {
+  const labels: Record<FiscalDocument['sourceType'], string> = {
+    PICKUP_RESERVATION: 'Retirada',
+    SALE: 'Venda direta',
+    SHIPPING_ORDER: 'Envio',
+  }
+
+  return labels[sourceType]
+}
+
 function FiscalRequestAction({
   request,
   onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
   onIssueShippingOrderFiscalDocument,
+  onPreviewPickupReservationFiscalDocument,
+  onPreviewSaleFiscalDocument,
+  onPreviewShippingOrderFiscalDocument,
   onResolveFiscalPendency,
 }: {
   request: FiscalRequest
@@ -311,6 +389,11 @@ function FiscalRequestAction({
   ) => void
   onIssueSaleFiscalDocument: (sale: Sale) => void
   onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
+  onPreviewPickupReservationFiscalDocument: (
+    reservation: PickupReservation,
+  ) => void
+  onPreviewSaleFiscalDocument: (sale: Sale) => void
+  onPreviewShippingOrderFiscalDocument: (order: ShippingOrder) => void
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
 }) {
   const action = fiscalRequestAction(request, {
@@ -318,12 +401,25 @@ function FiscalRequestAction({
     onIssueSaleFiscalDocument,
     onIssueShippingOrderFiscalDocument,
   })
+  const previewAction = fiscalRequestAction(request, {
+    onIssuePickupReservationFiscalDocument:
+      onPreviewPickupReservationFiscalDocument,
+    onIssueSaleFiscalDocument: onPreviewSaleFiscalDocument,
+    onIssueShippingOrderFiscalDocument: onPreviewShippingOrderFiscalDocument,
+  })
 
   if (action && request.readinessIssues.length === 0) {
     return (
-      <TableActionButton type='button' onClick={action}>
-        {fiscalRequestActionText(request)}
-      </TableActionButton>
+      <div className='flex flex-wrap justify-end gap-2'>
+        {previewAction ? (
+          <TableActionButton type='button' onClick={previewAction}>
+            Pré-visualizar
+          </TableActionButton>
+        ) : null}
+        <TableActionButton type='button' onClick={action}>
+          {fiscalRequestActionText(request)}
+        </TableActionButton>
+      </div>
     )
   }
 
@@ -331,9 +427,7 @@ function FiscalRequestAction({
     return (
       <TableActionButton
         type='button'
-        onClick={() =>
-          onResolveFiscalPendency(fiscalPendencyTarget(request))
-        }>
+        onClick={() => onResolveFiscalPendency(fiscalPendencyTarget(request))}>
         {fiscalRequestActionLabel(request, Boolean(action))}
       </TableActionButton>
     )
@@ -349,9 +443,14 @@ function FiscalRequestAction({
 export type FiscalPendencyTarget = {
   clientId?: string | null
   productId?: string
-  view: 'clients' | 'edit-product' | 'fiscal-settings' | 'products'
+  view:
+    | 'clients'
+    | 'edit-product'
+    | 'fiscal-settings'
+    | 'products'
+    | 'sales-history'
 }
-type FiscalPendencyCategory = 'client' | 'configuration' | 'product'
+type FiscalPendencyCategory = 'client' | 'configuration' | 'product' | 'sale'
 type FiscalPendencyItem = {
   productId: string
   productName: string
@@ -389,6 +488,7 @@ function fiscalPendencyTargetForIssue(
       productId: fiscalIssueProductId(request, issue),
       view: fiscalIssueProductId(request, issue) ? 'edit-product' : 'products',
     }),
+    sale: () => ({ view: 'sales-history' }),
   }
   const category = fiscalReadinessIssueCategory(issue)
 
@@ -468,6 +568,7 @@ function fiscalPendencyActionLabel(category: FiscalPendencyCategory) {
     client: 'Corrigir cliente',
     configuration: 'Corrigir configuração',
     product: 'Corrigir produto',
+    sale: 'Corrigir venda',
   }
 
   return labels[category]
@@ -479,7 +580,7 @@ function fiscalReadinessIssueSummary(issues: string[]) {
       const category = fiscalReadinessIssueCategory(issue)
       return { ...counts, [category]: counts[category] + 1 }
     },
-    { client: 0, configuration: 0, product: 0 },
+    { client: 0, configuration: 0, product: 0, sale: 0 },
   )
 
   return [
@@ -488,6 +589,7 @@ function fiscalReadinessIssueSummary(issues: string[]) {
       : null,
     issueCounts.client > 0 ? `Cliente: ${issueCounts.client}` : null,
     issueCounts.product > 0 ? `Produtos: ${issueCounts.product}` : null,
+    issueCounts.sale > 0 ? `Venda: ${issueCounts.sale}` : null,
   ]
     .filter(Boolean)
     .join(' | ')
@@ -501,6 +603,7 @@ function fiscalReadinessIssueCategory(issue: string) {
         /configura[cç][aã]o|produção|producao|natureza da opera[cç][aã]o|cfop padr[aã]o|cst\/csosn icms padr[aã]o|cst pis padr[aã]o|cst cofins padr[aã]o|cnpj fiscal da loja/i,
     },
     { category: 'client', pattern: /cliente/i },
+    { category: 'sale', pattern: /vencimento do boleto\/fatura/i },
   ] as const
 
   return (
@@ -598,12 +701,13 @@ function FiscalDocumentLinks({ document }: { document: FiscalDocument }) {
     { fileType: 'danfe', label: 'DANFE', url: document.pdfUrl },
     { fileType: 'xml', label: 'XML', url: document.xmlUrl },
   ].filter(
-    (link): link is {
+    (
+      link,
+    ): link is {
       fileType: 'danfe' | 'xml'
       label: 'DANFE' | 'XML'
       url: string
-    } =>
-      Boolean(link.url),
+    } => Boolean(link.url),
   )
 
   return links.length > 0 ? (
@@ -877,7 +981,9 @@ function fiscalDocumentSummary(
 }
 
 function fiscalDocumentHasPendingCancellation(document: FiscalDocument) {
-  return document.status === 'PROCESSING' && Boolean(document.cancellationReason)
+  return (
+    document.status === 'PROCESSING' && Boolean(document.cancellationReason)
+  )
 }
 
 function fiscalDocumentHasPendingAuthorization(document: FiscalDocument) {

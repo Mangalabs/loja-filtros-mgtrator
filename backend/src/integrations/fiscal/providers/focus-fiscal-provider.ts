@@ -166,6 +166,32 @@ export class FocusFiscalProvider implements FiscalProvider {
       status,
     });
   }
+
+  async preview(request: FiscalIssueRequest) {
+    ensureFocusConfiguration(request.environment, request.companyCnpj);
+
+    const response = await focusFetch(focusNfePreviewUrl(request.environment), {
+      method: "POST",
+      headers: {
+        Accept: "application/pdf",
+        Authorization: focusAuthorizationHeader(
+          focusToken(request.environment, request.companyCnpj),
+        ),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildFocusNfePayload(request)),
+    });
+
+    if (!response.ok) {
+      throw focusHttpError(response, await readFocusErrorResponse(response));
+    }
+
+    return {
+      content: Buffer.from(await response.arrayBuffer()),
+      contentType: response.headers.get("content-type") ?? "application/pdf",
+      fileName: `previa-${request.reference}.pdf`,
+    };
+  }
 }
 
 function focusResultFromPayload({
@@ -345,9 +371,13 @@ function focusBillingPayload(
     totalAmount: number;
   },
 ): Partial<FocusNfePayload> {
-  const dueDate = focusDateOnly(request.sale.billingDueDate);
+  if (!hasBillingPayment(request)) {
+    return {};
+  }
 
-  if (!dueDate) {
+  const installments = focusBillingInstallments(request);
+
+  if (installments.length === 0) {
     return {};
   }
 
@@ -356,14 +386,57 @@ function focusBillingPayload(
     valor_original_fatura: amounts.productAmount,
     valor_desconto_fatura: amounts.discountAmount,
     valor_liquido_fatura: amounts.totalAmount,
-    duplicatas: [
-      {
-        numero: "001",
-        data_vencimento: dueDate,
-        valor: amounts.totalAmount,
-      },
-    ],
+    duplicatas: installments,
   };
+}
+
+function hasBillingPayment(request: FiscalIssueRequest) {
+  const payments = request.sale.payments.length
+    ? request.sale.payments
+    : [{ paymentMethodCode: request.sale.paymentMethodCode }];
+
+  return payments.some(
+    (payment) => focusPaymentCode(payment.paymentMethodCode) === "15",
+  );
+}
+
+function focusBillingInstallments(
+  request: FiscalIssueRequest,
+): FocusNfeInstallmentPayload[] {
+  const saleInstallments = request.sale.paymentInstallments
+    .map((installment) => ({
+      numero: focusInstallmentNumber(installment.position),
+      data_vencimento: focusDateOnly(installment.dueDate),
+      valor: moneyNumber(installment.amount),
+    }))
+    .filter(
+      (
+        installment,
+      ): installment is FocusNfeInstallmentPayload & {
+        data_vencimento: string;
+      } => Boolean(installment.data_vencimento) && installment.valor > 0,
+    );
+
+  if (saleInstallments.length > 0) {
+    return saleInstallments;
+  }
+
+  const dueDate =
+    focusDateOnly(request.sale.billingDueDate) ??
+    focusDateOnly(request.sale.billingIssueDate) ??
+    focusBrazilIssueDateTime().slice(0, 10);
+
+  return [
+    {
+      numero: "001",
+      data_vencimento: dueDate,
+      valor: moneyNumber(request.sale.totalAmount),
+    },
+  ];
+}
+
+function focusInstallmentNumber(position: number) {
+  return String(position).padStart(3, "0");
 }
 
 function focusSaleProductsAmount(items: FiscalIssueRequest["sale"]["items"]) {
@@ -460,6 +533,10 @@ function focusNfeReferenceUrl(
   return `${focusBaseUrl(environment)}/${encodeURIComponent(reference)}`;
 }
 
+function focusNfePreviewUrl(environment: FiscalIssueRequest["environment"]) {
+  return `${focusBaseUrl(environment)}/danfe`;
+}
+
 function focusBaseUrl(environment: FiscalIssueRequest["environment"]) {
   const baseUrl = env.fiscal.focus.baseUrls[environment].replace(/\/$/, "");
   const path = baseUrl.endsWith("/v2/nfe") ? "" : "/v2/nfe";
@@ -511,6 +588,18 @@ async function readFocusResponse(
   } catch {
     return { raw: text };
   }
+}
+
+async function readFocusErrorResponse(
+  response: Response,
+): Promise<FocusResponsePayload> {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    return readFocusResponse(response);
+  }
+
+  return { raw: await response.text() };
 }
 
 function focusStatusFromResponse(

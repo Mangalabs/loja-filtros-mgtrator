@@ -17,6 +17,7 @@ import {
 export type FiscalRequest = {
   sourceType: FiscalDocument['sourceType']
   sourceId: string
+  sourceNumber: number | null
   sourceLabel: string
   pendingLabel: string
   clientId: string | null
@@ -182,12 +183,12 @@ const fiscalRequestFactories: Array<
 
     return input.sales
       .filter(
-        (sale) =>
-          sale.status === 'COMPLETED' && !linkedSaleIds.has(sale.id),
+        (sale) => sale.status === 'COMPLETED' && !linkedSaleIds.has(sale.id),
       )
       .map((sale) => ({
         sourceType: 'SALE',
         sourceId: sale.id,
+        sourceNumber: sale.saleNumber,
         sourceLabel: 'Venda direta',
         pendingLabel: 'Pendente',
         clientId: sale.clientId,
@@ -200,6 +201,7 @@ const fiscalRequestFactories: Array<
           fiscalSettings: input.fiscalSettings,
           items: sale.items,
           products: input.products,
+          sale,
         }),
         sale,
         document: findFiscalDocument(input.fiscalDocuments, 'SALE', sale.id),
@@ -209,11 +211,16 @@ const fiscalRequestFactories: Array<
     const salesById = fiscalSalesById(input.sales)
 
     return input.shippingOrders
-      .filter((order) => order.status === 'COMPLETED')
+      .filter(
+        (order) =>
+          order.status === 'COMPLETED' &&
+          salesById.get(order.saleId ?? '')?.status === 'COMPLETED',
+      )
       .map((order) => ({
         sourceType: 'SHIPPING_ORDER',
         sourceId: order.id,
-        sourceLabel: 'Com envio',
+        sourceNumber: salesById.get(order.saleId ?? '')?.saleNumber ?? null,
+        sourceLabel: '',
         pendingLabel: 'Pendente',
         clientId: order.clientId,
         clientName: order.clientName,
@@ -229,6 +236,7 @@ const fiscalRequestFactories: Array<
           fiscalSettings: input.fiscalSettings,
           items: fiscalOperationItems(order.items, order.saleId, salesById),
           products: input.products,
+          sale: salesById.get(order.saleId ?? ''),
         }),
         shippingOrder: order,
         document: findFiscalDocument(
@@ -242,10 +250,16 @@ const fiscalRequestFactories: Array<
     const salesById = fiscalSalesById(input.sales)
 
     return input.pickupReservations
-      .filter((reservation) => reservation.status === 'COMPLETED')
+      .filter(
+        (reservation) =>
+          reservation.status === 'COMPLETED' &&
+          salesById.get(reservation.saleId ?? '')?.status === 'COMPLETED',
+      )
       .map((reservation) => ({
         sourceType: 'PICKUP_RESERVATION',
         sourceId: reservation.id,
+        sourceNumber:
+          salesById.get(reservation.saleId ?? '')?.saleNumber ?? null,
         sourceLabel: 'Retirada',
         pendingLabel: 'Pendente',
         clientId: reservation.clientId,
@@ -267,6 +281,7 @@ const fiscalRequestFactories: Array<
             salesById,
           ),
           products: input.products,
+          sale: salesById.get(reservation.saleId ?? ''),
         }),
         pickupReservation: reservation,
         document: findFiscalDocument(
@@ -283,11 +298,13 @@ function sourceFiscalReadinessIssues({
   fiscalSettings,
   items,
   products,
+  sale,
 }: {
   client?: FiscalReadinessClient
   fiscalSettings: FiscalSettings | null
   items: FiscalReadinessItem[]
   products: Product[]
+  sale?: Sale
 }) {
   const readinessByProvider: Record<string, string[]> = {
     FOCUS: fiscalReadinessIssues({
@@ -300,8 +317,69 @@ function sourceFiscalReadinessIssues({
 
   return [
     ...fiscalSettingsReadinessIssues(fiscalSettings),
+    ...fiscalBillingReadinessIssues(sale),
     ...(readinessByProvider[fiscalSettings?.provider ?? ''] ?? []),
   ]
+}
+
+function fiscalBillingReadinessIssues(sale?: Sale) {
+  const firstBillingDueDate = sale ? saleFirstBillingDueDate(sale) : null
+
+  if (!sale || !hasBillingPayment(sale) || !firstBillingDueDate) {
+    return []
+  }
+
+  if (firstBillingDueDate > fiscalToday()) {
+    return []
+  }
+
+  return [
+    'Vencimento do boleto/fatura deve ser posterior a data de emissao da NF-e.',
+  ]
+}
+
+function hasBillingPayment(sale: Sale) {
+  const payments = sale.payments.length
+    ? sale.payments
+    : [{ paymentMethodCode: sale.paymentMethodCode }]
+
+  return payments.some(
+    (payment) => paymentFiscalCode(payment.paymentMethodCode) === '15',
+  )
+}
+
+function saleFirstBillingDueDate(sale: Sale) {
+  return (
+    sale.paymentInstallments
+      .map((installment) => fiscalDateOnly(installment.dueDate))
+      .filter((date): date is string => Boolean(date))
+      .sort()[0] ??
+    fiscalDateOnly(sale.billingDueDate) ??
+    fiscalDateOnly(sale.billingIssueDate)
+  )
+}
+
+function paymentFiscalCode(paymentMethodCode: string) {
+  const paymentCodes: Record<string, string> = {
+    BOLETO: '15',
+    CREDIT: '03',
+    DEBIT: '04',
+    PIX: '20',
+  }
+
+  return paymentCodes[paymentMethodCode] ?? '99'
+}
+
+function fiscalDateOnly(value?: string | null) {
+  return value?.slice(0, 10) || null
+}
+
+function fiscalToday(date = new Date()) {
+  const brazilOffsetHours = 3
+
+  return new Date(date.getTime() - brazilOffsetHours * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10)
 }
 
 function fiscalSalesById(sales: Sale[]) {
