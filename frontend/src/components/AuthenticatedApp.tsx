@@ -103,12 +103,6 @@ export function AuthenticatedApp({
   const activeBranch = useMemo(() => {
     return branches.find((branch) => branch.id === activeBranchId) ?? null;
   }, [activeBranchId, branches]);
-  const monitoredLowStockCount = useMemo(
-    () =>
-      lowStockProducts.filter((product) => product.replenishmentMonitorEnabled)
-        .length,
-    [lowStockProducts],
-  );
   const fallbackBranchId = branches[0]?.id;
 
   useEffect(() => {
@@ -228,16 +222,11 @@ export function AuthenticatedApp({
         <AppWorkspaceHeader
           activeDescription={activeTitle.description}
           activeTitle={activeTitle.title}
-          brandCount={brands.length}
           activeBranchId={activeBranchId}
           activeBranchName={activeBranch?.name ?? null}
           branches={branches}
           cashRegister={cashRegister}
-          monitoredLowStockCount={monitoredLowStockCount}
-          productCount={products.length}
-          supplierCount={suppliers.length}
           user={user}
-          view={view}
           onChangePassword={onChangePassword}
           onLogout={onLogout}
           onRefresh={() => void loadCatalog()}

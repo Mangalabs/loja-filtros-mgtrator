@@ -1,28 +1,22 @@
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
 import { useState } from "react";
 import {
-  AlertTriangle,
   Banknote,
   Building2,
   ChevronDown,
   KeyRound,
   LogOut,
-  PackagePlus,
   RefreshCcw,
   ShieldCheck,
-  Tags,
-  Truck,
 } from "lucide-react";
 import type { AuthUser, Branch, CashRegisterSession } from "../api";
 import { PasswordChangeForm } from "../auth/PasswordChangeForm";
 import type { View } from "../navigation";
 import { frontendPalette } from "../theme";
-import { Metric } from "./shell";
 import { SecondaryButton } from "./ui";
 
 export function AppWorkspaceHeader({
@@ -30,14 +24,9 @@ export function AppWorkspaceHeader({
   activeBranchId,
   activeBranchName,
   activeTitle,
-  brandCount,
   branches,
   cashRegister,
-  monitoredLowStockCount,
-  productCount,
-  supplierCount,
   user,
-  view,
   onChangePassword,
   onSelectBranch,
   onLogout,
@@ -48,14 +37,9 @@ export function AppWorkspaceHeader({
   activeBranchId: string;
   activeBranchName: string | null;
   activeTitle: string;
-  brandCount: number;
   branches: Branch[];
   cashRegister: CashRegisterSession | null;
-  monitoredLowStockCount: number;
-  productCount: number;
-  supplierCount: number;
   user: AuthUser;
-  view: View;
   onChangePassword: (input: {
     currentPassword: string;
     newPassword: string;
@@ -230,44 +214,6 @@ export function AppWorkspaceHeader({
         </section>
       ) : null}
 
-      <section className="my-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric
-          active={view === "products"}
-          icon={<PackagePlus size={18} />}
-          label="Produtos"
-          value={productCount}
-          onClick={() => onSelectView("products")}
-        />
-        <Metric
-          active={view === "brands"}
-          icon={<Tags size={18} />}
-          label="Fabricantes"
-          value={brandCount}
-          onClick={() => onSelectView("brands")}
-        />
-        <Metric
-          active={view === "suppliers"}
-          icon={<Truck size={18} />}
-          label="Fornecedores"
-          value={supplierCount}
-          onClick={() => onSelectView("suppliers")}
-        />
-        <Metric
-          active={view === "low-stock"}
-          icon={<AlertTriangle size={18} />}
-          label="Reposição"
-          value={monitoredLowStockCount}
-          onClick={() => onSelectView("low-stock")}
-        />
-        {monitoredLowStockCount > 0 ? (
-          <Chip
-            className="sm:col-span-2 xl:col-span-4"
-            color="warning"
-            label={`${monitoredLowStockCount} produto(s) monitorado(s) para reposicao`}
-            variant="outlined"
-          />
-        ) : null}
-      </section>
     </>
   );
 }
