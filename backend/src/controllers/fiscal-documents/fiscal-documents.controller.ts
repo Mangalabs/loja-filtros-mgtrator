@@ -430,6 +430,10 @@ export async function issueSaleFiscalDocument(
     throw new AppError("Venda cancelada nao pode emitir NF-e.", 422);
   }
 
+  if (sale.status === "OPEN") {
+    throw new AppError("Conclua a venda antes de emitir NF-e.", 422);
+  }
+
   return issueFiscalDocument({
     branchId,
     sourceType: "SALE",
@@ -454,6 +458,10 @@ export async function previewSaleFiscalDocument(
 
   if (sale.status === "CANCELLED") {
     throw new AppError("Venda cancelada nao pode gerar previa de NF-e.", 422);
+  }
+
+  if (sale.status === "OPEN") {
+    throw new AppError("Conclua a venda antes de gerar previa de NF-e.", 422);
   }
 
   return previewFiscalDocument({
@@ -702,6 +710,10 @@ async function fiscalDocumentRequest(
     throw new AppError("Venda informada nao encontrada.", 404);
   }
 
+  if (sale.status !== "COMPLETED") {
+    throw new AppError("Conclua a venda antes de emitir NF-e.", 422);
+  }
+
   const fiscalSettings = await currentFiscalSettings(input.branchId);
 
   return {
@@ -765,6 +777,7 @@ function fiscalReadinessErrors(request: FiscalIssueRequest): AppErrorDetail[] {
   return [
     ...requiredClientFiscalFields(request.sale),
     ...requiredFiscalSettingsFields(request),
+    ...invalidBillingFields(request.sale),
     ...request.sale.items.flatMap((item, index) =>
       requiredItemFiscalFields(item, index + 1),
     ),
@@ -936,6 +949,72 @@ function invalidClientFiscalFields(
   ];
 
   return invalidFieldDetails(fieldChecks);
+}
+
+function invalidBillingFields(
+  sale: FiscalIssueRequest["sale"],
+): AppErrorDetail[] {
+  const firstBillingDueDate = saleFirstBillingDueDate(sale);
+
+  if (!hasBillingPayment(sale) || !firstBillingDueDate) {
+    return [];
+  }
+
+  if (firstBillingDueDate > fiscalBrazilDate()) {
+    return [];
+  }
+
+  return [
+    {
+      field: "billingDueDate",
+      message:
+        "Vencimento do boleto/fatura deve ser posterior a data de emissao da NF-e.",
+    },
+  ];
+}
+
+function hasBillingPayment(sale: FiscalIssueRequest["sale"]) {
+  const payments = sale.payments.length
+    ? sale.payments
+    : [{ paymentMethodCode: sale.paymentMethodCode }];
+
+  return payments.some(
+    (payment) => paymentFiscalCode(payment.paymentMethodCode) === "15",
+  );
+}
+
+function saleFirstBillingDueDate(sale: FiscalIssueRequest["sale"]) {
+  return (
+    sale.paymentInstallments
+      .map((installment) => fiscalDateOnly(installment.dueDate))
+      .filter((date): date is string => Boolean(date))
+      .sort()[0] ??
+    fiscalDateOnly(sale.billingDueDate) ??
+    fiscalDateOnly(sale.billingIssueDate)
+  );
+}
+
+function paymentFiscalCode(paymentMethodCode: string) {
+  const paymentCodes: Record<string, string> = {
+    BOLETO: "15",
+    CREDIT: "03",
+    DEBIT: "04",
+    PIX: "20",
+  };
+
+  return paymentCodes[paymentMethodCode] ?? "99";
+}
+
+function fiscalDateOnly(value?: string | null) {
+  return value?.slice(0, 10) || null;
+}
+
+function fiscalBrazilDate(date = new Date()) {
+  const brazilOffsetHours = 3;
+
+  return new Date(date.getTime() - brazilOffsetHours * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 }
 
 function requiredItemFiscalFields(

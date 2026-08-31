@@ -403,6 +403,10 @@ export function AppViewRenderer({
           onUpdateSaleCommercialDetails={(event, sale) =>
             void salesActions.updateSaleCommercialDetails(event, sale)
           }
+          onCompleteReopenedSale={(sale) =>
+            void salesActions.completeReopenedSale(sale)
+          }
+          onReopenSale={(sale) => void salesActions.reopenSale(sale)}
           onReturnItem={(event, sale) =>
             void salesActions.returnSaleItem(event, sale)
           }

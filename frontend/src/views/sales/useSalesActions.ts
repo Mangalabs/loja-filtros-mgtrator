@@ -146,7 +146,46 @@ export function useSalesActions({
       await apiPatch(`/sales/${sale.id}/commercial-details`, {
         billingIssueDate: formDateValue(form, "saleBillingIssueDate"),
         billingDueDate: formDateValue(form, "saleBillingDueDate"),
+        payments: formSalePayments(
+          form,
+          "saleCommercial",
+          Number(sale.totalAmount),
+        ),
       });
+      await refreshSalesFlow();
+    });
+  }
+
+  async function reopenSale(sale: Sale) {
+    const confirmed = await requestConfirmation(
+      `Reabrir a venda Nº ${sale.saleNumber} para correcao antes da NF-e?`,
+      "Reabrir venda?",
+      "Reabrir",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiPatch(`/sales/${sale.id}/reopen`, {});
+      await refreshSalesFlow();
+    });
+  }
+
+  async function completeReopenedSale(sale: Sale) {
+    const confirmed = await requestConfirmation(
+      `Concluir novamente a venda Nº ${sale.saleNumber}?`,
+      "Concluir venda?",
+      "Concluir",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiPatch(`/sales/${sale.id}/complete`, {});
       await refreshSalesFlow();
     });
   }
@@ -428,6 +467,7 @@ export function useSalesActions({
     approveShippingOrder,
     cancelPickupReservation,
     cancelShippingOrder,
+    completeReopenedSale,
     completePickupReservation,
     completeShippingOrder,
     createPickupReservation,
@@ -438,6 +478,7 @@ export function useSalesActions({
     previewPickupReservationFiscalDocument,
     previewSaleFiscalDocument,
     previewShippingOrderFiscalDocument,
+    reopenSale,
     returnSaleItem,
     separateShippingOrder,
     updateSaleCommercialDetails,

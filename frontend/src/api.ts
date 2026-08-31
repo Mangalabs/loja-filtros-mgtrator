@@ -472,7 +472,7 @@ export type Sale = {
   cancelledByUserName: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
-  status: "COMPLETED" | "CANCELLED";
+  status: "OPEN" | "COMPLETED" | "CANCELLED";
 };
 
 export type FiscalDocument = {

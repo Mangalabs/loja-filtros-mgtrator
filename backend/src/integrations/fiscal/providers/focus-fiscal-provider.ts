@@ -371,6 +371,10 @@ function focusBillingPayload(
     totalAmount: number;
   },
 ): Partial<FocusNfePayload> {
+  if (!hasBillingPayment(request)) {
+    return {};
+  }
+
   const installments = focusBillingInstallments(request);
 
   if (installments.length === 0) {
@@ -384,6 +388,16 @@ function focusBillingPayload(
     valor_liquido_fatura: amounts.totalAmount,
     duplicatas: installments,
   };
+}
+
+function hasBillingPayment(request: FiscalIssueRequest) {
+  const payments = request.sale.payments.length
+    ? request.sale.payments
+    : [{ paymentMethodCode: request.sale.paymentMethodCode }];
+
+  return payments.some(
+    (payment) => focusPaymentCode(payment.paymentMethodCode) === "15",
+  );
 }
 
 function focusBillingInstallments(

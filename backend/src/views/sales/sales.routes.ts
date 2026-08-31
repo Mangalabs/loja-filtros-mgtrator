@@ -2,7 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   cancelCounterSale,
+  completeReopenedSale,
   indexSales,
+  reopenCompletedSale,
   returnCounterSaleItem,
   showSaleReceiptPdf,
   storeSale,
@@ -120,6 +122,17 @@ const cancelSaleSchema = z
 
 const updateSaleCommercialDetailsSchema = z
   .object({
+    payments: z
+      .array(
+        z
+          .object({
+            paymentMethodId: z.uuid(),
+            amount: z.coerce.number().positive(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .optional(),
     billingIssueDate: z
       .union([z.iso.date(), z.literal(""), z.null()])
       .transform((value) => value || null)
@@ -206,6 +219,28 @@ salesRoutes.patch("/sales/:id/cancel", async (request, response) => {
       id,
       body.reason,
       userId,
+      requireActiveBranchId(response.locals),
+    ),
+  );
+});
+
+salesRoutes.patch("/sales/:id/reopen", async (request, response) => {
+  const { id } = saleParamsSchema.parse(request.params);
+
+  response.status(200).json(
+    await reopenCompletedSale(
+      id,
+      requireActiveBranchId(response.locals),
+    ),
+  );
+});
+
+salesRoutes.patch("/sales/:id/complete", async (request, response) => {
+  const { id } = saleParamsSchema.parse(request.params);
+
+  response.status(200).json(
+    await completeReopenedSale(
+      id,
       requireActiveBranchId(response.locals),
     ),
   );

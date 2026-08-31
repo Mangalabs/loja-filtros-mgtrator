@@ -1,67 +1,67 @@
-import type { AuthUser, EmployeePermission } from "./api";
+import type { AuthUser, EmployeePermission } from './api'
 
-export type LoadState = "idle" | "loading" | "ready" | "error";
+export type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 export type View =
-  | "products"
-  | "new-product"
-  | "edit-product"
-  | "commercial-settings"
-  | "stock-entries"
-  | "purchase-invoices"
-  | "stock-adjustments"
-  | "stock-movements"
-  | "low-stock"
-  | "payment-methods"
-  | "fiscal-settings"
-  | "fiscal-documents"
-  | "cash-register"
-  | "reports"
-  | "quotes"
-  | "sales"
-  | "sales-history"
-  | "shipping-orders"
-  | "pickup-reservations"
-  | "brands"
-  | "clients"
-  | "suppliers"
-  | "branches"
-  | "employees";
+  | 'products'
+  | 'new-product'
+  | 'edit-product'
+  | 'commercial-settings'
+  | 'stock-entries'
+  | 'purchase-invoices'
+  | 'stock-adjustments'
+  | 'stock-movements'
+  | 'low-stock'
+  | 'payment-methods'
+  | 'fiscal-settings'
+  | 'fiscal-documents'
+  | 'cash-register'
+  | 'reports'
+  | 'quotes'
+  | 'sales'
+  | 'sales-history'
+  | 'shipping-orders'
+  | 'pickup-reservations'
+  | 'brands'
+  | 'clients'
+  | 'suppliers'
+  | 'branches'
+  | 'employees'
 
 export type NavSectionKey =
-  | "products"
-  | "catalog"
-  | "stock"
-  | "suppliers"
-  | "finance"
-  | "cash"
-  | "reports"
-  | "sales"
-  | "administration";
+  | 'products'
+  | 'catalog'
+  | 'stock'
+  | 'suppliers'
+  | 'finance'
+  | 'cash'
+  | 'reports'
+  | 'sales'
+  | 'administration'
 
 export const navSectionViews: Record<NavSectionKey, View[]> = {
-  products: ["products", "new-product", "edit-product", "commercial-settings"],
-  catalog: ["brands", "clients"],
+  products: ['products', 'new-product', 'edit-product', 'commercial-settings'],
+  catalog: ['brands', 'clients'],
   stock: [
-    "stock-entries",
-    "purchase-invoices",
-    "stock-adjustments",
-    "stock-movements",
-    "low-stock",
+    'stock-entries',
+    'purchase-invoices',
+    'stock-adjustments',
+    'stock-movements',
+    'low-stock',
   ],
-  suppliers: ["suppliers"],
-  finance: ["payment-methods", "fiscal-settings", "fiscal-documents"],
-  cash: ["cash-register"],
-  reports: ["reports"],
+  suppliers: ['suppliers'],
+  finance: ['payment-methods', 'fiscal-settings', 'fiscal-documents'],
+  cash: ['cash-register'],
+  reports: ['reports'],
   sales: [
-    "quotes",
-    "sales",
-    "sales-history",
-    "shipping-orders",
-    "pickup-reservations",
+    'quotes',
+    'sales',
+    'sales-history',
+    'shipping-orders',
+    'pickup-reservations',
   ],
-  administration: ["branches", "employees"],
-};
+  administration: ['branches', 'employees'],
+}
 
 const initialOpenNavSections: Record<NavSectionKey, boolean> = {
   products: false,
@@ -73,220 +73,219 @@ const initialOpenNavSections: Record<NavSectionKey, boolean> = {
   reports: false,
   sales: false,
   administration: false,
-};
+}
 
-export const navSectionsStorageKey = "loja-filtros.nav-sections.v2";
-export const activeViewStorageKey = "loja-filtros.active-view.v1";
+export const navSectionsStorageKey = 'loja-filtros.nav-sections.v2'
+export const activeViewStorageKey = 'loja-filtros.active-view.v1'
 
 const viewValues: View[] = [
-  "products",
-  "new-product",
-  "edit-product",
-  "commercial-settings",
-  "stock-entries",
-  "purchase-invoices",
-  "stock-adjustments",
-  "stock-movements",
-  "low-stock",
-  "payment-methods",
-  "fiscal-settings",
-  "fiscal-documents",
-  "cash-register",
-  "reports",
-  "quotes",
-  "sales",
-  "sales-history",
-  "shipping-orders",
-  "pickup-reservations",
-  "brands",
-  "clients",
-  "suppliers",
-  "branches",
-  "employees",
-];
+  'products',
+  'new-product',
+  'edit-product',
+  'commercial-settings',
+  'stock-entries',
+  'purchase-invoices',
+  'stock-adjustments',
+  'stock-movements',
+  'low-stock',
+  'payment-methods',
+  'fiscal-settings',
+  'fiscal-documents',
+  'cash-register',
+  'reports',
+  'quotes',
+  'sales',
+  'sales-history',
+  'shipping-orders',
+  'pickup-reservations',
+  'brands',
+  'clients',
+  'suppliers',
+  'branches',
+  'employees',
+]
 
 export const viewPermissionRequirements: Partial<
   Record<View, EmployeePermission>
 > = {
-  "commercial-settings": "MANAGE_COMMERCIAL_SETTINGS",
-  "purchase-invoices": "IMPORT_PURCHASE_INVOICES",
-  "stock-adjustments": "MANAGE_STOCK_ADJUSTMENTS",
-  "payment-methods": "MANAGE_PAYMENT_METHODS",
-  "fiscal-settings": "MANAGE_FISCAL_SETTINGS",
-  "fiscal-documents": "MANAGE_FISCAL_DOCUMENTS",
-  "cash-register": "MANAGE_CASH_REGISTER",
-  reports: "VIEW_REPORTS",
-};
+  'commercial-settings': 'MANAGE_COMMERCIAL_SETTINGS',
+  'purchase-invoices': 'IMPORT_PURCHASE_INVOICES',
+  'stock-adjustments': 'MANAGE_STOCK_ADJUSTMENTS',
+  'payment-methods': 'MANAGE_PAYMENT_METHODS',
+  'fiscal-settings': 'MANAGE_FISCAL_SETTINGS',
+  'fiscal-documents': 'MANAGE_FISCAL_DOCUMENTS',
+  'cash-register': 'MANAGE_CASH_REGISTER',
+  reports: 'VIEW_REPORTS',
+}
 
-const adminOnlyViews = new Set<View>(["branches", "employees"]);
+const adminOnlyViews = new Set<View>(['branches', 'employees'])
 
 export function canAccessView(user: AuthUser, view: View) {
   if (adminOnlyViews.has(view)) {
-    return user.role === "ADMIN";
+    return user.role === 'ADMIN'
   }
 
-  const requiredPermission = viewPermissionRequirements[view];
+  const requiredPermission = viewPermissionRequirements[view]
 
   return (
-    user.role === "ADMIN" ||
+    user.role === 'ADMIN' ||
     !requiredPermission ||
     user.permissions.includes(requiredPermission)
-  );
+  )
 }
 
 export function isView(value: string | null): value is View {
-  return viewValues.includes(value as View);
+  return viewValues.includes(value as View)
 }
 
 export function findActiveNavSection(view: View) {
   return (Object.keys(navSectionViews) as NavSectionKey[]).find((section) =>
     navSectionViews[section].includes(view),
-  );
+  )
 }
 
 export function readInitialOpenNavSections() {
-  if (typeof window === "undefined") {
-    return initialOpenNavSections;
+  if (typeof window === 'undefined') {
+    return initialOpenNavSections
   }
 
-  const storedValue = window.localStorage.getItem(navSectionsStorageKey);
+  const storedValue = window.localStorage.getItem(navSectionsStorageKey)
 
   if (!storedValue) {
-    return initialOpenNavSections;
+    return initialOpenNavSections
   }
 
   try {
     const parsedValue = JSON.parse(storedValue) as Partial<
       Record<NavSectionKey, boolean>
-    >;
+    >
 
     return (Object.keys(initialOpenNavSections) as NavSectionKey[]).reduce(
       (sections, section) => ({
         ...sections,
         [section]:
-          typeof parsedValue[section] === "boolean"
+          typeof parsedValue[section] === 'boolean'
             ? parsedValue[section]
             : sections[section],
       }),
       { ...initialOpenNavSections },
-    );
+    )
   } catch {
-    return initialOpenNavSections;
+    return initialOpenNavSections
   }
 }
 
 export const viewTitles: Record<View, { title: string; description: string }> =
   {
     products: {
-      title: "Produtos",
-      description: "Consulte e acompanhe o catalogo da filial.",
+      title: 'Produtos',
+      description: 'Consulte e acompanhe o catalogo da filial.',
     },
-    "new-product": {
-      title: "Novo produto",
+    'new-product': {
+      title: 'Novo produto',
       description:
-        "Cadastre filtros com códigos, fabricante, locação e dados fiscais.",
+        'Cadastre filtros com códigos, fabricante, locação e dados fiscais.',
     },
-    "edit-product": {
-      title: "Editar produto",
-      description: "Atualize os dados cadastrais do produto selecionado.",
+    'edit-product': {
+      title: 'Editar produto',
+      description: 'Atualize os dados cadastrais do produto selecionado.',
     },
-    "commercial-settings": {
-      title: "Configuração comercial",
+    'commercial-settings': {
+      title: 'Configuração comercial',
+      description: 'Defina margem, prazos e sugestões de preço de venda.',
+    },
+    'stock-entries': {
+      title: 'Entrada de mercadoria',
       description:
-        "Defina margem, prazos e sugestões de preço de venda.",
+        'Registre produtos recebidos e atualize o estoque da filial.',
     },
-    "stock-entries": {
-      title: "Entrada de mercadoria",
+    'purchase-invoices': {
+      title: 'Importação XML',
       description:
-        "Registre produtos recebidos e atualize o estoque da filial.",
+        'Leia XML de compra, revise os itens e confirme os produtos internos.',
     },
-    "purchase-invoices": {
-      title: "Importação XML",
+    'stock-adjustments': {
+      title: 'Ajuste de estoque',
+      description: 'Corrija divergências de saldo com motivo registrado.',
+    },
+    'stock-movements': {
+      title: 'Histórico de estoque',
       description:
-        "Leia XML de compra, revise os itens e confirme os produtos internos.",
+        'Acompanhe entradas e ajustes que alteraram o saldo da filial.',
     },
-    "stock-adjustments": {
-      title: "Ajuste de estoque",
-      description: "Corrija divergências de saldo com motivo registrado.",
+    'low-stock': {
+      title: 'Reposição',
+      description: 'Consulte produtos ativos que atingiram o estoque mínimo.',
     },
-    "stock-movements": {
-      title: "Histórico de estoque",
+    'payment-methods': {
+      title: 'Formas de pagamento',
       description:
-        "Acompanhe entradas e ajustes que alteraram o saldo da filial.",
+        'Configure as formas disponiveis para o futuro fechamento de vendas.',
     },
-    "low-stock": {
-      title: "Reposição",
-      description: "Consulte produtos ativos que atingiram o estoque mínimo.",
-    },
-    "payment-methods": {
-      title: "Formas de pagamento",
+    'fiscal-settings': {
+      title: 'Configuração fiscal',
       description:
-        "Configure as formas disponiveis para o futuro fechamento de vendas.",
+        'Defina provedor, ambiente e CNPJ usados na emissão de NF-e.',
     },
-    "fiscal-settings": {
-      title: "Configuração fiscal",
+    'fiscal-documents': {
+      title: 'Notas fiscais',
       description:
-        "Defina provedor, ambiente e CNPJ usados na emissão de NF-e.",
+        'Acompanhe emissão, status e referências fiscais das vendas.',
     },
-    "fiscal-documents": {
-      title: "Notas fiscais",
+    'cash-register': {
+      title: 'Caixa',
       description:
-        "Acompanhe emissão, status e referências fiscais das vendas.",
-    },
-    "cash-register": {
-      title: "Caixa",
-      description:
-        "Abra o caixa da filial antes de iniciar operacoes de venda.",
+        'Abra o caixa da filial antes de iniciar operacoes de venda.',
     },
     reports: {
-      title: "Relatórios",
-      description: "Acompanhe indicadores operacionais e pendências da filial.",
+      title: 'Relatórios',
+      description: 'Acompanhe indicadores operacionais e pendências da filial.',
     },
     quotes: {
-      title: "Orçamentos",
+      title: 'Orçamentos',
       description:
-        "Monte orçamentos com cliente, múltiplos produtos e valores personalizados.",
+        'Monte orçamentos com cliente, múltiplos produtos e valores personalizados.',
     },
     sales: {
-      title: "Venda direta",
-      description:
-        "Registre vendas imediatas com baixa de estoque.",
+      title: 'Venda direta',
+      description: 'Registre vendas imediatas com baixa de estoque.',
     },
-    "sales-history": {
-      title: "Histórico de vendas",
+    'sales-history': {
+      title: 'Histórico de vendas',
       description:
-        "Consulte vendas fechadas, comprovantes e documentos fiscais.",
+        'Consulte vendas fechadas, comprovantes e documentos fiscais.',
     },
-    "shipping-orders": {
-      title: "Pedidos com envio",
+    'shipping-orders': {
+      title: 'Pedidos a partir de orçamentos',
       description:
-        "Conclua pedidos originados de orçamentos aprovados para envio.",
+        'Conclua pedidos originados de orçamentos aprovados para envio.',
     },
-    "pickup-reservations": {
-      title: "Reservas para retirada",
+    'pickup-reservations': {
+      title: 'Reservas para retirada',
       description:
-        "Reserve produtos para clientes retirarem na loja e conclua a venda no caixa.",
+        'Reserve produtos para clientes retirarem na loja e conclua a venda no caixa.',
     },
     brands: {
-      title: "Fabricantes",
-      description: "Cadastre os fabricantes usados no catalogo de produtos.",
+      title: 'Fabricantes',
+      description: 'Cadastre os fabricantes usados no catalogo de produtos.',
     },
     clients: {
-      title: "Clientes",
+      title: 'Clientes',
       description:
-        "Cadastre clientes para reservas e futuros documentos fiscais.",
+        'Cadastre clientes para reservas e futuros documentos fiscais.',
     },
     suppliers: {
-      title: "Fornecedores",
-      description: "Mantenha fornecedores disponiveis para compras e produtos.",
+      title: 'Fornecedores',
+      description: 'Mantenha fornecedores disponiveis para compras e produtos.',
     },
     branches: {
-      title: "Filiais",
-      description: "Cadastre as unidades usadas para organizar os funcionarios.",
+      title: 'Filiais',
+      description:
+        'Cadastre as unidades usadas para organizar os funcionarios.',
     },
     employees: {
-      title: "Funcionários",
+      title: 'Funcionários',
       description:
-        "Crie acessos individuais e vincule cada funcionário a uma filial.",
+        'Crie acessos individuais e vincule cada funcionário a uma filial.',
     },
-  };
+  }

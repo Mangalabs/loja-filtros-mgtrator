@@ -18,6 +18,7 @@ import {
   saleHasBlockingFiscalDocument,
   saleHasLinkedOperation,
   updateSaleCommercialDetails,
+  updateSaleStatus,
   type SaleCommercialDetailsInput,
   type SaleInput,
 } from "../../models/sales/sales.model.js";
@@ -233,7 +234,89 @@ export async function updateCompletedSaleCommercialDetails(
       );
     }
 
+    const payments = input.payments
+      ? normalizeCommercialSalePayments(input.payments, lockedSale.totalAmount)
+      : undefined;
+
+    for (const payment of payments ?? []) {
+      if (
+        !(await activePaymentMethodExists(
+          transaction,
+          payment.paymentMethodId,
+        ))
+      ) {
+        throw new AppError("Forma de pagamento informada nao disponivel.", 422);
+      }
+    }
+
     return updateSaleCommercialDetails(transaction, id, input);
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: sale,
+  };
+}
+
+export async function reopenCompletedSale(id: string, branchId: string) {
+  const sale = await db.transaction(async (transaction) => {
+    const lockedSale = await lockSaleForCancellation(
+      transaction,
+      id,
+      branchId,
+    );
+
+    if (!lockedSale) {
+      throw new AppError("Venda nao encontrada.", 404);
+    }
+
+    if (lockedSale.status === "CANCELLED") {
+      throw new AppError("Venda cancelada nao pode ser reaberta.", 409);
+    }
+
+    if (lockedSale.status === "OPEN") {
+      throw new AppError("Esta venda ja esta aberta para correcao.", 409);
+    }
+
+    if (await saleHasBlockingFiscalDocument(transaction, id)) {
+      throw new AppError(
+        "Cancele a NF-e antes de reabrir esta venda.",
+        409,
+      );
+    }
+
+    return updateSaleStatus(transaction, id, "OPEN");
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: sale,
+  };
+}
+
+export async function completeReopenedSale(id: string, branchId: string) {
+  const sale = await db.transaction(async (transaction) => {
+    const lockedSale = await lockSaleForCancellation(
+      transaction,
+      id,
+      branchId,
+    );
+
+    if (!lockedSale) {
+      throw new AppError("Venda nao encontrada.", 404);
+    }
+
+    if (lockedSale.status === "CANCELLED") {
+      throw new AppError("Venda cancelada nao pode ser concluida.", 409);
+    }
+
+    if (lockedSale.status === "COMPLETED") {
+      throw new AppError("Esta venda ja esta concluida.", 409);
+    }
+
+    return updateSaleStatus(transaction, id, "COMPLETED");
   });
 
   return {
@@ -270,6 +353,10 @@ export async function returnCounterSaleItem(
 
     if (lockedSale.status === "CANCELLED") {
       throw new AppError("Venda cancelada nao pode receber devolucao.", 409);
+    }
+
+    if (lockedSale.status === "OPEN") {
+      throw new AppError("Conclua a venda antes de registrar devolucao.", 409);
     }
 
     if (await saleHasBlockingFiscalDocument(transaction, id)) {
@@ -365,6 +452,33 @@ function normalizeSalePayments(input: SaleInput, totalAmount: number) {
   }
 
   if (totalPaymentsAmount !== totalAmount) {
+    throw new AppError(
+      "Total dos pagamentos deve ser igual ao total da venda.",
+      422,
+    );
+  }
+
+  return payments;
+}
+
+function normalizeCommercialSalePayments(
+  payments: SaleCommercialDetailsInput["payments"],
+  totalAmount: string,
+) {
+  if (!payments) {
+    return undefined;
+  }
+
+  const normalizedTotalAmount = Number(Number(totalAmount).toFixed(2));
+  const totalPaymentsAmount = Number(
+    payments.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2),
+  );
+
+  if (payments.some((payment) => payment.amount <= 0)) {
+    throw new AppError("Valor de pagamento deve ser maior que zero.", 422);
+  }
+
+  if (totalPaymentsAmount !== normalizedTotalAmount) {
     throw new AppError(
       "Total dos pagamentos deve ser igual ao total da venda.",
       422,

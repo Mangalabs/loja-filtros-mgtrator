@@ -238,11 +238,18 @@ type Sale = {
     paymentMethodName: string;
     amount: string;
   }>;
+  paymentInstallments: Array<{
+    id: string;
+    saleId: string;
+    position: number;
+    dueDate: string;
+    amount: string;
+  }>;
   createdByUserName: string;
   cancelledByUserName: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
-  status: "COMPLETED" | "CANCELLED";
+  status: "OPEN" | "COMPLETED" | "CANCELLED";
 };
 
 type ShippingOrder = {
@@ -2029,12 +2036,13 @@ describe("catalog routes", () => {
     );
   });
 
-  it("updates completed sale commercial dates before fiscal issue", async () => {
+  it("updates completed sale commercial payment details before fiscal issue", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
       body: { name: "Filtro venda com datas editaveis", salePrice: 120 },
     });
     const paymentMethod = await activePaymentMethod();
+    const boleto = await activePaymentMethod("BOLETO");
 
     await request("/stock-adjustments", {
       method: "POST",
@@ -2076,6 +2084,12 @@ describe("catalog routes", () => {
         body: {
           billingIssueDate: "2026-08-11",
           billingDueDate: "2026-08-25",
+          payments: [
+            {
+              paymentMethodId: boleto.id,
+              amount: 120,
+            },
+          ],
         },
       },
     );
@@ -2088,6 +2102,106 @@ describe("catalog routes", () => {
     assert.equal(updated.status, 200);
     assert.ok(updated.body.data?.billingIssueDate?.startsWith("2026-08-11"));
     assert.ok(updated.body.data?.billingDueDate?.startsWith("2026-08-25"));
+    assert.equal(updated.body.data?.paymentMethodCode, "BOLETO");
+    assert.equal(updated.body.data?.payments[0]?.paymentMethodId, boleto.id);
+    assert.equal(updated.body.data?.payments[0]?.amount, "120.00");
+    assert.ok(
+      updated.body.data?.paymentInstallments[0]?.dueDate.startsWith(
+        "2026-08-25",
+      ),
+    );
+    assert.equal(updated.body.data?.paymentInstallments[0]?.amount, "120.00");
+  });
+
+  it("reopens and completes a sale before fiscal issue", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro venda reaberta",
+        salePrice: 150,
+        ncm: "84212300",
+        cfop: "5102",
+        origin: "0",
+      },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente venda reaberta",
+        document: "12345678901",
+        stateRegistrationIndicator: "9",
+        addressStreet: "Rua Fiscal",
+        addressNumber: "123",
+        addressDistrict: "Centro",
+        addressCity: "Araguaina",
+        addressState: "TO",
+        addressZipCode: "77800000",
+      },
+    });
+    const paymentMethod = await activePaymentMethod();
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo inicial para venda reaberta",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        quantity: 1,
+      },
+    });
+    const reopened = await request<Sale>(`/sales/${sale.body.data?.id}/reopen`, {
+      method: "PATCH",
+    });
+    const fiscalWhileOpen = await request(
+      `/sales/${sale.body.data?.id}/fiscal-documents/preview`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
+    const updated = await request<Sale>(
+      `/sales/${sale.body.data?.id}/commercial-details`,
+      {
+        method: "PATCH",
+        body: {
+          billingIssueDate: "2026-08-11",
+          billingDueDate: "2026-08-25",
+        },
+      },
+    );
+    const completed = await request<Sale>(
+      `/sales/${sale.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+      },
+    );
+
+    assert.equal(reopened.status, 200);
+    assert.equal(reopened.body.data?.status, "OPEN");
+    assert.equal(fiscalWhileOpen.status, 422);
+    assert.equal(
+      fiscalWhileOpen.body.message,
+      "Conclua a venda antes de gerar previa de NF-e.",
+    );
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data?.status, "OPEN");
+    assert.ok(updated.body.data?.billingDueDate?.startsWith("2026-08-25"));
+    assert.equal(completed.status, 200);
+    assert.equal(completed.body.data?.status, "COMPLETED");
   });
 
   it("blocks completed sale commercial date updates when fiscal document is active", async () => {
@@ -3514,6 +3628,98 @@ describe("catalog routes", () => {
     }
   });
 
+  it("blocks Focus invoice billing when boleto due date is the fiscal issue date", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro boleto mesmo dia",
+        salePrice: 35,
+        ncm: "84212300",
+        cfop: "5102",
+        icmsCst: "102",
+        pisCst: "49",
+        cofinsCst: "49",
+        origin: "0",
+      },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente boleto mesmo dia",
+        document: "12345678901",
+        stateRegistrationIndicator: "9",
+        addressStreet: "Rua Fiscal",
+        addressNumber: "123",
+        addressDistrict: "Centro",
+        addressCity: "Araguaina",
+        addressState: "TO",
+        addressZipCode: "77800000",
+      },
+    });
+    const paymentMethods = await request<PaymentMethod[]>(
+      "/payment-methods?active=true",
+    );
+    const boleto = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "BOLETO",
+    );
+    const today = testBrazilDate();
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para boleto mesmo dia",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: boleto?.id,
+        quantity: 1,
+        billingIssueDate: today,
+        billingDueDate: today,
+      },
+    });
+
+    env.fiscal.provider = "focus";
+
+    try {
+      const fiscalDocument = await request(
+        `/sales/${sale.body.data?.id}/fiscal-documents`,
+        {
+          method: "POST",
+          body: { documentType: "NFE" },
+        },
+      );
+
+      assert.equal(fiscalDocument.status, 422);
+      assert.equal(
+        fiscalDocument.body.message,
+        "Dados fiscais incompletos para emissao da NF-e.",
+      );
+      assert.ok(
+        fiscalDocument.body.errors?.some(
+          (error) =>
+            error.field === "billingDueDate" &&
+            error.message ===
+              "Vencimento do boleto/fatura deve ser posterior a data de emissao da NF-e.",
+        ),
+      );
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+    }
+  });
+
   it("returns Focus configuration errors after fiscal readiness passes", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
@@ -4374,10 +4580,12 @@ describe("catalog routes", () => {
 
     requestPayload.sale.totalAmount = "140.00";
     requestPayload.sale.discountAmount = "10.00";
+    requestPayload.sale.paymentMethodCode = "BOLETO";
+    requestPayload.sale.paymentMethodName = "Boleto";
     requestPayload.sale.payments = [
       {
-        paymentMethodCode: "PIX",
-        paymentMethodName: "PIX",
+        paymentMethodCode: "BOLETO",
+        paymentMethodName: "Boleto",
         amount: "140.00",
       },
     ];
@@ -4455,8 +4663,8 @@ describe("catalog routes", () => {
       assert.equal(payload.valor_liquido_fatura, 140);
       assert.deepEqual(payload.formas_pagamento, [
         {
-          indicador_pagamento: 0,
-          forma_pagamento: "20",
+          indicador_pagamento: 1,
+          forma_pagamento: "15",
           valor_pagamento: 140,
         },
       ]);
@@ -4484,7 +4692,7 @@ describe("catalog routes", () => {
     }
   });
 
-  it("sends a one-installment Focus invoice when sale has no billing due date", async () => {
+  it("does not send Focus invoice billing for cash payment methods", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
     const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
@@ -4492,6 +4700,63 @@ describe("catalog routes", () => {
     const requestPayload = focusIssueRequest();
     let submittedPayload: Record<string, unknown> | null = null;
 
+    requestPayload.sale.billingIssueDate = "2026-07-10";
+    requestPayload.sale.billingDueDate = "2026-07-10";
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocusprovidertest",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(requestPayload);
+      assert.ok(submittedPayload);
+
+      const payload = submittedPayload as Record<string, unknown>;
+
+      assert.equal(payload.numero_fatura, undefined);
+      assert.equal(payload.valor_original_fatura, undefined);
+      assert.equal(payload.valor_desconto_fatura, undefined);
+      assert.equal(payload.valor_liquido_fatura, undefined);
+      assert.equal(payload.duplicatas, undefined);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("sends a one-installment Focus invoice for boleto when sale has no billing due date", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const requestPayload = focusIssueRequest();
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    requestPayload.sale.paymentMethodCode = "BOLETO";
+    requestPayload.sale.paymentMethodName = "Boleto";
+    requestPayload.sale.payments = [
+      {
+        paymentMethodCode: "BOLETO",
+        paymentMethodName: "Boleto",
+        amount: "35.00",
+      },
+    ];
     requestPayload.sale.billingIssueDate = "2026-07-10";
     requestPayload.sale.billingDueDate = null;
     requestPayload.sale.paymentInstallments = [];
@@ -4788,6 +5053,7 @@ describe("catalog routes", () => {
       env.fiscal.focus.tokens.HOMOLOGATION;
     const originalFetch = globalThis.fetch;
     const focusRequests: string[] = [];
+    const focusPayloads: Array<Record<string, unknown>> = [];
     const focusResponses = [
       {
         status: "erro_autorizacao",
@@ -4847,6 +5113,9 @@ describe("catalog routes", () => {
       }
 
       focusRequests.push(url);
+      focusPayloads.push(
+        JSON.parse(String(init?.body)) as Record<string, unknown>,
+      );
 
       return new Response(JSON.stringify(focusResponses.shift()), {
         status: 200,
@@ -4883,6 +5152,8 @@ describe("catalog routes", () => {
           clientId: client.body.data?.id,
           paymentMethodId: pix?.id,
           quantity: 1,
+          billingIssueDate: "2026-08-28",
+          billingDueDate: "2026-08-28",
         },
       });
       const rejected = await request<FiscalDocument>(
@@ -4919,6 +5190,10 @@ describe("catalog routes", () => {
         focusRequests.map((url) => new URL(url).searchParams.get("ref")),
         [reference, reference],
       );
+      assert.equal(focusPayloads[0]?.numero_fatura, undefined);
+      assert.equal(focusPayloads[0]?.duplicatas, undefined);
+      assert.equal(focusPayloads[1]?.numero_fatura, undefined);
+      assert.equal(focusPayloads[1]?.duplicatas, undefined);
     } finally {
       env.fiscal.focus.token = originalFocusToken;
       env.fiscal.focus.tokens.HOMOLOGATION = originalFocusHomologationToken;
@@ -8589,6 +8864,14 @@ function purchaseInvoiceXml(accessKey: string) {
       </NFe>
     </nfeProc>
   `;
+}
+
+function testBrazilDate(date = new Date()) {
+  const brazilOffsetHours = 3;
+
+  return new Date(date.getTime() - brazilOffsetHours * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 }
 
 function focusIssueRequest(): FiscalIssueRequest {
