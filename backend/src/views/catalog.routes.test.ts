@@ -2539,6 +2539,8 @@ describe("catalog routes", () => {
     assert.match(html, /002/);
     assert.match(html, /20\/07\/2026/);
     assert.match(html, /20\/08\/2026/);
+    assert.doesNotMatch(html, /Referencia interna/);
+    assert.doesNotMatch(html, /Vencimento do boleto\/fatura/);
     assert.match(html, /Cliente devolveu uma unidade/);
     assert.match(html, /NSU123/);
     assert.match(html, /Estornos/);
