@@ -1170,7 +1170,7 @@ describe("catalog routes", () => {
         name: "Funcionario multifilial",
         email: "multifilial@example.com",
         branchId: norte.body.data?.id,
-        branchIds: [norte.body.data?.id, sul.body.data?.id],
+        branchIds: [sul.body.data?.id],
         permissions: [],
         password: "senha-segura-456",
       },
