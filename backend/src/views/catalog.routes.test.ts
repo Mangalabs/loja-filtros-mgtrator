@@ -4381,6 +4381,18 @@ describe("catalog routes", () => {
         amount: "140.00",
       },
     ];
+    requestPayload.sale.paymentInstallments = [
+      {
+        dueDate: "2026-07-25",
+        amount: "70.00",
+        position: 1,
+      },
+      {
+        dueDate: "2026-08-25",
+        amount: "70.00",
+        position: 2,
+      },
+    ];
     requestPayload.sale.billingIssueDate = "2026-07-10";
     requestPayload.sale.billingDueDate = "2026-07-25";
     requestPayload.sale.items[0].quantity = "2.000";
@@ -4452,13 +4464,73 @@ describe("catalog routes", () => {
         {
           numero: "001",
           data_vencimento: "2026-07-25",
-          valor: 140,
+          valor: 70,
+        },
+        {
+          numero: "002",
+          data_vencimento: "2026-08-25",
+          valor: 70,
         },
       ]);
       assert.equal(items[0]?.valor_bruto, 80);
       assert.equal(items[0]?.valor_desconto, 5);
       assert.equal(items[1]?.valor_bruto, 75);
       assert.equal(items[1]?.valor_desconto, 0);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("sends a one-installment Focus invoice when sale has no billing due date", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const requestPayload = focusIssueRequest();
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    requestPayload.sale.billingIssueDate = "2026-07-10";
+    requestPayload.sale.billingDueDate = null;
+    requestPayload.sale.paymentInstallments = [];
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocusprovidertest",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(requestPayload);
+      assert.ok(submittedPayload);
+
+      const payload = submittedPayload as Record<string, unknown>;
+
+      assert.equal(payload.numero_fatura, "salefocusprovidertest");
+      assert.equal(payload.valor_original_fatura, 35);
+      assert.equal(payload.valor_desconto_fatura, 0);
+      assert.equal(payload.valor_liquido_fatura, 35);
+      assert.deepEqual(payload.duplicatas, [
+        {
+          numero: "001",
+          data_vencimento: "2026-07-10",
+          valor: 35,
+        },
+      ]);
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
@@ -4516,6 +4588,48 @@ describe("catalog routes", () => {
           valor_pagamento: 35,
         },
       ]);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("generates a Focus DANFE preview without issuing a fiscal document", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const requestPayload = focusIssueRequest();
+    let submittedUrl = "";
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (input, init) => {
+      submittedUrl = String(input);
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(Buffer.from("PDF preview"), {
+        headers: { "content-type": "application/pdf" },
+        status: 200,
+      });
+    }) as typeof fetch;
+
+    try {
+      const preview = await new FocusFiscalProvider().preview(requestPayload);
+      const payload = submittedPayload as unknown as Record<string, unknown>;
+
+      assert.ok(submittedUrl.endsWith("/v2/nfe/danfe"));
+      assert.equal(payload.nome_destinatario, "Cliente Focus");
+      assert.equal(preview.contentType, "application/pdf");
+      assert.equal(preview.fileName, "previa-SALEfocusprovidertest.pdf");
+      assert.equal(preview.content.toString(), "PDF preview");
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
@@ -8513,6 +8627,7 @@ function focusIssueRequest(): FiscalIssueRequest {
           amount: "35.00",
         },
       ],
+      paymentInstallments: [],
       totalAmount: "35.00",
       discountAmount: "0.00",
       billingIssueDate: null,

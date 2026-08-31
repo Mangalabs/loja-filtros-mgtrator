@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Response } from "express";
 import { z } from "zod";
 import {
   cancelFiscalDocument,
@@ -8,6 +9,9 @@ import {
   issueSaleFiscalDocument,
   issueShippingOrderFiscalDocument,
   mockFiscalDocumentFile,
+  previewPickupReservationFiscalDocument,
+  previewSaleFiscalDocument,
+  previewShippingOrderFiscalDocument,
   showFiscalDocument,
   syncFiscalDocument,
 } from "../../controllers/fiscal-documents/fiscal-documents.controller.js";
@@ -157,6 +161,22 @@ fiscalDocumentsRoutes.patch(
 );
 
 fiscalDocumentsRoutes.post(
+  "/sales/:id/fiscal-documents/preview",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { id } = saleParamsSchema.parse(request.params);
+    const body = validateBody(request, issueFiscalDocumentSchema);
+    const file = await previewSaleFiscalDocument(
+      id,
+      body.documentType,
+      requireActiveBranchId(response.locals),
+    );
+
+    sendFiscalPreview(response, file);
+  },
+);
+
+fiscalDocumentsRoutes.post(
   "/sales/:id/fiscal-documents",
   requirePermission("MANAGE_FISCAL_DOCUMENTS"),
   async (request, response) => {
@@ -174,6 +194,22 @@ fiscalDocumentsRoutes.post(
           requireActiveBranchId(response.locals),
         ),
       );
+  },
+);
+
+fiscalDocumentsRoutes.post(
+  "/shipping-orders/:id/fiscal-documents/preview",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { id } = shippingOrderParamsSchema.parse(request.params);
+    const body = validateBody(request, issueFiscalDocumentSchema);
+    const file = await previewShippingOrderFiscalDocument(
+      id,
+      body.documentType,
+      requireActiveBranchId(response.locals),
+    );
+
+    sendFiscalPreview(response, file);
   },
 );
 
@@ -199,6 +235,22 @@ fiscalDocumentsRoutes.post(
 );
 
 fiscalDocumentsRoutes.post(
+  "/pickup-reservations/:id/fiscal-documents/preview",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { id } = pickupReservationParamsSchema.parse(request.params);
+    const body = validateBody(request, issueFiscalDocumentSchema);
+    const file = await previewPickupReservationFiscalDocument(
+      id,
+      body.documentType,
+      requireActiveBranchId(response.locals),
+    );
+
+    sendFiscalPreview(response, file);
+  },
+);
+
+fiscalDocumentsRoutes.post(
   "/pickup-reservations/:id/fiscal-documents",
   requirePermission("MANAGE_FISCAL_DOCUMENTS"),
   async (request, response) => {
@@ -218,3 +270,14 @@ fiscalDocumentsRoutes.post(
       );
   },
 );
+
+function sendFiscalPreview(
+  response: Response,
+  file: { content: Buffer; contentType: string; fileName: string },
+) {
+  response
+    .status(200)
+    .setHeader("Content-Type", file.contentType)
+    .setHeader("Content-Disposition", `inline; filename="${file.fileName}"`)
+    .send(file.content);
+}

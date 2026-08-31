@@ -2,6 +2,7 @@ import type { FormEvent } from "react";
 import {
   apiPatch,
   apiPost,
+  openApiFile,
   type Sale,
   type PickupReservation,
   type Product,
@@ -69,6 +70,12 @@ export function useSalesActions({
       });
       showFiscalDocuments();
       await refreshSalesFlow();
+    });
+  }
+
+  async function previewSaleFiscalDocument(sale: Sale) {
+    await openApiFile(`/sales/${sale.id}/fiscal-documents/preview`, {
+      documentType: "NFE",
     });
   }
 
@@ -164,6 +171,12 @@ export function useSalesActions({
     });
   }
 
+  async function previewShippingOrderFiscalDocument(order: ShippingOrder) {
+    await openApiFile(`/shipping-orders/${order.id}/fiscal-documents/preview`, {
+      documentType: "NFE",
+    });
+  }
+
   async function issuePickupReservationFiscalDocument(
     reservation: PickupReservation,
   ) {
@@ -184,6 +197,17 @@ export function useSalesActions({
       showFiscalDocuments();
       await refreshSalesFlow();
     });
+  }
+
+  async function previewPickupReservationFiscalDocument(
+    reservation: PickupReservation,
+  ) {
+    await openApiFile(
+      `/pickup-reservations/${reservation.id}/fiscal-documents/preview`,
+      {
+        documentType: "NFE",
+      },
+    );
   }
 
   async function approveShippingOrder(order: ShippingOrder) {
@@ -411,6 +435,9 @@ export function useSalesActions({
     issuePickupReservationFiscalDocument,
     issueSaleFiscalDocument,
     issueShippingOrderFiscalDocument,
+    previewPickupReservationFiscalDocument,
+    previewSaleFiscalDocument,
+    previewShippingOrderFiscalDocument,
     returnSaleItem,
     separateShippingOrder,
     updateSaleCommercialDetails,

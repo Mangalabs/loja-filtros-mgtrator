@@ -45,6 +45,11 @@ export type FiscalIssueRequest = {
       paymentMethodName: string;
       amount: string;
     }>;
+    paymentInstallments: Array<{
+      dueDate: string;
+      amount: string;
+      position: number;
+    }>;
     totalAmount: string;
     discountAmount: string;
     billingIssueDate: string | null;
@@ -101,8 +106,15 @@ export type FiscalCancelRequest = {
 
 export type FiscalCancelResult = FiscalIssueResult;
 
+export type FiscalPreviewResult = {
+  content: Buffer;
+  contentType: string;
+  fileName: string;
+};
+
 export type FiscalProvider = {
   cancel(request: FiscalCancelRequest): Promise<FiscalCancelResult>;
   check(request: FiscalCheckRequest): Promise<FiscalCheckResult>;
   issue(request: FiscalIssueRequest): Promise<FiscalIssueResult>;
+  preview(request: FiscalIssueRequest): Promise<FiscalPreviewResult>;
 };

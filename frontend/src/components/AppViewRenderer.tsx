@@ -319,11 +319,20 @@ export function AppViewRenderer({
           onIssueSaleFiscalDocument={(sale) =>
             void salesActions.issueSaleFiscalDocument(sale)
           }
+          onPreviewSaleFiscalDocument={(sale) =>
+            void salesActions.previewSaleFiscalDocument(sale)
+          }
           onIssueShippingOrderFiscalDocument={(order) =>
             void salesActions.issueShippingOrderFiscalDocument(order)
           }
+          onPreviewShippingOrderFiscalDocument={(order) =>
+            void salesActions.previewShippingOrderFiscalDocument(order)
+          }
           onIssuePickupReservationFiscalDocument={(reservation) =>
             void salesActions.issuePickupReservationFiscalDocument(reservation)
+          }
+          onPreviewPickupReservationFiscalDocument={(reservation) =>
+            void salesActions.previewPickupReservationFiscalDocument(reservation)
           }
           onResolveFiscalPendency={onResolveFiscalPendency}
           onSyncFiscalDocument={(fiscalDocument) =>

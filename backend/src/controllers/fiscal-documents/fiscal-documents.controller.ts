@@ -441,6 +441,30 @@ export async function issueSaleFiscalDocument(
   });
 }
 
+export async function previewSaleFiscalDocument(
+  saleId: string,
+  documentType: FiscalDocumentType,
+  branchId: string,
+) {
+  const sale = await getSaleById(saleId, db, { branchId });
+
+  if (!sale) {
+    throw new AppError("Venda informada nao encontrada.", 404);
+  }
+
+  if (sale.status === "CANCELLED") {
+    throw new AppError("Venda cancelada nao pode gerar previa de NF-e.", 422);
+  }
+
+  return previewFiscalDocument({
+    branchId,
+    sourceType: "SALE",
+    sourceId: sale.id,
+    saleId: sale.id,
+    documentType,
+  });
+}
+
 export async function issueShippingOrderFiscalDocument(
   shippingOrderId: string,
   issuedByUserId: string,
@@ -467,6 +491,32 @@ export async function issueShippingOrderFiscalDocument(
     issuedByUserId,
     documentType,
     duplicateMessage: "Documento fiscal ja emitido para este pedido.",
+  });
+}
+
+export async function previewShippingOrderFiscalDocument(
+  shippingOrderId: string,
+  documentType: FiscalDocumentType,
+  branchId: string,
+) {
+  const shippingOrder = await getShippingOrderById(shippingOrderId, db, {
+    branchId,
+  });
+
+  if (!shippingOrder) {
+    throw new AppError("Pedido para envio nao encontrado.", 404);
+  }
+
+  if (shippingOrder.status !== "COMPLETED" || !shippingOrder.saleId) {
+    throw new AppError("Pedido para envio ainda nao concluido.", 422);
+  }
+
+  return previewFiscalDocument({
+    branchId,
+    sourceType: "SHIPPING_ORDER",
+    sourceId: shippingOrder.id,
+    saleId: shippingOrder.saleId,
+    documentType,
   });
 }
 
@@ -501,6 +551,34 @@ export async function issuePickupReservationFiscalDocument(
   });
 }
 
+export async function previewPickupReservationFiscalDocument(
+  pickupReservationId: string,
+  documentType: FiscalDocumentType,
+  branchId: string,
+) {
+  const pickupReservation = await getPickupReservationById(
+    pickupReservationId,
+    db,
+    { branchId },
+  );
+
+  if (!pickupReservation) {
+    throw new AppError("Reserva para retirada nao encontrada.", 404);
+  }
+
+  if (pickupReservation.status !== "COMPLETED" || !pickupReservation.saleId) {
+    throw new AppError("Reserva para retirada ainda nao concluida.", 422);
+  }
+
+  return previewFiscalDocument({
+    branchId,
+    sourceType: "PICKUP_RESERVATION",
+    sourceId: pickupReservation.id,
+    saleId: pickupReservation.saleId,
+    documentType,
+  });
+}
+
 type IssueFiscalDocumentInput = {
   branchId: string;
   sourceType: FiscalDocumentSourceType;
@@ -511,16 +589,13 @@ type IssueFiscalDocumentInput = {
   duplicateMessage: string;
 };
 
+type FiscalDocumentRequestInput = Omit<
+  IssueFiscalDocumentInput,
+  "duplicateMessage" | "issuedByUserId"
+>;
+
 async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
   const fiscalDocument = await db.transaction(async (transaction) => {
-    const sale = await getSaleById(input.saleId, transaction, {
-      branchId: input.branchId,
-    });
-
-    if (!sale) {
-      throw new AppError("Venda informada nao encontrada.", 404);
-    }
-
     if (
       input.sourceType === "SALE" &&
       (await saleHasLinkedOperation(transaction, input.saleId))
@@ -555,21 +630,13 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       );
     }
 
-    const fiscalSettings = await currentFiscalSettings(input.branchId);
+    const { fiscalSettings, requestPayload } = await fiscalDocumentRequest(
+      input,
+      transaction,
+    );
     ensureFiscalSettingsCanIssue(fiscalSettings);
     const provider = makeFiscalProviderByName(fiscalSettings.provider);
-    const requestPayload = {
-      reference: fiscalReference(input.sourceType, input.sourceId),
-      documentType: input.documentType,
-      environment: fiscalSettings.environment,
-      companyCnpj: fiscalSettings.companyCnpj,
-      defaultNatureOperation: fiscalSettings.defaultNatureOperation,
-      defaultSaleCfop: fiscalSettings.defaultSaleCfop,
-      defaultIcmsCst: fiscalSettings.defaultIcmsCst,
-      defaultPisCst: fiscalSettings.defaultPisCst,
-      defaultCofinsCst: fiscalSettings.defaultCofinsCst,
-      sale,
-    };
+
     ensureFiscalReadiness(requestPayload, fiscalSettings.provider);
     const result = await provider.issue(requestPayload);
 
@@ -608,6 +675,49 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
     code: 201,
     status: "success",
     data: fiscalDocument,
+  };
+}
+
+async function previewFiscalDocument(input: FiscalDocumentRequestInput) {
+  const { fiscalSettings, requestPayload } = await fiscalDocumentRequest(
+    input,
+    db,
+  );
+  const provider = makeFiscalProviderByName(fiscalSettings.provider);
+
+  ensureFiscalReadiness(requestPayload, fiscalSettings.provider);
+
+  return provider.preview(requestPayload);
+}
+
+async function fiscalDocumentRequest(
+  input: FiscalDocumentRequestInput,
+  database: typeof db | Parameters<typeof getSaleById>[1],
+) {
+  const sale = await getSaleById(input.saleId, database, {
+    branchId: input.branchId,
+  });
+
+  if (!sale) {
+    throw new AppError("Venda informada nao encontrada.", 404);
+  }
+
+  const fiscalSettings = await currentFiscalSettings(input.branchId);
+
+  return {
+    fiscalSettings,
+    requestPayload: {
+      reference: fiscalReference(input.sourceType, input.sourceId),
+      documentType: input.documentType,
+      environment: fiscalSettings.environment,
+      companyCnpj: fiscalSettings.companyCnpj,
+      defaultNatureOperation: fiscalSettings.defaultNatureOperation,
+      defaultSaleCfop: fiscalSettings.defaultSaleCfop,
+      defaultIcmsCst: fiscalSettings.defaultIcmsCst,
+      defaultPisCst: fiscalSettings.defaultPisCst,
+      defaultCofinsCst: fiscalSettings.defaultCofinsCst,
+      sale,
+    },
   };
 }
 

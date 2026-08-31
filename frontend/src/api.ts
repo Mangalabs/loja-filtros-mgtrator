@@ -460,6 +460,13 @@ export type Sale = {
     paymentMethodName: string;
     amount: string;
   }>;
+  paymentInstallments: Array<{
+    id: string;
+    saleId: string;
+    position: number;
+    dueDate: string;
+    amount: string;
+  }>;
   createdByUserName: string;
   createdAt: string;
   cancelledByUserName: string | null;
@@ -830,6 +837,22 @@ export async function downloadApiFile(path: string, filename: string) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+export async function openApiFile(path: string, body?: unknown) {
+  const response = await fetch(apiUrl(path), {
+    method: body ? "POST" : "GET",
+    credentials: "include",
+    headers: apiHeaders(
+      body ? { "content-type": "application/json" } : undefined,
+    ),
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const file = await parseFileResponse(response, path);
+  const url = URL.createObjectURL(file);
+
+  window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 async function apiWrite<T>(

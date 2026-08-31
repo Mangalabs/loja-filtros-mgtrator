@@ -62,6 +62,9 @@ export function FiscalDocumentsPage({
   onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
   onIssueShippingOrderFiscalDocument,
+  onPreviewPickupReservationFiscalDocument,
+  onPreviewSaleFiscalDocument,
+  onPreviewShippingOrderFiscalDocument,
   onResolveFiscalPendency,
   onCancelFiscalDocument,
   onSyncFiscalDocument,
@@ -78,6 +81,11 @@ export function FiscalDocumentsPage({
   ) => void
   onIssueSaleFiscalDocument: (sale: Sale) => void
   onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
+  onPreviewPickupReservationFiscalDocument: (
+    reservation: PickupReservation,
+  ) => void
+  onPreviewSaleFiscalDocument: (sale: Sale) => void
+  onPreviewShippingOrderFiscalDocument: (order: ShippingOrder) => void
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
   onCancelFiscalDocument: (
     event: FormEvent<HTMLFormElement>,
@@ -172,6 +180,13 @@ export function FiscalDocumentsPage({
                     onIssueSaleFiscalDocument={onIssueSaleFiscalDocument}
                     onIssueShippingOrderFiscalDocument={
                       onIssueShippingOrderFiscalDocument
+                    }
+                    onPreviewPickupReservationFiscalDocument={
+                      onPreviewPickupReservationFiscalDocument
+                    }
+                    onPreviewSaleFiscalDocument={onPreviewSaleFiscalDocument}
+                    onPreviewShippingOrderFiscalDocument={
+                      onPreviewShippingOrderFiscalDocument
                     }
                     onResolveFiscalPendency={onResolveFiscalPendency}
                   />
@@ -303,6 +318,9 @@ function FiscalRequestAction({
   onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
   onIssueShippingOrderFiscalDocument,
+  onPreviewPickupReservationFiscalDocument,
+  onPreviewSaleFiscalDocument,
+  onPreviewShippingOrderFiscalDocument,
   onResolveFiscalPendency,
 }: {
   request: FiscalRequest
@@ -311,6 +329,11 @@ function FiscalRequestAction({
   ) => void
   onIssueSaleFiscalDocument: (sale: Sale) => void
   onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
+  onPreviewPickupReservationFiscalDocument: (
+    reservation: PickupReservation,
+  ) => void
+  onPreviewSaleFiscalDocument: (sale: Sale) => void
+  onPreviewShippingOrderFiscalDocument: (order: ShippingOrder) => void
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
 }) {
   const action = fiscalRequestAction(request, {
@@ -318,12 +341,25 @@ function FiscalRequestAction({
     onIssueSaleFiscalDocument,
     onIssueShippingOrderFiscalDocument,
   })
+  const previewAction = fiscalRequestAction(request, {
+    onIssuePickupReservationFiscalDocument:
+      onPreviewPickupReservationFiscalDocument,
+    onIssueSaleFiscalDocument: onPreviewSaleFiscalDocument,
+    onIssueShippingOrderFiscalDocument: onPreviewShippingOrderFiscalDocument,
+  })
 
   if (action && request.readinessIssues.length === 0) {
     return (
-      <TableActionButton type='button' onClick={action}>
-        {fiscalRequestActionText(request)}
-      </TableActionButton>
+      <div className='flex flex-wrap justify-end gap-2'>
+        {previewAction ? (
+          <TableActionButton type='button' onClick={previewAction}>
+            Pré-visualizar
+          </TableActionButton>
+        ) : null}
+        <TableActionButton type='button' onClick={action}>
+          {fiscalRequestActionText(request)}
+        </TableActionButton>
+      </div>
     )
   }
 
