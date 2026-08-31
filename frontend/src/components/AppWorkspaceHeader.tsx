@@ -54,6 +54,7 @@ export function AppWorkspaceHeader({
   const [branchMenuAnchor, setBranchMenuAnchor] =
     useState<HTMLElement | null>(null);
   const branchLabel = activeBranchName ?? "Selecione uma filial";
+  const canSwitchBranch = branches.length > 1;
 
   function closeBranchMenu() {
     setBranchMenuAnchor(null);
@@ -88,7 +89,7 @@ export function AppWorkspaceHeader({
             Caixa {cashStatus}
           </Button>
 
-          {user.role === "ADMIN" ? (
+          {canSwitchBranch ? (
             <>
               <Button
                 className="justify-start rounded-2xl border-[#dfe5e1] bg-white px-3 py-2 normal-case"
