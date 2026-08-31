@@ -9,7 +9,7 @@ import {
   Plus,
   SlidersHorizontal,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type {
   Product,
@@ -245,25 +245,84 @@ export function StockAdjustmentsPage({
 }
 
 export function LowStockPage({
-  catalogProducts,
   products,
+  onSearchProducts,
   onToggleReplenishmentMonitor,
 }: {
-  catalogProducts: Product[];
   products: Product[];
-  onToggleReplenishmentMonitor: (product: Product) => void;
+  onSearchProducts: (search: string) => Promise<Product[]>;
+  onToggleReplenishmentMonitor: (product: Product) => Promise<void>;
 }) {
   const [search, setSearch] = useState("");
+  const [searchedProducts, setSearchedProducts] = useState<Product[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const searchIsActive = Boolean(search.trim());
   const listProducts = searchIsActive
-    ? filterLowStockProducts(
-        catalogProducts.filter((product) => product.active),
-        search,
-      )
+    ? searchedProducts.filter((product) => product.active)
     : products;
   const { pagination, visibleItems } =
     usePaginatedRows<Product>(listProducts);
   const summary = lowStockSummary(products);
+
+  useEffect(() => {
+    const term = search.trim();
+
+    if (!term) {
+      setSearchedProducts([]);
+      setSearchError("");
+      setSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSearching(true);
+    setSearchError("");
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        const result = await onSearchProducts(term);
+
+        if (!cancelled) {
+          setSearchedProducts(result);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSearchedProducts([]);
+          setSearchError(
+            error instanceof Error
+              ? error.message
+              : "Nao foi possivel buscar produtos.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setSearching(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [search]);
+
+  async function toggleReplenishmentMonitor(product: Product) {
+    await onToggleReplenishmentMonitor(product);
+
+    setSearchedProducts((currentProducts) =>
+      currentProducts.map((currentProduct) =>
+        currentProduct.id === product.id
+          ? {
+              ...currentProduct,
+              replenishmentMonitorEnabled:
+                !currentProduct.replenishmentMonitorEnabled,
+            }
+          : currentProduct,
+      ),
+    );
+  }
 
   return (
     <section className="grid gap-4">
@@ -286,7 +345,13 @@ export function LowStockPage({
             <TextField
               className="min-w-full md:min-w-80"
               label="Buscar na reposição"
-              placeholder="Busque qualquer produto para monitorar"
+              placeholder="Busque por nome, codigo interno ou codigo de barras"
+              helperText={
+                searchError ||
+                (searching
+                  ? "Buscando produtos..."
+                  : "A busca consulta o catalogo completo da filial.")
+              }
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -320,6 +385,10 @@ export function LowStockPage({
             {
               header: "Produto",
               render: (product) => productDisplayName(product),
+            },
+            {
+              header: "Código",
+              render: (product) => product.internalCode ?? "-",
             },
             {
               header: "Fabricante",
@@ -358,7 +427,7 @@ export function LowStockPage({
                     )
                   }
                   type="button"
-                  onClick={() => onToggleReplenishmentMonitor(product)}
+                  onClick={() => void toggleReplenishmentMonitor(product)}
                 >
                   {product.replenishmentMonitorEnabled
                     ? "Parar monitoramento"
@@ -368,7 +437,9 @@ export function LowStockPage({
             },
           ]}
           emptyMessage={
-            search
+            searching
+              ? "Buscando produtos..."
+              : search
               ? "Nenhum produto encontrado para esta busca."
               : "Nenhum produto requer reposição."
           }
@@ -400,36 +471,6 @@ function lowStockSummary(products: Product[]) {
       .length,
     total: products.length,
   };
-}
-
-function filterLowStockProducts(products: Product[], search: string) {
-  const normalizedSearch = normalizeLowStockSearch(search);
-
-  if (!normalizedSearch) {
-    return products;
-  }
-
-  return products.filter((product) =>
-    [
-      product.name,
-      product.internalCode,
-      product.barcode,
-      product.brandName,
-      product.location,
-    ]
-      .filter(Boolean)
-      .some((value) =>
-        normalizeLowStockSearch(String(value)).includes(normalizedSearch),
-      ),
-  );
-}
-
-function normalizeLowStockSearch(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
 }
 
 function lowStockMissing(product: Product) {

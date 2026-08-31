@@ -116,6 +116,7 @@ type AppViewRendererProps = {
   onOpenQuotes: () => void;
   onProductPageChange: (pageIndex: number, rowsPerPage?: number) => void;
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
+  onSearchProducts: (search: string) => Promise<Product[]>;
   onLoadSalesReport: (filters?: {
     dateFrom?: string;
     dateTo?: string;
@@ -187,6 +188,7 @@ export function AppViewRenderer({
   onOpenQuotes,
   onProductPageChange,
   onResolveFiscalPendency,
+  onSearchProducts,
   onSelectView,
   onSearchChange,
   onSelectClient,
@@ -285,11 +287,9 @@ export function AppViewRenderer({
       ),
     "low-stock": (
       <LowStockPage
-        catalogProducts={products}
         products={lowStockProducts}
-        onToggleReplenishmentMonitor={(product) =>
-          void stockActions.toggleReplenishmentMonitor(product)
-        }
+        onSearchProducts={onSearchProducts}
+        onToggleReplenishmentMonitor={stockActions.toggleReplenishmentMonitor}
       />
     ),
     "stock-movements": <StockMovementsPage movements={stockMovements} />,

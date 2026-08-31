@@ -86,6 +86,7 @@ export function AuthenticatedApp({
     runAction,
     sales,
     salesReport,
+    searchProducts,
     search,
     setProductPage,
     setMessage,
@@ -313,6 +314,7 @@ export function AuthenticatedApp({
           onOpenQuotes={() => setView("quotes")}
           onResolveFiscalPendency={resolveFiscalPendency}
           onProductPageChange={setProductPage}
+          onSearchProducts={searchProducts}
           onSelectView={setView}
           onSearchChange={setSearch}
           onSelectClient={setSelectedClient}

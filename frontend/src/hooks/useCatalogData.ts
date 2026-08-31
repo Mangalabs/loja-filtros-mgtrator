@@ -589,6 +589,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     runAction,
     sales,
     salesReport,
+    searchProducts,
     loadSalesReport,
     search,
     setProductPage: changeProductPage,
@@ -647,6 +648,16 @@ async function fetchProductCatalog(search?: string) {
   );
 
   return result.data;
+}
+
+async function searchProducts(search: string) {
+  const term = search.trim();
+
+  if (!term) {
+    return [];
+  }
+
+  return fetchProductCatalog(term);
 }
 
 async function fetchProductPage({
