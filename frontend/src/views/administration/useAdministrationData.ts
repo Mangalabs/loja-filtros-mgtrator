@@ -121,12 +121,13 @@ export function useAdministrationData() {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
+    const branchId = String(data.get("branchId") ?? "");
     const input = {
       name: data.get("name"),
       email: data.get("email"),
       phone: data.get("phone"),
-      branchId: data.get("branchId"),
-      branchIds: data.getAll("branchIds"),
+      branchId,
+      branchIds: employeeBranchIds(branchId, data.getAll("branchIds")),
       permissions: data.getAll("permissions"),
       password: data.get("password"),
     };
@@ -260,6 +261,16 @@ export function useAdministrationData() {
     state,
     users,
   };
+}
+
+function employeeBranchIds(branchId: string, branchIds: FormDataEntryValue[]) {
+  return [
+    ...new Set(
+      [branchId, ...branchIds.map((branchId) => String(branchId))].filter(
+        Boolean,
+      ),
+    ),
+  ];
 }
 
 function buildAuthEventSearchParams(

@@ -48,7 +48,9 @@ export async function storeUser(
   input: StoreUserInput,
   administrator: AuthenticatedAdministratorInput,
 ) {
-  await ensureEmployeeBranches(employeeBranchIds(input));
+  const branchIds = employeeBranchIds(input);
+
+  await ensureEmployeeBranches(branchIds);
 
   const user = await createUser({
     name: input.name,
@@ -56,7 +58,7 @@ export async function storeUser(
     phone: input.phone,
     role: "EMPLOYEE",
     branchId: input.branchId,
-    branchIds: input.branchIds,
+    branchIds,
     permissions: input.permissions ?? [],
     mustChangePassword: true,
     passwordHash: await hashPassword(input.password),
@@ -82,14 +84,16 @@ export async function replaceEmployee(
   administrator: AuthenticatedAdministratorInput,
 ) {
   await ensureEmployee(id);
-  await ensureEmployeeBranches(employeeBranchIds(input));
+  const branchIds = employeeBranchIds(input);
+
+  await ensureEmployeeBranches(branchIds);
 
   const user = await updateUser(id, {
     name: input.name,
     email: input.email,
     phone: input.phone,
     branchId: input.branchId,
-    branchIds: input.branchIds,
+    branchIds,
     permissions: input.permissions ?? [],
     mustChangePassword: Boolean(input.password),
     passwordHash: input.password
