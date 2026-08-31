@@ -51,18 +51,22 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
             <strong>Sem valor fiscal</strong>
           </section>
 
-          <section class="info-grid">
+          <section class="sale-meta-grid">
             <p><strong>Número:</strong> ${escapeHtml(saleLabel)}</p>
-            <p><strong>Referencia interna:</strong> ${escapeHtml(sale.id)}</p>
             <p><strong>Data:</strong> ${formatDateTime(sale.createdAt)}</p>
             <p><strong>Operador:</strong> ${escapeHtml(sale.createdByUserName)}</p>
+            <p><strong>Data da fatura:</strong> ${formatOptionalDate(sale.billingIssueDate)}</p>
+          </section>
+
+          <section class="client-box">
+            <h2>Dados do cliente</h2>
+            <div class="info-grid">
             <p><strong>Cliente:</strong> ${escapeHtml(sale.clientName ?? "Nao identificado")}</p>
             <p><strong>CPF/CNPJ:</strong> ${escapeHtml(sale.clientDocument ?? "Nao informado")}</p>
             <p><strong>Telefone:</strong> ${escapeHtml(sale.clientPhone ?? "Nao informado")}</p>
             <p><strong>Email:</strong> ${escapeHtml(sale.clientEmail ?? "Nao informado")}</p>
             <p><strong>Pagamento:</strong> ${escapeHtml(sale.paymentMethodName)}</p>
-            <p><strong>Data da fatura:</strong> ${formatOptionalDate(sale.billingIssueDate)}</p>
-            <p><strong>Vencimento do boleto/fatura:</strong> ${formatOptionalDate(sale.billingDueDate)}</p>
+            </div>
           </section>
 
           ${
@@ -312,11 +316,18 @@ function saleReceiptCss() {
       color: #991b1b;
       text-transform: uppercase;
     }
+    .sale-meta-grid,
     .info-grid {
       display: grid;
       gap: 6px 16px;
       grid-template-columns: 1fr 1fr;
       margin-bottom: 14px;
+    }
+    .client-box {
+      margin-bottom: 14px;
+    }
+    .client-box .info-grid {
+      margin-bottom: 0;
     }
     p {
       margin: 0;

@@ -60,10 +60,6 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
               <strong>${escapeHtml(quoteLabel)}</strong>
             </div>
             <div>
-              <span>Referencia interna</span>
-              <strong>${escapeHtml(quote.id)}</strong>
-            </div>
-            <div>
               <span>Filial</span>
               <strong>${escapeHtml(quote.branchName ?? 'Nao informada')}</strong>
             </div>
@@ -71,16 +67,38 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
 
           <section class="buyer-box">
             <h2>Informacoes do comprador</h2>
-            <div class="buyer-grid">
-              <p><strong>Nome:</strong> ${escapeHtml(quote.clientName)}</p>
-              <p><strong>Documento:</strong> ${escapeHtml(quote.clientDocument ?? 'Nao informado')}</p>
-              <p><strong>Telefone:</strong> ${escapeHtml(quote.clientPhone ?? 'Nao informado')}</p>
-              <p><strong>Email:</strong> ${escapeHtml(quote.clientEmail ?? 'Nao informado')}</p>
-              <p><strong>Gerado em:</strong> ${formatDate(quote.createdAt)}</p>
-              <p><strong>Data de emissão do orçamento:</strong> ${formatOptionalDate(quote.billingIssueDate)}</p>
-              <p><strong>Primeiro vencimento do boleto/fatura:</strong> ${formatOptionalDate(quote.billingDueDate)}</p>
-              <p><strong>Validade do orçamento:</strong> ${quote.validUntil ? formatDate(quote.validUntil) : 'Nao informada'}</p>
-            </div>
+            <table class="buyer-details-table">
+              <tbody>
+                <tr>
+                  <th>Nome</th>
+                  <td>${escapeHtml(quote.clientName)}</td>
+                  <th>CPF/CNPJ</th>
+                  <td>${escapeHtml(quote.clientDocument ?? 'Nao informado')}</td>
+                </tr>
+                <tr>
+                  <th>Telefone</th>
+                  <td>${escapeHtml(quote.clientPhone ?? 'Nao informado')}</td>
+                  <th>Email</th>
+                  <td>${escapeHtml(quote.clientEmail ?? 'Nao informado')}</td>
+                </tr>
+                <tr>
+                  <th>Data de emissão</th>
+                  <td>${formatOptionalDate(quote.billingIssueDate)}</td>
+                  <th>Gerado em</th>
+                  <td>${formatDate(quote.createdAt)}</td>
+                </tr>
+                <tr>
+                  <th>Primeiro vencimento</th>
+                  <td>${formatOptionalDate(quote.billingDueDate)}</td>
+                  <th>Validade</th>
+                  <td>${quote.validUntil ? formatDate(quote.validUntil) : 'Nao informada'}</td>
+                </tr>
+                <tr>
+                  <th>Endereço</th>
+                  <td colspan="3">${escapeHtml(quoteClientAddress(quote))}</td>
+                </tr>
+              </tbody>
+            </table>
             <div class="payment-highlight">
               <span>Forma de pagamento</span>
               <strong>${escapeHtml(quote.paymentMethodName ?? 'Nao informada')}</strong>
@@ -146,6 +164,24 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
       </body>
     </html>
   `
+}
+
+function quoteClientAddress(quote: Quote) {
+  const street = [quote.clientAddressStreet, quote.clientAddressNumber]
+    .filter(Boolean)
+    .join(', ')
+  const city = [quote.clientAddressCity, quote.clientAddressState]
+    .filter(Boolean)
+    .join('/')
+  const parts = [
+    street,
+    quote.clientAddressComplement,
+    quote.clientAddressDistrict,
+    city,
+    quote.clientAddressZipCode,
+  ].filter(Boolean)
+
+  return parts.length > 0 ? parts.join(' - ') : 'Nao informado'
 }
 
 function quoteInstallmentsHtml(quote: Quote) {
@@ -315,12 +351,29 @@ function quotePdfCss() {
       margin: 0 0 6px;
       text-transform: uppercase;
     }
-    .buyer-grid {
-      display: grid;
-      gap: 4px 12px;
-      grid-template-columns: 1.5fr 1fr 1fr;
+    .buyer-details-table {
+      border-collapse: collapse;
+      table-layout: fixed;
+      width: 100%;
     }
-    .buyer-grid p,
+    .buyer-details-table th {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+      font-size: 7.3pt;
+      padding: 4px 5px;
+      text-align: left;
+      text-transform: uppercase;
+      width: 18%;
+    }
+    .buyer-details-table td {
+      border: 1px solid #e2e8f0;
+      color: #2c281e;
+      overflow-wrap: anywhere;
+      padding: 4px 5px;
+      width: 32%;
+      word-break: break-word;
+    }
     .notes-box p {
       margin: 0;
     }

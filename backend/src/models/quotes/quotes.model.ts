@@ -55,6 +55,13 @@ export type Quote = {
   clientPhone: string | null
   clientDocument: string | null
   clientEmail: string | null
+  clientAddressStreet: string | null
+  clientAddressNumber: string | null
+  clientAddressComplement: string | null
+  clientAddressDistrict: string | null
+  clientAddressCity: string | null
+  clientAddressState: string | null
+  clientAddressZipCode: string | null
   paymentMethodId: string | null
   paymentMethodName: string | null
   status: 'DRAFT' | 'CANCELLED'
@@ -123,6 +130,13 @@ const quoteColumns = [
   'clients.phone as clientPhone',
   'clients.document as clientDocument',
   'clients.email as clientEmail',
+  'clients.address_street as clientAddressStreet',
+  'clients.address_number as clientAddressNumber',
+  'clients.address_complement as clientAddressComplement',
+  'clients.address_district as clientAddressDistrict',
+  'clients.address_city as clientAddressCity',
+  'clients.address_state as clientAddressState',
+  'clients.address_zip_code as clientAddressZipCode',
   'payment_methods.id as paymentMethodId',
   'payment_methods.name as paymentMethodName',
   'quotes.status',
