@@ -254,61 +254,63 @@ export function AuthenticatedApp({
           onConfirm={() => closeConfirmation(true)}
         />
 
-        <AppViewRenderer
-          brands={brands}
-          cashRegister={cashRegister}
-          cashReport={cashReport}
-          catalogActions={catalogActions}
-          cestOptions={cestOptions}
-          clients={clients}
-          commercialSettings={commercialSettings}
-          financeActions={financeActions}
-          fiscalDocuments={fiscalDocuments}
-          fiscalSettings={fiscalSettings}
-          lowStockProducts={lowStockProducts}
-          ncmOptions={ncmOptions}
-          paymentMethods={paymentMethods}
-          pickupReservations={pickupReservations}
-          productPage={productPage}
-          productPageIndex={productPageIndex}
-          productRowsPerPage={productRowsPerPage}
-          products={products}
-          purchaseInvoices={purchaseInvoices}
-          purchaseReport={purchaseReport}
-          quoteActions={quoteActions}
-          quotes={quotes}
-          reportsOverview={reportsOverview}
-          sales={sales}
-          salesReport={salesReport}
-          onLoadCashReport={loadCashReport}
-          onLoadPurchaseReport={loadPurchaseReport}
-          onLoadSalesReport={loadSalesReport}
-          onLoadStockReport={loadStockReport}
-          salesActions={salesActions}
-          search={search}
-          selectedClient={selectedClient}
-          selectedProduct={selectedProduct}
-          shippingOrders={shippingOrders}
-          state={state}
-          stockActions={stockActions}
-          stockAdjustments={stockAdjustments}
-          stockEntries={stockEntries}
-          stockMovements={stockMovements}
-          stockReport={stockReport}
-          suppliers={suppliers}
-          user={user}
-          view={view}
-          onCancelClient={() => setSelectedClient(undefined)}
-          onCancelProductEdit={() => setView("products")}
-          onOpenQuotes={() => setView("quotes")}
-          onResolveFiscalPendency={resolveFiscalPendency}
-          onProductPageChange={setProductPage}
-          onSearchProducts={searchProducts}
-          onSelectView={setView}
-          onSearchChange={setSearch}
-          onSelectClient={setSelectedClient}
-          requestConfirmation={requestConfirmation}
-        />
+        <section className="mt-5 sm:mt-6">
+          <AppViewRenderer
+            brands={brands}
+            cashRegister={cashRegister}
+            cashReport={cashReport}
+            catalogActions={catalogActions}
+            cestOptions={cestOptions}
+            clients={clients}
+            commercialSettings={commercialSettings}
+            financeActions={financeActions}
+            fiscalDocuments={fiscalDocuments}
+            fiscalSettings={fiscalSettings}
+            lowStockProducts={lowStockProducts}
+            ncmOptions={ncmOptions}
+            paymentMethods={paymentMethods}
+            pickupReservations={pickupReservations}
+            productPage={productPage}
+            productPageIndex={productPageIndex}
+            productRowsPerPage={productRowsPerPage}
+            products={products}
+            purchaseInvoices={purchaseInvoices}
+            purchaseReport={purchaseReport}
+            quoteActions={quoteActions}
+            quotes={quotes}
+            reportsOverview={reportsOverview}
+            sales={sales}
+            salesReport={salesReport}
+            onLoadCashReport={loadCashReport}
+            onLoadPurchaseReport={loadPurchaseReport}
+            onLoadSalesReport={loadSalesReport}
+            onLoadStockReport={loadStockReport}
+            salesActions={salesActions}
+            search={search}
+            selectedClient={selectedClient}
+            selectedProduct={selectedProduct}
+            shippingOrders={shippingOrders}
+            state={state}
+            stockActions={stockActions}
+            stockAdjustments={stockAdjustments}
+            stockEntries={stockEntries}
+            stockMovements={stockMovements}
+            stockReport={stockReport}
+            suppliers={suppliers}
+            user={user}
+            view={view}
+            onCancelClient={() => setSelectedClient(undefined)}
+            onCancelProductEdit={() => setView("products")}
+            onOpenQuotes={() => setView("quotes")}
+            onResolveFiscalPendency={resolveFiscalPendency}
+            onProductPageChange={setProductPage}
+            onSearchProducts={searchProducts}
+            onSelectView={setView}
+            onSearchChange={setSearch}
+            onSelectClient={setSelectedClient}
+            requestConfirmation={requestConfirmation}
+          />
+        </section>
       </section>
     </main>
   );
