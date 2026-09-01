@@ -543,33 +543,24 @@ export function ShippingOrdersPage({
   const { pagination, visibleItems } = usePaginatedRows<ShippingOrder>(orders)
 
   return (
-    <section className='grid items-start gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]'>
-      <PagePanel>
-        <PageHeader
-          description='Crie um orçamento e transforme em pedido quando o cliente aprovar.'
-          icon={<Send size={18} />}
-          title='Novo pedido por orçamento'
-        />
-        <InlineNote>
-          Pedidos com envio nascem de orçamentos salvos. Quando o cliente
-          confirmar, informe o pagamento e conclua a venda em um único passo.
-        </InlineNote>
-        <PrimaryButton
-          icon={<Plus size={17} />}
-          type='button'
-          onClick={onOpenQuotes}>
-          Abrir orçamentos
-        </PrimaryButton>
-      </PagePanel>
-
+    <section className='grid gap-4'>
       <PagePanel wide>
         <PageHeader
           actions={
-            <span className='text-sm text-[#5f665f]'>
-              {orders.length} registros
-            </span>
+            <div className='flex flex-wrap items-center justify-end gap-2'>
+              <span className='text-sm text-[#5f665f]'>
+                {orders.length} registros
+              </span>
+              <PrimaryButton
+                icon={<Plus size={17} />}
+                type='button'
+                onClick={onOpenQuotes}>
+                Abrir orçamentos
+              </PrimaryButton>
+            </div>
           }
-          description='Conclua a venda em um passo quando o cliente confirmar o envio.'
+          description='Pedidos com envio nascem de orçamentos salvos e viram venda quando o cliente confirmar.'
+          icon={<Send size={18} />}
           title='Vendas'
         />
         <ResponsiveTable
@@ -687,7 +678,7 @@ function ShippingOrderCompleteActions({
           onSubmit={(event) => onComplete(event, order)}>
           {usesQuoteBillingData ? (
             <Alert severity='info' variant='outlined'>
-              Pagamento: {order.paymentMethodName ?? 'definido no orçamento'}
+              Pagamento: {shippingOrderPaymentSummary(order)}
               <br />
               Data da fatura:{' '}
               {order.billingIssueDate
@@ -1250,6 +1241,12 @@ function pickupReservationAuditNotes(reservation: PickupReservation) {
       ? `Cancelada por ${reservation.cancelledByUserName}`
       : null,
   ].filter((note): note is string => Boolean(note))
+}
+
+function shippingOrderPaymentSummary(order: ShippingOrder) {
+  return order.payments.length
+    ? order.payments.map((payment) => payment.paymentMethodName).join(' + ')
+    : (order.paymentMethodName ?? 'definido no orçamento')
 }
 
 function shippingOrderStatusLabel(status: ShippingOrder['status']) {

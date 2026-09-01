@@ -267,7 +267,7 @@ export function AppSidebar({
             active={view === 'sales-history'}
             icon={<ReceiptText size={18} />}
             onClick={() => onSelectView('sales-history')}>
-            Histórico
+            Histórico de vendas
           </NavButton>
           <NavButton
             active={view === 'shipping-orders'}

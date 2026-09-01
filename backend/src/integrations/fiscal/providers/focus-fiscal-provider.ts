@@ -358,6 +358,7 @@ function focusPaymentPayload(
 function focusPaymentCode(paymentMethodCode: string) {
   const paymentCodes: Record<string, string> = {
     BOLETO: "15",
+    CASH: "01",
     CREDIT: "03",
     DEBIT: "04",
     PIX: "20",

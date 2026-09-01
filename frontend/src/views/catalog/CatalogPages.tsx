@@ -427,6 +427,14 @@ export function ProductForm({
       </section>
       <FormRow columns={3}>
         <TextField
+          helperText='Mesmo saldo físico exibido na lista de produtos.'
+          label='Estoque atual'
+          name='currentStock'
+          type='number'
+          defaultValue={product?.currentStock ?? '0'}
+          slotProps={{ htmlInput: { step: '0.001' } }}
+        />
+        <TextField
           label='Estoque min.'
           name='minimumStock'
           type='number'

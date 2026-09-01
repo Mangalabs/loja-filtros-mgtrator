@@ -65,6 +65,7 @@ export type ProductCreateInput = {
   salePrice?: number;
   profitMarginPercentage?: number | null;
   minimumStock?: number;
+  currentStock?: number;
   replenishmentMonitorEnabled?: boolean;
   ncm?: string | null;
   cest?: string | null;
@@ -180,8 +181,9 @@ function applyProductFilters(
 
 export async function createProduct(
   input: ProductCreateInput,
+  database: Knex | Knex.Transaction = db,
 ): Promise<ProductListItem> {
-  const [created] = await db("products")
+  const [created] = await database("products")
     .insert({
       name: input.name,
       internal_code: input.internalCode,
@@ -210,7 +212,7 @@ export async function createProduct(
     })
     .returning("id");
 
-  const product = await findProductById(created.id);
+  const product = await findProductById(created.id, database);
 
   if (!product) {
     throw new Error("Product was not found after creation");
@@ -221,15 +223,17 @@ export async function createProduct(
 
 export async function getProductById(
   id: string,
+  database: Knex | Knex.Transaction = db,
 ): Promise<ProductListItem | undefined> {
-  return findProductById(id);
+  return findProductById(id, database);
 }
 
 export async function updateProduct(
   id: string,
   input: ProductUpdateInput,
+  database: Knex | Knex.Transaction = db,
 ): Promise<ProductListItem | undefined> {
-  const [updated] = await db("products")
+  const [updated] = await database("products")
     .where("id", id)
     .update({
       name: input.name,
@@ -264,7 +268,7 @@ export async function updateProduct(
     return undefined;
   }
 
-  return findProductById(updated.id);
+  return findProductById(updated.id, database);
 }
 
 export async function updateProductStatus(
@@ -308,8 +312,9 @@ export async function updateProductReplenishmentMonitor(
 
 async function findProductById(
   id: string,
+  database: Knex | Knex.Transaction = db,
 ): Promise<ProductListItem | undefined> {
-  return db("products")
+  return database("products")
     .leftJoin("branches", "branches.id", "products.branch_id")
     .leftJoin("brands", "brands.id", "products.brand_id")
     .leftJoin("product_groups", "product_groups.id", "products.group_id")

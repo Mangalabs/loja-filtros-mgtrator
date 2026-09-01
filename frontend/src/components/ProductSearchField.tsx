@@ -139,7 +139,10 @@ export function ProductSearchField({
           if (
             reason === "input" &&
             selectedProductId &&
-            nextValue !== selectedProductLabel
+            nextValue !== selectedProductLabel &&
+            !sortedProducts.some(
+              (product) => productSearchLabel(product) === nextValue,
+            )
           ) {
             setInternalProductId("");
             onChange?.("");

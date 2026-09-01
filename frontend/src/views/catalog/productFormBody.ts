@@ -1,7 +1,7 @@
 import { nullableFormValue } from "../../utils/forms";
 
 export function productFormBody(form: FormData) {
-  return {
+  const body = {
     name: String(form.get("productName") ?? "").trim(),
     internalCode: nullableFormValue(form, "internalCode"),
     barcode: nullableFormValue(form, "barcode"),
@@ -14,9 +14,12 @@ export function productFormBody(form: FormData) {
     salePrice: Number(form.get("salePrice") || 0),
     profitMarginPercentage: Number(form.get("profitMarginPercentage") || 0),
     minimumStock: Number(form.get("minimumStock") || 0),
+    currentStock: Number(form.get("currentStock") || 0),
     ncm: nullableFormValue(form, "ncm"),
     cest: nullableFormValue(form, "cest"),
     origin: nullableFormValue(form, "origin"),
     description: nullableFormValue(form, "description"),
   };
+
+  return body;
 }

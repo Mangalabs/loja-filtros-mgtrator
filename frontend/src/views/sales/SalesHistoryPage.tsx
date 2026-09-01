@@ -178,21 +178,12 @@ export function SalesHistoryPage({
       <ResponsiveTable
         columns={[
           {
-            header: 'Nº',
+            header: 'Nº da venda',
             render: (row) => row.saleNumber ?? '-',
           },
           {
             header: 'Data',
             render: (row) => formatDateTime(row.completedAt),
-          },
-          {
-            header: 'Origem',
-            render: (row) => (
-              <>
-                <strong>{row.originLabel}</strong>
-                <InlineNote>{row.sourceId}</InlineNote>
-              </>
-            ),
           },
           {
             header: 'Cliente',

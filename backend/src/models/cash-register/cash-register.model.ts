@@ -289,7 +289,7 @@ async function listPaymentSummary(
       ),
     ])
     .orderByRaw(
-      "case payment_methods.code when 'PIX' then 1 when 'DEBIT' then 2 when 'BOLETO' then 3 else 4 end",
+      "case payment_methods.code when 'CASH' then 1 when 'PIX' then 2 when 'DEBIT' then 3 when 'CREDIT' then 4 when 'BOLETO' then 5 else 6 end",
     )
     .orderBy("payment_methods.name", "asc");
 }

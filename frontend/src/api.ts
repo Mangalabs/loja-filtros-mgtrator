@@ -680,6 +680,14 @@ export type ShippingOrder = {
   totalAmount: string;
   paymentMethodId: string | null;
   paymentMethodName: string | null;
+  payments: Array<{
+    id: string;
+    quoteId: string;
+    paymentMethodId: string;
+    paymentMethodName: string;
+    position: number;
+    amount: string;
+  }>;
   billingIssueDate: string | null;
   billingDueDate: string | null;
   items: Array<{
@@ -751,6 +759,14 @@ export type Quote = {
   clientEmail: string | null;
   paymentMethodId: string | null;
   paymentMethodName: string | null;
+  payments: Array<{
+    id: string;
+    quoteId: string;
+    paymentMethodId: string;
+    paymentMethodName: string;
+    position: number;
+    amount: string;
+  }>;
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
   subtotalAmount: string;

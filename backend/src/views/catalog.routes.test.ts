@@ -7592,13 +7592,13 @@ describe("catalog routes", () => {
     assert.equal(listed.status, 200);
     assert.deepEqual(
       listed.body.data?.map((paymentMethod) => paymentMethod.code),
-      ["PIX", "DEBIT", "CREDIT", "BOLETO"],
+      ["CASH", "PIX", "DEBIT", "CREDIT", "BOLETO"],
     );
     assert.equal(deactivated.status, 200);
     assert.equal(deactivated.body.data?.active, false);
     assert.deepEqual(
       active.body.data?.map((paymentMethod) => paymentMethod.code),
-      ["PIX", "CREDIT", "BOLETO"],
+      ["CASH", "PIX", "CREDIT", "BOLETO"],
     );
   });
 
@@ -7847,6 +7847,7 @@ describe("catalog routes", () => {
         salePrice: 29.9,
         profitMarginPercentage: 61.62,
         minimumStock: 3,
+        currentStock: 4.5,
         ncm: "84212300",
         cest: "0100100",
         cfop: "5102",
@@ -7863,6 +7864,9 @@ describe("catalog routes", () => {
       "/products?search=Wega&includeMeta=true&page=1&limit=1",
     );
     const shown = await request<Product>(`/products/${created.body.data?.id}`);
+    const stockAdjustments = await request<StockAdjustment[]>(
+      "/stock-adjustments",
+    );
     const updated = await request<Product>(
       `/products/${created.body.data?.id}`,
       {
@@ -7872,9 +7876,13 @@ describe("catalog routes", () => {
           accessoryExpenses: 3.75,
           salePrice: 31.9,
           profitMarginPercentage: 72.43,
+          currentStock: 2.75,
           location: "",
         },
       },
+    );
+    const updatedStockAdjustments = await request<StockAdjustment[]>(
+      "/stock-adjustments",
     );
     const deactivated = await request<Product>(
       `/products/${created.body.data?.id}/status`,
@@ -7890,9 +7898,9 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.groupName, "Filtro de ar");
     assert.equal(created.body.data?.unit, "KIT");
     assert.equal(created.body.data?.location, "Corredor A - Prateleira 2");
-    assert.equal(created.body.data?.currentStock, "0.000");
+    assert.equal(created.body.data?.currentStock, "4.500");
     assert.equal(created.body.data?.reservedStock, "0.000");
-    assert.equal(created.body.data?.availableStock, "0.000");
+    assert.equal(created.body.data?.availableStock, "4.500");
     assert.equal(created.body.data?.accessoryExpenses, "1.50");
     assert.equal(created.body.data?.otherExpenses, "2.00");
     assert.equal(created.body.data?.profitMarginPercentage, "61.62");
@@ -7916,15 +7924,33 @@ describe("catalog routes", () => {
     assert.equal(listedPage.body.data?.items[0]?.id, created.body.data?.id);
     assert.equal(shown.status, 200);
     assert.equal(shown.body.data?.internalCode, "FAP4040");
+    assert.equal(shown.body.data?.currentStock, "4.500");
     assert.equal(
       shown.body.data?.description,
       "Descricao comercial do filtro para orcamento",
+    );
+    assert.equal(stockAdjustments.status, 200);
+    assert.equal(stockAdjustments.body.data?.[0]?.productName, "Filtro Wega FAP4040");
+    assert.equal(stockAdjustments.body.data?.[0]?.quantity, "4.500");
+    assert.equal(
+      stockAdjustments.body.data?.[0]?.reason,
+      "Estoque atual informado no cadastro do produto.",
     );
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.name, "Filtro Wega FAP4040 Atualizado");
     assert.equal(updated.body.data?.accessoryExpenses, "3.75");
     assert.equal(updated.body.data?.profitMarginPercentage, "72.43");
+    assert.equal(updated.body.data?.currentStock, "2.750");
     assert.equal(updated.body.data?.location, null);
+    assert.equal(
+      updatedStockAdjustments.body.data?.[0]?.productName,
+      "Filtro Wega FAP4040 Atualizado",
+    );
+    assert.equal(updatedStockAdjustments.body.data?.[0]?.quantity, "-1.750");
+    assert.equal(
+      updatedStockAdjustments.body.data?.[0]?.reason,
+      "Estoque atual corrigido na edicao do produto.",
+    );
     assert.equal(deactivated.status, 200);
     assert.equal(deactivated.body.data?.active, false);
   });

@@ -19,7 +19,7 @@ import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const productsRoutes = Router();
 
-const createProductSchema = z.object({
+const productBodySchema = z.object({
   name: z.string().trim().min(1),
   internalCode: optionalText(80),
   barcode: optionalText(80),
@@ -33,6 +33,7 @@ const createProductSchema = z.object({
   salePrice: z.coerce.number().min(0).optional(),
   profitMarginPercentage: z.coerce.number().min(0).max(1000).nullable().optional(),
   minimumStock: z.coerce.number().min(0).optional(),
+  currentStock: z.coerce.number().optional(),
   ncm: optionalText(16),
   cest: optionalText(16),
   cfop: optionalText(4),
@@ -44,7 +45,9 @@ const createProductSchema = z.object({
   active: z.boolean().optional(),
 });
 
-const updateProductSchema = createProductSchema.partial().refine((value) => {
+const createProductSchema = productBodySchema;
+
+const updateProductSchema = productBodySchema.partial().refine((value) => {
   return Object.keys(value).length > 0;
 });
 
@@ -102,10 +105,13 @@ productsRoutes.get("/products/:id", async (request, response) => {
 
 productsRoutes.post("/products", async (request, response) => {
   const body = validateBody(request, createProductSchema);
-  const result = await storeProduct({
-    ...body,
-    branchId: requireActiveBranchId(response.locals),
-  });
+  const result = await storeProduct(
+    {
+      ...body,
+      branchId: requireActiveBranchId(response.locals),
+    },
+    response.locals.authenticatedUser.id as string,
+  );
 
   response.status(201).json(result);
 });
@@ -113,7 +119,12 @@ productsRoutes.post("/products", async (request, response) => {
 productsRoutes.put("/products/:id", async (request, response) => {
   const { id } = productParamsSchema.parse(request.params);
   const body = validateBody(request, updateProductSchema);
-  const result = await replaceProduct(id, body);
+  const result = await replaceProduct(
+    id,
+    body,
+    response.locals.authenticatedUser.id as string,
+    requireActiveBranchId(response.locals),
+  );
 
   response.status(200).json(result);
 });

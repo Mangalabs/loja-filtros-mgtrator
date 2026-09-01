@@ -130,7 +130,7 @@ export function FiscalDocumentsPage({
         <ResponsiveTable
           columns={[
             {
-              header: 'Nº',
+              header: 'Nº da venda',
               render: (request) => (
                 <>
                   <strong>
@@ -216,7 +216,7 @@ export function FiscalDocumentsPage({
         <ResponsiveTable
           columns={[
             {
-              header: 'Documento',
+              header: 'Nº da NF-e',
               render: (document) => (
                 <>
                   <strong>{document.documentType}</strong>
@@ -228,7 +228,7 @@ export function FiscalDocumentsPage({
               ),
             },
             {
-              header: 'Nº',
+              header: 'Nº da venda',
               render: (document) => (
                 <>
                   <strong>
