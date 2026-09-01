@@ -16,6 +16,7 @@ type FocusResponsePayload = Record<string, unknown>;
 type FocusNfePayload = {
   natureza_operacao: string;
   data_emissao: string;
+  data_entrada_saida: string;
   tipo_documento: 1;
   local_destino: 1;
   finalidade_emissao: 1;
@@ -263,11 +264,13 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
   const totalAmount = moneyNumber(request.sale.totalAmount);
   const productAmount = focusSaleProductsAmount(request.sale.items);
   const discountAmount = focusSaleDiscountAmount(request.sale);
+  const issueDateTime = focusBrazilIssueDateTime();
 
   return {
     natureza_operacao:
       focusString(request.defaultNatureOperation) ?? "Venda de mercadoria",
-    data_emissao: focusBrazilIssueDateTime(),
+    data_emissao: issueDateTime,
+    data_entrada_saida: issueDateTime,
     tipo_documento: 1,
     local_destino: 1,
     finalidade_emissao: 1,

@@ -100,9 +100,10 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
               </tbody>
             </table>
             <div class="payment-highlight">
-              <span>Forma de pagamento</span>
-              <strong>${escapeHtml(quote.paymentMethodName ?? 'Nao informada')}</strong>
+              <span>Condições de pagamento</span>
+              <strong>${escapeHtml(quotePaymentSummary(quote))}</strong>
             </div>
+            ${quote.payments.length > 1 ? quotePaymentsHtml(quote) : ''}
             ${quote.paymentInstallments.length > 0 ? quoteInstallmentsHtml(quote) : ''}
           </section>
 
@@ -205,6 +206,34 @@ function quoteInstallmentsHtml(quote: Quote) {
       </table>
     </div>
   `
+}
+
+function quotePaymentsHtml(quote: Quote) {
+  const rows = quote.payments
+    .map(
+      (payment) => `
+        <tr>
+          <td>${escapeHtml(payment.paymentMethodName)}</td>
+          <td class="text-right">${formatCurrency(payment.amount)}</td>
+        </tr>
+      `,
+    )
+    .join('')
+
+  return `
+    <div class="installments-box">
+      <strong>Formas de pagamento</strong>
+      <table>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `
+}
+
+function quotePaymentSummary(quote: Quote) {
+  return quote.payments.length
+    ? quote.payments.map((payment) => payment.paymentMethodName).join(' + ')
+    : (quote.paymentMethodName ?? 'Nao informada')
 }
 
 function quoteItemRow(item: QuoteItem, index: number, showBrand: boolean) {

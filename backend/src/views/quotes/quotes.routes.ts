@@ -18,6 +18,18 @@ const createQuoteSchema = z
   .object({
     clientId: z.uuid(),
     paymentMethodId: z.uuid(),
+    payments: z
+      .array(
+        z
+          .object({
+            paymentMethodId: z.uuid(),
+            amount: z.coerce.number().positive(),
+            position: z.coerce.number().int().positive().optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .optional(),
     billingIssueDate: z
       .union([z.iso.date(), z.literal(""), z.null()])
       .transform((value) => value || null)

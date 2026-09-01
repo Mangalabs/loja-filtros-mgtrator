@@ -3,15 +3,17 @@ import { generateQuotePdf } from '../../integrations/pdf/quote-pdf.js'
 import { findBranchById } from '../../models/branches/branches.model.js'
 import {
   activeQuoteClientExists,
-  activeQuotePaymentMethodExists,
   cancelQuote,
   getQuoteById,
   insertQuote,
+  listActiveQuotePaymentMethods,
   listActiveQuoteProducts,
   listQuotes,
   lockQuoteForCancellation,
   updateQuote,
   type QuoteInput,
+  type QuotePaymentInput,
+  type QuotePaymentMethod,
 } from '../../models/quotes/quotes.model.js'
 import {
   findShippingOrderByQuoteId,
@@ -67,6 +69,7 @@ export async function storeQuote(
     const {
       discountAmount,
       discountPercentage,
+      payments,
       quoteItems,
       paymentInstallments,
       subtotalAmount,
@@ -84,6 +87,7 @@ export async function storeQuote(
       discountAmount,
       totalAmount,
       paymentInstallments,
+      payments,
     )
   })
 
@@ -122,6 +126,7 @@ export async function updateDraftQuote(
     const {
       discountAmount,
       discountPercentage,
+      payments,
       quoteItems,
       paymentInstallments,
       subtotalAmount,
@@ -138,6 +143,7 @@ export async function updateDraftQuote(
       discountAmount,
       totalAmount,
       paymentInstallments,
+      payments,
     )
   })
 
@@ -242,9 +248,18 @@ async function prepareQuoteInput(
     throw new AppError('Cliente informado nao disponivel.', 422)
   }
 
-  if (
-    !(await activeQuotePaymentMethodExists(transaction, input.paymentMethodId))
-  ) {
+  const paymentMethodIds = [
+    ...new Set([
+      input.paymentMethodId,
+      ...quotePaymentInputs(input).map((payment) => payment.paymentMethodId),
+    ]),
+  ]
+  const activePaymentMethods = await listActiveQuotePaymentMethods(
+    transaction,
+    paymentMethodIds,
+  )
+
+  if (activePaymentMethods.length !== paymentMethodIds.length) {
     throw new AppError('Forma de pagamento informada nao disponivel.', 422)
   }
 
@@ -315,20 +330,98 @@ async function prepareQuoteInput(
   const totalAmount = Number(
     (totalBeforeGeneralDiscount - discountAmount).toFixed(2),
   )
+  const normalizedPayments = normalizeQuotePayments(input, totalAmount)
+  const installmentTargetAmount = quoteInstallmentTargetAmount(
+    normalizedPayments,
+    activePaymentMethods,
+    totalAmount,
+  )
   const paymentInstallments = normalizePaymentInstallments(
     input.paymentInstallments ?? [],
-    totalAmount,
+    installmentTargetAmount,
     input.billingIssueDate,
   )
 
   return {
     discountAmount,
     discountPercentage,
+    payments: normalizedPayments,
     paymentInstallments,
     quoteItems,
     subtotalAmount,
     totalAmount,
   }
+}
+
+function quotePaymentInputs(input: QuoteInput) {
+  return input.payments ?? [
+    {
+      paymentMethodId: input.paymentMethodId,
+      amount: 0,
+    },
+  ]
+}
+
+function normalizeQuotePayments(input: QuoteInput, totalAmount: number) {
+  const payments = input.payments ?? [
+    {
+      paymentMethodId: input.paymentMethodId,
+      amount: totalAmount,
+      position: 1,
+    },
+  ]
+  const roundedPayments = payments.map((payment, index) => ({
+    paymentMethodId: payment.paymentMethodId,
+    amount: Number(payment.amount.toFixed(2)),
+    position: payment.position ?? index + 1,
+  }))
+  const sortedPayments = [...roundedPayments].sort(
+    (current, next) => current.position - next.position,
+  )
+  const hasSequentialPositions = sortedPayments.every(
+    (payment, index) => payment.position === index + 1,
+  )
+
+  if (!hasSequentialPositions) {
+    throw new AppError('Pagamentos do orçamento devem ser sequenciais.', 422)
+  }
+
+  const paymentsAmount = Number(
+    sortedPayments.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2),
+  )
+
+  if (paymentsAmount !== Number(totalAmount.toFixed(2))) {
+    throw new AppError(
+      'Total dos pagamentos deve ser igual ao total do orçamento.',
+      422,
+    )
+  }
+
+  return sortedPayments
+}
+
+function quoteInstallmentTargetAmount(
+  payments: QuotePaymentInput[],
+  paymentMethods: QuotePaymentMethod[],
+  totalAmount: number,
+) {
+  const paymentMethodById = new Map(
+    paymentMethods.map((paymentMethod) => [
+      paymentMethod.id,
+      paymentMethod,
+    ]),
+  )
+  const bankSlipAmount = Number(
+    payments
+      .filter(
+        (payment) =>
+          paymentMethodById.get(payment.paymentMethodId)?.code === 'BOLETO',
+      )
+      .reduce((sum, payment) => sum + payment.amount, 0)
+      .toFixed(2),
+  )
+
+  return bankSlipAmount > 0 ? bankSlipAmount : totalAmount
 }
 
 function percentageAmount(baseAmount: number, percentage: number) {

@@ -287,6 +287,16 @@ export async function completeSeparatedShippingOrder(
       paymentMethodId ?? currentOrder.paymentMethodId
     const resolvedPayments =
       payments ??
+      currentOrder.payments.map((payment) => ({
+        paymentMethodId: payment.paymentMethodId,
+        amount: Number(payment.amount),
+      }))
+    const fallbackPayments =
+      resolvedPayments.length > 0
+        ? resolvedPayments
+        : undefined
+    const normalizedPayments =
+      fallbackPayments ??
       (resolvedPaymentMethodId
         ? [
             {
@@ -296,11 +306,11 @@ export async function completeSeparatedShippingOrder(
           ]
         : undefined)
 
-    if (!resolvedPayments) {
+    if (!normalizedPayments) {
       throw new AppError('Forma de pagamento informada nao disponivel.', 422)
     }
 
-    for (const payment of resolvedPayments) {
+    for (const payment of normalizedPayments) {
       if (
         !(await activePaymentMethodExists(transaction, payment.paymentMethodId))
       ) {
@@ -309,7 +319,7 @@ export async function completeSeparatedShippingOrder(
     }
 
     validateSalePaymentsTotal(
-      resolvedPayments,
+      normalizedPayments,
       Number(currentOrder.totalAmount),
     )
 
@@ -373,7 +383,7 @@ export async function completeSeparatedShippingOrder(
           billingDates.billingDueDate ?? currentOrder.billingDueDate,
         discountAmount: saleDiscountAmount,
         paymentMethodId: resolvedPaymentMethodId ?? undefined,
-        payments: resolvedPayments,
+        payments: normalizedPayments,
         paymentInstallments: currentOrder.paymentInstallments.map(
           (installment) => ({
             amount: Number(installment.amount),

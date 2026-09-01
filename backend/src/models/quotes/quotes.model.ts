@@ -12,6 +12,7 @@ export type QuoteItemInput = {
 export type QuoteInput = {
   clientId: string
   paymentMethodId: string
+  payments?: QuotePaymentInput[]
   billingIssueDate?: string | null
   billingDueDate?: string | null
   validUntil?: string | null
@@ -26,6 +27,12 @@ export type QuotePaymentInstallmentInput = {
   dueDate: string
   amount: number
   position: number
+}
+
+export type QuotePaymentInput = {
+  paymentMethodId: string
+  amount: number
+  position?: number
 }
 
 export type QuoteItem = {
@@ -64,6 +71,7 @@ export type Quote = {
   clientAddressZipCode: string | null
   paymentMethodId: string | null
   paymentMethodName: string | null
+  payments: QuotePayment[]
   status: 'DRAFT' | 'CANCELLED'
   showBrand: boolean
   subtotalAmount: string
@@ -102,6 +110,15 @@ export type QuotePaymentInstallment = {
   amount: string
 }
 
+export type QuotePayment = {
+  id: string
+  quoteId: string
+  paymentMethodId: string
+  paymentMethodName: string
+  position: number
+  amount: string
+}
+
 type QuoteProduct = {
   id: string
   name: string
@@ -110,11 +127,17 @@ type QuoteProduct = {
   active: boolean
 }
 
+export type QuotePaymentMethod = {
+  id: string
+  code: string
+}
+
 type QuoteRow = Omit<Quote, 'items'>
 type QuoteItemRow = QuoteItem & {
   quoteId: string
 }
 type QuotePaymentInstallmentRow = QuotePaymentInstallment
+type QuotePaymentRow = QuotePayment
 type LockedQuote = {
   id: string
   status: Quote['status']
@@ -189,6 +212,15 @@ const quotePaymentInstallmentColumns = [
   'quote_payment_installments.amount',
 ]
 
+const quotePaymentColumns = [
+  'quote_payments.id',
+  'quote_payments.quote_id as quoteId',
+  'quote_payments.payment_method_id as paymentMethodId',
+  'payment_methods.name as paymentMethodName',
+  'quote_payments.position',
+  'quote_payments.amount',
+]
+
 export async function listQuotes(filters: { branchId: string }): Promise<Quote[]> {
   const quoteRows = await quoteQuery(db)
     .where('quotes.branch_id', filters.branchId)
@@ -243,6 +275,16 @@ export async function activeQuotePaymentMethodExists(
   return Boolean(paymentMethod)
 }
 
+export async function listActiveQuotePaymentMethods(
+  transaction: Knex.Transaction,
+  paymentMethodIds: string[],
+): Promise<QuotePaymentMethod[]> {
+  return transaction('payment_methods')
+    .select(['id', 'code'])
+    .whereIn('id', paymentMethodIds)
+    .andWhere('active', true)
+}
+
 export async function listActiveQuoteProducts(
   transaction: Knex.Transaction,
   productIds: string[],
@@ -275,6 +317,7 @@ export async function insertQuote(
   discountAmount: number,
   totalAmount: number,
   paymentInstallments: QuotePaymentInstallmentInput[],
+  payments: QuotePaymentInput[],
 ): Promise<Quote> {
   const [created] = await transaction('quotes')
     .insert({
@@ -315,6 +358,7 @@ export async function insertQuote(
     created.id,
     paymentInstallments,
   )
+  await insertQuotePayments(transaction, created.id, payments)
 
   const quote = await quoteQuery(transaction)
     .where('quotes.id', created.id)
@@ -363,6 +407,7 @@ export async function updateQuote(
   discountAmount: number,
   totalAmount: number,
   paymentInstallments: QuotePaymentInstallmentInput[],
+  payments: QuotePaymentInput[],
 ): Promise<Quote> {
   await transaction('quotes').where('id', id).update({
     client_id: input.clientId,
@@ -380,6 +425,7 @@ export async function updateQuote(
   })
 
   await transaction('quote_items').where('quote_id', id).delete()
+  await transaction('quote_payments').where('quote_id', id).delete()
   await transaction('quote_payment_installments').where('quote_id', id).delete()
   await transaction('quote_items').insert(
     items.map((item) => ({
@@ -399,6 +445,7 @@ export async function updateQuote(
     id,
     paymentInstallments,
   )
+  await insertQuotePayments(transaction, id, payments)
 
   const quote = await getQuoteById(id, transaction)
 
@@ -486,6 +533,15 @@ async function withQuoteItems(
     .select<QuotePaymentInstallmentRow[]>(quotePaymentInstallmentColumns)
     .whereIn('quote_payment_installments.quote_id', quoteIds)
     .orderBy('quote_payment_installments.position', 'asc')
+  const payments = await database('quote_payments')
+    .join(
+      'payment_methods',
+      'payment_methods.id',
+      'quote_payments.payment_method_id',
+    )
+    .select<QuotePaymentRow[]>(quotePaymentColumns)
+    .whereIn('quote_payments.quote_id', quoteIds)
+    .orderBy('quote_payments.position', 'asc')
 
   return quotes.map((quote) => ({
     ...quote,
@@ -495,6 +551,7 @@ async function withQuoteItems(
     paymentInstallments: installments.filter(
       (installment) => installment.quoteId === quote.id,
     ),
+    payments: payments.filter((payment) => payment.quoteId === quote.id),
   }))
 }
 
@@ -513,6 +570,25 @@ async function insertQuotePaymentInstallments(
       position: installment.position,
       due_date: installment.dueDate,
       amount: installment.amount,
+    })),
+  )
+}
+
+async function insertQuotePayments(
+  transaction: Knex.Transaction,
+  quoteId: string,
+  payments: QuotePaymentInput[],
+) {
+  if (payments.length === 0) {
+    return
+  }
+
+  await transaction('quote_payments').insert(
+    payments.map((payment, index) => ({
+      quote_id: quoteId,
+      payment_method_id: payment.paymentMethodId,
+      position: payment.position ?? index + 1,
+      amount: payment.amount,
     })),
   )
 }

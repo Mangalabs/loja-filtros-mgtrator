@@ -265,6 +265,13 @@ type ShippingOrder = {
   totalAmount: string;
   paymentMethodId: string | null;
   paymentMethodName: string | null;
+  payments: Array<{
+    id: string;
+    quoteId: string;
+    paymentMethodId: string;
+    paymentMethodName: string;
+    amount: string;
+  }>;
   billingIssueDate: string | null;
   billingDueDate: string | null;
   items: Array<{
@@ -322,6 +329,13 @@ type Quote = {
   clientPhone: string | null;
   paymentMethodId: string | null;
   paymentMethodName: string | null;
+  payments: Array<{
+    id: string;
+    quoteId: string;
+    paymentMethodId: string;
+    paymentMethodName: string;
+    amount: string;
+  }>;
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
   subtotalAmount: string;
@@ -4495,6 +4509,8 @@ describe("catalog routes", () => {
       const payload = submittedPayload as Record<string, unknown>;
 
       assert.equal(payload.natureza_operacao, "Venda de mercadoria");
+      assert.ok(payload.data_emissao);
+      assert.equal(payload.data_entrada_saida, payload.data_emissao);
       assert.equal(payload.nome_destinatario, "Cliente Focus");
       assert.equal(
         payload.inscricao_estadual_destinatario,
@@ -7061,6 +7077,84 @@ describe("catalog routes", () => {
     assert.equal(shown.body.data?.paymentInstallments.length, 2);
     assert.equal(shown.body.data?.paymentInstallments[1]?.position, 2);
     assert.equal(shown.body.data?.paymentInstallments[1]?.amount, "50.00");
+  });
+
+  it("keeps multiple quote payments and boleto installments when completing a quoted shipping order", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro quote pagamentos multiplos", salePrice: 100 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente quote pagamento misto" },
+    });
+    const boleto = await activePaymentMethod("BOLETO");
+    const credit = await activePaymentMethod("CREDIT");
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo inicial para quote pagamentos multiplos",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: boleto.id,
+        payments: [
+          { paymentMethodId: boleto.id, amount: 40, position: 1 },
+          { paymentMethodId: credit.id, amount: 60, position: 2 },
+        ],
+        paymentInstallments: [
+          { position: 1, dueDate: "2026-09-01", amount: 40 },
+        ],
+        billingIssueDate: "2026-08-01",
+        billingDueDate: "2026-09-01",
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+    const shippingOrder = await request<ShippingOrder>(
+      `/quotes/${quote.body.data?.id}/shipping-order`,
+      {
+        method: "POST",
+        body: {},
+      },
+    );
+    const completed = await request<ShippingOrder>(
+      `/shipping-orders/${shippingOrder.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: {},
+      },
+    );
+    const sales = await request<Sale[]>("/sales");
+    const linkedSale = sales.body.data?.find(
+      (sale) => sale.id === completed.body.data?.saleId,
+    );
+
+    assert.equal(quote.status, 201);
+    assert.equal(quote.body.data?.payments.length, 2);
+    assert.equal(quote.body.data?.paymentInstallments[0]?.amount, "40.00");
+    assert.deepEqual(
+      quote.body.data?.payments.map((payment) => payment.amount),
+      ["40.00", "60.00"],
+    );
+    assert.equal(shippingOrder.body.data?.payments.length, 2);
+    assert.equal(completed.status, 200);
+    assert.equal(linkedSale?.payments.length, 2);
+    assert.equal(linkedSale?.paymentInstallments[0]?.amount, "40.00");
+    assert.deepEqual(
+      linkedSale?.payments.map((payment) => payment.amount),
+      ["40.00", "60.00"],
+    );
   });
 
   it("cancels a draft quote before it becomes a shipping order", async () => {

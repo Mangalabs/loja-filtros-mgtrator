@@ -24,6 +24,7 @@ export type ShippingOrder = {
   totalAmount: string;
   paymentMethodId: string | null;
   paymentMethodName: string | null;
+  payments: Quote["payments"];
   billingIssueDate: string | null;
   billingDueDate: string | null;
   items: ShippingOrderItem[];
@@ -125,6 +126,7 @@ type LockedShippingOrder = {
   paymentMethodId: string | null;
   billingIssueDate: string | null;
   billingDueDate: string | null;
+  payments: Quote["payments"];
   paymentInstallments: Quote["paymentInstallments"];
   status: ShippingOrder["status"];
   items: LockedShippingOrderItem[];
@@ -316,8 +318,26 @@ export async function lockShippingOrder(
         .where("quote_id", order.quoteId)
         .orderBy("position", "asc")
     : [];
+  const payments = order.quoteId
+    ? await transaction("quote_payments")
+        .join(
+          "payment_methods",
+          "payment_methods.id",
+          "quote_payments.payment_method_id",
+        )
+        .select([
+          "quote_payments.id",
+          "quote_payments.quote_id as quoteId",
+          "quote_payments.payment_method_id as paymentMethodId",
+          "payment_methods.name as paymentMethodName",
+          "quote_payments.position",
+          "quote_payments.amount",
+        ])
+        .where("quote_id", order.quoteId)
+        .orderBy("quote_payments.position", "asc")
+    : [];
 
-  return { ...order, items, paymentInstallments };
+  return { ...order, items, paymentInstallments, payments };
 }
 
 export async function approveShippingOrder(
@@ -491,11 +511,46 @@ async function withShippingOrderItems(
   }
 
   const orderIds = orders.map((order) => order.id);
+  const quoteIds = orders
+    .map((order) => order.quoteId)
+    .filter((quoteId): quoteId is string => Boolean(quoteId));
   const items = await database("shipping_order_items")
     .join("products", "products.id", "shipping_order_items.product_id")
     .select<ShippingOrderItemRow[]>(shippingOrderItemColumns)
     .whereIn("shipping_order_items.shipping_order_id", orderIds)
     .orderBy("shipping_order_items.position", "asc");
+  const paymentInstallments =
+    quoteIds.length > 0
+      ? await database("quote_payment_installments")
+          .select([
+            "id",
+            "quote_id as quoteId",
+            "position",
+            database.raw("due_date::text as ??", ["dueDate"]),
+            "amount",
+          ])
+          .whereIn("quote_id", quoteIds)
+          .orderBy("position", "asc")
+      : [];
+  const payments =
+    quoteIds.length > 0
+      ? await database("quote_payments")
+          .join(
+            "payment_methods",
+            "payment_methods.id",
+            "quote_payments.payment_method_id",
+          )
+          .select([
+            "quote_payments.id",
+            "quote_payments.quote_id as quoteId",
+            "quote_payments.payment_method_id as paymentMethodId",
+            "payment_methods.name as paymentMethodName",
+            "quote_payments.position",
+            "quote_payments.amount",
+          ])
+          .whereIn("quote_payments.quote_id", quoteIds)
+          .orderBy("quote_payments.position", "asc")
+      : [];
 
   return orders.map((order) => {
     const orderItems = items
@@ -510,6 +565,10 @@ async function withShippingOrderItems(
       quantity: firstItem?.quantity ?? "0.000",
       unitPrice: firstItem?.unitPrice ?? "0.00",
       items: orderItems,
+      paymentInstallments: paymentInstallments.filter(
+        (installment) => installment.quoteId === order.quoteId,
+      ),
+      payments: payments.filter((payment) => payment.quoteId === order.quoteId),
     };
   });
 }
