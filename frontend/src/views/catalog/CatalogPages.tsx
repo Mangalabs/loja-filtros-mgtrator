@@ -12,7 +12,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type {
   Client,
   ClientCompanyLookup,
@@ -43,6 +43,8 @@ import { formatCurrency, formatQuantity } from '../../utils/format'
 import { productDisplayName } from '../../utils/productDisplay'
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
+type ClientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE'
+type ClientPersonTypeFilter = Client['personType'] | 'ALL'
 
 export function ProductsPage({
   products,
@@ -135,7 +137,7 @@ function ProductTable({
           render: (product) => product.unit,
         },
         {
-          header: 'Locacao',
+          header: 'Locação',
           render: (product) => product.location ?? '-',
         },
         {
@@ -330,7 +332,7 @@ export function ProductForm({
           ))}
         </TextField>
         <TextField
-          label='Locacao'
+          label='Locação'
           name='location'
           defaultValue={product?.location ?? ''}
         />
@@ -839,7 +841,24 @@ export function ClientsPage({
   onCancel: () => void
   onChangeStatus: (client: Client) => void
 }) {
-  const { pagination, visibleItems } = usePaginatedRows<Client>(clients)
+  const [clientSearch, setClientSearch] = useState('')
+  const [clientStatusFilter, setClientStatusFilter] =
+    useState<ClientStatusFilter>('ALL')
+  const [clientPersonTypeFilter, setClientPersonTypeFilter] =
+    useState<ClientPersonTypeFilter>('ALL')
+  const filteredClients = useMemo(
+    () =>
+      filterClients(clients, {
+        personType: clientPersonTypeFilter,
+        search: clientSearch,
+        status: clientStatusFilter,
+      }),
+    [clientPersonTypeFilter, clientSearch, clientStatusFilter, clients],
+  )
+  const { pagination, visibleItems } = usePaginatedRows<Client>(
+    filteredClients,
+    [clientPersonTypeFilter, clientSearch, clientStatusFilter].join('|'),
+  )
   const formRef = useRef<HTMLFormElement>(null)
   const [lookupState, setLookupState] = useState<
     'idle' | 'loading' | 'success' | 'error'
@@ -1122,24 +1141,71 @@ export function ClientsPage({
         <PageHeader
           actions={
             <span className='text-sm text-[#5f665f]'>
-              {clients.length} registros
+              {filteredClients.length} de {clients.length} registro(s)
             </span>
           }
           title='Clientes cadastrados'
         />
+        <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_170px_170px]'>
+          <TextField
+            label='Buscar cliente'
+            placeholder='Nome, CPF/CNPJ, telefone, email...'
+            size='small'
+            value={clientSearch}
+            onChange={(event) => setClientSearch(event.target.value)}
+          />
+          <TextField
+            label='Tipo'
+            select
+            size='small'
+            value={clientPersonTypeFilter}
+            onChange={(event) =>
+              setClientPersonTypeFilter(
+                event.target.value as ClientPersonTypeFilter,
+              )
+            }>
+            <MenuItem value='ALL'>Todos</MenuItem>
+            <MenuItem value='PF'>Pessoa fisica</MenuItem>
+            <MenuItem value='PJ'>Pessoa juridica</MenuItem>
+            <MenuItem value='ES'>Estrangeiro</MenuItem>
+          </TextField>
+          <TextField
+            label='Status'
+            select
+            size='small'
+            value={clientStatusFilter}
+            onChange={(event) =>
+              setClientStatusFilter(event.target.value as ClientStatusFilter)
+            }>
+            <MenuItem value='ALL'>Todos</MenuItem>
+            <MenuItem value='ACTIVE'>Ativos</MenuItem>
+            <MenuItem value='INACTIVE'>Inativos</MenuItem>
+          </TextField>
+        </div>
         <ResponsiveTable
           columns={[
             {
               header: 'Nome',
               render: (client) => (
-                <>
-                  <strong>{client.name}</strong>
+                <div className='grid min-w-0 gap-2'>
+                  <div className='flex min-w-0 items-start justify-between gap-3'>
+                    <strong className='min-w-0 break-words'>
+                      {client.name}
+                    </strong>
+                    <div className='shrink-0 lg:hidden'>
+                      <ClientActionsMenu
+                        client={client}
+                        onChangeStatus={onChangeStatus}
+                        onEdit={onEdit}
+                      />
+                    </div>
+                  </div>
                   <span className='mt-1 block text-xs text-[#5f665f]'>
                     {client.addressCity && client.addressState
                       ? `${client.addressCity}/${client.addressState}`
                       : 'Sem endereco fiscal'}
                   </span>
-                </>
+                </div>
               ),
             },
             {
@@ -1167,24 +1233,11 @@ export function ClientsPage({
               align: 'right',
               header: 'Ações',
               render: (client) => (
-                <div className='flex justify-end'>
-                  <TableActionsMenu
-                    actions={[
-                      {
-                        icon: <Pencil size={14} />,
-                        label: 'Editar',
-                        onSelect: () => onEdit(client),
-                      },
-                      {
-                        icon: client.active ? (
-                          <PowerOff size={14} />
-                        ) : (
-                          <Power size={14} />
-                        ),
-                        label: client.active ? 'Inativar' : 'Ativar',
-                        onSelect: () => onChangeStatus(client),
-                      },
-                    ]}
+                <div className='hidden justify-end lg:flex'>
+                  <ClientActionsMenu
+                    client={client}
+                    onChangeStatus={onChangeStatus}
+                    onEdit={onEdit}
                   />
                 </div>
               ),
@@ -1198,6 +1251,85 @@ export function ClientsPage({
       </PagePanel>
     </section>
   )
+}
+
+function ClientActionsMenu({
+  client,
+  onEdit,
+  onChangeStatus,
+}: {
+  client: Client
+  onEdit: (client: Client) => void
+  onChangeStatus: (client: Client) => void
+}) {
+  return (
+    <TableActionsMenu
+      actions={[
+        {
+          icon: <Pencil size={14} />,
+          label: 'Editar',
+          onSelect: () => onEdit(client),
+        },
+        {
+          icon: client.active ? <PowerOff size={14} /> : <Power size={14} />,
+          label: client.active ? 'Inativar' : 'Ativar',
+          onSelect: () => onChangeStatus(client),
+        },
+      ]}
+    />
+  )
+}
+
+function filterClients(
+  clients: Client[],
+  filters: {
+    personType: ClientPersonTypeFilter
+    search: string
+    status: ClientStatusFilter
+  },
+) {
+  const normalizedSearch = normalizeClientSearchText(filters.search)
+
+  return clients.filter((client) => {
+    const matchesPersonType =
+      filters.personType === 'ALL' || client.personType === filters.personType
+    const matchesStatus =
+      filters.status === 'ALL' ||
+      (filters.status === 'ACTIVE' && client.active) ||
+      (filters.status === 'INACTIVE' && !client.active)
+    const matchesSearch =
+      !normalizedSearch || clientSearchText(client).includes(normalizedSearch)
+
+    return matchesPersonType && matchesStatus && matchesSearch
+  })
+}
+
+function clientSearchText(client: Client) {
+  return normalizeClientSearchText(
+    [
+      client.name,
+      client.document,
+      client.phone,
+      client.email,
+      client.personType,
+      client.active ? 'Ativo' : 'Inativo',
+      client.stateRegistration,
+      client.addressStreet,
+      client.addressNumber,
+      client.addressComplement,
+      client.addressDistrict,
+      client.addressCity,
+      client.addressState,
+      client.addressZipCode,
+    ].join(' '),
+  )
+}
+
+function normalizeClientSearchText(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
 }
 
 const clientLookupStatusLabel: Record<

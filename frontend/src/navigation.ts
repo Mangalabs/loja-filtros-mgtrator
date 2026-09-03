@@ -18,7 +18,9 @@ export type View =
   | 'cash-register'
   | 'reports'
   | 'quotes'
+  | 'edit-quote'
   | 'sales'
+  | 'edit-sale'
   | 'sales-history'
   | 'shipping-orders'
   | 'pickup-reservations'
@@ -55,7 +57,9 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
   reports: ['reports'],
   sales: [
     'quotes',
+    'edit-quote',
     'sales',
+    'edit-sale',
     'sales-history',
     'shipping-orders',
     'pickup-reservations',
@@ -94,7 +98,9 @@ const viewValues: View[] = [
   'cash-register',
   'reports',
   'quotes',
+  'edit-quote',
   'sales',
+  'edit-sale',
   'sales-history',
   'shipping-orders',
   'pickup-reservations',
@@ -246,9 +252,17 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       description:
         'Monte orçamentos com cliente, múltiplos produtos e valores personalizados.',
     },
+    'edit-quote': {
+      title: 'Editar orçamento',
+      description: 'Corrija um orçamento em rascunho antes de criar a venda.',
+    },
     sales: {
       title: 'Venda direta',
       description: 'Registre vendas imediatas com baixa de estoque.',
+    },
+    'edit-sale': {
+      title: 'Editar venda',
+      description: 'Corrija uma venda aberta antes de concluir novamente.',
     },
     'sales-history': {
       title: 'Histórico de vendas',

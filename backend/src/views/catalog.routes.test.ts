@@ -566,6 +566,41 @@ type StockReport = {
   }>;
 };
 
+type InventoryReport = {
+  summary: {
+    productsCount: number;
+    returnedProductsCount: number;
+    totalCurrentStock: string;
+    totalReservedStock: string;
+    totalAvailableStock: string;
+    totalCostAmount: string;
+    totalSaleAmount: string;
+    potentialProfitAmount: string;
+    lowStockProductsCount: number;
+    negativeStockProductsCount: number;
+  };
+  items: Array<{
+    productId: string;
+    productName: string;
+    internalCode: string | null;
+    barcode: string | null;
+    brandName: string | null;
+    groupName: string | null;
+    unit: string;
+    location: string | null;
+    costPrice: string;
+    salePrice: string;
+    currentStock: string;
+    reservedStock: string;
+    availableStock: string;
+    minimumStock: string;
+    totalCostAmount: string;
+    totalSaleAmount: string;
+    stockStatus: "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
+    active: boolean;
+  }>;
+};
+
 type PurchaseReport = {
   summary: {
     entriesCount: number;
@@ -633,6 +668,44 @@ type CashReport = {
   }>;
 };
 
+type UserPerformanceReport = {
+  summary: {
+    usersCount: number;
+    salesCount: number;
+    grossAmount: string;
+    refundAmount: string;
+    netAmount: string;
+    quotesCreatedCount: number;
+    stockMovementsCount: number;
+    fiscalDocumentsIssuedCount: number;
+  };
+  users: Array<{
+    userId: string;
+    userName: string;
+    salesCount: number;
+    cancelledSalesCount: number;
+    openSalesCount: number;
+    grossAmount: string;
+    refundAmount: string;
+    netAmount: string;
+    quotesCreatedCount: number;
+    stockMovementsCount: number;
+    fiscalDocumentsIssuedCount: number;
+  }>;
+  sales: Array<{
+    saleId: string;
+    saleNumber: number;
+    userId: string;
+    userName: string;
+    clientName: string;
+    status: "OPEN" | "COMPLETED" | "CANCELLED";
+    totalAmount: string;
+    refundAmount: string;
+    netAmount: string;
+    createdAt: string;
+  }>;
+};
+
 type FiscalDocument = {
   id: string;
   branchId: string | null;
@@ -650,6 +723,7 @@ type FiscalDocument = {
   xmlUrl: string | null;
   pdfUrl: string | null;
   rejectionReason: string | null;
+  requestPayload: Record<string, unknown>;
   issuedByUserName: string;
   cancelledByUserName: string | null;
   cancelledAt: string | null;
@@ -1968,9 +2042,10 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.subtotalAmount, "80.00");
     assert.equal(created.body.data?.discountAmount, "15.00");
     assert.equal(created.body.data?.totalAmount, "65.00");
-    assert.ok(created.body.data?.billingIssueDate?.startsWith("2026-07-10"));
-    assert.ok(created.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.equal(created.body.data?.paymentMethodCode, "PIX");
+    assert.equal(created.body.data?.billingIssueDate, null);
+    assert.equal(created.body.data?.billingDueDate, null);
+    assert.equal(created.body.data?.paymentInstallments.length, 0);
     assert.equal(cash.body.data?.salesTotal, "65.00");
     assert.equal(cash.body.data?.paymentSummary[0]?.amount, "65.00");
   });
@@ -2107,7 +2182,28 @@ describe("catalog routes", () => {
         },
       },
     );
+    const updatedBackToPix = await request<Sale>(
+      `/sales/${sale.body.data?.id}/commercial-details`,
+      {
+        method: "PATCH",
+        body: {
+          billingIssueDate: "2026-09-01",
+          billingDueDate: "2026-10-01",
+          payments: [
+            {
+              paymentMethodId: paymentMethod.id,
+              amount: 120,
+            },
+          ],
+        },
+      },
+    );
 
+    assert.equal(sale.status, 201);
+    assert.equal(sale.body.data?.paymentMethodCode, "PIX");
+    assert.equal(sale.body.data?.billingIssueDate, null);
+    assert.equal(sale.body.data?.billingDueDate, null);
+    assert.equal(sale.body.data?.paymentInstallments.length, 0);
     assert.equal(invalidDates.status, 422);
     assert.equal(
       invalidDates.body.errors?.[0]?.message,
@@ -2125,6 +2221,11 @@ describe("catalog routes", () => {
       ),
     );
     assert.equal(updated.body.data?.paymentInstallments[0]?.amount, "120.00");
+    assert.equal(updatedBackToPix.status, 200);
+    assert.equal(updatedBackToPix.body.data?.paymentMethodCode, "PIX");
+    assert.equal(updatedBackToPix.body.data?.billingIssueDate, null);
+    assert.equal(updatedBackToPix.body.data?.billingDueDate, null);
+    assert.equal(updatedBackToPix.body.data?.paymentInstallments.length, 0);
   });
 
   it("reopens and completes a sale before fiscal issue", async () => {
@@ -2136,6 +2237,13 @@ describe("catalog routes", () => {
         ncm: "84212300",
         cfop: "5102",
         origin: "0",
+      },
+    });
+    const removedProduct = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro removido da venda reaberta",
+        salePrice: 80,
       },
     });
     const client = await request<Client>("/clients", {
@@ -2153,7 +2261,7 @@ describe("catalog routes", () => {
         addressZipCode: "77800000",
       },
     });
-    const paymentMethod = await activePaymentMethod();
+    const paymentMethod = await activePaymentMethod("BOLETO");
 
     await request("/stock-adjustments", {
       method: "POST",
@@ -2161,6 +2269,14 @@ describe("catalog routes", () => {
         productId: product.body.data?.id,
         quantity: 2,
         reason: "Saldo inicial para venda reaberta",
+      },
+    });
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: removedProduct.body.data?.id,
+        quantity: 2,
+        reason: "Saldo inicial para remover item da venda reaberta",
       },
     });
     await request("/cash-register/open", {
@@ -2171,10 +2287,12 @@ describe("catalog routes", () => {
     const sale = await request<Sale>("/sales", {
       method: "POST",
       body: {
-        productId: product.body.data?.id,
         clientId: client.body.data?.id,
-        paymentMethodId: paymentMethod.id,
-        quantity: 1,
+        items: [
+          { productId: product.body.data?.id, quantity: 1 },
+          { productId: removedProduct.body.data?.id, quantity: 1 },
+        ],
+        payments: [{ paymentMethodId: paymentMethod.id, amount: 230 }],
       },
     });
     const reopened = await request<Sale>(`/sales/${sale.body.data?.id}/reopen`, {
@@ -2188,14 +2306,21 @@ describe("catalog routes", () => {
       },
     );
     const updated = await request<Sale>(
-      `/sales/${sale.body.data?.id}/commercial-details`,
+      `/sales/${sale.body.data?.id}`,
       {
-        method: "PATCH",
+        method: "PUT",
         body: {
+          clientId: client.body.data?.id,
+          items: [{ productId: product.body.data?.id, quantity: 1 }],
+          payments: [{ paymentMethodId: paymentMethod.id, amount: 150 }],
           billingIssueDate: "2026-08-11",
           billingDueDate: "2026-08-25",
         },
       },
+    );
+    const keptProduct = await request<Product>(`/products/${product.body.data?.id}`);
+    const productRemovedFromSale = await request<Product>(
+      `/products/${removedProduct.body.data?.id}`,
     );
     const completed = await request<Sale>(
       `/sales/${sale.body.data?.id}/complete`,
@@ -2213,7 +2338,11 @@ describe("catalog routes", () => {
     );
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.status, "OPEN");
+    assert.equal(updated.body.data?.items.length, 1);
+    assert.equal(updated.body.data?.totalAmount, "150.00");
     assert.ok(updated.body.data?.billingDueDate?.startsWith("2026-08-25"));
+    assert.equal(keptProduct.body.data?.currentStock, "1.000");
+    assert.equal(productRemovedFromSale.body.data?.currentStock, "2.000");
     assert.equal(completed.status, 200);
     assert.equal(completed.body.data?.status, "COMPLETED");
   });
@@ -2650,14 +2779,32 @@ describe("catalog routes", () => {
       ],
     } satisfies ModelSale;
 
-    const html = saleReceiptPdfHtml(sale, {
+    const storeProfile = {
       address: "Rua teste",
       city: "Cidade teste",
       document: "Documento sem valor fiscal",
       email: "teste@example.com",
       name: "Loja teste",
       phone: "63999999999",
-    });
+    };
+    const html = saleReceiptPdfHtml(sale, storeProfile);
+    const pixOnlyHtml = saleReceiptPdfHtml(
+      {
+        ...sale,
+        paymentMethodCode: "PIX",
+        paymentMethodName: "PIX",
+        payments: [
+          {
+            id: "sale-payment-pix",
+            paymentMethodId: "payment-pix",
+            paymentMethodCode: "PIX",
+            paymentMethodName: "PIX",
+            amount: "100.00",
+          },
+        ],
+      },
+      storeProfile,
+    );
 
     assert.match(html, /Devolucoes e estornos/);
     assert.match(html, /Forma de pagamento/);
@@ -2674,6 +2821,8 @@ describe("catalog routes", () => {
     assert.match(html, /Estornos/);
     assert.match(html, /Total liquido/);
     assert.match(html, /R\$\s*50,00/);
+    assert.doesNotMatch(pixOnlyHtml, /Parcelas \/ vencimentos/);
+    assert.doesNotMatch(pixOnlyHtml, /Faturamento/);
   });
 
   it("returns an item from a completed shipping sale to stock", async () => {
@@ -2804,7 +2953,10 @@ describe("catalog routes", () => {
       `/sales/${sale.body.data?.id}/fiscal-documents`,
       {
         method: "POST",
-        body: { documentType: "NFE" },
+        body: {
+          documentType: "NFE",
+          additionalInformation: " Entregar DANFE com observacao fiscal ",
+        },
       },
     );
     const duplicated = await request(
@@ -2909,6 +3061,10 @@ describe("catalog routes", () => {
       `SALE${sale.body.data?.id?.replace(/-/g, "")}`,
     );
     assert.equal(issued.body.data?.issuedByUserName, "Administrador de teste");
+    assert.equal(
+      issued.body.data?.requestPayload.additionalInformation,
+      "Entregar DANFE com observacao fiscal",
+    );
     assert.equal(duplicated.status, 409);
     assert.equal(
       duplicated.body.message,
@@ -4478,6 +4634,7 @@ describe("catalog routes", () => {
     requestPayload.sale.items[0].productInternalCode = " FISCAL-1 ";
     requestPayload.sale.items[0].productName = " Filtro Focus ";
     requestPayload.sale.items[0].productNcm = " 84212300 ";
+    requestPayload.additionalInformation = " Observacao fiscal no rodape ";
     requestPayload.defaultNatureOperation = " Venda de mercadoria ";
     requestPayload.defaultSaleCfop = "5405";
     requestPayload.defaultIcmsCst = "500";
@@ -4523,6 +4680,10 @@ describe("catalog routes", () => {
       assert.equal(payload.municipio_destinatario, "Araguaina");
       assert.equal(payload.uf_destinatario, "TO");
       assert.equal(payload.email_destinatario, "fiscal@example.com");
+      assert.equal(
+        payload.informacoes_adicionais_contribuinte,
+        "Observacao fiscal no rodape",
+      );
 
       const item = (payload.items as Array<Record<string, unknown>>)[0];
 
@@ -4673,7 +4834,7 @@ describe("catalog routes", () => {
         String(payload.data_emissao),
         /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-03:00$/,
       );
-      assert.equal(payload.numero_fatura, "salefocusprovidertest");
+      assert.equal(payload.numero_fatura, "001");
       assert.equal(payload.valor_original_fatura, 155);
       assert.equal(payload.valor_desconto_fatura, 15);
       assert.equal(payload.valor_liquido_fatura, 140);
@@ -4801,7 +4962,7 @@ describe("catalog routes", () => {
 
       const payload = submittedPayload as Record<string, unknown>;
 
-      assert.equal(payload.numero_fatura, "salefocusprovidertest");
+      assert.equal(payload.numero_fatura, "001");
       assert.equal(payload.valor_original_fatura, 35);
       assert.equal(payload.valor_desconto_fatura, 0);
       assert.equal(payload.valor_liquido_fatura, 35);
@@ -5348,6 +5509,12 @@ describe("catalog routes", () => {
     const isolatedStock = await request<StockReport>("/reports/stock", {
       headers: isolatedHeaders,
     });
+    const isolatedInventory = await request<InventoryReport>(
+      "/reports/inventory",
+      {
+        headers: isolatedHeaders,
+      },
+    );
     const isolatedPurchases = await request<PurchaseReport>("/reports/purchases", {
       headers: isolatedHeaders,
     });
@@ -5361,6 +5528,8 @@ describe("catalog routes", () => {
     assert.equal(isolatedOverview.body.data?.openCashRegister, null);
     assert.equal(isolatedSales.body.data?.summary.salesCount, 0);
     assert.equal(isolatedStock.body.data?.summary.activeProductsCount, 0);
+    assert.equal(isolatedInventory.body.data?.summary.productsCount, 0);
+    assert.equal(isolatedInventory.body.data?.items.length, 0);
     assert.equal(isolatedPurchases.body.data?.summary.entriesCount, 0);
     assert.equal(isolatedCash.body.data?.summary.sessionsCount, 0);
   });
@@ -5557,6 +5726,85 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.turnoverProducts[0]?.soldQuantity, "3.000");
   });
 
+  it("returns inventory reports with stock values and product filters", async () => {
+    const availableProduct = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Inventario produto disponivel",
+        internalCode: "INV-DISP",
+        costPrice: 4,
+        salePrice: 10,
+        currentStock: 10,
+        minimumStock: 1,
+      },
+    });
+    const lowStockProduct = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Inventario produto baixo",
+        internalCode: "INV-BAIXO",
+        costPrice: 10,
+        salePrice: 20,
+        currentStock: 2,
+        minimumStock: 5,
+      },
+    });
+    const negativeStockProduct = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Inventario produto negativo",
+        internalCode: "INV-NEG",
+        costPrice: 8,
+        salePrice: 12,
+        currentStock: -2,
+      },
+    });
+
+    await request(`/products/${lowStockProduct.body.data?.id}/status`, {
+      method: "PATCH",
+      body: { active: false },
+    });
+
+    const activeReport = await request<InventoryReport>(
+      "/reports/inventory?active=true",
+    );
+    const allReport = await request<InventoryReport>("/reports/inventory");
+    const searchReport = await request<InventoryReport>(
+      "/reports/inventory?search=INV-BAIXO",
+    );
+    const negativeReport = await request<InventoryReport>(
+      "/reports/inventory?stockStatus=NEGATIVE",
+    );
+
+    assert.equal(activeReport.status, 200);
+    assert.equal(activeReport.body.data?.summary.productsCount, 2);
+    assert.equal(activeReport.body.data?.summary.returnedProductsCount, 2);
+    assert.equal(activeReport.body.data?.summary.totalCurrentStock, "8.000");
+    assert.equal(activeReport.body.data?.summary.totalReservedStock, "0.000");
+    assert.equal(activeReport.body.data?.summary.totalAvailableStock, "8.000");
+    assert.equal(activeReport.body.data?.summary.totalCostAmount, "24.00");
+    assert.equal(activeReport.body.data?.summary.totalSaleAmount, "76.00");
+    assert.equal(activeReport.body.data?.summary.potentialProfitAmount, "52.00");
+    assert.equal(activeReport.body.data?.summary.lowStockProductsCount, 0);
+    assert.equal(activeReport.body.data?.summary.negativeStockProductsCount, 1);
+    assert.equal(
+      activeReport.body.data?.items.find(
+        (item) => item.productId === availableProduct.body.data?.id,
+      )?.stockStatus,
+      "AVAILABLE",
+    );
+    assert.equal(
+      activeReport.body.data?.items.find(
+        (item) => item.productId === negativeStockProduct.body.data?.id,
+      )?.stockStatus,
+      "NEGATIVE",
+    );
+    assert.equal(allReport.body.data?.summary.productsCount, 3);
+    assert.equal(searchReport.body.data?.items[0]?.productId, lowStockProduct.body.data?.id);
+    assert.equal(negativeReport.body.data?.summary.productsCount, 1);
+    assert.equal(negativeReport.body.data?.items[0]?.productId, negativeStockProduct.body.data?.id);
+  });
+
   it("returns purchase spending reports from manual entries and posted XML purchases", async () => {
     const manualProduct = await request<Product>("/products", {
       method: "POST",
@@ -5709,6 +5957,73 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.sessions[0]?.status, "CLOSED");
     assert.equal(report.body.data?.sessions[0]?.expectedClosingBalance, "220.00");
     assert.equal(report.body.data?.sessions[0]?.difference, "1.00");
+  });
+
+  it("returns user performance reports with sales and operational actions", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro desempenho usuario", salePrice: 100 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente desempenho usuario" },
+    });
+    const paymentMethod = await activePaymentMethod();
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 5,
+        reason: "Saldo para desempenho por usuario",
+      },
+    });
+    await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        items: [{ productId: product.body.data?.id, quantity: 2 }],
+        paymentMethodId: paymentMethod.id,
+      },
+    });
+
+    await request(`/sales/${sale.body.data?.id}/fiscal-documents`, {
+      method: "POST",
+      body: { documentType: "NFE" },
+    });
+
+    const report = await request<UserPerformanceReport>("/reports/users");
+
+    assert.equal(report.status, 200);
+    assert.equal(report.body.data?.summary.usersCount, 1);
+    assert.equal(report.body.data?.summary.salesCount, 1);
+    assert.equal(report.body.data?.summary.grossAmount, "200.00");
+    assert.equal(report.body.data?.summary.refundAmount, "0.00");
+    assert.equal(report.body.data?.summary.netAmount, "200.00");
+    assert.equal(report.body.data?.summary.quotesCreatedCount, 1);
+    assert.equal(report.body.data?.summary.stockMovementsCount, 2);
+    assert.equal(report.body.data?.summary.fiscalDocumentsIssuedCount, 1);
+    assert.equal(report.body.data?.users[0]?.userName, "Administrador de teste");
+    assert.equal(report.body.data?.users[0]?.salesCount, 1);
+    assert.equal(report.body.data?.users[0]?.quotesCreatedCount, 1);
+    assert.equal(report.body.data?.users[0]?.stockMovementsCount, 2);
+    assert.equal(report.body.data?.users[0]?.fiscalDocumentsIssuedCount, 1);
+    assert.equal(report.body.data?.sales[0]?.saleNumber, sale.body.data?.saleNumber);
+    assert.equal(report.body.data?.sales[0]?.clientName, client.body.data?.name);
+    assert.equal(report.body.data?.sales[0]?.status, "COMPLETED");
+    assert.equal(report.body.data?.sales[0]?.netAmount, "200.00");
   });
 
   it("creates a shipping quote and reserves its item after approval", async () => {
@@ -6196,7 +6511,7 @@ describe("catalog routes", () => {
       },
     });
 
-    const quotePaymentMethod = await activePaymentMethod();
+    const quotePaymentMethod = await activePaymentMethod("BOLETO");
     const quote = await request<Quote>("/quotes", {
       method: "POST",
       body: {
@@ -6314,7 +6629,7 @@ describe("catalog routes", () => {
       },
     });
 
-    const quotePaymentMethod = await activePaymentMethod();
+    const quotePaymentMethod = await activePaymentMethod("BOLETO");
     const quote = await request<Quote>("/quotes", {
       method: "POST",
       body: {
@@ -9001,6 +9316,7 @@ function focusIssueRequest(): FiscalIssueRequest {
     environment: "HOMOLOGATION",
     companyCnpj: "12345678000199",
     defaultNatureOperation: "Venda de mercadoria",
+    additionalInformation: null,
     defaultSaleCfop: "5102",
     defaultIcmsCst: "102",
     defaultPisCst: "49",

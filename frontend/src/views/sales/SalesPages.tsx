@@ -2,7 +2,7 @@ import Alert from '@mui/material/Alert'
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import { PackagePlus, Plus, Send, ShoppingCart } from 'lucide-react'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import type {
   CashRegisterSession,
   Client,
@@ -41,18 +41,22 @@ import {
   formatQuantity,
 } from '../../utils/format'
 import { SaleReturnForm, type SaleReturnHandler } from './SaleReturnForm'
+import { salePaymentsAllowBilling } from './saleBilling'
 
 type SaleDraftItem = {
   productId: string
   quantity: string
 }
 
+type ShippingOrderStatusFilter = ShippingOrder['status'] | 'ALL'
+type PickupReservationStatusFilter = PickupReservation['status'] | 'ALL'
+
 type PickupReservationDraftItem = {
   productId: string
   quantity: string
 }
 
-type SalePaymentDraft = {
+export type SalePaymentDraft = {
   paymentMethodId: string
   amount: string
 }
@@ -107,6 +111,10 @@ export function SalesPage({
   const [payments, setPayments] = useState<SalePaymentDraft[]>([
     emptySalePayment(),
   ])
+  const paymentAllowsBilling = salePaymentsAllowBilling(
+    paymentMethods,
+    payments,
+  )
   const [items, setItems] = useState<SaleDraftItem[]>([emptySaleItem()])
   const activeProducts = products.filter((product) => product.active)
   const recentSales = sales
@@ -121,6 +129,16 @@ export function SalesPage({
   const saleDiscount = moneyInputValue(discountAmount)
   const discountExceedsSubtotal = saleDiscount > saleSubtotal
   const saleTotal = Math.max(saleSubtotal - saleDiscount, 0)
+  const saleAllowsBilling = salePaymentsAllowBilling(paymentMethods, payments)
+
+  useEffect(() => {
+    if (saleAllowsBilling) {
+      return
+    }
+
+    setBillingIssueDate('')
+    setBillingDueDate('')
+  }, [saleAllowsBilling])
 
   function updateItem(index: number, changes: Partial<SaleDraftItem>) {
     setItems((currentItems) =>
@@ -150,8 +168,8 @@ export function SalesPage({
 
     const saved = await onSubmit({
       clientId: clientId || null,
-      billingIssueDate: billingIssueDate || null,
-      billingDueDate: billingDueDate || null,
+      billingIssueDate: saleAllowsBilling ? billingIssueDate || null : null,
+      billingDueDate: saleAllowsBilling ? billingDueDate || null : null,
       discountAmount: saleDiscount,
       paymentMethodId: payments[0]?.paymentMethodId,
       payments: salePaymentPayloads(payments, saleTotal),
@@ -244,26 +262,28 @@ export function SalesPage({
             value={formatCurrency(saleSubtotal)}
           />
         </FormRow>
-        <FormRow>
-          <TextField
-            disabled={!cashRegister}
-            label='Data da fatura'
-            size='medium'
-            type='date'
-            value={billingIssueDate}
-            onChange={(event) => setBillingIssueDate(event.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-          <TextField
-            disabled={!cashRegister}
-            label='Vencimento do boleto/fatura'
-            size='medium'
-            type='date'
-            value={billingDueDate}
-            onChange={(event) => setBillingDueDate(event.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-        </FormRow>
+        {saleAllowsBilling ? (
+          <FormRow>
+            <TextField
+              disabled={!cashRegister}
+              label='Data da fatura'
+              size='medium'
+              type='date'
+              value={billingIssueDate}
+              onChange={(event) => setBillingIssueDate(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              disabled={!cashRegister}
+              label='Vencimento do boleto/fatura'
+              size='medium'
+              type='date'
+              value={billingDueDate}
+              onChange={(event) => setBillingDueDate(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </FormRow>
+        ) : null}
         <FormRow>
           <TextField
             disabled={!cashRegister}
@@ -370,7 +390,7 @@ function emptySalePayment(): SalePaymentDraft {
   }
 }
 
-function PaymentSplitFields({
+export function PaymentSplitFields({
   disabled,
   fieldPrefix,
   paymentMethods,
@@ -540,7 +560,32 @@ export function ShippingOrdersPage({
   onComplete: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
   onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
 }) {
-  const { pagination, visibleItems } = usePaginatedRows<ShippingOrder>(orders)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] =
+    useState<ShippingOrderStatusFilter>('ALL')
+  const [paymentMethodId, setPaymentMethodId] = useState('ALL')
+  const filteredOrders = useMemo(
+    () =>
+      filterShippingOrders(orders, {
+        paymentMethodId,
+        search,
+        status: statusFilter,
+      }),
+    [orders, paymentMethodId, search, statusFilter],
+  )
+  const { pagination, visibleItems } = usePaginatedRows<ShippingOrder>(
+    filteredOrders,
+    [paymentMethodId, search, statusFilter].join('|'),
+  )
+  const paymentFilterOptions = paymentMethods.filter((paymentMethod) =>
+    orders.some(
+      (order) =>
+        order.paymentMethodId === paymentMethod.id ||
+        order.payments.some(
+          (payment) => payment.paymentMethodId === paymentMethod.id,
+        ),
+    ),
+  )
 
   return (
     <section className='grid gap-4'>
@@ -549,7 +594,7 @@ export function ShippingOrdersPage({
           actions={
             <div className='flex flex-wrap items-center justify-end gap-2'>
               <span className='text-sm text-[#5f665f]'>
-                {orders.length} registros
+                {filteredOrders.length} de {orders.length} registro(s)
               </span>
               <PrimaryButton
                 icon={<Plus size={17} />}
@@ -563,6 +608,42 @@ export function ShippingOrdersPage({
           icon={<Send size={18} />}
           title='Vendas'
         />
+        <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_210px_200px]'>
+          <TextField
+            label='Buscar pedido'
+            placeholder='Cliente, produto, operador, orçamento...'
+            size='small'
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <TextField
+            label='Status'
+            select
+            size='small'
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as ShippingOrderStatusFilter)
+            }>
+            {shippingOrderStatusFilterOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            label='Pagamento'
+            select
+            size='small'
+            value={paymentMethodId}
+            onChange={(event) => setPaymentMethodId(event.target.value)}>
+            <MenuItem value='ALL'>Todos</MenuItem>
+            {paymentFilterOptions.map((method) => (
+              <MenuItem key={method.id} value={method.id}>
+                {method.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </div>
         <ResponsiveTable
           columns={[
             {
@@ -651,7 +732,22 @@ function ShippingOrderCompleteActions({
   const [payments, setPayments] = useState<SalePaymentDraft[]>([
     emptySalePayment(),
   ])
-  const usesQuoteBillingData = Boolean(order.quoteId && order.paymentMethodId)
+  const orderPayments = order.payments.length
+    ? order.payments
+    : order.paymentMethodId
+      ? [{ paymentMethodId: order.paymentMethodId }]
+      : []
+  const usesQuoteBillingData = Boolean(
+    order.quoteId &&
+      salePaymentsAllowBilling(paymentMethods, orderPayments) &&
+      (order.billingIssueDate ||
+        order.billingDueDate ||
+        order.payments.length > 0),
+  )
+  const manualPaymentAllowsBilling = salePaymentsAllowBilling(
+    paymentMethods,
+    payments,
+  )
   const actions: TableActionsMenuAction[] = [
     {
       disabled: !cashRegister,
@@ -700,22 +796,26 @@ function ShippingOrderCompleteActions({
                 totalAmount={Number(order.totalAmount)}
                 onChange={setPayments}
               />
-              <TextField
-                disabled={!cashRegister}
-                label='Data da fatura'
-                name='shippingBillingIssueDate'
-                size='small'
-                type='date'
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-              <TextField
-                disabled={!cashRegister}
-                label='Vencimento do boleto/fatura'
-                name='shippingBillingDueDate'
-                size='small'
-                type='date'
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
+              {manualPaymentAllowsBilling ? (
+                <>
+                  <TextField
+                    disabled={!cashRegister}
+                    label='Data da fatura'
+                    name='shippingBillingIssueDate'
+                    size='small'
+                    type='date'
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                  <TextField
+                    disabled={!cashRegister}
+                    label='Vencimento do boleto/fatura'
+                    name='shippingBillingDueDate'
+                    size='small'
+                    type='date'
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </>
+              ) : null}
             </>
           )}
           <div className='flex flex-wrap gap-2'>
@@ -798,8 +898,21 @@ export function PickupReservationsPage({
   const [items, setItems] = useState<PickupReservationDraftItem[]>([
     emptyPickupReservationItem(),
   ])
-  const { pagination, visibleItems } =
-    usePaginatedRows<PickupReservation>(reservations)
+  const [reservationSearch, setReservationSearch] = useState('')
+  const [reservationStatusFilter, setReservationStatusFilter] =
+    useState<PickupReservationStatusFilter>('ALL')
+  const filteredReservations = useMemo(
+    () =>
+      filterPickupReservations(reservations, {
+        search: reservationSearch,
+        status: reservationStatusFilter,
+      }),
+    [reservationSearch, reservationStatusFilter, reservations],
+  )
+  const { pagination, visibleItems } = usePaginatedRows<PickupReservation>(
+    filteredReservations,
+    [reservationSearch, reservationStatusFilter].join('|'),
+  )
   const activeProducts = products.filter((product) => product.active)
   const reservationTotal = items.reduce((sum, item) => {
     const product = activeProducts.find(
@@ -942,12 +1055,37 @@ export function PickupReservationsPage({
         <PageHeader
           actions={
             <span className='text-sm text-[#5f665f]'>
-              {reservations.length} registros
+              {filteredReservations.length} de {reservations.length} registro(s)
             </span>
           }
           description='Conclua a venda quando o cliente retirar ou cancele para liberar o estoque.'
           title='Reservas para retirada'
         />
+        <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_210px]'>
+          <TextField
+            label='Buscar reserva'
+            placeholder='Cliente, produto, operador...'
+            size='small'
+            value={reservationSearch}
+            onChange={(event) => setReservationSearch(event.target.value)}
+          />
+          <TextField
+            label='Status'
+            select
+            size='small'
+            value={reservationStatusFilter}
+            onChange={(event) =>
+              setReservationStatusFilter(
+                event.target.value as PickupReservationStatusFilter,
+              )
+            }>
+            {pickupReservationStatusFilterOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </div>
         <ResponsiveTable
           columns={[
             {
@@ -1109,6 +1247,10 @@ function PickupReservationActions({
   const [payments, setPayments] = useState<SalePaymentDraft[]>([
     emptySalePayment(),
   ])
+  const paymentAllowsBilling = salePaymentsAllowBilling(
+    paymentMethods,
+    payments,
+  )
 
   if (reservation.status === 'COMPLETED') {
     return 'Venda concluída'
@@ -1150,22 +1292,26 @@ function PickupReservationActions({
             totalAmount={Number(reservation.totalAmount)}
             onChange={setPayments}
           />
-          <TextField
-            disabled={!cashRegister}
-            label='Data da fatura'
-            name='pickupBillingIssueDate'
-            size='small'
-            type='date'
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-          <TextField
-            disabled={!cashRegister}
-            label='Vencimento do boleto/fatura'
-            name='pickupBillingDueDate'
-            size='small'
-            type='date'
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
+          {paymentAllowsBilling ? (
+            <>
+              <TextField
+                disabled={!cashRegister}
+                label='Data da fatura'
+                name='pickupBillingIssueDate'
+                size='small'
+                type='date'
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+              <TextField
+                disabled={!cashRegister}
+                label='Vencimento do boleto/fatura'
+                name='pickupBillingDueDate'
+                size='small'
+                type='date'
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </>
+          ) : null}
           <div className='flex flex-wrap gap-2'>
             <TableActionButton type='submit' disabled={!cashRegister}>
               Concluir venda
@@ -1243,10 +1389,146 @@ function pickupReservationAuditNotes(reservation: PickupReservation) {
   ].filter((note): note is string => Boolean(note))
 }
 
+const pickupReservationStatusFilterOptions: Array<{
+  label: string
+  value: PickupReservationStatusFilter
+}> = [
+  { label: 'Todas', value: 'ALL' },
+  { label: 'Reservadas', value: 'RESERVED' },
+  { label: 'Vendas concluídas', value: 'COMPLETED' },
+  { label: 'Canceladas', value: 'CANCELLED' },
+]
+
+function filterPickupReservations(
+  reservations: PickupReservation[],
+  filters: {
+    search: string
+    status: PickupReservationStatusFilter
+  },
+) {
+  const normalizedSearch = normalizePickupReservationSearchText(filters.search)
+
+  return reservations.filter((reservation) => {
+    const matchesStatus =
+      filters.status === 'ALL' || reservation.status === filters.status
+    const matchesSearch =
+      !normalizedSearch ||
+      pickupReservationSearchText(reservation).includes(normalizedSearch)
+
+    return matchesStatus && matchesSearch
+  })
+}
+
+function pickupReservationSearchText(reservation: PickupReservation) {
+  return normalizePickupReservationSearchText(
+    [
+      reservation.clientName,
+      reservation.clientPhone,
+      reservation.saleId,
+      reservation.createdByUserName,
+      reservation.completedByUserName,
+      reservation.cancelledByUserName,
+      reservation.cancellationReason,
+      reservation.totalAmount,
+      pickupReservationStatusLabel(reservation.status),
+      ...reservation.items.flatMap((item) => [
+        item.productName,
+        item.quantity,
+        item.totalAmount,
+      ]),
+    ].join(' '),
+  )
+}
+
+function normalizePickupReservationSearchText(
+  value: string | number | null | undefined,
+) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+}
+
 function shippingOrderPaymentSummary(order: ShippingOrder) {
   return order.payments.length
     ? order.payments.map((payment) => payment.paymentMethodName).join(' + ')
     : (order.paymentMethodName ?? 'definido no orçamento')
+}
+
+const shippingOrderStatusFilterOptions: Array<{
+  label: string
+  value: ShippingOrderStatusFilter
+}> = [
+  { label: 'Todos', value: 'ALL' },
+  { label: 'Orçamento enviado', value: 'QUOTED' },
+  { label: 'Aprovados', value: 'APPROVED' },
+  { label: 'Separados', value: 'SEPARATED' },
+  { label: 'Vendas concluídas', value: 'COMPLETED' },
+  { label: 'Cancelados', value: 'CANCELLED' },
+]
+
+function filterShippingOrders(
+  orders: ShippingOrder[],
+  filters: {
+    paymentMethodId: string
+    search: string
+    status: ShippingOrderStatusFilter
+  },
+) {
+  const normalizedSearch = normalizeShippingOrderSearchText(filters.search)
+
+  return orders.filter((order) => {
+    const matchesStatus =
+      filters.status === 'ALL' || order.status === filters.status
+    const matchesPayment =
+      filters.paymentMethodId === 'ALL' ||
+      order.paymentMethodId === filters.paymentMethodId ||
+      order.payments.some(
+        (payment) => payment.paymentMethodId === filters.paymentMethodId,
+      )
+    const matchesSearch =
+      !normalizedSearch ||
+      shippingOrderSearchText(order).includes(normalizedSearch)
+
+    return matchesStatus && matchesPayment && matchesSearch
+  })
+}
+
+function shippingOrderSearchText(order: ShippingOrder) {
+  return normalizeShippingOrderSearchText(
+    [
+      order.clientName,
+      order.clientPhone,
+      order.quoteId ? 'orçamento' : '',
+      order.quoteId,
+      order.saleId,
+      order.createdByUserName,
+      order.approvedByUserName,
+      order.separatedByUserName,
+      order.completedByUserName,
+      order.cancelledByUserName,
+      order.cancellationReason,
+      order.totalAmount,
+      shippingOrderPaymentSummary(order),
+      shippingOrderStatusLabel(order.status),
+      ...order.payments.map((payment) => payment.paymentMethodName),
+      ...order.items.flatMap((item) => [
+        item.description,
+        item.productName,
+        item.quantity,
+        item.totalAmount,
+      ]),
+    ].join(' '),
+  )
+}
+
+function normalizeShippingOrderSearchText(
+  value: string | number | null | undefined,
+) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
 }
 
 function shippingOrderStatusLabel(status: ShippingOrder['status']) {

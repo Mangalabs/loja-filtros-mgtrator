@@ -12,6 +12,7 @@ import {
   type CommercialSettings,
   type FiscalDocument,
   type FiscalSettings,
+  type InventoryReport,
   type NamedEntity,
   type NcmOption,
   type PaymentMethod,
@@ -30,6 +31,7 @@ import {
   type StockEntry,
   type StockMovement,
   type Supplier,
+  type UserPerformanceReport,
 } from "../api";
 import type { LoadState } from "../navigation";
 import { canAccessView } from "../navigation";
@@ -73,10 +75,14 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     useState<ReportsOverview | null>(null);
   const [salesReport, setSalesReport] = useState<SalesReport | null>(null);
   const [stockReport, setStockReport] = useState<StockReport | null>(null);
+  const [inventoryReport, setInventoryReport] =
+    useState<InventoryReport | null>(null);
   const [purchaseReport, setPurchaseReport] = useState<PurchaseReport | null>(
     null,
   );
   const [cashReport, setCashReport] = useState<CashReport | null>(null);
+  const [userPerformanceReport, setUserPerformanceReport] =
+    useState<UserPerformanceReport | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [fiscalDocuments, setFiscalDocuments] = useState<FiscalDocument[]>([]);
@@ -125,8 +131,10 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         reportsOverviewResult,
         salesReportResult,
         stockReportResult,
+        inventoryReportResult,
         purchaseReportResult,
         cashReportResult,
+        userPerformanceReportResult,
         quotesResult,
         salesResult,
         fiscalDocumentsResult,
@@ -165,11 +173,17 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
           ? apiGet<ApiResult<StockReport>>("/reports/stock")
           : emptyResult<StockReport | null>(null),
         canAccessView(user, "reports")
+          ? apiGet<ApiResult<InventoryReport>>("/reports/inventory?active=true")
+          : emptyResult<InventoryReport | null>(null),
+        canAccessView(user, "reports")
           ? apiGet<ApiResult<PurchaseReport>>("/reports/purchases")
           : emptyResult<PurchaseReport | null>(null),
         canAccessView(user, "reports")
           ? apiGet<ApiResult<CashReport>>("/reports/cash")
           : emptyResult<CashReport | null>(null),
+        canAccessView(user, "reports")
+          ? apiGet<ApiResult<UserPerformanceReport>>("/reports/users")
+          : emptyResult<UserPerformanceReport | null>(null),
         apiGet<ApiResult<Quote[]>>("/quotes"),
         apiGet<ApiResult<Sale[]>>("/sales"),
         canAccessView(user, "fiscal-documents")
@@ -200,8 +214,10 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       setReportsOverview(reportsOverviewResult.data);
       setSalesReport(salesReportResult.data);
       setStockReport(stockReportResult.data);
+      setInventoryReport(inventoryReportResult.data);
       setPurchaseReport(purchaseReportResult.data);
       setCashReport(cashReportResult.data);
+      setUserPerformanceReport(userPerformanceReportResult.data);
       setQuotes(quotesResult.data);
       setSales(salesResult.data);
       setFiscalDocuments(fiscalDocumentsResult.data);
@@ -493,6 +509,42 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     }
   }
 
+  async function loadUserPerformanceReport(filters: ReportPeriodFilters = {}) {
+    setMessage("");
+
+    try {
+      const result = await apiGet<ApiResult<UserPerformanceReport>>(
+        reportPath("/reports/users", filters),
+      );
+
+      setUserPerformanceReport(result.data);
+      setState("ready");
+      return true;
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+      return false;
+    }
+  }
+
+  async function loadInventoryReport(filters: InventoryReportFilters = {}) {
+    setMessage("");
+
+    try {
+      const result = await apiGet<ApiResult<InventoryReport>>(
+        inventoryReportPath(filters),
+      );
+
+      setInventoryReport(result.data);
+      setState("ready");
+      return true;
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+      return false;
+    }
+  }
+
   useEffect(() => {
     searchRefreshReadyRef.current = false;
     setActiveBranchHeader(activeBranchId);
@@ -561,8 +613,11 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     commercialSettings,
     fiscalDocuments,
     fiscalSettings,
+    inventoryReport,
     loadCatalog,
     loadCashReport,
+    loadInventoryReport,
+    loadUserPerformanceReport,
     lowStockProducts,
     loadPurchaseReport,
     loadStockReport,
@@ -602,6 +657,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     stockMovements,
     stockReport,
     suppliers,
+    userPerformanceReport,
   };
 }
 
@@ -612,8 +668,34 @@ type ReportPeriodFilters = {
   dateTo?: string;
 };
 
+type InventoryReportFilters = {
+  active?: boolean;
+  search?: string;
+  stockStatus?: "ALL" | "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
+};
+
 function salesReportPath(filters: SalesReportFilters) {
   return reportPath("/reports/sales", filters);
+}
+
+function inventoryReportPath(filters: InventoryReportFilters) {
+  const params = new URLSearchParams();
+
+  if (filters.active !== undefined) {
+    params.set("active", String(filters.active));
+  }
+
+  if (filters.search) {
+    params.set("search", filters.search);
+  }
+
+  if (filters.stockStatus && filters.stockStatus !== "ALL") {
+    params.set("stockStatus", filters.stockStatus);
+  }
+
+  const query = params.toString();
+
+  return query ? `/reports/inventory?${query}` : "/reports/inventory";
 }
 
 function reportPath(path: string, filters: ReportPeriodFilters) {

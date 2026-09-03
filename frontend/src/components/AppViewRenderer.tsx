@@ -9,6 +9,7 @@ import type {
   NamedEntity,
   FiscalDocument,
   FiscalSettings,
+  InventoryReport,
   PaymentMethod,
   PickupReservation,
   Product,
@@ -26,6 +27,7 @@ import type {
   StockMovement,
   StockReport,
   Supplier,
+  UserPerformanceReport,
 } from "../api";
 import type { ReactNode } from "react";
 import { canAccessView, type LoadState, type View } from "../navigation";
@@ -52,9 +54,10 @@ import {
 import { FiscalSettingsPage } from "../views/finance/FiscalSettingsPage";
 import { PaymentMethodsPage } from "../views/finance/PaymentMethodsPage";
 import type { useFinanceActions } from "../views/finance/useFinanceActions";
-import { QuotesPage } from "../views/quotes/QuotesPage";
+import { QuoteEditPage, QuotesPage } from "../views/quotes/QuotesPage";
 import type { useQuoteActions } from "../views/quotes/useQuoteActions";
 import { ReportsPage } from "../views/reports/ReportsPage";
+import { SaleEditPage } from "../views/sales/SaleEditPage";
 import {
   PickupReservationsPage,
   SalesPage,
@@ -82,6 +85,7 @@ type AppViewRendererProps = {
   financeActions: ReturnType<typeof useFinanceActions>;
   fiscalDocuments: FiscalDocument[];
   fiscalSettings: FiscalSettings | null;
+  inventoryReport: InventoryReport | null;
   lowStockProducts: Product[];
   ncmOptions: NcmOption[];
   paymentMethods: PaymentMethod[];
@@ -101,6 +105,8 @@ type AppViewRendererProps = {
   search: string;
   selectedClient?: Client;
   selectedProduct?: Product;
+  selectedQuote?: Quote;
+  selectedSale?: Sale;
   shippingOrders: ShippingOrder[];
   state: LoadState;
   stockActions: ReturnType<typeof useStockActions>;
@@ -109,10 +115,13 @@ type AppViewRendererProps = {
   stockMovements: StockMovement[];
   stockReport: StockReport | null;
   suppliers: Supplier[];
+  userPerformanceReport: UserPerformanceReport | null;
   user: AuthUser;
   view: View;
   onCancelClient: () => void;
   onCancelProductEdit: () => void;
+  onCancelQuoteEdit: () => void;
+  onCancelSaleEdit: () => void;
   onOpenQuotes: () => void;
   onProductPageChange: (pageIndex: number, rowsPerPage?: number) => void;
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
@@ -125,6 +134,11 @@ type AppViewRendererProps = {
     dateFrom?: string;
     dateTo?: string;
   }) => Promise<boolean>;
+  onLoadInventoryReport: (filters?: {
+    active?: boolean;
+    search?: string;
+    stockStatus?: "ALL" | "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
+  }) => Promise<boolean>;
   onLoadStockReport: (filters?: {
     dateFrom?: string;
     dateTo?: string;
@@ -133,9 +147,15 @@ type AppViewRendererProps = {
     dateFrom?: string;
     dateTo?: string;
   }) => Promise<boolean>;
+  onLoadUserPerformanceReport: (filters?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }) => Promise<boolean>;
   onSelectView: (view: View) => void;
   onSearchChange: (value: string) => void;
   onSelectClient: (client: Client | undefined) => void;
+  onSelectQuote: (quote: Quote) => void;
+  onSelectSale: (sale: Sale) => void;
   requestConfirmation: RequestConfirmation;
 };
 
@@ -150,6 +170,7 @@ export function AppViewRenderer({
   financeActions,
   fiscalDocuments,
   fiscalSettings,
+  inventoryReport,
   lowStockProducts,
   ncmOptions,
   paymentMethods,
@@ -169,6 +190,8 @@ export function AppViewRenderer({
   search,
   selectedClient,
   selectedProduct,
+  selectedQuote,
+  selectedSale,
   shippingOrders,
   state,
   stockActions,
@@ -177,14 +200,19 @@ export function AppViewRenderer({
   stockMovements,
   stockReport,
   suppliers,
+  userPerformanceReport,
   user,
   view,
   onCancelClient,
   onCancelProductEdit,
+  onCancelQuoteEdit,
+  onCancelSaleEdit,
   onLoadSalesReport,
   onLoadCashReport,
+  onLoadInventoryReport,
   onLoadPurchaseReport,
   onLoadStockReport,
+  onLoadUserPerformanceReport,
   onOpenQuotes,
   onProductPageChange,
   onResolveFiscalPendency,
@@ -192,6 +220,8 @@ export function AppViewRenderer({
   onSelectView,
   onSearchChange,
   onSelectClient,
+  onSelectQuote,
+  onSelectSale,
   requestConfirmation,
 }: AppViewRendererProps) {
   if (!canAccessView(user, view)) {
@@ -316,23 +346,47 @@ export function AppViewRenderer({
           products={products}
           sales={sales}
           shippingOrders={shippingOrders}
-          onIssueSaleFiscalDocument={(sale) =>
-            void salesActions.issueSaleFiscalDocument(sale)
+          onIssueSaleFiscalDocument={(sale, additionalInformation) =>
+            void salesActions.issueSaleFiscalDocument(
+              sale,
+              additionalInformation,
+            )
           }
-          onPreviewSaleFiscalDocument={(sale) =>
-            void salesActions.previewSaleFiscalDocument(sale)
+          onPreviewSaleFiscalDocument={(sale, additionalInformation) =>
+            void salesActions.previewSaleFiscalDocument(
+              sale,
+              additionalInformation,
+            )
           }
-          onIssueShippingOrderFiscalDocument={(order) =>
-            void salesActions.issueShippingOrderFiscalDocument(order)
+          onIssueShippingOrderFiscalDocument={(order, additionalInformation) =>
+            void salesActions.issueShippingOrderFiscalDocument(
+              order,
+              additionalInformation,
+            )
           }
-          onPreviewShippingOrderFiscalDocument={(order) =>
-            void salesActions.previewShippingOrderFiscalDocument(order)
+          onPreviewShippingOrderFiscalDocument={(order, additionalInformation) =>
+            void salesActions.previewShippingOrderFiscalDocument(
+              order,
+              additionalInformation,
+            )
           }
-          onIssuePickupReservationFiscalDocument={(reservation) =>
-            void salesActions.issuePickupReservationFiscalDocument(reservation)
+          onIssuePickupReservationFiscalDocument={(
+            reservation,
+            additionalInformation,
+          ) =>
+            void salesActions.issuePickupReservationFiscalDocument(
+              reservation,
+              additionalInformation,
+            )
           }
-          onPreviewPickupReservationFiscalDocument={(reservation) =>
-            void salesActions.previewPickupReservationFiscalDocument(reservation)
+          onPreviewPickupReservationFiscalDocument={(
+            reservation,
+            additionalInformation,
+          ) =>
+            void salesActions.previewPickupReservationFiscalDocument(
+              reservation,
+              additionalInformation,
+            )
           }
           onResolveFiscalPendency={onResolveFiscalPendency}
           onSyncFiscalDocument={(fiscalDocument) =>
@@ -355,14 +409,18 @@ export function AppViewRenderer({
     reports: (
       <ReportsPage
         cashReport={cashReport}
+        inventoryReport={inventoryReport}
         overview={reportsOverview}
         purchaseReport={purchaseReport}
         salesReport={salesReport}
         onLoadCashReport={onLoadCashReport}
+        onLoadInventoryReport={onLoadInventoryReport}
         onLoadSalesReport={onLoadSalesReport}
         onLoadPurchaseReport={onLoadPurchaseReport}
         stockReport={stockReport}
         onLoadStockReport={onLoadStockReport}
+        userPerformanceReport={userPerformanceReport}
+        onLoadUserPerformanceReport={onLoadUserPerformanceReport}
       />
     ),
     quotes: (
@@ -373,7 +431,7 @@ export function AppViewRenderer({
           products={products}
           quotes={quotes}
           onSubmit={quoteActions.createQuote}
-          onUpdate={quoteActions.updateQuote}
+          onEditQuote={onSelectQuote}
           onCancelQuote={(event, quote) =>
             void quoteActions.cancelQuote(event, quote)
           }
@@ -382,6 +440,24 @@ export function AppViewRenderer({
           }
         />
       ),
+    "edit-quote": selectedQuote ? (
+      <QuoteEditPage
+        clients={clients}
+        commercialSettings={commercialSettings}
+        paymentMethods={paymentMethods}
+        products={products}
+        quote={selectedQuote}
+        onCancel={onCancelQuoteEdit}
+        onSubmit={(quote, input) => quoteActions.updateQuote(quote.id, input)}
+      />
+    ) : (
+      <PagePanel>
+        <PageHeader
+          description="Selecione um orçamento em rascunho na lista para editar."
+          title="Orçamento não selecionado"
+        />
+      </PagePanel>
+    ),
     sales: (
         <SalesPage
           cashRegister={cashRegister}
@@ -393,6 +469,23 @@ export function AppViewRenderer({
           onSubmit={salesActions.createSale}
         />
       ),
+    "edit-sale": selectedSale ? (
+      <SaleEditPage
+        clients={clients}
+        paymentMethods={paymentMethods}
+        products={products}
+        sale={selectedSale}
+        onCancel={onCancelSaleEdit}
+        onSubmit={salesActions.updateOpenSale}
+      />
+    ) : (
+      <PagePanel>
+        <PageHeader
+          description="Selecione uma venda aberta no histórico para editar."
+          title="Venda não selecionada"
+        />
+      </PagePanel>
+    ),
     "sales-history": (
         <SalesHistoryPage
           fiscalDocuments={fiscalDocuments}
@@ -407,6 +500,7 @@ export function AppViewRenderer({
             void salesActions.completeReopenedSale(sale)
           }
           onReopenSale={(sale) => void salesActions.reopenSale(sale)}
+          onEditSale={onSelectSale}
           onReturnItem={(event, sale) =>
             void salesActions.returnSaleItem(event, sale)
           }

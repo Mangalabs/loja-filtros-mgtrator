@@ -160,7 +160,13 @@ export type StockAdjustment = {
 
 export type StockMovement = {
   id: string;
-  type: "ENTRY" | "ADJUSTMENT" | "SALE" | "SALE_CANCEL" | "SALE_RETURN";
+  type:
+    | "ENTRY"
+    | "ADJUSTMENT"
+    | "SALE"
+    | "SALE_CANCEL"
+    | "SALE_RETURN"
+    | "SALE_CORRECTION";
   productId: string;
   productName: string;
   supplierName: string | null;
@@ -626,6 +632,41 @@ export type PurchaseReport = {
   }>;
 };
 
+export type InventoryReport = {
+  summary: {
+    productsCount: number;
+    returnedProductsCount: number;
+    totalCurrentStock: string;
+    totalReservedStock: string;
+    totalAvailableStock: string;
+    totalCostAmount: string;
+    totalSaleAmount: string;
+    potentialProfitAmount: string;
+    lowStockProductsCount: number;
+    negativeStockProductsCount: number;
+  };
+  items: Array<{
+    productId: string;
+    productName: string;
+    internalCode: string | null;
+    barcode: string | null;
+    brandName: string | null;
+    groupName: string | null;
+    unit: string;
+    location: string | null;
+    costPrice: string;
+    salePrice: string;
+    currentStock: string;
+    reservedStock: string;
+    availableStock: string;
+    minimumStock: string;
+    totalCostAmount: string;
+    totalSaleAmount: string;
+    stockStatus: "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
+    active: boolean;
+  }>;
+};
+
 export type CashReport = {
   summary: {
     sessionsCount: number;
@@ -662,6 +703,44 @@ export type CashReport = {
     expectedClosingBalance: string;
     closingBalance: string | null;
     difference: string | null;
+  }>;
+};
+
+export type UserPerformanceReport = {
+  summary: {
+    usersCount: number;
+    salesCount: number;
+    grossAmount: string;
+    refundAmount: string;
+    netAmount: string;
+    quotesCreatedCount: number;
+    stockMovementsCount: number;
+    fiscalDocumentsIssuedCount: number;
+  };
+  users: Array<{
+    userId: string;
+    userName: string;
+    salesCount: number;
+    cancelledSalesCount: number;
+    openSalesCount: number;
+    grossAmount: string;
+    refundAmount: string;
+    netAmount: string;
+    quotesCreatedCount: number;
+    stockMovementsCount: number;
+    fiscalDocumentsIssuedCount: number;
+  }>;
+  sales: Array<{
+    saleId: string;
+    saleNumber: number;
+    userId: string;
+    userName: string;
+    clientName: string;
+    status: "OPEN" | "COMPLETED" | "CANCELLED";
+    totalAmount: string;
+    refundAmount: string;
+    netAmount: string;
+    createdAt: string;
   }>;
 };
 

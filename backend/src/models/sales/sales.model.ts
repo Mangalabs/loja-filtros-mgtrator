@@ -16,6 +16,8 @@ export type SaleInput = {
   }>;
 };
 
+export type SaleUpdateInput = SaleInput;
+
 export type SalePaymentInput = {
   paymentMethodId: string;
   amount: number;
@@ -226,6 +228,13 @@ type SaleItemReturnRow = SaleItemReturn & {
   saleItemId: string;
 };
 
+const billablePaymentMethodCodes = new Set(["BOLETO", "CREDIT"]);
+
+type SaleItemStockRow = {
+  productId: string;
+  quantity: string;
+};
+
 export async function listSales(filters: { branchId: string }): Promise<Sale[]> {
   const sales = await saleQuery(db)
     .where("sales.branch_id", filters.branchId)
@@ -279,6 +288,15 @@ export async function lockSaleForCancellation(
     .where({ id, branch_id: branchId })
     .forUpdate()
     .first();
+}
+
+export async function listSaleItemsForStockCorrection(
+  transaction: Knex.Transaction,
+  saleId: string,
+): Promise<SaleItemStockRow[]> {
+  return transaction("sale_items")
+    .select(["product_id as productId", "quantity"])
+    .where("sale_id", saleId);
 }
 
 export async function saleHasLinkedOperation(
@@ -557,9 +575,32 @@ export async function updateSaleCommercialDetails(
   saleId: string,
   input: SaleCommercialDetailsInput,
 ): Promise<Sale> {
+  const effectivePayments: SalePaymentInput[] =
+    input.payments ??
+    (await transaction("sale_payments")
+      .select("payment_method_id as paymentMethodId", "amount")
+      .where("sale_id", saleId)
+      .orderBy("id", "asc")
+      .then((payments) =>
+        payments.map((payment) => ({
+          paymentMethodId: payment.paymentMethodId,
+          amount: Number(payment.amount),
+        })),
+      ));
+  const paymentMethodCodes = await salePaymentMethodCodes(
+    transaction,
+    effectivePayments,
+  );
+  const billingDates = saleBillingDates(input, paymentMethodCodes);
+  const paymentInstallments = salePaymentInstallments(
+    { ...input, billingDueDate: billingDates.billingDueDate },
+    effectivePayments,
+    paymentMethodCodes,
+  );
+
   await transaction("sales").where("id", saleId).update({
-    billing_issue_date: input.billingIssueDate,
-    billing_due_date: input.billingDueDate,
+    billing_issue_date: billingDates.billingIssueDate,
+    billing_due_date: billingDates.billingDueDate,
   });
 
   if (input.payments) {
@@ -577,18 +618,13 @@ export async function updateSaleCommercialDetails(
     .where("sale_id", saleId)
     .delete();
 
-  if (input.billingDueDate) {
-    const payments = await transaction("sale_payments")
-      .select("payment_method_id as paymentMethodId", "amount")
-      .where("sale_id", saleId)
-      .orderBy("id", "asc");
-
+  if (paymentInstallments.length > 0) {
     await transaction("sale_payment_installments").insert(
-      payments.map((payment, index) => ({
+      paymentInstallments.map((installment) => ({
         sale_id: saleId,
-        position: index + 1,
-        due_date: input.billingDueDate,
-        amount: payment.amount,
+        position: installment.position,
+        due_date: installment.dueDate,
+        amount: installment.amount,
       })),
     );
   }
@@ -597,6 +633,120 @@ export async function updateSaleCommercialDetails(
 
   if (!sale) {
     throw new Error("Sale was not found after commercial details update");
+  }
+
+  return sale;
+}
+
+export async function updateOpenSaleDetails(
+  transaction: Knex.Transaction,
+  saleId: string,
+  input: SaleUpdateInput,
+  createdByUserId: string,
+  items: Array<{
+    productId: string;
+    quantity: number;
+    unitPrice: number;
+    totalAmount: number;
+    position: number;
+  }>,
+  subtotalAmount: number,
+  totalAmount: number,
+  stockChanges: Array<{ productId: string; quantity: number }>,
+): Promise<Sale> {
+  const payments = input.payments ?? [
+    {
+      paymentMethodId: input.paymentMethodId as string,
+      amount: totalAmount,
+    },
+  ];
+  const paymentMethodCodes = await salePaymentMethodCodes(
+    transaction,
+    payments,
+  );
+  const billingDates = saleBillingDates(input, paymentMethodCodes);
+  const paymentInstallments = salePaymentInstallments(
+    { ...input, billingDueDate: billingDates.billingDueDate },
+    payments,
+    paymentMethodCodes,
+  );
+
+  await transaction("sales").where("id", saleId).update({
+    client_id: input.clientId,
+    subtotal_amount: subtotalAmount,
+    discount_amount: input.discountAmount,
+    total_amount: totalAmount,
+    billing_issue_date: billingDates.billingIssueDate,
+    billing_due_date: billingDates.billingDueDate,
+  });
+
+  await transaction("sale_items").where("sale_id", saleId).delete();
+  await transaction("sale_items").insert(
+    items.map((item) => ({
+      sale_id: saleId,
+      product_id: item.productId,
+      quantity: item.quantity,
+      unit_price: item.unitPrice,
+      discount_amount: saleItemDiscountAmount(item),
+      total_amount: item.totalAmount,
+      position: item.position,
+    })),
+  );
+
+  await transaction("sale_payments").where("sale_id", saleId).delete();
+  await transaction("sale_payments").insert(
+    payments.map((payment) => ({
+      sale_id: saleId,
+      payment_method_id: payment.paymentMethodId,
+      amount: payment.amount,
+    })),
+  );
+
+  await transaction("sale_payment_installments").where("sale_id", saleId).delete();
+
+  if (paymentInstallments.length > 0) {
+    await transaction("sale_payment_installments").insert(
+      paymentInstallments.map((installment) => ({
+        sale_id: saleId,
+        position: installment.position,
+        due_date: installment.dueDate,
+        amount: installment.amount,
+      })),
+    );
+  }
+
+  const meaningfulStockChanges = stockChanges.filter(
+    (change) => change.quantity !== 0,
+  );
+
+  if (meaningfulStockChanges.length > 0) {
+    await transaction("stock_movements").insert(
+      meaningfulStockChanges.map((change) => ({
+        product_id: change.productId,
+        sale_id: saleId,
+        created_by_user_id: createdByUserId,
+        type: "SALE_CORRECTION",
+        quantity: change.quantity,
+        notes: "Correcao de venda aberta.",
+      })),
+    );
+
+    for (const change of meaningfulStockChanges) {
+      await transaction("products")
+        .where("id", change.productId)
+        .update({
+          current_stock: transaction.raw("current_stock + ?", [
+            change.quantity,
+          ]),
+          updated_at: transaction.fn.now(),
+        });
+    }
+  }
+
+  const sale = await getSaleById(saleId, transaction);
+
+  if (!sale) {
+    throw new Error("Sale was not found after open sale update");
   }
 
   return sale;
@@ -624,7 +774,16 @@ export async function insertSale(
       amount: totalAmount,
     },
   ];
-  const paymentInstallments = salePaymentInstallments(input, payments);
+  const paymentMethodCodes = await salePaymentMethodCodes(
+    transaction,
+    payments,
+  );
+  const billingDates = saleBillingDates(input, paymentMethodCodes);
+  const paymentInstallments = salePaymentInstallments(
+    { ...input, billingDueDate: billingDates.billingDueDate },
+    payments,
+    paymentMethodCodes,
+  );
   const [created] = await transaction("sales")
     .insert({
       sale_number: await nextSaleNumber(transaction, branchId),
@@ -635,8 +794,8 @@ export async function insertSale(
       subtotal_amount: subtotalAmount,
       discount_amount: input.discountAmount,
       total_amount: totalAmount,
-      billing_issue_date: input.billingIssueDate,
-      billing_due_date: input.billingDueDate,
+      billing_issue_date: billingDates.billingIssueDate,
+      billing_due_date: billingDates.billingDueDate,
     })
     .returning("id");
 
@@ -847,22 +1006,76 @@ async function withSaleItems(
 }
 
 function salePaymentInstallments(
-  input: SaleInput,
+  input: Pick<
+    SaleInput,
+    "billingDueDate" | "paymentInstallments"
+  >,
   payments: SalePaymentInput[],
+  paymentMethodCodes: Map<string, string>,
 ): SalePaymentInstallmentInput[] {
   if (input.paymentInstallments?.length) {
-    return input.paymentInstallments;
+    return saleHasBillablePayment(paymentMethodCodes)
+      ? input.paymentInstallments
+      : [];
   }
 
   if (!input.billingDueDate) {
     return [];
   }
 
-  return payments.map((payment, index) => ({
-    amount: payment.amount,
-    dueDate: input.billingDueDate as string,
-    position: index + 1,
-  }));
+  return payments
+    .filter((payment) =>
+      paymentMethodAllowsBilling(paymentMethodCodes.get(payment.paymentMethodId)),
+    )
+    .map((payment, index) => ({
+      amount: payment.amount,
+      dueDate: input.billingDueDate as string,
+      position: index + 1,
+    }));
+}
+
+async function salePaymentMethodCodes(
+  transaction: Knex.Transaction,
+  payments: SalePaymentInput[],
+) {
+  const paymentMethodIds = [...new Set(payments.map((payment) => payment.paymentMethodId))];
+  const paymentMethods = paymentMethodIds.length
+    ? await transaction("payment_methods")
+        .select("id", "code")
+        .whereIn("id", paymentMethodIds)
+    : [];
+
+  return new Map(
+    paymentMethods.map((paymentMethod) => [
+      paymentMethod.id as string,
+      paymentMethod.code as string,
+    ]),
+  );
+}
+
+function saleBillingDates(
+  input: Pick<SaleInput, "billingIssueDate" | "billingDueDate">,
+  paymentMethodCodes: Map<string, string>,
+) {
+  if (!saleHasBillablePayment(paymentMethodCodes)) {
+    return {
+      billingIssueDate: null,
+      billingDueDate: null,
+    };
+  }
+
+  return {
+    billingIssueDate: input.billingIssueDate,
+    billingDueDate: input.billingDueDate,
+  };
+}
+
+function saleHasBillablePayment(paymentMethodCodes: Map<string, string>) {
+  return [...paymentMethodCodes.values()].some(paymentMethodAllowsBilling);
+}
+
+function paymentMethodAllowsBilling(code: string | undefined) {
+  return Boolean(code && billablePaymentMethodCodes.has(code));
 }
 
 function salePaymentSummary(payments: SalePayment[]) {

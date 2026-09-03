@@ -67,6 +67,13 @@ export type StockReportFilters = {
   dateTo?: string;
 };
 
+export type InventoryReportFilters = {
+  branchId: string;
+  active?: boolean;
+  search?: string;
+  stockStatus?: "ALL" | "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
+};
+
 export type PurchaseReportFilters = {
   branchId: string;
   dateFrom?: string;
@@ -74,6 +81,12 @@ export type PurchaseReportFilters = {
 };
 
 export type CashReportFilters = {
+  branchId: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+export type UserPerformanceReportFilters = {
   branchId: string;
   dateFrom?: string;
   dateTo?: string;
@@ -105,6 +118,41 @@ export type StockReport = {
     productName: string;
     soldQuantity: string;
     lastSaleAt: Date | null;
+  }>;
+};
+
+export type InventoryReport = {
+  summary: {
+    productsCount: number;
+    returnedProductsCount: number;
+    totalCurrentStock: string;
+    totalReservedStock: string;
+    totalAvailableStock: string;
+    totalCostAmount: string;
+    totalSaleAmount: string;
+    potentialProfitAmount: string;
+    lowStockProductsCount: number;
+    negativeStockProductsCount: number;
+  };
+  items: Array<{
+    productId: string;
+    productName: string;
+    internalCode: string | null;
+    barcode: string | null;
+    brandName: string | null;
+    groupName: string | null;
+    unit: string;
+    location: string | null;
+    costPrice: string;
+    salePrice: string;
+    currentStock: string;
+    reservedStock: string;
+    availableStock: string;
+    minimumStock: string;
+    totalCostAmount: string;
+    totalSaleAmount: string;
+    stockStatus: "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
+    active: boolean;
   }>;
 };
 
@@ -172,6 +220,44 @@ export type CashReport = {
     expectedClosingBalance: string;
     closingBalance: string | null;
     difference: string | null;
+  }>;
+};
+
+export type UserPerformanceReport = {
+  summary: {
+    usersCount: number;
+    salesCount: number;
+    grossAmount: string;
+    refundAmount: string;
+    netAmount: string;
+    quotesCreatedCount: number;
+    stockMovementsCount: number;
+    fiscalDocumentsIssuedCount: number;
+  };
+  users: Array<{
+    userId: string;
+    userName: string;
+    salesCount: number;
+    cancelledSalesCount: number;
+    openSalesCount: number;
+    grossAmount: string;
+    refundAmount: string;
+    netAmount: string;
+    quotesCreatedCount: number;
+    stockMovementsCount: number;
+    fiscalDocumentsIssuedCount: number;
+  }>;
+  sales: Array<{
+    saleId: string;
+    saleNumber: number;
+    userId: string;
+    userName: string;
+    clientName: string;
+    status: string;
+    totalAmount: string;
+    refundAmount: string;
+    netAmount: string;
+    createdAt: Date;
   }>;
 };
 
@@ -251,6 +337,20 @@ type StockSummaryRow = {
   soldQuantity: string;
 };
 
+type InventoryReportSummaryRow = {
+  productsCount: string;
+  totalCurrentStock: string;
+  totalReservedStock: string;
+  totalAvailableStock: string;
+  totalCostAmount: string;
+  totalSaleAmount: string;
+  potentialProfitAmount: string;
+  lowStockProductsCount: string;
+  negativeStockProductsCount: string;
+};
+
+type InventoryReportItemRow = InventoryReport["items"][number];
+
 type PurchaseReportSummaryRow = {
   entriesCount: string;
   totalQuantity: string;
@@ -307,6 +407,25 @@ type CashReportPaymentMethodRow = {
 };
 
 type CashReportSessionRow = CashReport["sessions"][number];
+
+type UserSalesReportRow = {
+  userId: string;
+  userName: string;
+  salesCount: string;
+  cancelledSalesCount: string;
+  openSalesCount: string;
+  grossAmount: string;
+  refundAmount: string;
+  netAmount: string;
+};
+
+type UserActionCountRow = {
+  userId: string;
+  userName: string;
+  count: string;
+};
+
+type UserSaleDetailRow = UserPerformanceReport["sales"][number];
 
 export async function getReportsOverview(filters: {
   branchId: string;
@@ -576,6 +695,99 @@ export async function getStockReport(
   };
 }
 
+export async function getInventoryReport(
+  filters: InventoryReportFilters,
+): Promise<InventoryReport> {
+  const [summary, items] = await Promise.all([
+    inventoryReportProductsQuery(filters)
+      .select<InventoryReportSummaryRow[]>([
+        db.raw("count(products.id)::text as ??", ["productsCount"]),
+        db.raw(
+          "coalesce(sum(products.current_stock), 0)::numeric(12, 3)::text as ??",
+          ["totalCurrentStock"],
+        ),
+        db.raw(
+          "coalesce(sum(products.reserved_stock), 0)::numeric(12, 3)::text as ??",
+          ["totalReservedStock"],
+        ),
+        db.raw(
+          "coalesce(sum(products.current_stock - products.reserved_stock), 0)::numeric(12, 3)::text as ??",
+          ["totalAvailableStock"],
+        ),
+        db.raw(
+          "coalesce(sum(products.current_stock * products.cost_price), 0)::numeric(12, 2)::text as ??",
+          ["totalCostAmount"],
+        ),
+        db.raw(
+          "coalesce(sum(products.current_stock * products.sale_price), 0)::numeric(12, 2)::text as ??",
+          ["totalSaleAmount"],
+        ),
+        db.raw(
+          "coalesce(sum(products.current_stock * (products.sale_price - products.cost_price)), 0)::numeric(12, 2)::text as ??",
+          ["potentialProfitAmount"],
+        ),
+        db.raw(
+          "count(products.id) filter (where products.minimum_stock > 0 and products.current_stock - products.reserved_stock <= products.minimum_stock)::text as ??",
+          ["lowStockProductsCount"],
+        ),
+        db.raw(
+          "count(products.id) filter (where products.current_stock < 0)::text as ??",
+          ["negativeStockProductsCount"],
+        ),
+      ])
+      .first(),
+    inventoryReportProductsQuery(filters)
+      .select<InventoryReportItemRow[]>([
+        "products.id as productId",
+        "products.name as productName",
+        "products.internal_code as internalCode",
+        "products.barcode",
+        "brands.name as brandName",
+        "product_groups.name as groupName",
+        "products.unit",
+        "products.location",
+        "products.cost_price as costPrice",
+        "products.sale_price as salePrice",
+        "products.current_stock as currentStock",
+        "products.reserved_stock as reservedStock",
+        db.raw("products.current_stock - products.reserved_stock as ??", [
+          "availableStock",
+        ]),
+        "products.minimum_stock as minimumStock",
+        db.raw(
+          "(products.current_stock * products.cost_price)::numeric(12, 2)::text as ??",
+          ["totalCostAmount"],
+        ),
+        db.raw(
+          "(products.current_stock * products.sale_price)::numeric(12, 2)::text as ??",
+          ["totalSaleAmount"],
+        ),
+        db.raw(`${inventoryStockStatusSql()} as ??`, ["stockStatus"]),
+        "products.active",
+      ])
+      .orderBy("products.name", "asc")
+      .limit(500),
+  ]);
+
+  return {
+    summary: {
+      productsCount: Number(summary?.productsCount ?? 0),
+      returnedProductsCount: items.length,
+      totalCurrentStock: summary?.totalCurrentStock ?? "0.000",
+      totalReservedStock: summary?.totalReservedStock ?? "0.000",
+      totalAvailableStock: summary?.totalAvailableStock ?? "0.000",
+      totalCostAmount: summary?.totalCostAmount ?? "0.00",
+      totalSaleAmount: summary?.totalSaleAmount ?? "0.00",
+      potentialProfitAmount: summary?.potentialProfitAmount ?? "0.00",
+      lowStockProductsCount: Number(summary?.lowStockProductsCount ?? 0),
+      negativeStockProductsCount: Number(
+        summary?.negativeStockProductsCount ?? 0,
+      ),
+    },
+    items,
+  };
+}
+
 export async function getPurchaseReport(
   filters: PurchaseReportFilters,
 ): Promise<PurchaseReport> {
@@ -756,6 +968,105 @@ export async function getCashReport(
   };
 }
 
+export async function getUserPerformanceReport(
+  filters: UserPerformanceReportFilters,
+): Promise<UserPerformanceReport> {
+  const [salesByUser, quotesByUser, stockMovementsByUser, fiscalByUser, sales] =
+    await Promise.all([
+      userSalesReportQuery(filters),
+      userQuotesReportQuery(filters),
+      userStockMovementsReportQuery(filters),
+      userFiscalDocumentsReportQuery(filters),
+      userSaleDetailsQuery(filters),
+    ]);
+  const users = new Map<string, UserPerformanceReport["users"][number]>();
+  const ensureUser = (userId: string, userName: string) => {
+    const current = users.get(userId);
+
+    if (current) {
+      return current;
+    }
+
+    const user = {
+      userId,
+      userName,
+      salesCount: 0,
+      cancelledSalesCount: 0,
+      openSalesCount: 0,
+      grossAmount: "0.00",
+      refundAmount: "0.00",
+      netAmount: "0.00",
+      quotesCreatedCount: 0,
+      stockMovementsCount: 0,
+      fiscalDocumentsIssuedCount: 0,
+    };
+
+    users.set(userId, user);
+
+    return user;
+  };
+
+  for (const row of salesByUser) {
+    const user = ensureUser(row.userId, row.userName);
+
+    user.salesCount = Number(row.salesCount);
+    user.cancelledSalesCount = Number(row.cancelledSalesCount);
+    user.openSalesCount = Number(row.openSalesCount);
+    user.grossAmount = row.grossAmount;
+    user.refundAmount = row.refundAmount;
+    user.netAmount = row.netAmount;
+  }
+
+  for (const row of quotesByUser) {
+    ensureUser(row.userId, row.userName).quotesCreatedCount = Number(row.count);
+  }
+
+  for (const row of stockMovementsByUser) {
+    ensureUser(row.userId, row.userName).stockMovementsCount = Number(
+      row.count,
+    );
+  }
+
+  for (const row of fiscalByUser) {
+    ensureUser(row.userId, row.userName).fiscalDocumentsIssuedCount = Number(
+      row.count,
+    );
+  }
+
+  const userRows = [...users.values()].sort(
+    (first, second) =>
+      Number(second.netAmount) - Number(first.netAmount) ||
+      first.userName.localeCompare(second.userName),
+  );
+
+  return {
+    summary: {
+      usersCount: userRows.length,
+      salesCount: userRows.reduce((sum, user) => sum + user.salesCount, 0),
+      grossAmount: sumMoney(userRows.map((user) => user.grossAmount)),
+      refundAmount: sumMoney(userRows.map((user) => user.refundAmount)),
+      netAmount: sumMoney(userRows.map((user) => user.netAmount)),
+      quotesCreatedCount: userRows.reduce(
+        (sum, user) => sum + user.quotesCreatedCount,
+        0,
+      ),
+      stockMovementsCount: userRows.reduce(
+        (sum, user) => sum + user.stockMovementsCount,
+        0,
+      ),
+      fiscalDocumentsIssuedCount: userRows.reduce(
+        (sum, user) => sum + user.fiscalDocumentsIssuedCount,
+        0,
+      ),
+    },
+    users: userRows,
+    sales: sales.map((sale) => ({
+      ...sale,
+      clientName: sale.clientName ?? "Consumidor nao identificado",
+    })),
+  };
+}
+
 function lowStockProductsQuery(filters: StockReportFilters) {
   return db("products")
     .where("products.branch_id", filters.branchId)
@@ -764,6 +1075,203 @@ function lowStockProductsQuery(filters: StockReportFilters) {
     .whereRaw(
       "products.current_stock - products.reserved_stock <= products.minimum_stock",
     );
+}
+
+function userSalesReportQuery(filters: UserPerformanceReportFilters) {
+  return db("sales")
+    .join("users", "users.id", "sales.created_by_user_id")
+    .leftJoin(
+      saleReturnsBySaleSubquery().as("sale_returns"),
+      "sale_returns.sale_id",
+      "sales.id",
+    )
+    .where("sales.branch_id", filters.branchId)
+    .modify((query) => {
+      applyDateFilters(query, "sales.created_at", filters);
+    })
+    .select<UserSalesReportRow[]>([
+      "users.id as userId",
+      "users.name as userName",
+      db.raw(
+        "count(sales.id) filter (where sales.status = 'COMPLETED')::text as ??",
+        ["salesCount"],
+      ),
+      db.raw(
+        "count(sales.id) filter (where sales.status = 'CANCELLED')::text as ??",
+        ["cancelledSalesCount"],
+      ),
+      db.raw(
+        "count(sales.id) filter (where sales.status = 'OPEN')::text as ??",
+        ["openSalesCount"],
+      ),
+      db.raw(
+        "coalesce(sum(sales.total_amount) filter (where sales.status = 'COMPLETED'), 0)::numeric(12, 2)::text as ??",
+        ["grossAmount"],
+      ),
+      db.raw(
+        "coalesce(sum(sale_returns.refund_amount) filter (where sales.status = 'COMPLETED'), 0)::numeric(12, 2)::text as ??",
+        ["refundAmount"],
+      ),
+      db.raw(
+        "(coalesce(sum(sales.total_amount) filter (where sales.status = 'COMPLETED'), 0) - coalesce(sum(sale_returns.refund_amount) filter (where sales.status = 'COMPLETED'), 0))::numeric(12, 2)::text as ??",
+        ["netAmount"],
+      ),
+    ])
+    .groupBy("users.id", "users.name")
+    .orderByRaw(
+      "(coalesce(sum(sales.total_amount) filter (where sales.status = 'COMPLETED'), 0) - coalesce(sum(sale_returns.refund_amount) filter (where sales.status = 'COMPLETED'), 0)) desc",
+    );
+}
+
+function inventoryReportProductsQuery(filters: InventoryReportFilters) {
+  return db("products")
+    .leftJoin("brands", "brands.id", "products.brand_id")
+    .leftJoin("product_groups", "product_groups.id", "products.group_id")
+    .where("products.branch_id", filters.branchId)
+    .modify((query) => {
+      if (typeof filters.active === "boolean") {
+        query.where("products.active", filters.active);
+      }
+
+      if (filters.search) {
+        query.where((builder) => {
+          builder
+            .whereILike("products.name", `%${filters.search}%`)
+            .orWhereILike("products.internal_code", `%${filters.search}%`)
+            .orWhereILike("products.barcode", `%${filters.search}%`)
+            .orWhereILike("brands.name", `%${filters.search}%`)
+            .orWhereILike("product_groups.name", `%${filters.search}%`)
+            .orWhereILike("products.location", `%${filters.search}%`);
+        });
+      }
+
+      if (filters.stockStatus && filters.stockStatus !== "ALL") {
+        if (filters.stockStatus === "LOW") {
+          query.where("products.minimum_stock", ">", 0).whereRaw(
+            "products.current_stock - products.reserved_stock <= products.minimum_stock",
+          );
+        }
+
+        if (filters.stockStatus === "NEGATIVE") {
+          query.where("products.current_stock", "<", 0);
+        }
+
+        if (filters.stockStatus === "AVAILABLE") {
+          query.whereRaw("products.current_stock - products.reserved_stock > 0");
+        }
+
+        if (filters.stockStatus === "OUT_OF_STOCK") {
+          query.whereRaw("products.current_stock - products.reserved_stock <= 0");
+        }
+      }
+    });
+}
+
+function inventoryStockStatusSql() {
+  return `
+    case
+      when products.current_stock < 0 then 'NEGATIVE'
+      when products.minimum_stock > 0 and products.current_stock - products.reserved_stock <= products.minimum_stock then 'LOW'
+      when products.current_stock - products.reserved_stock <= 0 then 'OUT_OF_STOCK'
+      else 'AVAILABLE'
+    end
+  `;
+}
+
+function userQuotesReportQuery(filters: UserPerformanceReportFilters) {
+  return db("quotes")
+    .join("users", "users.id", "quotes.created_by_user_id")
+    .where("quotes.branch_id", filters.branchId)
+    .modify((query) => {
+      applyDateFilters(query, "quotes.created_at", filters);
+    })
+    .select<UserActionCountRow[]>([
+      "users.id as userId",
+      "users.name as userName",
+      db.raw("count(quotes.id)::text as count"),
+    ])
+    .groupBy("users.id", "users.name");
+}
+
+function userStockMovementsReportQuery(
+  filters: UserPerformanceReportFilters,
+) {
+  return db("stock_movements")
+    .join("products", "products.id", "stock_movements.product_id")
+    .join("users", "users.id", "stock_movements.created_by_user_id")
+    .where("products.branch_id", filters.branchId)
+    .modify((query) => {
+      applyDateFilters(query, "stock_movements.created_at", filters);
+    })
+    .select<UserActionCountRow[]>([
+      "users.id as userId",
+      "users.name as userName",
+      db.raw("count(stock_movements.id)::text as count"),
+    ])
+    .groupBy("users.id", "users.name");
+}
+
+function userFiscalDocumentsReportQuery(
+  filters: UserPerformanceReportFilters,
+) {
+  return db("fiscal_documents")
+    .join("users", "users.id", "fiscal_documents.issued_by_user_id")
+    .where("fiscal_documents.branch_id", filters.branchId)
+    .modify((query) => {
+      applyDateFilters(
+        query,
+        "coalesce(fiscal_documents.issued_at, fiscal_documents.created_at)",
+        filters,
+      );
+    })
+    .select<UserActionCountRow[]>([
+      "users.id as userId",
+      "users.name as userName",
+      db.raw("count(fiscal_documents.id)::text as count"),
+    ])
+    .groupBy("users.id", "users.name");
+}
+
+function userSaleDetailsQuery(filters: UserPerformanceReportFilters) {
+  return db("sales")
+    .join("users", "users.id", "sales.created_by_user_id")
+    .leftJoin("clients", "clients.id", "sales.client_id")
+    .leftJoin(
+      saleReturnsBySaleSubquery().as("sale_returns"),
+      "sale_returns.sale_id",
+      "sales.id",
+    )
+    .where("sales.branch_id", filters.branchId)
+    .modify((query) => {
+      applyDateFilters(query, "sales.created_at", filters);
+    })
+    .select<UserSaleDetailRow[]>([
+      "sales.id as saleId",
+      "sales.sale_number as saleNumber",
+      "users.id as userId",
+      "users.name as userName",
+      "clients.name as clientName",
+      "sales.status",
+      "sales.total_amount as totalAmount",
+      db.raw(
+        "coalesce(sale_returns.refund_amount, 0)::numeric(12, 2)::text as ??",
+        ["refundAmount"],
+      ),
+      db.raw(
+        "(sales.total_amount - coalesce(sale_returns.refund_amount, 0))::numeric(12, 2)::text as ??",
+        ["netAmount"],
+      ),
+      "sales.created_at as createdAt",
+    ])
+    .orderBy("sales.created_at", "desc")
+    .limit(50);
+}
+
+function saleReturnsBySaleSubquery() {
+  return db("sale_item_returns")
+    .select("sale_id")
+    .sum("refund_amount as refund_amount")
+    .groupBy("sale_id");
 }
 
 function productsWithoutMovementQuery(filters: StockReportFilters) {
@@ -1104,6 +1612,22 @@ function applyCashReportFilters(
   }
 }
 
+function applyDateFilters(
+  query: Knex.QueryBuilder,
+  column: string,
+  filters: { dateFrom?: string; dateTo?: string },
+) {
+  if (filters.dateFrom) {
+    query.whereRaw(`${column} >= ?`, [filters.dateFrom]);
+  }
+
+  if (filters.dateTo) {
+    query.whereRaw(`${column} < ?::date + interval '1 day'`, [
+      filters.dateTo,
+    ]);
+  }
+}
+
 function mergeCashReportPaymentMethods(
   grossRows: CashReportPaymentMethodAmountRow[],
   refundRows: CashReportPaymentMethodAmountRow[],
@@ -1188,4 +1712,8 @@ function addMoney(...values: string[]) {
 
 function subtractMoney(value: string, subtract: string) {
   return (Number(value) - Number(subtract)).toFixed(2);
+}
+
+function sumMoney(values: string[]) {
+  return values.reduce((sum, value) => sum + Number(value), 0).toFixed(2);
 }

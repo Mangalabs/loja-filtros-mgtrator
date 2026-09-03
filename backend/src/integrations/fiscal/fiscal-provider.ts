@@ -17,6 +17,7 @@ export type FiscalIssueRequest = {
   documentType: FiscalDocumentType;
   environment: FiscalEnvironment;
   companyCnpj: string | null;
+  additionalInformation: string | null;
   defaultNatureOperation: string | null;
   defaultSaleCfop: string | null;
   defaultIcmsCst: string | null;

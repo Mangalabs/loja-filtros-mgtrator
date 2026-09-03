@@ -40,6 +40,7 @@ type FocusNfePayload = {
   valor_total: number;
   valor_produtos: number;
   valor_desconto: number;
+  informacoes_adicionais_contribuinte?: string;
   numero_fatura?: string;
   valor_original_fatura?: number;
   valor_desconto_fatura?: number;
@@ -300,6 +301,8 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
     valor_total: totalAmount,
     valor_produtos: productAmount,
     valor_desconto: discountAmount,
+    informacoes_adicionais_contribuinte:
+      focusString(request.additionalInformation) ?? undefined,
     ...focusBillingPayload(request, {
       discountAmount,
       productAmount,
@@ -386,7 +389,7 @@ function focusBillingPayload(
   }
 
   return {
-    numero_fatura: focusBillingNumber(request.sale.id),
+    numero_fatura: installments[0]?.numero,
     valor_original_fatura: amounts.productAmount,
     valor_desconto_fatura: amounts.discountAmount,
     valor_liquido_fatura: amounts.totalAmount,
@@ -722,10 +725,6 @@ function focusString(value: unknown) {
 function focusDateOnly(value: string | null) {
   const date = focusString(value);
   return date?.slice(0, 10) ?? null;
-}
-
-function focusBillingNumber(saleId: string) {
-  return saleId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 60);
 }
 
 function focusFileUrl(

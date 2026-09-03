@@ -34,6 +34,7 @@ import {
   fiscalDocumentStatusTone,
 } from '../finance/fiscalPresentation'
 import { SaleReturnForm, type SaleReturnHandler } from './SaleReturnForm'
+import { salePaymentsAllowBilling } from './saleBilling'
 
 type SalesHistoryOrigin =
   | 'ALL'
@@ -48,6 +49,12 @@ type SalesHistoryFiscalFilter =
   | 'PENDING'
   | 'PROCESSING'
   | 'REJECTED'
+type SalesHistorySaleStatusFilter =
+  | 'ALL'
+  | 'CANCELLED'
+  | 'COMPLETED'
+  | 'OPEN'
+  | 'RETURNED'
 
 type SalesHistoryRow = {
   id: string
@@ -82,6 +89,7 @@ export function SalesHistoryPage({
   sales = [],
   shippingOrders = [],
   onCompleteReopenedSale,
+  onEditSale,
   onReopenSale,
   onUpdateSaleCommercialDetails,
   onReturnItem,
@@ -92,6 +100,7 @@ export function SalesHistoryPage({
   sales: Sale[]
   shippingOrders: ShippingOrder[]
   onCompleteReopenedSale: SaleStatusActionHandler
+  onEditSale: (sale: Sale) => void
   onReopenSale: SaleStatusActionHandler
   onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
   onReturnItem: SaleReturnHandler
@@ -100,6 +109,9 @@ export function SalesHistoryPage({
   const [origin, setOrigin] = useState<SalesHistoryOrigin>('ALL')
   const [fiscalStatus, setFiscalStatus] =
     useState<SalesHistoryFiscalFilter>('ALL')
+  const [saleStatus, setSaleStatus] =
+    useState<SalesHistorySaleStatusFilter>('ALL')
+  const [paymentMethodId, setPaymentMethodId] = useState('ALL')
   const rows = useMemo(
     () =>
       filterSalesHistoryRows(
@@ -109,26 +121,36 @@ export function SalesHistoryPage({
           sales,
           shippingOrders,
         }),
-        { fiscalStatus, origin, search },
+        { fiscalStatus, origin, paymentMethodId, saleStatus, search },
       ),
     [
       fiscalDocuments,
       fiscalStatus,
       origin,
+      paymentMethodId,
       pickupReservations,
       sales,
+      saleStatus,
       search,
       shippingOrders,
     ],
   )
-  const { pagination, visibleItems } = usePaginatedRows(rows)
+  const { pagination, visibleItems } = usePaginatedRows(
+    rows,
+    [fiscalStatus, origin, paymentMethodId, saleStatus, search].join('|'),
+  )
+  const paymentFilterOptions = paymentMethods.filter((method) =>
+    sales.some((sale) =>
+      sale.payments.some((payment) => payment.paymentMethodId === method.id),
+    ),
+  )
 
   return (
     <PagePanel className='min-w-0' wide>
       <PageHeader
-        description='Consulte vendas fechadas diretas, com envio e retirada.'
+        description={`${rows.length} registro(s) encontrado(s).`}
         icon={<ReceiptText size={18} />}
-        title='Histórico de vendas fechadas'
+        title='Histórico de vendas'
       />
       <div className='mb-4 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] p-3 text-sm text-[#2c281e]'>
         <strong className='text-[#203466]'>Comprovante de venda:</strong> use o
@@ -136,10 +158,10 @@ export function SalesHistoryPage({
         Este arquivo não substitui NF-e, NFC-e, DANFE ou XML fiscal.
       </div>
 
-      <div className='mb-4 grid gap-3 md:grid-cols-[minmax(220px,1fr)_190px_190px]'>
+      <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_170px_170px_170px_190px]'>
         <TextField
           label='Buscar'
-          placeholder='Cliente, operador ou código'
+          placeholder='Cliente, nº da venda, produto, NF-e...'
           size='small'
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -173,6 +195,33 @@ export function SalesHistoryPage({
           <MenuItem value='PROCESSING'>Processando</MenuItem>
           <MenuItem value='REJECTED'>Rejeitadas</MenuItem>
         </TextField>
+        <TextField
+          label='Status da venda'
+          select
+          size='small'
+          value={saleStatus}
+          onChange={(event) =>
+            setSaleStatus(event.target.value as SalesHistorySaleStatusFilter)
+          }>
+          <MenuItem value='ALL'>Todos</MenuItem>
+          <MenuItem value='COMPLETED'>Concluídas</MenuItem>
+          <MenuItem value='OPEN'>Abertas</MenuItem>
+          <MenuItem value='CANCELLED'>Canceladas</MenuItem>
+          <MenuItem value='RETURNED'>Com devolução</MenuItem>
+        </TextField>
+        <TextField
+          label='Pagamento'
+          select
+          size='small'
+          value={paymentMethodId}
+          onChange={(event) => setPaymentMethodId(event.target.value)}>
+          <MenuItem value='ALL'>Todos</MenuItem>
+          {paymentFilterOptions.map((method) => (
+            <MenuItem key={method.id} value={method.id}>
+              {method.name}
+            </MenuItem>
+          ))}
+        </TextField>
       </div>
 
       <ResponsiveTable
@@ -188,6 +237,10 @@ export function SalesHistoryPage({
           {
             header: 'Cliente',
             render: (row) => row.clientName,
+          },
+          {
+            header: 'Status da venda',
+            render: (row) => <SalesHistorySaleStatus row={row} />,
           },
           {
             align: 'right',
@@ -208,6 +261,7 @@ export function SalesHistoryPage({
             render: (row) => (
               <SalesHistoryActions
                 onCompleteReopenedSale={onCompleteReopenedSale}
+                onEditSale={onEditSale}
                 onReopenSale={onReopenSale}
                 paymentMethods={paymentMethods}
                 row={row}
@@ -227,6 +281,10 @@ export function SalesHistoryPage({
 }
 
 function SalesHistoryFiscalStatus({ row }: { row: SalesHistoryRow }) {
+  if (row.sale?.status === 'CANCELLED') {
+    return <StatusChip label='Sem emissão' tone='neutral' />
+  }
+
   if (row.sale?.status === 'OPEN') {
     return (
       <>
@@ -253,6 +311,37 @@ function SalesHistoryFiscalStatus({ row }: { row: SalesHistoryRow }) {
   )
 }
 
+function SalesHistorySaleStatus({ row }: { row: SalesHistoryRow }) {
+  if (row.sale?.status === 'OPEN') {
+    return (
+      <>
+        <StatusChip label='Aberta para correção' tone='warning' />
+        <InlineNote>Concluir novamente para emitir NF-e.</InlineNote>
+      </>
+    )
+  }
+
+  if (row.sale?.status === 'CANCELLED') {
+    return (
+      <>
+        <StatusChip label='Cancelada' tone='neutral' />
+        {row.sale.cancellationReason ? (
+          <InlineNote>{row.sale.cancellationReason}</InlineNote>
+        ) : null}
+      </>
+    )
+  }
+
+  return row.refundAmount > 0 ? (
+    <>
+      <StatusChip label='Concluída com devolução' tone='warning' />
+      <InlineNote>Estorno registrado.</InlineNote>
+    </>
+  ) : (
+    <StatusChip label='Concluída' tone='success' />
+  )
+}
+
 function SalesHistoryTotal({ row }: { row: SalesHistoryRow }) {
   return row.refundAmount > 0 ? (
     <>
@@ -269,6 +358,7 @@ function SalesHistoryTotal({ row }: { row: SalesHistoryRow }) {
 
 function SalesHistoryActions({
   onCompleteReopenedSale,
+  onEditSale,
   onReopenSale,
   paymentMethods,
   row,
@@ -276,6 +366,7 @@ function SalesHistoryActions({
   onReturnItem,
 }: {
   onCompleteReopenedSale: SaleStatusActionHandler
+  onEditSale: (sale: Sale) => void
   onReopenSale: SaleStatusActionHandler
   paymentMethods: PaymentMethod[]
   row: SalesHistoryRow
@@ -333,11 +424,17 @@ function SalesHistoryActions({
 
   row.sale?.status === 'OPEN' &&
     actions.push({
+      label: 'Editar venda aberta',
+      onSelect: () => onEditSale(row.sale as Sale),
+    })
+
+  row.sale?.status === 'OPEN' &&
+    actions.push({
       label: 'Concluir venda',
       onSelect: () => void onCompleteReopenedSale(row.sale as Sale),
     })
 
-  row.sale &&
+  row.sale?.status === 'COMPLETED' &&
     actions.push({
       disabled: fiscalDocumentBlocksReturn,
       label: 'Corrigir pagamento e fatura',
@@ -412,6 +509,7 @@ function SaleCommercialDetailsForm({
   const paymentTotal = saleCommercialPaymentTotal(payments)
   const difference = Number((Number(sale.totalAmount) - paymentTotal).toFixed(2))
   const hasPaymentDifference = Math.abs(difference) >= 0.01
+  const saleAllowsBilling = salePaymentsAllowBilling(paymentMethods, payments)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const saved = await onUpdateSaleCommercialDetails(event, sale)
@@ -506,22 +604,26 @@ function SaleCommercialDetailsForm({
           </InlineNote>
         </div>
       </div>
-      <TextField
-        defaultValue={sale.billingIssueDate?.slice(0, 10) ?? ''}
-        label='Data da fatura'
-        name='saleBillingIssueDate'
-        size='small'
-        slotProps={{ inputLabel: { shrink: true } }}
-        type='date'
-      />
-      <TextField
-        defaultValue={sale.billingDueDate?.slice(0, 10) ?? ''}
-        label='Vencimento do boleto/fatura'
-        name='saleBillingDueDate'
-        size='small'
-        slotProps={{ inputLabel: { shrink: true } }}
-        type='date'
-      />
+      {saleAllowsBilling ? (
+        <>
+          <TextField
+            defaultValue={sale.billingIssueDate?.slice(0, 10) ?? ''}
+            label='Data da fatura'
+            name='saleBillingIssueDate'
+            size='small'
+            slotProps={{ inputLabel: { shrink: true } }}
+            type='date'
+          />
+          <TextField
+            defaultValue={sale.billingDueDate?.slice(0, 10) ?? ''}
+            label='Vencimento do boleto/fatura'
+            name='saleBillingDueDate'
+            size='small'
+            slotProps={{ inputLabel: { shrink: true } }}
+            type='date'
+          />
+        </>
+      ) : null}
       <div className='flex flex-wrap justify-end gap-2'>
         <Button color='inherit' size='small' type='button' onClick={onCancel}>
           Cancelar
@@ -627,9 +729,7 @@ function buildSalesHistoryRows({
     ),
   ])
   const directSaleRows = sales
-    .filter(
-      (sale) => sale.status !== 'CANCELLED' && !linkedSaleIds.has(sale.id),
-    )
+    .filter((sale) => !linkedSaleIds.has(sale.id))
     .map(
       (sale): SalesHistoryRow => ({
         clientName: sale.clientName ?? 'Nao identificado',
@@ -742,10 +842,12 @@ function filterSalesHistoryRows(
   filters: {
     fiscalStatus: SalesHistoryFiscalFilter
     origin: SalesHistoryOrigin
+    paymentMethodId: string
+    saleStatus: SalesHistorySaleStatusFilter
     search: string
   },
 ) {
-  const normalizedSearch = filters.search.trim().toLowerCase()
+  const normalizedSearch = normalizeSalesHistorySearchText(filters.search)
 
   return rows.filter((row) => {
     const matchesOrigin =
@@ -755,18 +857,82 @@ function filterSalesHistoryRows(
       (filters.fiscalStatus === 'MISSING'
         ? !row.fiscalDocument
         : row.fiscalDocument?.status === filters.fiscalStatus)
+    const matchesSaleStatus = salesHistoryRowMatchesStatus(
+      row,
+      filters.saleStatus,
+    )
+    const matchesPaymentMethod =
+      filters.paymentMethodId === 'ALL' ||
+      row.sale?.payments.some(
+        (payment) => payment.paymentMethodId === filters.paymentMethodId,
+      )
     const matchesSearch =
       !normalizedSearch ||
-      [
-        row.clientName,
-        row.operatorName,
-        row.sourceId,
-        row.originLabel,
-        row.saleNumber ? String(row.saleNumber) : '',
-      ].some((value) => value.toLowerCase().includes(normalizedSearch))
+      salesHistorySearchText(row).includes(normalizedSearch)
 
-    return matchesOrigin && matchesFiscalStatus && matchesSearch
+    return (
+      matchesOrigin &&
+      matchesFiscalStatus &&
+      matchesPaymentMethod &&
+      matchesSaleStatus &&
+      matchesSearch
+    )
   })
+}
+
+function salesHistoryRowMatchesStatus(
+  row: SalesHistoryRow,
+  status: SalesHistorySaleStatusFilter,
+) {
+  if (status === 'ALL') {
+    return true
+  }
+
+  if (status === 'RETURNED') {
+    return row.refundAmount > 0
+  }
+
+  return row.sale?.status === status
+}
+
+function salesHistorySearchText(row: SalesHistoryRow) {
+  return normalizeSalesHistorySearchText(
+    [
+      row.clientName,
+      row.operatorName,
+      row.sourceId,
+      row.originLabel,
+      row.saleNumber ? String(row.saleNumber) : '',
+      row.sale?.status ? saleStatusSearchLabel(row.sale.status) : '',
+      ...(row.sale?.payments.map((payment) => payment.paymentMethodName) ?? []),
+      ...(row.sale?.items.map((item) => item.productName) ?? []),
+      row.fiscalDocument?.documentType,
+      row.fiscalDocument?.number,
+      row.fiscalDocument?.series,
+      row.fiscalDocument?.providerReference,
+      row.fiscalDocument?.accessKey,
+      row.fiscalDocument
+        ? fiscalDocumentStatusLabel(row.fiscalDocument.status)
+        : 'Sem NF-e',
+    ].join(' '),
+  )
+}
+
+function saleStatusSearchLabel(status: Sale['status']) {
+  const labels: Record<Sale['status'], string> = {
+    CANCELLED: 'Cancelada',
+    COMPLETED: 'Concluída',
+    OPEN: 'Aberta para correção',
+  }
+
+  return labels[status]
+}
+
+function normalizeSalesHistorySearchText(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
 }
 
 function findFiscalDocument(

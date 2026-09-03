@@ -1,13 +1,17 @@
 import {
   getCashReport,
+  getInventoryReport,
   getReportsOverview,
   getPurchaseReport,
   getSalesReport,
   getStockReport,
+  getUserPerformanceReport,
   type CashReportFilters,
+  type InventoryReportFilters,
   type PurchaseReportFilters,
   type SalesReportFilters,
   type StockReportFilters,
+  type UserPerformanceReportFilters,
 } from "../../models/reports/reports.model.js";
 
 export async function showReportsOverview(filters: { branchId: string }) {
@@ -34,6 +38,14 @@ export async function showStockReport(filters: StockReportFilters) {
   };
 }
 
+export async function showInventoryReport(filters: InventoryReportFilters) {
+  return {
+    code: 200,
+    status: "success",
+    data: await getInventoryReport(filters),
+  };
+}
+
 export async function showPurchaseReport(filters: PurchaseReportFilters) {
   return {
     code: 200,
@@ -47,5 +59,15 @@ export async function showCashReport(filters: CashReportFilters) {
     code: 200,
     status: "success",
     data: await getCashReport(filters),
+  };
+}
+
+export async function showUserPerformanceReport(
+  filters: UserPerformanceReportFilters,
+) {
+  return {
+    code: 200,
+    status: "success",
+    data: await getUserPerformanceReport(filters),
   };
 }

@@ -63,7 +63,7 @@ export function AppSidebar({
           <Filter size={25} />
         </div>
         <div className='min-w-0'>
-          <strong className='block truncate text-base'>Filtros MG</strong>
+          <strong className='block truncate text-base'>MG TRATOR PEÇAS</strong>
           <span className='mt-0.5 block truncate text-xs text-white/70'>
             Operacao da filial
           </span>

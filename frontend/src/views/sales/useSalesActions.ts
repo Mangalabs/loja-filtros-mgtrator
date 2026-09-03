@@ -2,6 +2,7 @@ import type { FormEvent } from "react";
 import {
   apiPatch,
   apiPost,
+  apiPut,
   openApiFile,
   type Sale,
   type PickupReservation,
@@ -53,7 +54,10 @@ export function useSalesActions({
     });
   }
 
-  async function issueSaleFiscalDocument(sale: Sale) {
+  async function issueSaleFiscalDocument(
+    sale: Sale,
+    additionalInformation?: string,
+  ) {
     const confirmed = await requestConfirmation(
       `Emitir NF-e para a venda de ${sale.clientName ?? "cliente nao identificado"} no valor de ${sale.totalAmount}?`,
       "Emitir NF-e?",
@@ -66,16 +70,19 @@ export function useSalesActions({
 
     await runAction(async () => {
       await apiPost(`/sales/${sale.id}/fiscal-documents`, {
-        documentType: "NFE",
+        ...fiscalDocumentPayload(additionalInformation),
       });
       showFiscalDocuments();
       await refreshSalesFlow();
     });
   }
 
-  async function previewSaleFiscalDocument(sale: Sale) {
+  async function previewSaleFiscalDocument(
+    sale: Sale,
+    additionalInformation?: string,
+  ) {
     await openApiFile(`/sales/${sale.id}/fiscal-documents/preview`, {
-      documentType: "NFE",
+      ...fiscalDocumentPayload(additionalInformation),
     });
   }
 
@@ -190,7 +197,40 @@ export function useSalesActions({
     });
   }
 
-  async function issueShippingOrderFiscalDocument(order: ShippingOrder) {
+  async function updateOpenSale(sale: Sale, input: SaleDraftInput) {
+    const allowInsufficientStock = await confirmSaleEditInsufficientStockIfNeeded(
+      sale,
+      input,
+    );
+
+    if (allowInsufficientStock === null) {
+      return false;
+    }
+
+    const confirmed = await requestConfirmation(
+      `Salvar correcoes da venda Nº ${sale.saleNumber}?`,
+      "Salvar correção?",
+      "Salvar",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiPut(`/sales/${sale.id}`, {
+        ...input,
+        allowInsufficientStock,
+      });
+      showSalesHistory();
+      await refreshSalesFlow();
+    });
+  }
+
+  async function issueShippingOrderFiscalDocument(
+    order: ShippingOrder,
+    additionalInformation?: string,
+  ) {
     const confirmed = await requestConfirmation(
       `Emitir NF-e para o pedido com envio de ${order.clientName} no valor de ${order.totalAmount}?`,
       "Emitir NF-e?",
@@ -203,21 +243,25 @@ export function useSalesActions({
 
     await runAction(async () => {
       await apiPost(`/shipping-orders/${order.id}/fiscal-documents`, {
-        documentType: "NFE",
+        ...fiscalDocumentPayload(additionalInformation),
       });
       showFiscalDocuments();
       await refreshSalesFlow();
     });
   }
 
-  async function previewShippingOrderFiscalDocument(order: ShippingOrder) {
+  async function previewShippingOrderFiscalDocument(
+    order: ShippingOrder,
+    additionalInformation?: string,
+  ) {
     await openApiFile(`/shipping-orders/${order.id}/fiscal-documents/preview`, {
-      documentType: "NFE",
+      ...fiscalDocumentPayload(additionalInformation),
     });
   }
 
   async function issuePickupReservationFiscalDocument(
     reservation: PickupReservation,
+    additionalInformation?: string,
   ) {
     const confirmed = await requestConfirmation(
       `Emitir NF-e para a retirada de ${reservation.clientName} no valor de ${reservation.totalAmount}?`,
@@ -231,7 +275,7 @@ export function useSalesActions({
 
     await runAction(async () => {
       await apiPost(`/pickup-reservations/${reservation.id}/fiscal-documents`, {
-        documentType: "NFE",
+        ...fiscalDocumentPayload(additionalInformation),
       });
       showFiscalDocuments();
       await refreshSalesFlow();
@@ -240,11 +284,12 @@ export function useSalesActions({
 
   async function previewPickupReservationFiscalDocument(
     reservation: PickupReservation,
+    additionalInformation?: string,
   ) {
     await openApiFile(
       `/pickup-reservations/${reservation.id}/fiscal-documents/preview`,
       {
-        documentType: "NFE",
+        ...fiscalDocumentPayload(additionalInformation),
       },
     );
   }
@@ -481,6 +526,7 @@ export function useSalesActions({
     reopenSale,
     returnSaleItem,
     separateShippingOrder,
+    updateOpenSale,
     updateSaleCommercialDetails,
   };
 
@@ -495,6 +541,23 @@ export function useSalesActions({
 
     const confirmed = await requestConfirmation(
       message,
+      "Continuar sem estoque?",
+      "Continuar",
+    );
+
+    return confirmed ? true : null;
+  }
+
+  async function confirmSaleEditInsufficientStockIfNeeded(
+    sale: Sale,
+    input: SaleDraftInput,
+  ) {
+    if (!hasInsufficientSaleCorrectionStock(sale, input, products)) {
+      return false;
+    }
+
+    const confirmed = await requestConfirmation(
+      "A correção aumenta item(ns) sem estoque fisico suficiente. Deseja salvar mesmo assim?",
       "Continuar sem estoque?",
       "Continuar",
     );
@@ -538,6 +601,15 @@ function optionalPayloadField<T>(field: string, value: T | null) {
   return value === null ? {} : { [field]: value };
 }
 
+function fiscalDocumentPayload(additionalInformation?: string) {
+  const notes = additionalInformation?.trim();
+
+  return {
+    documentType: "NFE",
+    ...(notes ? { additionalInformation: notes } : {}),
+  };
+}
+
 function hasInsufficientStock(
   items: Array<{ productId: string; quantity: number | string }>,
   stockField: "availableStock" | "currentStock",
@@ -575,4 +647,35 @@ function aggregateItems(
     },
     [],
   );
+}
+
+function hasInsufficientSaleCorrectionStock(
+  sale: Sale,
+  input: SaleDraftInput,
+  products: Product[],
+) {
+  const currentItems = aggregateItems(
+    sale.items.map((item) => ({
+      productId: item.productId,
+      quantity: Number(item.quantity),
+    })),
+  );
+  const nextItems = aggregateItems(input.items);
+  const productIds = new Set([
+    ...currentItems.map((item) => item.productId),
+    ...nextItems.map((item) => item.productId),
+  ]);
+
+  return [...productIds].some((productId) => {
+    const currentQuantity =
+      currentItems.find((item) => item.productId === productId)?.quantity ?? 0;
+    const nextQuantity =
+      nextItems.find((item) => item.productId === productId)?.quantity ?? 0;
+    const increase = nextQuantity - currentQuantity;
+    const product = products.find(
+      (currentProduct) => currentProduct.id === productId,
+    );
+
+    return increase > 0 && Number(product?.currentStock ?? 0) < increase;
+  });
 }

@@ -19,7 +19,7 @@ export type PdfStoreProfile = {
 }
 
 const legacyStoreNames: Record<string, string> = {
-  'Filtros MG': 'MG Trator Peças',
+  'MG Trator Peças': 'MG Trator Peças',
 }
 
 export function pdfStoreWithLogo(
@@ -28,9 +28,7 @@ export function pdfStoreWithLogo(
   return {
     ...env.quotePdfStore,
     name: storeDisplayName(
-      profile?.tradeName ??
-      profile?.legalName ??
-      env.quotePdfStore.name,
+      profile?.tradeName ?? profile?.legalName ?? env.quotePdfStore.name,
     ),
     address: branchAddress(profile) ?? env.quotePdfStore.address,
     city: branchCity(profile) ?? env.quotePdfStore.city,

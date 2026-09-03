@@ -10,9 +10,11 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
   const paymentRows = sale.payments
     .map((payment) => salePaymentRow(payment))
     .join("");
-  const installmentRows = sale.paymentInstallments
-    .map((installment) => salePaymentInstallmentRow(installment))
-    .join("");
+  const installmentRows = saleReceiptHasBillablePayment(sale)
+    ? sale.paymentInstallments
+        .map((installment) => salePaymentInstallmentRow(sale, installment))
+        .join("")
+    : "";
   const returnRows = sale.items
     .flatMap((item) =>
       item.returns.map((itemReturn) => saleReturnRow(item, itemReturn)),
@@ -236,16 +238,37 @@ function salePaymentRow(payment: Sale["payments"][number]) {
 }
 
 function salePaymentInstallmentRow(
+  sale: Sale,
   installment: Sale["paymentInstallments"][number],
 ) {
   return `
     <tr>
       <td>${String(installment.position).padStart(3, "0")}</td>
       <td>${formatOptionalDate(installment.dueDate)}</td>
-      <td>Fatura / boleto</td>
+      <td>${escapeHtml(saleReceiptBillablePaymentLabel(sale))}</td>
       <td class="text-right">${formatCurrency(installment.amount)}</td>
     </tr>
   `;
+}
+
+function saleReceiptHasBillablePayment(sale: Sale) {
+  return sale.payments.some((payment) =>
+    saleReceiptPaymentAllowsBilling(payment.paymentMethodCode),
+  );
+}
+
+function saleReceiptBillablePaymentLabel(sale: Sale) {
+  const paymentNames = sale.payments
+    .filter((payment) =>
+      saleReceiptPaymentAllowsBilling(payment.paymentMethodCode),
+    )
+    .map((payment) => payment.paymentMethodName);
+
+  return paymentNames.length > 0 ? paymentNames.join(" + ") : "Faturamento";
+}
+
+function saleReceiptPaymentAllowsBilling(code: string) {
+  return code === "BOLETO" || code === "CREDIT";
 }
 
 function saleReceiptCss() {

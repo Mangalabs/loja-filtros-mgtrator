@@ -44,6 +44,10 @@ const pickupReservationParamsSchema = z.object({
 const issueFiscalDocumentSchema = z
   .object({
     documentType: z.literal("NFE").default("NFE"),
+    additionalInformation: z
+      .union([z.string().trim().max(5000), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
   })
   .strict();
 
@@ -170,6 +174,7 @@ fiscalDocumentsRoutes.post(
       id,
       body.documentType,
       requireActiveBranchId(response.locals),
+      body.additionalInformation ?? null,
     );
 
     sendFiscalPreview(response, file);
@@ -192,6 +197,7 @@ fiscalDocumentsRoutes.post(
           userId,
           body.documentType,
           requireActiveBranchId(response.locals),
+          body.additionalInformation ?? null,
         ),
       );
   },
@@ -207,6 +213,7 @@ fiscalDocumentsRoutes.post(
       id,
       body.documentType,
       requireActiveBranchId(response.locals),
+      body.additionalInformation ?? null,
     );
 
     sendFiscalPreview(response, file);
@@ -229,6 +236,7 @@ fiscalDocumentsRoutes.post(
           userId,
           body.documentType,
           requireActiveBranchId(response.locals),
+          body.additionalInformation ?? null,
         ),
       );
   },
@@ -244,6 +252,7 @@ fiscalDocumentsRoutes.post(
       id,
       body.documentType,
       requireActiveBranchId(response.locals),
+      body.additionalInformation ?? null,
     );
 
     sendFiscalPreview(response, file);
@@ -266,6 +275,7 @@ fiscalDocumentsRoutes.post(
           userId,
           body.documentType,
           requireActiveBranchId(response.locals),
+          body.additionalInformation ?? null,
         ),
       );
   },

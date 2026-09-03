@@ -5,10 +5,11 @@ import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import { ChevronDown, FileText } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import type {
   Client,
   FiscalDocument,
@@ -77,14 +78,25 @@ export function FiscalDocumentsPage({
   shippingOrders: ShippingOrder[]
   onIssuePickupReservationFiscalDocument: (
     reservation: PickupReservation,
+    additionalInformation?: string,
   ) => void
-  onIssueSaleFiscalDocument: (sale: Sale) => void
-  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
+  onIssueSaleFiscalDocument: (sale: Sale, additionalInformation?: string) => void
+  onIssueShippingOrderFiscalDocument: (
+    order: ShippingOrder,
+    additionalInformation?: string,
+  ) => void
   onPreviewPickupReservationFiscalDocument: (
     reservation: PickupReservation,
+    additionalInformation?: string,
   ) => void
-  onPreviewSaleFiscalDocument: (sale: Sale) => void
-  onPreviewShippingOrderFiscalDocument: (order: ShippingOrder) => void
+  onPreviewSaleFiscalDocument: (
+    sale: Sale,
+    additionalInformation?: string,
+  ) => void
+  onPreviewShippingOrderFiscalDocument: (
+    order: ShippingOrder,
+    additionalInformation?: string,
+  ) => void
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
   onCancelFiscalDocument: (
     event: FormEvent<HTMLFormElement>,
@@ -92,6 +104,12 @@ export function FiscalDocumentsPage({
   ) => void
   onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void
 }) {
+  const [requestSearch, setRequestSearch] = useState('')
+  const [requestReadinessFilter, setRequestReadinessFilter] =
+    useState<FiscalRequestReadinessFilter>('ALL')
+  const [documentSearch, setDocumentSearch] = useState('')
+  const [documentStatusFilter, setDocumentStatusFilter] =
+    useState<FiscalDocumentStatusFilter>('ALL')
   const fiscalRequests = buildFiscalRequests({
     clients,
     fiscalDocuments,
@@ -107,12 +125,47 @@ export function FiscalDocumentsPage({
     sales,
     shippingOrders,
   })
+  const fiscalDocumentClients = buildFiscalDocumentClients({
+    clients,
+    pickupReservations,
+    sales,
+    shippingOrders,
+  })
+  const filteredFiscalRequests = useMemo(
+    () =>
+      filterFiscalRequests(fiscalRequests, {
+        readiness: requestReadinessFilter,
+        search: requestSearch,
+      }),
+    [fiscalRequests, requestReadinessFilter, requestSearch],
+  )
+  const filteredFiscalDocuments = useMemo(
+    () =>
+      filterFiscalDocuments(fiscalDocuments, fiscalDocumentSourceNumbers, {
+        clients: fiscalDocumentClients,
+        search: documentSearch,
+        status: documentStatusFilter,
+      }),
+    [
+      fiscalDocumentClients,
+      documentSearch,
+      documentStatusFilter,
+      fiscalDocumentSourceNumbers,
+      fiscalDocuments,
+    ],
+  )
   const { pagination: requestPagination, visibleItems: visibleFiscalRequests } =
-    usePaginatedRows<FiscalRequest>(fiscalRequests)
+    usePaginatedRows<FiscalRequest>(filteredFiscalRequests, [
+      requestReadinessFilter,
+      requestSearch,
+    ].join('|'))
   const {
     pagination: documentPagination,
     visibleItems: visibleFiscalDocuments,
-  } = usePaginatedRows<FiscalDocument>(fiscalDocuments)
+  } = usePaginatedRows<FiscalDocument>(filteredFiscalDocuments, [
+    documentSearch,
+    documentStatusFilter,
+  ].join('|'))
 
   return (
     <section className='grid min-w-0 gap-4'>
@@ -123,10 +176,35 @@ export function FiscalDocumentsPage({
 
       <PagePanel className='min-w-0'>
         <PageHeader
-          description='Centralize a emissão fiscal de vendas diretas, com envio e retirada.'
+          description={`${filteredFiscalRequests.length} de ${fiscalRequests.length} registro(s) na fila.`}
           icon={<FileText size={18} />}
           title='Fila de emissão'
         />
+        <div className='mb-4 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_220px]'>
+          <TextField
+            label='Pesquisar na fila'
+            placeholder='Cliente, nº da venda, origem, operador...'
+            size='medium'
+            value={requestSearch}
+            onChange={(event) => setRequestSearch(event.target.value)}
+          />
+          <TextField
+            label='Prontidão'
+            select
+            size='medium'
+            value={requestReadinessFilter}
+            onChange={(event) =>
+              setRequestReadinessFilter(
+                event.target.value as FiscalRequestReadinessFilter,
+              )
+            }>
+            {fiscalRequestReadinessFilterOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </div>
         <ResponsiveTable
           columns={[
             {
@@ -145,6 +223,10 @@ export function FiscalDocumentsPage({
             {
               header: 'Cliente',
               render: (request) => request.clientName,
+            },
+            {
+              header: 'Data/hora',
+              render: (request) => formatDateTime(request.createdAt),
             },
             {
               align: 'right',
@@ -209,10 +291,35 @@ export function FiscalDocumentsPage({
 
       <PagePanel className='min-w-0'>
         <PageHeader
-          description='Acompanhe o retorno do provedor fiscal e os documentos gerados.'
+          description={`${filteredFiscalDocuments.length} de ${fiscalDocuments.length} documento(s) encontrado(s).`}
           icon={<FileText size={18} />}
           title='Notas emitidas'
         />
+        <div className='mb-4 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_200px]'>
+          <TextField
+            label='Pesquisar NF-e'
+            placeholder='Nº, chave, referência, venda, operador...'
+            size='medium'
+            value={documentSearch}
+            onChange={(event) => setDocumentSearch(event.target.value)}
+          />
+          <TextField
+            label='Status'
+            select
+            size='medium'
+            value={documentStatusFilter}
+            onChange={(event) =>
+              setDocumentStatusFilter(
+                event.target.value as FiscalDocumentStatusFilter,
+              )
+            }>
+            {fiscalDocumentStatusFilterOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </div>
         <ResponsiveTable
           columns={[
             {
@@ -282,16 +389,13 @@ export function FiscalDocumentsPage({
               ),
             },
             {
-              header: 'Referencias',
+              header: 'Cliente',
               render: (document) => (
-                <>
-                  <strong>
-                    {document.providerReference ?? 'Sem referencia'}
-                  </strong>
-                  <InlineNote>
-                    {document.accessKey ?? 'Sem chave de acesso'}
-                  </InlineNote>
-                </>
+                <FiscalDocumentClient
+                  client={fiscalDocumentClients.get(
+                    `${document.sourceType}-${document.sourceId}`,
+                  )}
+                />
               ),
             },
             {
@@ -359,6 +463,215 @@ function buildFiscalDocumentSourceNumbers({
   return sourceNumbers
 }
 
+function buildFiscalDocumentClients({
+  clients,
+  pickupReservations,
+  sales,
+  shippingOrders,
+}: {
+  clients: Client[]
+  pickupReservations: PickupReservation[]
+  sales: Sale[]
+  shippingOrders: ShippingOrder[]
+}) {
+  const clientsById = new Map(clients.map((client) => [client.id, client]))
+  const salesById = new Map(sales.map((sale) => [sale.id, sale]))
+  const sourceClients = new Map<
+    string,
+    { document: string | null; name: string }
+  >()
+  const clientFromSale = (sale: Sale | undefined) =>
+    sale
+      ? {
+          document: sale.clientDocument,
+          name: sale.clientName ?? 'Nao identificado',
+        }
+      : null
+  const clientFromId = (clientId: string | null | undefined) => {
+    const client = clientId ? clientsById.get(clientId) : undefined
+
+    return client
+      ? {
+          document: client.document,
+          name: client.name,
+        }
+      : null
+  }
+
+  sales.forEach((sale) => {
+    sourceClients.set(`SALE-${sale.id}`, {
+      document: sale.clientDocument,
+      name: sale.clientName ?? 'Nao identificado',
+    })
+  })
+  shippingOrders.forEach((order) => {
+    const client =
+      clientFromId(order.clientId) ??
+      clientFromSale(salesById.get(order.saleId ?? ''))
+
+    if (client) {
+      sourceClients.set(`SHIPPING_ORDER-${order.id}`, client)
+    }
+  })
+  pickupReservations.forEach((reservation) => {
+    const client =
+      clientFromId(reservation.clientId) ??
+      clientFromSale(salesById.get(reservation.saleId ?? ''))
+
+    if (client) {
+      sourceClients.set(`PICKUP_RESERVATION-${reservation.id}`, client)
+    }
+  })
+
+  return sourceClients
+}
+
+type FiscalRequestReadinessFilter = 'ALL' | 'READY' | 'PENDING' | 'DOCUMENTED'
+type FiscalDocumentStatusFilter = FiscalDocument['status'] | 'ALL'
+
+const fiscalRequestReadinessFilterOptions: Array<{
+  label: string
+  value: FiscalRequestReadinessFilter
+}> = [
+  { label: 'Todos', value: 'ALL' },
+  { label: 'Prontas', value: 'READY' },
+  { label: 'Com pendências', value: 'PENDING' },
+  { label: 'Com documento', value: 'DOCUMENTED' },
+]
+
+const fiscalDocumentStatusFilterOptions: Array<{
+  label: string
+  value: FiscalDocumentStatusFilter
+}> = [
+  { label: 'Todos', value: 'ALL' },
+  { label: 'Pendente', value: 'PENDING' },
+  { label: 'Processando', value: 'PROCESSING' },
+  { label: 'Autorizada', value: 'AUTHORIZED' },
+  { label: 'Rejeitada', value: 'REJECTED' },
+  { label: 'Cancelada', value: 'CANCELLED' },
+]
+
+function filterFiscalRequests(
+  requests: FiscalRequest[],
+  filters: {
+    readiness: FiscalRequestReadinessFilter
+    search: string
+  },
+) {
+  const normalizedSearch = normalizeSearchText(filters.search)
+
+  return requests.filter((request) => {
+    const matchesReadiness =
+      filters.readiness === 'ALL' ||
+      (filters.readiness === 'READY' &&
+        canIssueFiscalRequest(request) &&
+        request.readinessIssues.length === 0) ||
+      (filters.readiness === 'PENDING' &&
+        canIssueFiscalRequest(request) &&
+        request.readinessIssues.length > 0) ||
+      (filters.readiness === 'DOCUMENTED' &&
+        Boolean(request.document) &&
+        request.document?.status !== 'REJECTED')
+
+    return (
+      matchesReadiness &&
+      (!normalizedSearch ||
+        fiscalRequestSearchText(request).includes(normalizedSearch))
+    )
+  })
+}
+
+function filterFiscalDocuments(
+  documents: FiscalDocument[],
+  sourceNumbers: Map<string, string>,
+  filters: {
+    clients: Map<string, { document: string | null; name: string }>
+    search: string
+    status: FiscalDocumentStatusFilter
+  },
+) {
+  const normalizedSearch = normalizeSearchText(filters.search)
+
+  return documents.filter((document) => {
+    const matchesStatus =
+      filters.status === 'ALL' || document.status === filters.status
+
+    return (
+      matchesStatus &&
+      (!normalizedSearch ||
+        fiscalDocumentSearchText(document, sourceNumbers).includes(
+          normalizedSearch,
+        ) ||
+        fiscalDocumentClientSearchText(document, filters.clients).includes(
+          normalizedSearch,
+        ))
+    )
+  })
+}
+
+function fiscalRequestSearchText(request: FiscalRequest) {
+  return normalizeSearchText(
+    [
+      request.sourceNumber,
+      request.sourceLabel,
+      request.pendingLabel,
+      request.clientName,
+      request.operatorName,
+      request.totalAmount,
+      request.document?.documentType,
+      request.document?.number,
+      request.document?.series,
+      request.document?.providerReference,
+      request.document?.accessKey,
+      request.document ? fiscalDocumentStatusLabel(request.document.status) : '',
+      ...request.readinessIssues,
+    ].join(' '),
+  )
+}
+
+function fiscalDocumentSearchText(
+  document: FiscalDocument,
+  sourceNumbers: Map<string, string>,
+) {
+  const sourceNumber = sourceNumbers.get(
+    `${document.sourceType}-${document.sourceId}`,
+  )
+
+  return normalizeSearchText(
+    [
+      document.documentType,
+      document.number,
+      document.series,
+      document.provider,
+      fiscalDocumentEnvironmentLabel(document.environment),
+      fiscalDocumentStatusLabel(document.status),
+      document.providerReference,
+      document.accessKey,
+      document.issuedByUserName,
+      document.rejectionReason,
+      document.cancellationReason,
+      sourceNumber,
+      fiscalSourceTypeLabel(document.sourceType),
+    ].join(' '),
+  )
+}
+
+function fiscalDocumentClientSearchText(
+  document: FiscalDocument,
+  clients: Map<string, { document: string | null; name: string }>,
+) {
+  const client = clients.get(`${document.sourceType}-${document.sourceId}`)
+
+  return normalizeSearchText([client?.name, client?.document].join(' '))
+}
+
+function normalizeSearchText(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+}
+
 function shortFiscalSourceId(sourceId: string) {
   return sourceId.slice(0, 8)
 }
@@ -371,6 +684,19 @@ function fiscalSourceTypeLabel(sourceType: FiscalDocument['sourceType']) {
   }
 
   return labels[sourceType]
+}
+
+function FiscalDocumentClient({
+  client,
+}: {
+  client: { document: string | null; name: string } | undefined
+}) {
+  return (
+    <>
+      <strong>{client?.name ?? 'Nao identificado'}</strong>
+      <InlineNote>{client?.document ?? 'Sem CPF/CNPJ'}</InlineNote>
+    </>
+  )
 }
 
 function FiscalRequestAction({
@@ -386,16 +712,28 @@ function FiscalRequestAction({
   request: FiscalRequest
   onIssuePickupReservationFiscalDocument: (
     reservation: PickupReservation,
+    additionalInformation?: string,
   ) => void
-  onIssueSaleFiscalDocument: (sale: Sale) => void
-  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
+  onIssueSaleFiscalDocument: (sale: Sale, additionalInformation?: string) => void
+  onIssueShippingOrderFiscalDocument: (
+    order: ShippingOrder,
+    additionalInformation?: string,
+  ) => void
   onPreviewPickupReservationFiscalDocument: (
     reservation: PickupReservation,
+    additionalInformation?: string,
   ) => void
-  onPreviewSaleFiscalDocument: (sale: Sale) => void
-  onPreviewShippingOrderFiscalDocument: (order: ShippingOrder) => void
+  onPreviewSaleFiscalDocument: (
+    sale: Sale,
+    additionalInformation?: string,
+  ) => void
+  onPreviewShippingOrderFiscalDocument: (
+    order: ShippingOrder,
+    additionalInformation?: string,
+  ) => void
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
 }) {
+  const [additionalInformation, setAdditionalInformation] = useState('')
   const action = fiscalRequestAction(request, {
     onIssuePickupReservationFiscalDocument,
     onIssueSaleFiscalDocument,
@@ -410,15 +748,30 @@ function FiscalRequestAction({
 
   if (action && request.readinessIssues.length === 0) {
     return (
-      <div className='flex flex-wrap justify-end gap-2'>
-        {previewAction ? (
-          <TableActionButton type='button' onClick={previewAction}>
-            Pré-visualizar
+      <div className='grid min-w-0 gap-2'>
+        <TextField
+          label='Observações no rodapé da NF-e'
+          multiline
+          maxRows={3}
+          onChange={(event) => setAdditionalInformation(event.target.value)}
+          size='small'
+          slotProps={{ htmlInput: { maxLength: 5000 } }}
+          value={additionalInformation}
+        />
+        <div className='flex flex-wrap justify-end gap-2'>
+          {previewAction ? (
+            <TableActionButton
+              type='button'
+              onClick={() => previewAction(additionalInformation)}>
+              Pré-visualizar
+            </TableActionButton>
+          ) : null}
+          <TableActionButton
+            type='button'
+            onClick={() => action(additionalInformation)}>
+            {fiscalRequestActionText(request)}
           </TableActionButton>
-        ) : null}
-        <TableActionButton type='button' onClick={action}>
-          {fiscalRequestActionText(request)}
-        </TableActionButton>
+        </div>
       </div>
     )
   }

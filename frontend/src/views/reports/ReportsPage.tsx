@@ -1,5 +1,6 @@
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
+import MenuItem from '@mui/material/MenuItem'
 import Skeleton from '@mui/material/Skeleton'
 import TextField from '@mui/material/TextField'
 import {
@@ -7,6 +8,8 @@ import {
   Banknote,
   CircleDollarSign,
   CreditCard,
+  Download,
+  FileText,
   PackageSearch,
   PackagePlus,
   Send,
@@ -16,10 +19,12 @@ import {
 import { useState, type FormEvent, type ReactNode } from 'react'
 import type {
   CashReport,
+  InventoryReport,
   PurchaseReport,
   ReportsOverview,
   SalesReport,
   StockReport,
+  UserPerformanceReport,
 } from '../../api'
 import { PageHeader, PagePanel, ResponsiveTable } from '../../components/layout'
 import { StatusChip, type StatusTone } from '../../components/ui'
@@ -32,24 +37,34 @@ import {
 
 export function ReportsPage({
   cashReport,
+  inventoryReport,
   onLoadCashReport,
+  onLoadInventoryReport,
   onLoadSalesReport,
   onLoadPurchaseReport,
   onLoadStockReport,
+  onLoadUserPerformanceReport,
   overview,
   purchaseReport,
   salesReport,
   stockReport,
+  userPerformanceReport,
 }: {
   cashReport: CashReport | null
+  inventoryReport: InventoryReport | null
   onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>
+  onLoadInventoryReport: (filters?: InventoryReportFilters) => Promise<boolean>
   onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>
   onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>
   onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>
+  onLoadUserPerformanceReport: (
+    filters?: SalesReportFilters,
+  ) => Promise<boolean>
   overview: ReportsOverview | null
   purchaseReport: PurchaseReport | null
   salesReport: SalesReport | null
   stockReport: StockReport | null
+  userPerformanceReport: UserPerformanceReport | null
 }) {
   const contentByState = {
     loading: <ReportsLoading />,
@@ -57,14 +72,18 @@ export function ReportsPage({
       overview && salesReport && stockReport && purchaseReport && cashReport ? (
         <ReportsOverviewContent
           cashReport={cashReport}
+          inventoryReport={inventoryReport}
           overview={overview}
           onLoadCashReport={onLoadCashReport}
+          onLoadInventoryReport={onLoadInventoryReport}
           onLoadPurchaseReport={onLoadPurchaseReport}
           onLoadSalesReport={onLoadSalesReport}
           onLoadStockReport={onLoadStockReport}
+          onLoadUserPerformanceReport={onLoadUserPerformanceReport}
           purchaseReport={purchaseReport}
           salesReport={salesReport}
           stockReport={stockReport}
+          userPerformanceReport={userPerformanceReport}
         />
       ) : null,
   }
@@ -94,24 +113,34 @@ function ReportsLoading() {
 
 function ReportsOverviewContent({
   cashReport,
+  inventoryReport,
   onLoadCashReport,
+  onLoadInventoryReport,
   onLoadPurchaseReport,
   onLoadSalesReport,
   onLoadStockReport,
+  onLoadUserPerformanceReport,
   overview,
   purchaseReport,
   salesReport,
   stockReport,
+  userPerformanceReport,
 }: {
   cashReport: CashReport
+  inventoryReport: InventoryReport | null
   onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>
+  onLoadInventoryReport: (filters?: InventoryReportFilters) => Promise<boolean>
   onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>
   onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>
   onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>
+  onLoadUserPerformanceReport: (
+    filters?: SalesReportFilters,
+  ) => Promise<boolean>
   overview: ReportsOverview
   purchaseReport: PurchaseReport
   salesReport: SalesReport
   stockReport: StockReport
+  userPerformanceReport: UserPerformanceReport | null
 }) {
   return (
     <section className='grid gap-4'>
@@ -181,6 +210,12 @@ function ReportsOverviewContent({
         salesReport={salesReport}
         onLoadSalesReport={onLoadSalesReport}
       />
+      {userPerformanceReport ? (
+        <UserPerformanceReportSection
+          report={userPerformanceReport}
+          onLoadUserPerformanceReport={onLoadUserPerformanceReport}
+        />
+      ) : null}
       <PurchaseReportSection
         purchaseReport={purchaseReport}
         onLoadPurchaseReport={onLoadPurchaseReport}
@@ -193,6 +228,12 @@ function ReportsOverviewContent({
         stockReport={stockReport}
         onLoadStockReport={onLoadStockReport}
       />
+      {inventoryReport ? (
+        <InventoryReportSection
+          report={inventoryReport}
+          onLoadInventoryReport={onLoadInventoryReport}
+        />
+      ) : null}
     </section>
   )
 }
@@ -230,7 +271,7 @@ function SalesReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto] lg:w-auto'
             onSubmit={filterSalesReport}>
             <TextField
               label='De'
@@ -257,6 +298,13 @@ function SalesReportSection({
               variant='outlined'
               onClick={() => void clearSalesReportFilters()}>
               Limpar
+            </Button>
+            <Button
+              startIcon={<Download size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() => exportSalesReportCsv(salesReport)}>
+              CSV
             </Button>
           </form>
         }
@@ -424,6 +472,195 @@ function SalesReportSection({
   )
 }
 
+function UserPerformanceReportSection({
+  onLoadUserPerformanceReport,
+  report,
+}: {
+  onLoadUserPerformanceReport: (
+    filters?: SalesReportFilters,
+  ) => Promise<boolean>
+  report: UserPerformanceReport
+}) {
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function filterUserPerformanceReport(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault()
+    setLoading(true)
+
+    await onLoadUserPerformanceReport({ dateFrom, dateTo })
+    setLoading(false)
+  }
+
+  async function clearUserPerformanceReportFilters() {
+    setDateFrom('')
+    setDateTo('')
+    setLoading(true)
+
+    await onLoadUserPerformanceReport()
+    setLoading(false)
+  }
+
+  return (
+    <PagePanel wide>
+      <PageHeader
+        actions={
+          <form
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto] lg:w-auto'
+            onSubmit={filterUserPerformanceReport}>
+            <TextField
+              label='De'
+              size='small'
+              type='date'
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              label='Ate'
+              size='small'
+              type='date'
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <Button disabled={loading} type='submit' variant='contained'>
+              Filtrar usuarios
+            </Button>
+            <Button
+              disabled={loading || (!dateFrom && !dateTo)}
+              type='button'
+              variant='outlined'
+              onClick={() => void clearUserPerformanceReportFilters()}>
+              Limpar
+            </Button>
+            <Button
+              startIcon={<Download size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() => exportUserPerformanceReportCsv(report)}>
+              CSV
+            </Button>
+          </form>
+        }
+        description='Vendas, comissoes conferiveis e acoes operacionais por usuario.'
+        icon={<CircleDollarSign size={18} />}
+        title='Desempenho por usuario'
+      />
+      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>
+        <ReportMetric
+          icon={<CircleDollarSign size={18} />}
+          label='Usuarios'
+          value={String(report.summary.usersCount)}
+        />
+        <ReportMetric
+          icon={<ShoppingCart size={18} />}
+          label='Vendas'
+          value={String(report.summary.salesCount)}
+        />
+        <ReportMetric
+          icon={<Banknote size={18} />}
+          label='Liquido'
+          value={formatCurrency(report.summary.netAmount)}
+        />
+        <ReportMetric
+          icon={<Send size={18} />}
+          label='Orcamentos'
+          value={String(report.summary.quotesCreatedCount)}
+        />
+        <ReportMetric
+          icon={<PackageSearch size={18} />}
+          label='Mov. estoque'
+          value={String(report.summary.stockMovementsCount)}
+        />
+        <ReportMetric
+          icon={<FileText size={18} />}
+          label='NF-e emitidas'
+          value={String(report.summary.fiscalDocumentsIssuedCount)}
+        />
+      </div>
+
+      <div className='mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]'>
+        <ResponsiveTable
+          columns={[
+            {
+              header: 'Usuario',
+              render: (item) => item.userName,
+            },
+            {
+              align: 'right',
+              header: 'Vendas',
+              render: (item) => item.salesCount,
+            },
+            {
+              align: 'right',
+              header: 'Liquido',
+              render: (item) => formatCurrency(item.netAmount),
+            },
+            {
+              align: 'right',
+              header: 'Orc.',
+              render: (item) => item.quotesCreatedCount,
+            },
+            {
+              align: 'right',
+              header: 'Estoque',
+              render: (item) => item.stockMovementsCount,
+            },
+            {
+              align: 'right',
+              header: 'NF-e',
+              render: (item) => item.fiscalDocumentsIssuedCount,
+            },
+          ]}
+          emptyMessage='Nenhum usuario com acao no periodo.'
+          getRowId={(item) => item.userId}
+          items={report.users}
+        />
+
+        <ResponsiveTable
+          columns={[
+            {
+              header: 'Venda',
+              render: (item) => (
+                <div className='grid gap-1'>
+                  <strong>Venda #{item.saleNumber}</strong>
+                  <span className='text-xs text-[#5f665f]'>
+                    {formatDateTime(item.createdAt)}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              header: 'Usuario',
+              render: (item) => item.userName,
+            },
+            {
+              header: 'Cliente',
+              render: (item) => item.clientName,
+            },
+            {
+              header: 'Status',
+              render: (item) => saleStatusLabel(item.status),
+            },
+            {
+              align: 'right',
+              header: 'Liquido',
+              render: (item) => formatCurrency(item.netAmount),
+            },
+          ]}
+          emptyMessage='Nenhuma venda no periodo.'
+          getRowId={(item) => item.saleId}
+          items={report.sales}
+        />
+      </div>
+    </PagePanel>
+  )
+}
+
 function PurchaseReportSection({
   onLoadPurchaseReport,
   purchaseReport,
@@ -457,7 +694,7 @@ function PurchaseReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto] lg:w-auto'
             onSubmit={filterPurchaseReport}>
             <TextField
               label='De'
@@ -484,6 +721,13 @@ function PurchaseReportSection({
               variant='outlined'
               onClick={() => void clearPurchaseReportFilters()}>
               Limpar
+            </Button>
+            <Button
+              startIcon={<Download size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() => exportPurchaseReportCsv(purchaseReport)}>
+              CSV
             </Button>
           </form>
         }
@@ -624,7 +868,7 @@ function CashReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto] lg:w-auto'
             onSubmit={filterCashReport}>
             <TextField
               label='De'
@@ -651,6 +895,13 @@ function CashReportSection({
               variant='outlined'
               onClick={() => void clearCashReportFilters()}>
               Limpar
+            </Button>
+            <Button
+              startIcon={<Download size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() => exportCashReportCsv(cashReport)}>
+              CSV
             </Button>
           </form>
         }
@@ -800,7 +1051,7 @@ function StockReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto] lg:w-auto'
             onSubmit={filterStockReport}>
             <TextField
               label='De'
@@ -827,6 +1078,13 @@ function StockReportSection({
               variant='outlined'
               onClick={() => void clearStockReportFilters()}>
               Limpar
+            </Button>
+            <Button
+              startIcon={<Download size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() => exportStockReportCsv(stockReport)}>
+              CSV
             </Button>
           </form>
         }
@@ -928,9 +1186,223 @@ function StockReportSection({
   )
 }
 
+function InventoryReportSection({
+  onLoadInventoryReport,
+  report,
+}: {
+  onLoadInventoryReport: (filters?: InventoryReportFilters) => Promise<boolean>
+  report: InventoryReport
+}) {
+  const [search, setSearch] = useState('')
+  const [stockStatus, setStockStatus] =
+    useState<InventoryReportFilters['stockStatus']>('ALL')
+  const [activeFilter, setActiveFilter] = useState<
+    'ALL' | 'ACTIVE' | 'INACTIVE'
+  >('ACTIVE')
+  const [loading, setLoading] = useState(false)
+
+  async function filterInventoryReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setLoading(true)
+
+    await onLoadInventoryReport({
+      active: activeFilter === 'ALL' ? undefined : activeFilter === 'ACTIVE',
+      search,
+      stockStatus,
+    })
+    setLoading(false)
+  }
+
+  async function clearInventoryReportFilters() {
+    setSearch('')
+    setStockStatus('ALL')
+    setActiveFilter('ACTIVE')
+    setLoading(true)
+
+    await onLoadInventoryReport({ active: true })
+    setLoading(false)
+  }
+
+  return (
+    <PagePanel wide>
+      <PageHeader
+        actions={
+          <form
+            className='grid w-full gap-3 md:grid-cols-[minmax(220px,1fr)_170px_170px_auto_auto_auto] lg:w-auto'
+            onSubmit={filterInventoryReport}>
+            <TextField
+              label='Buscar'
+              placeholder='Produto, código, fabricante ou locação'
+              size='small'
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <TextField
+              label='Estoque'
+              select
+              size='small'
+              value={stockStatus}
+              onChange={(event) =>
+                setStockStatus(
+                  event.target.value as InventoryReportFilters['stockStatus'],
+                )
+              }>
+              <MenuItem value='ALL'>Todos</MenuItem>
+              <MenuItem value='AVAILABLE'>Disponivel</MenuItem>
+              <MenuItem value='LOW'>Baixo</MenuItem>
+              <MenuItem value='NEGATIVE'>Negativo</MenuItem>
+              <MenuItem value='OUT_OF_STOCK'>Sem saldo</MenuItem>
+            </TextField>
+            <TextField
+              label='Status'
+              select
+              size='small'
+              value={activeFilter}
+              onChange={(event) =>
+                setActiveFilter(
+                  event.target.value as 'ALL' | 'ACTIVE' | 'INACTIVE',
+                )
+              }>
+              <MenuItem value='ACTIVE'>Ativos</MenuItem>
+              <MenuItem value='ALL'>Todos</MenuItem>
+              <MenuItem value='INACTIVE'>Inativos</MenuItem>
+            </TextField>
+            <Button disabled={loading} type='submit' variant='contained'>
+              Filtrar
+            </Button>
+            <Button
+              disabled={
+                loading ||
+                (!search && stockStatus === 'ALL' && activeFilter === 'ACTIVE')
+              }
+              type='button'
+              variant='outlined'
+              onClick={() => void clearInventoryReportFilters()}>
+              Limpar
+            </Button>
+            <Button
+              startIcon={<Download size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() => exportInventoryReportCsv(report)}>
+              CSV
+            </Button>
+          </form>
+        }
+        description='Snapshot de saldo fisico, reservado, disponivel e valores de estoque.'
+        icon={<PackageSearch size={18} />}
+        title='Inventario'
+      />
+      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>
+        <ReportMetric
+          icon={<PackageSearch size={18} />}
+          label='Produtos'
+          value={String(report.summary.productsCount)}
+        />
+        <ReportMetric
+          icon={<PackagePlus size={18} />}
+          label='Fisico'
+          value={formatQuantity(report.summary.totalCurrentStock)}
+        />
+        <ReportMetric
+          icon={<Send size={18} />}
+          label='Reservado'
+          value={formatQuantity(report.summary.totalReservedStock)}
+        />
+        <ReportMetric
+          icon={<ShoppingCart size={18} />}
+          label='Disponivel'
+          value={formatQuantity(report.summary.totalAvailableStock)}
+        />
+        <ReportMetric
+          icon={<Banknote size={18} />}
+          label='Custo total'
+          value={formatCurrency(report.summary.totalCostAmount)}
+        />
+        <ReportMetric
+          icon={<CircleDollarSign size={18} />}
+          label='Venda total'
+          value={formatCurrency(report.summary.totalSaleAmount)}
+        />
+      </div>
+      <span className='text-sm text-[#5f665f]'>
+        Baixo estoque: {report.summary.lowStockProductsCount} · Estoque
+        negativo: {report.summary.negativeStockProductsCount} · Exibindo{' '}
+        {report.summary.returnedProductsCount} de {report.summary.productsCount}
+      </span>
+
+      <div className='mt-5'>
+        <ResponsiveTable
+          columns={[
+            {
+              header: 'Produto',
+              render: (item) => (
+                <div className='grid gap-1'>
+                  <strong>{item.productName}</strong>
+                  <span className='text-xs text-[#5f665f]'>
+                    {item.internalCode ?? item.barcode ?? 'Sem codigo'} ·{' '}
+                    {item.brandName ?? 'Sem fabricante'}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              header: 'Locação',
+              render: (item) => item.location ?? '-',
+            },
+            {
+              align: 'right',
+              header: 'Fisico',
+              render: (item) => formatQuantity(item.currentStock),
+            },
+            {
+              align: 'right',
+              header: 'Reservado',
+              render: (item) => formatQuantity(item.reservedStock),
+            },
+            {
+              align: 'right',
+              header: 'Disponivel',
+              render: (item) => formatQuantity(item.availableStock),
+            },
+            {
+              align: 'right',
+              header: 'Custo total',
+              render: (item) => formatCurrency(item.totalCostAmount),
+            },
+            {
+              align: 'right',
+              header: 'Venda total',
+              render: (item) => formatCurrency(item.totalSaleAmount),
+            },
+            {
+              header: 'Situacao',
+              render: (item) => (
+                <StatusChip
+                  label={inventoryStockStatusLabel(item.stockStatus)}
+                  tone={inventoryStockStatusTone(item.stockStatus)}
+                />
+              ),
+            },
+          ]}
+          emptyMessage='Nenhum produto encontrado no inventario.'
+          getRowId={(item) => item.productId}
+          items={report.items}
+        />
+      </div>
+    </PagePanel>
+  )
+}
+
 type SalesReportFilters = {
   dateFrom?: string
   dateTo?: string
+}
+
+type InventoryReportFilters = {
+  active?: boolean
+  search?: string
+  stockStatus?: 'ALL' | 'LOW' | 'NEGATIVE' | 'AVAILABLE' | 'OUT_OF_STOCK'
 }
 
 function abcTone(abcClass: 'A' | 'B' | 'C'): StatusTone {
@@ -943,6 +1415,403 @@ function abcTone(abcClass: 'A' | 'B' | 'C'): StatusTone {
   }
 
   return 'neutral'
+}
+
+function saleStatusLabel(
+  status: UserPerformanceReport['sales'][number]['status'],
+) {
+  const labels = {
+    OPEN: 'Em aberto',
+    COMPLETED: 'Concluida',
+    CANCELLED: 'Cancelada',
+  }
+
+  return labels[status] ?? status
+}
+
+function inventoryStockStatusLabel(
+  status: InventoryReport['items'][number]['stockStatus'],
+) {
+  const labels = {
+    AVAILABLE: 'Disponivel',
+    LOW: 'Baixo',
+    NEGATIVE: 'Negativo',
+    OUT_OF_STOCK: 'Sem saldo',
+  }
+
+  return labels[status]
+}
+
+function inventoryStockStatusTone(
+  status: InventoryReport['items'][number]['stockStatus'],
+): StatusTone {
+  if (status === 'AVAILABLE') {
+    return 'success'
+  }
+
+  if (status === 'LOW') {
+    return 'warning'
+  }
+
+  return 'error'
+}
+
+function exportSalesReportCsv(report: SalesReport) {
+  downloadCsv('relatorio-vendas', [
+    ['Secao', 'Indicador', 'Valor'],
+    ['Resumo', 'Vendas', report.summary.salesCount],
+    ['Resumo', 'Itens vendidos', report.summary.itemsQuantity],
+    ['Resumo', 'Bruto', report.summary.grossAmount],
+    ['Resumo', 'Desconto', report.summary.discountAmount],
+    ['Resumo', 'Custo', report.summary.costAmount],
+    ['Resumo', 'Lucro', report.summary.grossProfitAmount],
+    ['Resumo', 'Margem geral', `${report.summary.grossMarginPercentage}%`],
+    ['Resumo', 'Liquido', report.summary.netAmount],
+    [],
+    [
+      'Vendas por produto',
+      'Produto',
+      'Quantidade',
+      'Total',
+      'Custo',
+      'Lucro',
+      'Margem',
+    ],
+    ...report.byProduct.map((item) => [
+      'Vendas por produto',
+      item.productName,
+      item.quantity,
+      item.totalAmount,
+      item.costAmount,
+      item.grossProfitAmount,
+      `${item.grossMarginPercentage}%`,
+    ]),
+    [],
+    ['Vendas por cliente', 'Cliente', 'Vendas', 'Total'],
+    ...report.byClient.map((item) => [
+      'Vendas por cliente',
+      item.clientName,
+      item.salesCount,
+      item.totalAmount,
+    ]),
+    [],
+    ['Vendas por pagamento', 'Forma de pagamento', 'Total'],
+    ...report.byPaymentMethod.map((item) => [
+      'Vendas por pagamento',
+      item.paymentMethodName,
+      item.totalAmount,
+    ]),
+    [],
+    [
+      'Curva ABC',
+      'Produto',
+      'Faturamento',
+      'Participacao',
+      'Acumulado',
+      'Classe',
+    ],
+    ...report.abcProducts.map((item) => [
+      'Curva ABC',
+      item.productName,
+      item.totalAmount,
+      `${item.revenueSharePercentage}%`,
+      `${item.cumulativeRevenuePercentage}%`,
+      item.abcClass,
+    ]),
+  ])
+}
+
+function exportUserPerformanceReportCsv(report: UserPerformanceReport) {
+  downloadCsv('relatorio-usuarios', [
+    ['Secao', 'Indicador', 'Valor'],
+    ['Resumo', 'Usuarios', report.summary.usersCount],
+    ['Resumo', 'Vendas concluidas', report.summary.salesCount],
+    ['Resumo', 'Bruto', report.summary.grossAmount],
+    ['Resumo', 'Devolucoes', report.summary.refundAmount],
+    ['Resumo', 'Liquido', report.summary.netAmount],
+    ['Resumo', 'Orcamentos criados', report.summary.quotesCreatedCount],
+    ['Resumo', 'Movimentacoes de estoque', report.summary.stockMovementsCount],
+    ['Resumo', 'NF-e emitidas', report.summary.fiscalDocumentsIssuedCount],
+    [],
+    [
+      'Resumo por usuario',
+      'Usuario',
+      'Vendas concluidas',
+      'Vendas canceladas',
+      'Vendas em aberto',
+      'Bruto',
+      'Devolucoes',
+      'Liquido',
+      'Orcamentos',
+      'Movimentacoes estoque',
+      'NF-e emitidas',
+    ],
+    ...report.users.map((item) => [
+      'Resumo por usuario',
+      item.userName,
+      item.salesCount,
+      item.cancelledSalesCount,
+      item.openSalesCount,
+      item.grossAmount,
+      item.refundAmount,
+      item.netAmount,
+      item.quotesCreatedCount,
+      item.stockMovementsCount,
+      item.fiscalDocumentsIssuedCount,
+    ]),
+    [],
+    [
+      'Vendas recentes',
+      'Numero da venda',
+      'Data',
+      'Usuario',
+      'Cliente',
+      'Status',
+      'Total',
+      'Devolucoes',
+      'Liquido',
+    ],
+    ...report.sales.map((item) => [
+      'Vendas recentes',
+      item.saleNumber,
+      formatDateTime(item.createdAt),
+      item.userName,
+      item.clientName,
+      saleStatusLabel(item.status),
+      item.totalAmount,
+      item.refundAmount,
+      item.netAmount,
+    ]),
+  ])
+}
+
+function exportInventoryReportCsv(report: InventoryReport) {
+  downloadCsv('relatorio-inventario', [
+    ['Secao', 'Indicador', 'Valor'],
+    ['Resumo', 'Produtos filtrados', report.summary.productsCount],
+    ['Resumo', 'Produtos exportados', report.summary.returnedProductsCount],
+    ['Resumo', 'Estoque fisico', report.summary.totalCurrentStock],
+    ['Resumo', 'Estoque reservado', report.summary.totalReservedStock],
+    ['Resumo', 'Estoque disponivel', report.summary.totalAvailableStock],
+    ['Resumo', 'Valor de custo', report.summary.totalCostAmount],
+    ['Resumo', 'Valor de venda', report.summary.totalSaleAmount],
+    ['Resumo', 'Lucro potencial', report.summary.potentialProfitAmount],
+    [
+      'Resumo',
+      'Produtos em baixo estoque',
+      report.summary.lowStockProductsCount,
+    ],
+    [
+      'Resumo',
+      'Produtos com estoque negativo',
+      report.summary.negativeStockProductsCount,
+    ],
+    [],
+    [
+      'Inventario',
+      'Produto',
+      'Codigo interno',
+      'Codigo de barras',
+      'Fabricante',
+      'Grupo',
+      'Unidade',
+      'Locação',
+      'Custo unitario',
+      'Venda unitaria',
+      'Fisico',
+      'Reservado',
+      'Disponivel',
+      'Minimo',
+      'Custo total',
+      'Venda total',
+      'Situacao',
+      'Status cadastro',
+    ],
+    ...report.items.map((item) => [
+      'Inventario',
+      item.productName,
+      item.internalCode ?? '',
+      item.barcode ?? '',
+      item.brandName ?? '',
+      item.groupName ?? '',
+      item.unit,
+      item.location ?? '',
+      item.costPrice,
+      item.salePrice,
+      item.currentStock,
+      item.reservedStock,
+      item.availableStock,
+      item.minimumStock,
+      item.totalCostAmount,
+      item.totalSaleAmount,
+      inventoryStockStatusLabel(item.stockStatus),
+      item.active ? 'Ativo' : 'Inativo',
+    ]),
+  ])
+}
+
+function exportPurchaseReportCsv(report: PurchaseReport) {
+  downloadCsv('relatorio-compras', [
+    ['Secao', 'Indicador', 'Valor'],
+    ['Resumo', 'Entradas', report.summary.entriesCount],
+    ['Resumo', 'Quantidade comprada', report.summary.totalQuantity],
+    ['Resumo', 'Total comprado', report.summary.totalAmount],
+    ['Resumo', 'Entrada manual', report.summary.manualAmount],
+    ['Resumo', 'XML NF-e', report.summary.xmlAmount],
+    [],
+    ['Compras por origem', 'Origem', 'Entradas', 'Quantidade', 'Total'],
+    ...report.bySource.map((item) => [
+      'Compras por origem',
+      item.source === 'XML' ? 'XML de compra' : 'Entrada manual',
+      item.entriesCount,
+      item.totalQuantity,
+      item.totalAmount,
+    ]),
+    [],
+    ['Compras por fornecedor', 'Fornecedor', 'Entradas', 'Total'],
+    ...report.bySupplier.map((item) => [
+      'Compras por fornecedor',
+      item.supplierName,
+      item.entriesCount,
+      item.totalAmount,
+    ]),
+    [],
+    ['Compras por produto', 'Produto', 'Quantidade', 'Total'],
+    ...report.byProduct.map((item) => [
+      'Compras por produto',
+      item.productName,
+      item.quantity,
+      item.totalAmount,
+    ]),
+  ])
+}
+
+function exportCashReportCsv(report: CashReport) {
+  downloadCsv('relatorio-caixa', [
+    ['Secao', 'Indicador', 'Valor'],
+    ['Resumo', 'Caixas', report.summary.sessionsCount],
+    ['Resumo', 'Caixas abertos', report.summary.openSessionsCount],
+    ['Resumo', 'Caixas fechados', report.summary.closedSessionsCount],
+    ['Resumo', 'Abertura', report.summary.openingAmount],
+    ['Resumo', 'Vendas brutas', report.summary.grossSalesAmount],
+    ['Resumo', 'Devolucoes', report.summary.refundAmount],
+    ['Resumo', 'Vendas liquidas', report.summary.netSalesAmount],
+    ['Resumo', 'Suprimentos', report.summary.supplyAmount],
+    ['Resumo', 'Sangrias', report.summary.withdrawalAmount],
+    ['Resumo', 'Fechamento esperado', report.summary.expectedClosingAmount],
+    ['Resumo', 'Fechamento informado', report.summary.closingAmount],
+    ['Resumo', 'Divergencia fechada', report.summary.closedDifferenceAmount],
+    [],
+    [
+      'Caixa por pagamento',
+      'Forma de pagamento',
+      'Bruto',
+      'Devolucoes',
+      'Liquido',
+    ],
+    ...report.byPaymentMethod.map((item) => [
+      'Caixa por pagamento',
+      item.paymentMethodName,
+      item.grossAmount,
+      item.refundAmount,
+      item.netAmount,
+    ]),
+    [],
+    [
+      'Caixas',
+      'Operador abertura',
+      'Operador fechamento',
+      'Status',
+      'Abertura',
+      'Fechamento',
+      'Saldo inicial',
+      'Vendas',
+      'Suprimentos',
+      'Sangrias',
+      'Esperado',
+      'Informado',
+      'Divergencia',
+    ],
+    ...report.sessions.map((item) => [
+      'Caixas',
+      item.openedByUserName,
+      item.closedByUserName ?? '',
+      item.status === 'OPEN' ? 'Aberto' : 'Fechado',
+      formatDateTime(item.openedAt),
+      item.closedAt ? formatDateTime(item.closedAt) : '',
+      item.openingBalance,
+      item.salesAmount,
+      item.supplyAmount,
+      item.withdrawalAmount,
+      item.expectedClosingBalance,
+      item.closingBalance ?? '',
+      item.difference ?? '',
+    ]),
+  ])
+}
+
+function exportStockReportCsv(report: StockReport) {
+  downloadCsv('relatorio-estoque', [
+    ['Secao', 'Indicador', 'Valor'],
+    ['Resumo', 'Produtos ativos', report.summary.activeProductsCount],
+    ['Resumo', 'Estoque baixo', report.summary.lowStockProductsCount],
+    ['Resumo', 'Sem movimentacao', report.summary.productsWithoutMovementCount],
+    ['Resumo', 'Quantidade vendida', report.summary.soldQuantity],
+    [],
+    ['Estoque baixo', 'Produto', 'Fisico', 'Reservado', 'Disponivel', 'Minimo'],
+    ...report.lowStockProducts.map((item) => [
+      'Estoque baixo',
+      item.productName,
+      item.currentStock,
+      item.reservedStock,
+      item.availableStock,
+      item.minimumStock,
+    ]),
+    [],
+    ['Sem movimentacao', 'Produto', 'Fisico', 'Minimo'],
+    ...report.productsWithoutMovement.map((item) => [
+      'Sem movimentacao',
+      item.productName,
+      item.currentStock,
+      item.minimumStock,
+    ]),
+    [],
+    ['Giro por venda', 'Produto', 'Quantidade vendida', 'Ultima venda'],
+    ...report.turnoverProducts.map((item) => [
+      'Giro por venda',
+      item.productName,
+      item.soldQuantity,
+      item.lastSaleAt ? formatDateTime(item.lastSaleAt) : '',
+    ]),
+  ])
+}
+
+function downloadCsv(filename: string, rows: CsvRow[]) {
+  const csv = rows.map(csvLine).join('\n')
+  const blob = new Blob([`\uFEFF${csv}`], {
+    type: 'text/csv;charset=utf-8;',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = `${filename}-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+type CsvRow = Array<string | number | null | undefined>
+
+function csvLine(row: CsvRow) {
+  return row.map(csvCell).join(';')
+}
+
+function csvCell(value: string | number | null | undefined) {
+  const text = String(value ?? '')
+
+  return `"${text.replace(/"/g, '""')}"`
 }
 
 function ReportDetail({ label, value }: { label: string; value: string }) {

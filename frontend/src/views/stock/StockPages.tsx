@@ -570,5 +570,6 @@ const movementTypeLabels: Record<StockMovement["type"], string> = {
   ENTRY: "Entrada",
   SALE: "Venda",
   SALE_CANCEL: "Estorno de venda",
+  SALE_CORRECTION: "Correcao de venda",
   SALE_RETURN: "Devolucao de venda",
 };

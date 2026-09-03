@@ -22,6 +22,7 @@ export type FiscalRequest = {
   pendingLabel: string
   clientId: string | null
   clientName: string
+  createdAt: string
   totalAmount: string
   operatorName: string
   productIds: string[]
@@ -45,9 +46,13 @@ type FiscalRequestFactoryInput = {
 export type FiscalRequestActionHandlers = {
   onIssuePickupReservationFiscalDocument: (
     reservation: PickupReservation,
+    additionalInformation?: string,
   ) => void
-  onIssueSaleFiscalDocument: (sale: Sale) => void
-  onIssueShippingOrderFiscalDocument: (order: ShippingOrder) => void
+  onIssueSaleFiscalDocument: (sale: Sale, additionalInformation?: string) => void
+  onIssueShippingOrderFiscalDocument: (
+    order: ShippingOrder,
+    additionalInformation?: string,
+  ) => void
 }
 
 export function buildFiscalRequests(input: FiscalRequestFactoryInput) {
@@ -61,24 +66,30 @@ export function fiscalRequestAction(
   handlers: FiscalRequestActionHandlers,
 ) {
   const actions: Partial<
-    Record<FiscalDocument['sourceType'], (() => void) | undefined>
+    Record<FiscalDocument['sourceType'], ((additionalInformation?: string) => void) | undefined>
   > = {
     PICKUP_RESERVATION:
       request.pickupReservation && canIssueFiscalRequest(request)
-        ? () =>
+        ? (additionalInformation) =>
             handlers.onIssuePickupReservationFiscalDocument(
               request.pickupReservation as PickupReservation,
+              additionalInformation,
             )
         : undefined,
     SALE:
       request.sale && canIssueFiscalRequest(request)
-        ? () => handlers.onIssueSaleFiscalDocument(request.sale as Sale)
+        ? (additionalInformation) =>
+            handlers.onIssueSaleFiscalDocument(
+              request.sale as Sale,
+              additionalInformation,
+            )
         : undefined,
     SHIPPING_ORDER:
       request.shippingOrder && canIssueFiscalRequest(request)
-        ? () =>
+        ? (additionalInformation) =>
             handlers.onIssueShippingOrderFiscalDocument(
               request.shippingOrder as ShippingOrder,
+              additionalInformation,
             )
         : undefined,
   }
@@ -193,6 +204,7 @@ const fiscalRequestFactories: Array<
         pendingLabel: 'Pendente',
         clientId: sale.clientId,
         clientName: sale.clientName ?? 'Nao identificado',
+        createdAt: sale.createdAt,
         totalAmount: sale.totalAmount,
         operatorName: sale.createdByUserName,
         productIds: sale.items.map((item) => item.productId),
@@ -224,6 +236,7 @@ const fiscalRequestFactories: Array<
         pendingLabel: 'Pendente',
         clientId: order.clientId,
         clientName: order.clientName,
+        createdAt: order.completedAt ?? order.createdAt,
         totalAmount: order.totalAmount,
         operatorName: order.completedByUserName ?? order.createdByUserName,
         productIds: order.items.map((item) => item.productId),
@@ -264,6 +277,7 @@ const fiscalRequestFactories: Array<
         pendingLabel: 'Pendente',
         clientId: reservation.clientId,
         clientName: reservation.clientName,
+        createdAt: reservation.completedAt ?? reservation.createdAt,
         totalAmount: reservation.totalAmount,
         operatorName:
           reservation.completedByUserName ?? reservation.createdByUserName,

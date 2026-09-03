@@ -5,6 +5,8 @@ import {
   type AuthUser,
   type Client,
   type Product,
+  type Quote,
+  type Sale,
 } from "../api";
 import { useCatalogData } from "../hooks/useCatalogData";
 import { useConfirmation } from "../hooks/useConfirmation";
@@ -45,6 +47,8 @@ export function AuthenticatedApp({
   );
   const [selectedProduct, setSelectedProduct] = useState<Product>();
   const [selectedClient, setSelectedClient] = useState<Client>();
+  const [selectedQuote, setSelectedQuote] = useState<Quote>();
+  const [selectedSale, setSelectedSale] = useState<Sale>();
   const { closeConfirmation, confirmation, requestConfirmation } =
     useConfirmation();
   const {
@@ -57,8 +61,11 @@ export function AuthenticatedApp({
     commercialSettings,
     fiscalDocuments,
     fiscalSettings,
+    inventoryReport,
     loadCatalog,
     loadCashReport,
+    loadInventoryReport,
+    loadUserPerformanceReport,
     loadPurchaseReport,
     loadSalesReport,
     loadStockReport,
@@ -98,6 +105,7 @@ export function AuthenticatedApp({
     stockMovements,
     stockReport,
     suppliers,
+    userPerformanceReport,
   } = useCatalogData(user, activeBranchId);
   const { openNavSections, toggleNavSection } = useNavigationState();
   const activeBranch = useMemo(() => {
@@ -266,6 +274,7 @@ export function AuthenticatedApp({
             financeActions={financeActions}
             fiscalDocuments={fiscalDocuments}
             fiscalSettings={fiscalSettings}
+            inventoryReport={inventoryReport}
             lowStockProducts={lowStockProducts}
             ncmOptions={ncmOptions}
             paymentMethods={paymentMethods}
@@ -282,13 +291,17 @@ export function AuthenticatedApp({
             sales={sales}
             salesReport={salesReport}
             onLoadCashReport={loadCashReport}
+            onLoadInventoryReport={loadInventoryReport}
             onLoadPurchaseReport={loadPurchaseReport}
             onLoadSalesReport={loadSalesReport}
             onLoadStockReport={loadStockReport}
+            onLoadUserPerformanceReport={loadUserPerformanceReport}
             salesActions={salesActions}
             search={search}
             selectedClient={selectedClient}
             selectedProduct={selectedProduct}
+            selectedQuote={selectedQuote}
+            selectedSale={selectedSale}
             shippingOrders={shippingOrders}
             state={state}
             stockActions={stockActions}
@@ -297,10 +310,19 @@ export function AuthenticatedApp({
             stockMovements={stockMovements}
             stockReport={stockReport}
             suppliers={suppliers}
+            userPerformanceReport={userPerformanceReport}
             user={user}
             view={view}
             onCancelClient={() => setSelectedClient(undefined)}
             onCancelProductEdit={() => setView("products")}
+            onCancelQuoteEdit={() => {
+              setSelectedQuote(undefined);
+              setView("quotes");
+            }}
+            onCancelSaleEdit={() => {
+              setSelectedSale(undefined);
+              setView("sales-history");
+            }}
             onOpenQuotes={() => setView("quotes")}
             onResolveFiscalPendency={resolveFiscalPendency}
             onProductPageChange={setProductPage}
@@ -308,6 +330,14 @@ export function AuthenticatedApp({
             onSelectView={setView}
             onSearchChange={setSearch}
             onSelectClient={setSelectedClient}
+            onSelectQuote={(quote) => {
+              setSelectedQuote(quote);
+              setView("edit-quote");
+            }}
+            onSelectSale={(sale) => {
+              setSelectedSale(sale);
+              setView("edit-sale");
+            }}
             requestConfirmation={requestConfirmation}
           />
         </section>
@@ -323,7 +353,12 @@ function readInitialView(user: AuthUser): View {
 
   const storedView = window.localStorage.getItem(activeViewStorageKey);
 
-  if (!isView(storedView) || storedView === "edit-product") {
+  if (
+    !isView(storedView) ||
+    storedView === "edit-product" ||
+    storedView === "edit-quote" ||
+    storedView === "edit-sale"
+  ) {
     return "products";
   }
 

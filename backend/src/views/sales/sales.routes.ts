@@ -9,6 +9,7 @@ import {
   showSaleReceiptPdf,
   storeSale,
   updateCompletedSaleCommercialDetails,
+  updateOpenSale,
 } from "../../controllers/sales/sales.controller.js";
 import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
@@ -241,6 +242,21 @@ salesRoutes.patch("/sales/:id/complete", async (request, response) => {
   response.status(200).json(
     await completeReopenedSale(
       id,
+      requireActiveBranchId(response.locals),
+    ),
+  );
+});
+
+salesRoutes.put("/sales/:id", async (request, response) => {
+  const { id } = saleParamsSchema.parse(request.params);
+  const body = validateBody(request, createSaleSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(200).json(
+    await updateOpenSale(
+      id,
+      body,
+      userId,
       requireActiveBranchId(response.locals),
     ),
   );

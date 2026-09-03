@@ -419,6 +419,7 @@ export async function issueSaleFiscalDocument(
   issuedByUserId: string,
   documentType: FiscalDocumentType,
   branchId: string,
+  additionalInformation: string | null,
 ) {
   const sale = await getSaleById(saleId, db, { branchId });
 
@@ -441,6 +442,7 @@ export async function issueSaleFiscalDocument(
     saleId: sale.id,
     issuedByUserId,
     documentType,
+    additionalInformation,
     duplicateMessage: "Documento fiscal ja emitido para esta venda.",
   });
 }
@@ -449,6 +451,7 @@ export async function previewSaleFiscalDocument(
   saleId: string,
   documentType: FiscalDocumentType,
   branchId: string,
+  additionalInformation: string | null,
 ) {
   const sale = await getSaleById(saleId, db, { branchId });
 
@@ -470,6 +473,7 @@ export async function previewSaleFiscalDocument(
     sourceId: sale.id,
     saleId: sale.id,
     documentType,
+    additionalInformation,
   });
 }
 
@@ -478,6 +482,7 @@ export async function issueShippingOrderFiscalDocument(
   issuedByUserId: string,
   documentType: FiscalDocumentType,
   branchId: string,
+  additionalInformation: string | null,
 ) {
   const shippingOrder = await getShippingOrderById(shippingOrderId, db, {
     branchId,
@@ -498,6 +503,7 @@ export async function issueShippingOrderFiscalDocument(
     saleId: shippingOrder.saleId,
     issuedByUserId,
     documentType,
+    additionalInformation,
     duplicateMessage: "Documento fiscal ja emitido para este pedido.",
   });
 }
@@ -506,6 +512,7 @@ export async function previewShippingOrderFiscalDocument(
   shippingOrderId: string,
   documentType: FiscalDocumentType,
   branchId: string,
+  additionalInformation: string | null,
 ) {
   const shippingOrder = await getShippingOrderById(shippingOrderId, db, {
     branchId,
@@ -525,6 +532,7 @@ export async function previewShippingOrderFiscalDocument(
     sourceId: shippingOrder.id,
     saleId: shippingOrder.saleId,
     documentType,
+    additionalInformation,
   });
 }
 
@@ -533,6 +541,7 @@ export async function issuePickupReservationFiscalDocument(
   issuedByUserId: string,
   documentType: FiscalDocumentType,
   branchId: string,
+  additionalInformation: string | null,
 ) {
   const pickupReservation = await getPickupReservationById(
     pickupReservationId,
@@ -555,6 +564,7 @@ export async function issuePickupReservationFiscalDocument(
     saleId: pickupReservation.saleId,
     issuedByUserId,
     documentType,
+    additionalInformation,
     duplicateMessage: "Documento fiscal ja emitido para esta reserva.",
   });
 }
@@ -563,6 +573,7 @@ export async function previewPickupReservationFiscalDocument(
   pickupReservationId: string,
   documentType: FiscalDocumentType,
   branchId: string,
+  additionalInformation: string | null,
 ) {
   const pickupReservation = await getPickupReservationById(
     pickupReservationId,
@@ -584,6 +595,7 @@ export async function previewPickupReservationFiscalDocument(
     sourceId: pickupReservation.id,
     saleId: pickupReservation.saleId,
     documentType,
+    additionalInformation,
   });
 }
 
@@ -594,6 +606,7 @@ type IssueFiscalDocumentInput = {
   saleId: string;
   issuedByUserId: string;
   documentType: FiscalDocumentType;
+  additionalInformation: string | null;
   duplicateMessage: string;
 };
 
@@ -723,6 +736,7 @@ async function fiscalDocumentRequest(
       documentType: input.documentType,
       environment: fiscalSettings.environment,
       companyCnpj: fiscalSettings.companyCnpj,
+      additionalInformation: input.additionalInformation,
       defaultNatureOperation: fiscalSettings.defaultNatureOperation,
       defaultSaleCfop: fiscalSettings.defaultSaleCfop,
       defaultIcmsCst: fiscalSettings.defaultIcmsCst,
