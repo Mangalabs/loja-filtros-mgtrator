@@ -548,7 +548,12 @@ export function ManualFiscalDocumentPage({
   function submitManualFiscalDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const action = String(form.get('manualFiscalAction') ?? 'preview')
+    const submitter =
+      event.nativeEvent instanceof SubmitEvent
+        ? event.nativeEvent.submitter
+        : null
+    const action =
+      submitter instanceof HTMLButtonElement ? submitter.value : 'preview'
     const input = manualFiscalDocumentInput(form, items)
 
     if (action === 'issue') {
