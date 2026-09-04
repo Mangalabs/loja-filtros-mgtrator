@@ -710,7 +710,7 @@ type FiscalDocument = {
   id: string;
   branchId: string | null;
   branchName: string | null;
-  sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
+  sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION" | "MANUAL_NFE";
   sourceId: string;
   documentType: "NFE" | "NFCE";
   provider: "MOCK" | "FOCUS";
@@ -3121,6 +3121,40 @@ describe("catalog routes", () => {
     assert.equal(syncedAfterCancellation.body.data?.status, "CANCELLED");
   });
 
+  it("issues a manual mock return fiscal document", async () => {
+    const manualFiscalDocument = await request<FiscalDocument>(
+      "/fiscal-documents/manual",
+      {
+        method: "POST",
+        body: manualFiscalDocumentRequest(),
+      },
+    );
+    const listed = await request<FiscalDocument[]>("/fiscal-documents");
+
+    assert.equal(manualFiscalDocument.status, 201);
+    assert.equal(manualFiscalDocument.body.data?.sourceType, "MANUAL_NFE");
+    assert.equal(manualFiscalDocument.body.data?.documentType, "NFE");
+    assert.equal(manualFiscalDocument.body.data?.provider, "MOCK");
+    assert.equal(manualFiscalDocument.body.data?.status, "AUTHORIZED");
+    assert.equal(
+      manualFiscalDocument.body.data?.requestPayload.operationType,
+      "ENTRY",
+    );
+    assert.equal(
+      manualFiscalDocument.body.data?.requestPayload.purpose,
+      "RETURN",
+    );
+    assert.deepEqual(
+      manualFiscalDocument.body.data?.requestPayload.referencedAccessKeys,
+      ["1".repeat(44)],
+    );
+    assert.ok(
+      listed.body.data?.some(
+        (document) => document.id === manualFiscalDocument.body.data?.id,
+      ),
+    );
+  });
+
   it("blocks fiscal issue when production is not explicitly allowed", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
@@ -4634,6 +4668,10 @@ describe("catalog routes", () => {
     requestPayload.sale.items[0].productInternalCode = " FISCAL-1 ";
     requestPayload.sale.items[0].productName = " Filtro Focus ";
     requestPayload.sale.items[0].productNcm = " 84212300 ";
+    requestPayload.sale.items[0].productCfop = " 5405 ";
+    requestPayload.sale.items[0].productIcmsCst = " 500 ";
+    requestPayload.sale.items[0].productPisCst = " 49 ";
+    requestPayload.sale.items[0].productCofinsCst = " 49 ";
     requestPayload.additionalInformation = " Observacao fiscal no rodape ";
     requestPayload.defaultNatureOperation = " Venda de mercadoria ";
     requestPayload.defaultSaleCfop = "5405";
@@ -4702,7 +4740,7 @@ describe("catalog routes", () => {
     }
   });
 
-  it("does not send state registration for individual Focus customers", async () => {
+  it("sends state registration for individual ICMS taxpayer Focus customers", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
     const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
@@ -4737,8 +4775,80 @@ describe("catalog routes", () => {
 
       const payload = submittedPayload as Record<string, unknown>;
 
-      assert.equal(payload.inscricao_estadual_destinatario, undefined);
-      assert.equal(payload.indicador_inscricao_estadual_destinatario, 9);
+      assert.equal(payload.inscricao_estadual_destinatario, "123456");
+      assert.equal(payload.indicador_inscricao_estadual_destinatario, 1);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("sends Focus return invoice fields with referenced NF-e", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const requestPayload = focusIssueRequest();
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    requestPayload.operationType = "ENTRY";
+    requestPayload.purpose = "RETURN";
+    requestPayload.defaultNatureOperation = "Devolucao de mercadoria";
+    requestPayload.referencedAccessKeys = ["1".repeat(44)];
+    requestPayload.sale.paymentMethodCode = "NO_PAYMENT";
+    requestPayload.sale.paymentMethodName = "Sem pagamento";
+    requestPayload.sale.payments = [
+      {
+        paymentMethodCode: "NO_PAYMENT",
+        paymentMethodName: "Sem pagamento",
+        amount: "35.00",
+      },
+    ];
+    requestPayload.sale.items[0].productCfop = "1202";
+    requestPayload.sale.items[0].productIcmsCst = "090";
+    requestPayload.sale.items[0].productPisCst = "99";
+    requestPayload.sale.items[0].productCofinsCst = "99";
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocusprovidertest",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(requestPayload);
+      assert.ok(submittedPayload);
+
+      const payload = submittedPayload as Record<string, unknown>;
+      const payments = payload.formas_pagamento as Array<Record<string, unknown>>;
+      const items = payload.items as Array<Record<string, unknown>>;
+      const referencedInvoices = payload.notas_referenciadas as Array<
+        Record<string, unknown>
+      >;
+
+      assert.equal(payload.tipo_documento, 0);
+      assert.equal(payload.finalidade_emissao, 4);
+      assert.equal(payload.natureza_operacao, "Devolucao de mercadoria");
+      assert.equal(payments[0]?.forma_pagamento, "90");
+      assert.equal(referencedInvoices[0]?.chave_nfe, "1".repeat(44));
+      assert.equal(items[0]?.cfop, "1202");
+      assert.equal(items[0]?.icms_situacao_tributaria, "090");
+      assert.equal(items[0]?.pis_situacao_tributaria, "99");
+      assert.equal(items[0]?.cofins_situacao_tributaria, "99");
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
@@ -7985,7 +8095,7 @@ describe("catalog routes", () => {
     assert.equal(active.body.data?.length, 0);
   });
 
-  it("normalizes individual clients as non ICMS taxpayers", async () => {
+  it("preserves state registration for individual ICMS taxpayers", async () => {
     const created = await request<Client>("/clients", {
       method: "POST",
       body: {
@@ -7999,8 +8109,8 @@ describe("catalog routes", () => {
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.personType, "PF");
-    assert.equal(created.body.data?.stateRegistration, null);
-    assert.equal(created.body.data?.stateRegistrationIndicator, "9");
+    assert.equal(created.body.data?.stateRegistration, "123456789");
+    assert.equal(created.body.data?.stateRegistrationIndicator, "1");
   });
 
   it("keeps clients scoped to the active branch", async () => {
@@ -9371,6 +9481,50 @@ function focusIssueRequest(): FiscalIssueRequest {
         },
       ],
     },
+  };
+}
+
+function manualFiscalDocumentRequest() {
+  return {
+    documentType: "NFE",
+    operationType: "ENTRY",
+    purpose: "RETURN",
+    natureOperation: "Devolucao de mercadoria",
+    referencedAccessKeys: ["1".repeat(44)],
+    additionalInformation: "Devolucao preenchida manualmente",
+    client: {
+      personType: "PJ",
+      name: "Cliente devolucao manual",
+      document: "12345678000199",
+      email: "fiscal@example.com",
+      phone: "63999999999",
+      stateRegistration: "123456",
+      stateRegistrationIndicator: "1",
+      addressStreet: "Rua Fiscal",
+      addressNumber: "123",
+      addressComplement: "Sala 1",
+      addressDistrict: "Centro",
+      addressCity: "Araguaina",
+      addressState: "TO",
+      addressZipCode: "77800000",
+    },
+    items: [
+      {
+        productId: null,
+        productInternalCode: "DEV-1",
+        productName: "Filtro devolvido",
+        productNcm: "84212300",
+        productCfop: "1202",
+        productIcmsCst: "090",
+        productPisCst: "99",
+        productCofinsCst: "99",
+        productOrigin: "0",
+        productUnit: "UN",
+        quantity: 1,
+        unitPrice: 35,
+        discountAmount: 0,
+      },
+    ],
   };
 }
 

@@ -49,6 +49,8 @@ import { CommercialSettingsPage } from "../views/catalog/CommercialSettingsPage"
 import { CashRegisterPage } from "../views/finance/CashRegisterPage";
 import {
   FiscalDocumentsPage,
+  IssuedFiscalDocumentsPage,
+  ManualFiscalDocumentPage,
   type FiscalPendencyTarget,
 } from "../views/finance/FiscalDocumentsPage";
 import { FiscalSettingsPage } from "../views/finance/FiscalSettingsPage";
@@ -389,14 +391,37 @@ export function AppViewRenderer({
             )
           }
           onResolveFiscalPendency={onResolveFiscalPendency}
-          onSyncFiscalDocument={(fiscalDocument) =>
-            void financeActions.syncFiscalDocument(fiscalDocument)
-          }
-          onCancelFiscalDocument={(event, fiscalDocument) =>
-            void financeActions.cancelFiscalDocument(event, fiscalDocument)
-          }
         />
       ),
+    "fiscal-issued-documents": (
+      <IssuedFiscalDocumentsPage
+        clients={clients}
+        fiscalDocuments={fiscalDocuments}
+        pickupReservations={pickupReservations}
+        sales={sales}
+        shippingOrders={shippingOrders}
+        onSyncFiscalDocument={(fiscalDocument) =>
+          void financeActions.syncFiscalDocument(fiscalDocument)
+        }
+        onCancelFiscalDocument={(event, fiscalDocument) =>
+          void financeActions.cancelFiscalDocument(event, fiscalDocument)
+        }
+        onOpenFiscalDocumentSource={(fiscalDocument) =>
+          onSelectView(fiscalDocumentSourceView(fiscalDocument))
+        }
+      />
+    ),
+    "manual-fiscal-document": (
+      <ManualFiscalDocumentPage
+        products={products}
+        onIssueManualFiscalDocument={(input) =>
+          void financeActions.issueManualFiscalDocument(input)
+        }
+        onPreviewManualFiscalDocument={(input) =>
+          void financeActions.previewManualFiscalDocument(input)
+        }
+      />
+    ),
     "cash-register": (
         <CashRegisterPage
           session={cashRegister}
@@ -572,4 +597,17 @@ export function AppViewRenderer({
   };
 
   return <>{viewRenderers[view]}</>;
+}
+
+function fiscalDocumentSourceView(
+  fiscalDocument: FiscalDocument,
+): View {
+  const views: Record<FiscalDocument["sourceType"], View> = {
+    MANUAL_NFE: "manual-fiscal-document",
+    PICKUP_RESERVATION: "pickup-reservations",
+    SALE: "sales-history",
+    SHIPPING_ORDER: "shipping-orders",
+  };
+
+  return views[fiscalDocument.sourceType];
 }

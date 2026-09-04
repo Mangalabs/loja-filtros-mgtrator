@@ -177,9 +177,13 @@ export function AppSidebar({
           </NavButton>
         </NavSection>
 
-        {['payment-methods', 'fiscal-settings', 'fiscal-documents'].some(
-          (targetView) => canAccess(targetView as View),
-        ) ? (
+        {[
+          'payment-methods',
+          'fiscal-settings',
+          'fiscal-documents',
+          'fiscal-issued-documents',
+          'manual-fiscal-document',
+        ].some((targetView) => canAccess(targetView as View)) ? (
           <NavSection
             active={isSectionActive('finance')}
             icon={<CreditCard size={17} />}
@@ -208,6 +212,22 @@ export function AppSidebar({
                 icon={<FileText size={18} />}
                 onClick={() => onSelectView('fiscal-documents')}>
                 Notas fiscais
+              </NavButton>
+            ) : null}
+            {canAccess('fiscal-issued-documents') ? (
+              <NavButton
+                active={view === 'fiscal-issued-documents'}
+                icon={<ReceiptText size={18} />}
+                onClick={() => onSelectView('fiscal-issued-documents')}>
+                Notas emitidas
+              </NavButton>
+            ) : null}
+            {canAccess('manual-fiscal-document') ? (
+              <NavButton
+                active={view === 'manual-fiscal-document'}
+                icon={<FileText size={18} />}
+                onClick={() => onSelectView('manual-fiscal-document')}>
+                NF-e avulsa
               </NavButton>
             ) : null}
           </NavSection>

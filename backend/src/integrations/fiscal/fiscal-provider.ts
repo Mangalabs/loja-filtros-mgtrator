@@ -18,6 +18,9 @@ export type FiscalIssueRequest = {
   environment: FiscalEnvironment;
   companyCnpj: string | null;
   additionalInformation: string | null;
+  operationType?: "ENTRY" | "EXIT";
+  purpose?: "NORMAL" | "RETURN";
+  referencedAccessKeys?: string[];
   defaultNatureOperation: string | null;
   defaultSaleCfop: string | null;
   defaultIcmsCst: string | null;
@@ -59,6 +62,7 @@ export type FiscalIssueRequest = {
       productId: string;
       productInternalCode: string | null;
       productName: string;
+      productCest?: string | null;
       productCfop: string | null;
       productIcmsCst: string | null;
       productNcm: string | null;

@@ -17,9 +17,9 @@ type FocusNfePayload = {
   natureza_operacao: string;
   data_emissao: string;
   data_entrada_saida: string;
-  tipo_documento: 1;
+  tipo_documento: 0 | 1;
   local_destino: 1;
-  finalidade_emissao: 1;
+  finalidade_emissao: 1 | 4;
   consumidor_final: 1;
   presenca_comprador: 1;
   cnpj_emitente?: string;
@@ -46,6 +46,7 @@ type FocusNfePayload = {
   valor_desconto_fatura?: number;
   valor_liquido_fatura?: number;
   duplicatas?: FocusNfeInstallmentPayload[];
+  notas_referenciadas?: Array<{ chave_nfe: string }>;
   formas_pagamento: FocusNfePaymentPayload[];
   modalidade_frete: 9;
   items: FocusNfeItemPayload[];
@@ -272,9 +273,9 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
       focusString(request.defaultNatureOperation) ?? "Venda de mercadoria",
     data_emissao: issueDateTime,
     data_entrada_saida: issueDateTime,
-    tipo_documento: 1,
+    tipo_documento: request.operationType === "ENTRY" ? 0 : 1,
     local_destino: 1,
-    finalidade_emissao: 1,
+    finalidade_emissao: request.purpose === "RETURN" ? 4 : 1,
     consumidor_final: 1,
     presenca_comprador: 1,
     cnpj_emitente: digits(request.companyCnpj),
@@ -308,6 +309,7 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
       productAmount,
       totalAmount,
     }),
+    ...focusReferencedInvoicesPayload(request),
     formas_pagamento: focusPaymentPayloads(request, totalAmount),
     modalidade_frete: 9,
     items: request.sale.items.map((item) => focusNfeItemPayload(item, request)),
@@ -364,6 +366,7 @@ function focusPaymentCode(paymentMethodCode: string) {
     CASH: "01",
     CREDIT: "03",
     DEBIT: "04",
+    NO_PAYMENT: "90",
     PIX: "20",
   };
 
@@ -478,7 +481,7 @@ function focusCustomerDocument(request: FiscalIssueRequest) {
 function focusCustomerStateRegistrationIndicator(
   request: FiscalIssueRequest,
 ): 1 | 2 | 9 {
-  if (request.sale.clientPersonType !== "PJ") {
+  if (request.sale.clientPersonType === "ES") {
     return 9;
   }
 
@@ -511,11 +514,20 @@ function focusNfeItemPayload(
     codigo_produto: focusString(item.productInternalCode) ?? item.productId,
     descricao: focusString(item.productName) ?? item.productId,
     codigo_ncm: focusString(item.productNcm) ?? undefined,
-    cfop: focusTaxCode(request.defaultSaleCfop, "5102"),
+    cfop: focusTaxCode(item.productCfop ?? request.defaultSaleCfop, "5102"),
     icms_origem: focusProductOrigin(item.productOrigin),
-    icms_situacao_tributaria: focusTaxCode(request.defaultIcmsCst, "102"),
-    pis_situacao_tributaria: focusTaxCode(request.defaultPisCst, "49"),
-    cofins_situacao_tributaria: focusTaxCode(request.defaultCofinsCst, "49"),
+    icms_situacao_tributaria: focusTaxCode(
+      item.productIcmsCst ?? request.defaultIcmsCst,
+      "102",
+    ),
+    pis_situacao_tributaria: focusTaxCode(
+      item.productPisCst ?? request.defaultPisCst,
+      "49",
+    ),
+    cofins_situacao_tributaria: focusTaxCode(
+      item.productCofinsCst ?? request.defaultCofinsCst,
+      "49",
+    ),
     unidade_comercial: focusProductUnit(item.productUnit),
     quantidade_comercial: quantity,
     valor_unitario_comercial: unitPrice,
@@ -525,6 +537,22 @@ function focusNfeItemPayload(
     quantidade_tributavel: quantity,
     valor_unitario_tributavel: unitPrice,
   };
+}
+
+function focusReferencedInvoicesPayload(
+  request: FiscalIssueRequest,
+): Partial<FocusNfePayload> {
+  const referencedInvoices = (request.referencedAccessKeys ?? [])
+    .map(digits)
+    .filter((accessKey): accessKey is string => Boolean(accessKey));
+
+  return referencedInvoices.length
+    ? {
+        notas_referenciadas: referencedInvoices.map((accessKey) => ({
+          chave_nfe: accessKey,
+        })),
+      }
+    : {};
 }
 
 function focusNfeUrl(request: FiscalIssueRequest) {

@@ -72,8 +72,11 @@ function normalizeClientInput(input: ClientInput): ClientInput {
       stateRegistrationIndicator: "9",
     },
     PF: {
-      stateRegistration: null,
-      stateRegistrationIndicator: "9",
+      stateRegistration:
+        input.stateRegistrationIndicator === "1"
+          ? input.stateRegistration
+          : null,
+      stateRegistrationIndicator: input.stateRegistrationIndicator ?? "9",
     },
     PJ: {
       stateRegistration:

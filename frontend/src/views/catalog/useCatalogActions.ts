@@ -84,7 +84,7 @@ export function useCatalogActions({
     const form = new FormData(formElement);
     const personType = String(form.get("clientPersonType") ?? "PF");
     const stateRegistrationIndicator =
-      personType === "PJ"
+      personType !== "ES"
         ? nullableFormValue(form, "clientStateRegistrationIndicator")
         : "9";
     const body = {

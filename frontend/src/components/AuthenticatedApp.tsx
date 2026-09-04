@@ -158,6 +158,7 @@ export function AuthenticatedApp({
     refreshPaymentMethods,
     requestConfirmation,
     runAction,
+    showFiscalDocuments: () => setView("fiscal-issued-documents"),
   });
 
   const quoteActions = useQuoteActions({
@@ -172,7 +173,7 @@ export function AuthenticatedApp({
     refreshSalesFlow,
     requestConfirmation,
     runAction,
-    showFiscalDocuments: () => setView("fiscal-documents"),
+    showFiscalDocuments: () => setView("fiscal-issued-documents"),
     showSalesHistory: () => setView("sales-history"),
   });
 

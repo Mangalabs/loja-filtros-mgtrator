@@ -15,6 +15,8 @@ export type View =
   | 'payment-methods'
   | 'fiscal-settings'
   | 'fiscal-documents'
+  | 'fiscal-issued-documents'
+  | 'manual-fiscal-document'
   | 'cash-register'
   | 'reports'
   | 'quotes'
@@ -52,7 +54,13 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
     'low-stock',
   ],
   suppliers: ['suppliers'],
-  finance: ['payment-methods', 'fiscal-settings', 'fiscal-documents'],
+  finance: [
+    'payment-methods',
+    'fiscal-settings',
+    'fiscal-documents',
+    'fiscal-issued-documents',
+    'manual-fiscal-document',
+  ],
   cash: ['cash-register'],
   reports: ['reports'],
   sales: [
@@ -95,6 +103,8 @@ const viewValues: View[] = [
   'payment-methods',
   'fiscal-settings',
   'fiscal-documents',
+  'fiscal-issued-documents',
+  'manual-fiscal-document',
   'cash-register',
   'reports',
   'quotes',
@@ -120,6 +130,8 @@ export const viewPermissionRequirements: Partial<
   'payment-methods': 'MANAGE_PAYMENT_METHODS',
   'fiscal-settings': 'MANAGE_FISCAL_SETTINGS',
   'fiscal-documents': 'MANAGE_FISCAL_DOCUMENTS',
+  'fiscal-issued-documents': 'MANAGE_FISCAL_DOCUMENTS',
+  'manual-fiscal-document': 'MANAGE_FISCAL_DOCUMENTS',
   'cash-register': 'MANAGE_CASH_REGISTER',
   reports: 'VIEW_REPORTS',
 }
@@ -236,7 +248,17 @@ export const viewTitles: Record<View, { title: string; description: string }> =
     'fiscal-documents': {
       title: 'Notas fiscais',
       description:
-        'Acompanhe emissão, status e referências fiscais das vendas.',
+        'Acompanhe a fila de emissão fiscal das vendas.',
+    },
+    'fiscal-issued-documents': {
+      title: 'Notas emitidas',
+      description:
+        'Consulte status, arquivos e ações das notas fiscais emitidas.',
+    },
+    'manual-fiscal-document': {
+      title: 'NF-e avulsa',
+      description:
+        'Preencha uma NF-e manual para operações específicas, como devolução.',
     },
     'cash-register': {
       title: 'Caixa',

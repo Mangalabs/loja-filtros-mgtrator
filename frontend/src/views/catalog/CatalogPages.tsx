@@ -241,14 +241,12 @@ export function ProductForm({
   const [accessoryExpenses, setAccessoryExpenses] = useState(
     product?.accessoryExpenses ?? '',
   )
-  const [otherExpenses, setOtherExpenses] = useState(
-    product?.otherExpenses ?? '',
-  )
   const [salePriceTouched, setSalePriceTouched] = useState(
     Boolean(product?.salePrice),
   )
   const [cestValue, setCestValue] = useState(product?.cest ?? '')
   const [ncmValue, setNcmValue] = useState(product?.ncm ?? '')
+  const finalCost = salePriceCalculationBase(costPrice, accessoryExpenses)
 
   useEffect(() => {
     setCostPrice(product?.costPrice ?? '')
@@ -257,7 +255,6 @@ export function ProductForm({
       product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
     )
     setAccessoryExpenses(product?.accessoryExpenses ?? '')
-    setOtherExpenses(product?.otherExpenses ?? '')
     setSalePriceTouched(Boolean(product?.salePrice))
     setCestValue(product?.cest ?? '')
     setNcmValue(product?.ncm ?? '')
@@ -268,7 +265,6 @@ export function ProductForm({
     product?.costPrice,
     product?.id,
     product?.ncm,
-    product?.otherExpenses,
     product?.profitMarginPercentage,
     product?.salePrice,
   ])
@@ -282,14 +278,12 @@ export function ProductForm({
       suggestedSalePrice(
         costPrice,
         accessoryExpenses,
-        otherExpenses,
         profitMarginPercentage,
       ),
     )
   }, [
     accessoryExpenses,
     costPrice,
-    otherExpenses,
     profitMarginPercentage,
     salePriceTouched,
   ])
@@ -354,13 +348,14 @@ export function ProductForm({
             Calculadora de preço de venda
           </strong>
           <span className='text-xs text-[#5f665f]'>
-            Some o custo unitário com despesas e aplique a margem desejada. O
-            preço sugerido pode ser alterado manualmente antes de salvar.
+            Some o valor de custo com despesas acessórias e aplique a margem
+            desejada. O preço sugerido pode ser alterado manualmente antes de
+            salvar.
           </span>
         </div>
         <FormRow columns={3}>
           <TextField
-            label='Custo unitário'
+            label='Valor de custo'
             name='costPrice'
             type='number'
             value={costPrice}
@@ -383,16 +378,16 @@ export function ProductForm({
             slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
           />
           <TextField
-            helperText='Compõe a base do preço de venda.'
-            label='Outras despesas'
-            name='otherExpenses'
+            label='Custo final'
             type='number'
-            value={otherExpenses}
-            onChange={(event) => {
-              setOtherExpenses(event.target.value)
-              setSalePriceTouched(false)
-            }}
+            value={finalCost > 0 ? finalCost.toFixed(2) : ''}
+            disabled
             slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+          />
+          <input
+            name='otherExpenses'
+            type='hidden'
+            value={product?.otherExpenses ?? '0'}
           />
         </FormRow>
         <FormRow columns={3}>
@@ -412,10 +407,9 @@ export function ProductForm({
             helperText={salePriceHelperText(
               costPrice,
               accessoryExpenses,
-              otherExpenses,
               profitMarginPercentage,
             )}
-            label='Valor de venda'
+            label='Valor de venda sugerido'
             name='salePrice'
             type='number'
             value={salePrice}
@@ -560,14 +554,9 @@ export function ProductForm({
 function suggestedSalePrice(
   costPrice: string,
   accessoryExpenses: string,
-  otherExpenses: string,
   profitMarginPercentage: string,
 ) {
-  const cost = salePriceCalculationBase(
-    costPrice,
-    accessoryExpenses,
-    otherExpenses,
-  )
+  const cost = salePriceCalculationBase(costPrice, accessoryExpenses)
   const margin = Number(profitMarginPercentage)
 
   if (!Number.isFinite(cost) || !Number.isFinite(margin) || cost <= 0) {
@@ -580,13 +569,8 @@ function suggestedSalePrice(
 function salePriceCalculationBase(
   costPrice: string,
   accessoryExpenses: string,
-  otherExpenses: string,
 ) {
-  return (
-    numericCurrencyValue(costPrice) +
-    numericCurrencyValue(accessoryExpenses) +
-    numericCurrencyValue(otherExpenses)
-  )
+  return numericCurrencyValue(costPrice) + numericCurrencyValue(accessoryExpenses)
 }
 
 function numericCurrencyValue(value: string) {
@@ -679,14 +663,9 @@ function normalizeSearch(value: string) {
 function salePriceHelperText(
   costPrice: string,
   accessoryExpenses: string,
-  otherExpenses: string,
   profitMarginPercentage: string,
 ) {
-  const calculationBase = salePriceCalculationBase(
-    costPrice,
-    accessoryExpenses,
-    otherExpenses,
-  )
+  const calculationBase = salePriceCalculationBase(costPrice, accessoryExpenses)
   const margin = Number(profitMarginPercentage)
 
   if (calculationBase <= 0 || !Number.isFinite(margin) || margin <= 0) {
@@ -1000,7 +979,7 @@ export function ClientsPage({
           </span>
         </div>
         <div className='grid gap-4 md:grid-cols-2'>
-          {clientPersonType === 'PJ' ? (
+          {clientPersonType !== 'ES' ? (
             <TextField
               label='Inscricao estadual'
               name='clientStateRegistration'
@@ -1017,7 +996,7 @@ export function ClientsPage({
             <>
               <TextField
                 disabled
-                helperText='Pessoa fisica e estrangeiro sao enviados como nao contribuintes.'
+                helperText='Estrangeiro e enviado como nao contribuinte.'
                 label='Inscricao estadual'
                 value=''
               />
@@ -1029,14 +1008,14 @@ export function ClientsPage({
             name='clientStateRegistrationIndicator'
             select
             value={
-              clientPersonType === 'PJ' ? clientStateRegistrationIndicator : '9'
+              clientPersonType !== 'ES' ? clientStateRegistrationIndicator : '9'
             }
             onChange={(event) =>
               setClientStateRegistrationIndicator(
                 clientStateRegistrationIndicatorValue(event.target.value),
               )
             }
-            disabled={clientPersonType !== 'PJ'}>
+            disabled={clientPersonType === 'ES'}>
             <MenuItem value='9'>Nao contribuinte</MenuItem>
             <MenuItem value='1'>Contribuinte ICMS</MenuItem>
             <MenuItem value='2'>Contribuinte isento</MenuItem>

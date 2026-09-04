@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { db } from "../../database/knex.js";
 import { env } from "../../config/env.js";
 import type { FiscalIssueRequest } from "../../integrations/fiscal/fiscal-provider.js";
@@ -599,6 +600,110 @@ export async function previewPickupReservationFiscalDocument(
   });
 }
 
+export type ManualFiscalDocumentInput = {
+  documentType: FiscalDocumentType;
+  operationType: "ENTRY" | "EXIT";
+  purpose: "NORMAL" | "RETURN";
+  natureOperation: string;
+  referencedAccessKeys: string[];
+  additionalInformation: string | null;
+  client: {
+    personType: "PF" | "PJ" | "ES";
+    name: string;
+    document: string | null;
+    email: string | null;
+    phone: string | null;
+    stateRegistration: string | null;
+    stateRegistrationIndicator: "1" | "2" | "9" | null;
+    addressStreet: string;
+    addressNumber: string;
+    addressComplement: string | null;
+    addressDistrict: string;
+    addressCity: string;
+    addressState: string;
+    addressZipCode: string;
+  };
+  items: Array<{
+    productId: string | null;
+    productInternalCode: string | null;
+    productName: string;
+    productNcm: string | null;
+    productCfop: string | null;
+    productIcmsCst: string | null;
+    productPisCst: string | null;
+    productCofinsCst: string | null;
+    productOrigin: string | null;
+    productUnit: string;
+    quantity: number;
+    unitPrice: number;
+    discountAmount: number;
+  }>;
+};
+
+export async function issueManualFiscalDocument(
+  input: ManualFiscalDocumentInput,
+  issuedByUserId: string,
+  branchId: string,
+) {
+  const sourceId = randomUUID();
+  const fiscalDocument = await db.transaction(async (transaction) => {
+    const { fiscalSettings, requestPayload } = await manualFiscalDocumentRequest(
+      input,
+      sourceId,
+      branchId,
+    );
+
+    ensureFiscalSettingsCanIssue(fiscalSettings);
+    ensureFiscalReadiness(requestPayload, fiscalSettings.provider);
+
+    const provider = makeFiscalProviderByName(fiscalSettings.provider);
+    const result = await provider.issue(requestPayload);
+
+    return insertFiscalDocument(transaction, {
+      branchId,
+      sourceType: "MANUAL_NFE",
+      sourceId,
+      documentType: input.documentType,
+      provider: result.provider,
+      environment: fiscalSettings.environment,
+      status: result.status,
+      accessKey: result.accessKey,
+      providerReference: result.providerReference,
+      number: result.number,
+      series: result.series,
+      xmlUrl: result.xmlUrl,
+      pdfUrl: result.pdfUrl,
+      rejectionReason: result.rejectionReason,
+      requestPayload,
+      responsePayload: result.responsePayload,
+      issuedByUserId,
+    });
+  });
+
+  return {
+    code: 201,
+    status: "success",
+    data: fiscalDocument,
+  };
+}
+
+export async function previewManualFiscalDocument(
+  input: ManualFiscalDocumentInput,
+  branchId: string,
+) {
+  const sourceId = randomUUID();
+  const { fiscalSettings, requestPayload } = await manualFiscalDocumentRequest(
+    input,
+    sourceId,
+    branchId,
+  );
+  const provider = makeFiscalProviderByName(fiscalSettings.provider);
+
+  ensureFiscalReadiness(requestPayload, fiscalSettings.provider);
+
+  return provider.preview(requestPayload);
+}
+
 type IssueFiscalDocumentInput = {
   branchId: string;
   sourceType: FiscalDocumentSourceType;
@@ -747,6 +852,98 @@ async function fiscalDocumentRequest(
   };
 }
 
+async function manualFiscalDocumentRequest(
+  input: ManualFiscalDocumentInput,
+  sourceId: string,
+  branchId: string,
+) {
+  const fiscalSettings = await currentFiscalSettings(branchId);
+
+  return {
+    fiscalSettings,
+    requestPayload: {
+      reference: fiscalReference("MANUAL_NFE", sourceId),
+      documentType: input.documentType,
+      environment: fiscalSettings.environment,
+      companyCnpj: fiscalSettings.companyCnpj,
+      additionalInformation: input.additionalInformation,
+      operationType: input.operationType,
+      purpose: input.purpose,
+      referencedAccessKeys: input.referencedAccessKeys,
+      defaultNatureOperation:
+        input.natureOperation || fiscalSettings.defaultNatureOperation,
+      defaultSaleCfop: fiscalSettings.defaultSaleCfop,
+      defaultIcmsCst: fiscalSettings.defaultIcmsCst,
+      defaultPisCst: fiscalSettings.defaultPisCst,
+      defaultCofinsCst: fiscalSettings.defaultCofinsCst,
+      sale: manualFiscalSale(input),
+    },
+  };
+}
+
+function manualFiscalSale(input: ManualFiscalDocumentInput): FiscalIssueRequest["sale"] {
+  const subtotalAmount = input.items.reduce(
+    (sum, item) => sum + item.quantity * item.unitPrice,
+    0,
+  );
+  const discountAmount = input.items.reduce(
+    (sum, item) => sum + item.discountAmount,
+    0,
+  );
+  const totalAmount = subtotalAmount - discountAmount;
+
+  return {
+    id: "manual",
+    clientPersonType: input.client.personType,
+    clientName: input.client.name,
+    clientDocument: input.client.document,
+    clientEmail: input.client.email,
+    clientPhone: input.client.phone,
+    clientStateRegistration: input.client.stateRegistration,
+    clientStateRegistrationIndicator: input.client.stateRegistrationIndicator,
+    clientAddressStreet: input.client.addressStreet,
+    clientAddressNumber: input.client.addressNumber,
+    clientAddressComplement: input.client.addressComplement,
+    clientAddressDistrict: input.client.addressDistrict,
+    clientAddressCity: input.client.addressCity,
+    clientAddressState: input.client.addressState,
+    clientAddressZipCode: input.client.addressZipCode,
+    paymentMethodCode: "NO_PAYMENT",
+    paymentMethodName: "Sem pagamento",
+    payments: [
+      {
+        paymentMethodCode: "NO_PAYMENT",
+        paymentMethodName: "Sem pagamento",
+        amount: totalAmount.toFixed(2),
+      },
+    ],
+    paymentInstallments: [],
+    totalAmount: totalAmount.toFixed(2),
+    discountAmount: "0.00",
+    billingIssueDate: null,
+    billingDueDate: null,
+    items: input.items.map((item, index) => ({
+      productId: item.productId ?? `manual-${index + 1}`,
+      productInternalCode: item.productInternalCode,
+      productName: item.productName,
+      productCfop: item.productCfop,
+      productIcmsCst: item.productIcmsCst,
+      productNcm: item.productNcm,
+      productPisCst: item.productPisCst,
+      productCofinsCst: item.productCofinsCst,
+      productOrigin: item.productOrigin,
+      productUnit: item.productUnit,
+      quantity: item.quantity.toFixed(3),
+      unitPrice: item.unitPrice.toFixed(2),
+      discountAmount: item.discountAmount.toFixed(2),
+      totalAmount: (item.quantity * item.unitPrice - item.discountAmount).toFixed(
+        2,
+      ),
+      position: index + 1,
+    })),
+  };
+}
+
 function ensureFiscalSettingsCanIssue(
   settings: Awaited<ReturnType<typeof currentFiscalSettings>>,
 ) {
@@ -790,11 +987,38 @@ function ensureFiscalReadiness(
 function fiscalReadinessErrors(request: FiscalIssueRequest): AppErrorDetail[] {
   return [
     ...requiredClientFiscalFields(request.sale),
+    ...requiredReturnFiscalFields(request),
     ...requiredFiscalSettingsFields(request),
     ...invalidBillingFields(request.sale),
     ...request.sale.items.flatMap((item, index) =>
       requiredItemFiscalFields(item, index + 1),
     ),
+  ];
+}
+
+function requiredReturnFiscalFields(request: FiscalIssueRequest): AppErrorDetail[] {
+  if (request.purpose !== "RETURN") {
+    return [];
+  }
+
+  const referencedAccessKey = request.referencedAccessKeys?.[0];
+
+  return [
+    ...missingFieldDetails([
+      [
+        "referencedAccessKeys",
+        referencedAccessKey,
+        "Chave da NF-e referenciada e obrigatoria para devolucao.",
+      ],
+    ]),
+    ...invalidFieldDetails([
+      [
+        "referencedAccessKeys",
+        fiscalDigits(referencedAccessKey ?? null),
+        /^\d{44}$/,
+        "Chave da NF-e referenciada deve conter 44 digitos.",
+      ],
+    ]),
   ];
 }
 

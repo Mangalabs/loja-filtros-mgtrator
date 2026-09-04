@@ -485,7 +485,7 @@ export type FiscalDocument = {
   id: string;
   branchId: string | null;
   branchName: string | null;
-  sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
+  sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION" | "MANUAL_NFE";
   sourceId: string;
   documentType: "NFE" | "NFCE";
   provider: "MOCK" | "FOCUS";
@@ -498,12 +498,53 @@ export type FiscalDocument = {
   xmlUrl: string | null;
   pdfUrl: string | null;
   rejectionReason: string | null;
+  requestPayload: Record<string, unknown> | null;
   issuedByUserName: string;
   issuedAt: string | null;
   cancelledByUserName: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
   createdAt: string;
+};
+
+export type ManualFiscalDocumentInput = {
+  documentType: "NFE";
+  operationType: "ENTRY" | "EXIT";
+  purpose: "NORMAL" | "RETURN";
+  natureOperation: string;
+  referencedAccessKeys: string[];
+  additionalInformation: string | null;
+  client: {
+    personType: "PF" | "PJ" | "ES";
+    name: string;
+    document: string | null;
+    email: string | null;
+    phone: string | null;
+    stateRegistration: string | null;
+    stateRegistrationIndicator: "1" | "2" | "9" | null;
+    addressStreet: string;
+    addressNumber: string;
+    addressComplement: string | null;
+    addressDistrict: string;
+    addressCity: string;
+    addressState: string;
+    addressZipCode: string;
+  };
+  items: Array<{
+    productId: string | null;
+    productInternalCode: string | null;
+    productName: string;
+    productNcm: string | null;
+    productCfop: string | null;
+    productIcmsCst: string | null;
+    productPisCst: string | null;
+    productCofinsCst: string | null;
+    productOrigin: string | null;
+    productUnit: string;
+    quantity: number;
+    unitPrice: number;
+    discountAmount: number;
+  }>;
 };
 
 export type FiscalSettings = {

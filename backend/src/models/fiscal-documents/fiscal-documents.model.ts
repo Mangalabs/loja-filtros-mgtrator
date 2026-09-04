@@ -10,7 +10,8 @@ import type {
 export type FiscalDocumentSourceType =
   | "SALE"
   | "SHIPPING_ORDER"
-  | "PICKUP_RESERVATION";
+  | "PICKUP_RESERVATION"
+  | "MANUAL_NFE";
 export type FiscalDocumentStatus =
   | "PENDING"
   | "PROCESSING"

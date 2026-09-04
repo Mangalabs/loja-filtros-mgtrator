@@ -5,15 +5,18 @@ import {
   cancelFiscalDocument,
   downloadFiscalDocumentFile,
   indexFiscalDocuments,
+  issueManualFiscalDocument,
   issuePickupReservationFiscalDocument,
   issueSaleFiscalDocument,
   issueShippingOrderFiscalDocument,
   mockFiscalDocumentFile,
+  previewManualFiscalDocument,
   previewPickupReservationFiscalDocument,
   previewSaleFiscalDocument,
   previewShippingOrderFiscalDocument,
   showFiscalDocument,
   syncFiscalDocument,
+  type ManualFiscalDocumentInput,
 } from "../../controllers/fiscal-documents/fiscal-documents.controller.js";
 import { requirePermission } from "../../shared/auth/authorization-middleware.js";
 import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
@@ -47,9 +50,72 @@ const issueFiscalDocumentSchema = z
     additionalInformation: z
       .union([z.string().trim().max(5000), z.literal(""), z.null()])
       .transform((value) => value || null)
-      .optional(),
+      .default(null),
   })
   .strict();
+
+const manualFiscalDocumentSchema = z
+  .object({
+    documentType: z.literal("NFE").default("NFE"),
+    operationType: z.enum(["ENTRY", "EXIT"]).default("ENTRY"),
+    purpose: z.enum(["NORMAL", "RETURN"]).default("RETURN"),
+    natureOperation: z.string().trim().min(1).max(60),
+    referencedAccessKeys: z
+      .array(z.string().trim().regex(/^\d{44}$/))
+      .max(10)
+      .default([]),
+    additionalInformation: z
+      .union([z.string().trim().max(5000), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    client: z
+      .object({
+        personType: z.enum(["PF", "PJ", "ES"]).default("PJ"),
+        name: z.string().trim().min(1).max(160),
+        document: optionalText(32),
+        email: optionalText(160),
+        phone: optionalText(32),
+        stateRegistration: optionalText(32),
+        stateRegistrationIndicator: z.enum(["1", "2", "9"]).nullable().default("9"),
+        addressStreet: z.string().trim().min(1).max(160),
+        addressNumber: z.string().trim().min(1).max(20),
+        addressComplement: optionalText(80),
+        addressDistrict: z.string().trim().min(1).max(120),
+        addressCity: z.string().trim().min(1).max(120),
+        addressState: z.string().trim().length(2),
+        addressZipCode: z.string().trim().min(8).max(16),
+      })
+      .strict(),
+    items: z
+      .array(
+        z
+          .object({
+            productId: z.uuid().nullable().default(null),
+            productInternalCode: optionalText(80),
+            productName: z.string().trim().min(1).max(180),
+            productNcm: optionalText(16),
+            productCfop: optionalText(4),
+            productIcmsCst: optionalText(3),
+            productPisCst: optionalText(2),
+            productCofinsCst: optionalText(2),
+            productOrigin: optionalText(2),
+            productUnit: z.string().trim().min(1).max(16).default("UN"),
+            quantity: z.coerce.number().positive(),
+            unitPrice: z.coerce.number().min(0),
+            discountAmount: z.coerce.number().min(0).default(0),
+          })
+          .strict(),
+      )
+      .min(1),
+  })
+  .strict()
+  .refine(
+    (value) => value.purpose !== "RETURN" || value.referencedAccessKeys.length > 0,
+    {
+      message: "Chave da NF-e referenciada e obrigatoria para devolucao.",
+      path: ["referencedAccessKeys"],
+    },
+  );
 
 const cancelFiscalDocumentSchema = z
   .object({
@@ -157,6 +223,39 @@ fiscalDocumentsRoutes.patch(
         await cancelFiscalDocument(
           id,
           body.reason,
+          userId,
+          requireActiveBranchId(response.locals),
+        ),
+      );
+  },
+);
+
+fiscalDocumentsRoutes.post(
+  "/fiscal-documents/manual/preview",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const body = validateBody(request, manualFiscalDocumentSchema);
+    const file = await previewManualFiscalDocument(
+      normalizeManualFiscalDocumentInput(body),
+      requireActiveBranchId(response.locals),
+    );
+
+    sendFiscalPreview(response, file);
+  },
+);
+
+fiscalDocumentsRoutes.post(
+  "/fiscal-documents/manual",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const body = validateBody(request, manualFiscalDocumentSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+
+    response
+      .status(201)
+      .json(
+        await issueManualFiscalDocument(
+          normalizeManualFiscalDocumentInput(body),
           userId,
           requireActiveBranchId(response.locals),
         ),
@@ -290,4 +389,20 @@ function sendFiscalPreview(
     .setHeader("Content-Type", file.contentType)
     .setHeader("Content-Disposition", `inline; filename="${file.fileName}"`)
     .send(file.content);
+}
+
+function optionalText(max: number) {
+  return z
+    .union([z.string().trim().max(max), z.literal(""), z.null()])
+    .transform((value) => value || null)
+    .default(null);
+}
+
+function normalizeManualFiscalDocumentInput(
+  body: z.infer<typeof manualFiscalDocumentSchema>,
+): ManualFiscalDocumentInput {
+  return {
+    ...body,
+    additionalInformation: body.additionalInformation ?? null,
+  };
 }

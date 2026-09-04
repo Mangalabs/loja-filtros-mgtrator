@@ -3,8 +3,10 @@ import {
   apiPatch,
   apiPost,
   apiPut,
+  openApiFile,
   type FiscalDocument,
   type FiscalSettings,
+  type ManualFiscalDocumentInput,
   type PaymentMethod,
 } from "../../api";
 
@@ -18,6 +20,7 @@ type FinanceActionsOptions = {
     confirmLabel?: string,
   ) => Promise<boolean>;
   runAction: (action: () => Promise<void>) => Promise<boolean>;
+  showFiscalDocuments: () => void;
 };
 
 export function useFinanceActions({
@@ -26,6 +29,7 @@ export function useFinanceActions({
   refreshPaymentMethods,
   requestConfirmation,
   runAction,
+  showFiscalDocuments,
 }: FinanceActionsOptions) {
   async function openCashRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -162,6 +166,28 @@ export function useFinanceActions({
     });
   }
 
+  async function issueManualFiscalDocument(input: ManualFiscalDocumentInput) {
+    const confirmed = await requestConfirmation(
+      "A NF-e avulsa sera enviada ao provedor fiscal. Confira os dados antes de emitir.",
+      "Emitir NF-e avulsa?",
+      "Emitir NF-e",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPost("/fiscal-documents/manual", input);
+      showFiscalDocuments();
+      await refreshFiscalFlow();
+    });
+  }
+
+  async function previewManualFiscalDocument(input: ManualFiscalDocumentInput) {
+    await openApiFile("/fiscal-documents/manual/preview", input);
+  }
+
   async function cancelFiscalDocument(
     event: FormEvent<HTMLFormElement>,
     fiscalDocument: FiscalDocument,
@@ -195,7 +221,9 @@ export function useFinanceActions({
     changePaymentMethodStatus,
     closeCashRegister,
     createCashRegisterMovement,
+    issueManualFiscalDocument,
     openCashRegister,
+    previewManualFiscalDocument,
     saveFiscalSettings,
     syncFiscalDocument,
   };

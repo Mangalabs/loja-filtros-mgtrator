@@ -62,6 +62,7 @@ export function fiscalReadinessIssueLabel(issue: string) {
 
 const fiscalDocumentSourceLabels: Record<FiscalDocument['sourceType'], string> =
   {
+    MANUAL_NFE: 'NF-e avulsa',
     PICKUP_RESERVATION: 'Reserva',
     SALE: 'Venda direta',
     SHIPPING_ORDER: 'Com envio',
