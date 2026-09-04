@@ -990,6 +990,7 @@ function fiscalReadinessErrors(request: FiscalIssueRequest): AppErrorDetail[] {
     ...requiredReturnFiscalFields(request),
     ...requiredFiscalSettingsFields(request),
     ...invalidBillingFields(request.sale),
+    ...pendingPaymentFields(request.sale),
     ...request.sale.items.flatMap((item, index) =>
       requiredItemFiscalFields(item, index + 1),
     ),
@@ -1020,6 +1021,22 @@ function requiredReturnFiscalFields(request: FiscalIssueRequest): AppErrorDetail
       ],
     ]),
   ];
+}
+
+function pendingPaymentFields(sale: FiscalIssueRequest["sale"]): AppErrorDetail[] {
+  const payments = sale.payments.length
+    ? sale.payments
+    : [{ paymentMethodCode: sale.paymentMethodCode }];
+
+  return payments.some((payment) => payment.paymentMethodCode === "TO_AGREE")
+    ? [
+        {
+          field: "paymentMethodId",
+          message:
+            "Forma de pagamento A combinar nao pode emitir NF-e antes da definicao do pagamento final.",
+        },
+      ]
+    : [];
 }
 
 function requiredFiscalSettingsFields(

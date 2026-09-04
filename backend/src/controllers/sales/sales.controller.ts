@@ -5,6 +5,7 @@ import {
   activeClientExists,
   activePaymentMethodExists,
   cancelSale,
+  findActivePaymentMethod,
   findOpenCashRegister,
   insertSale,
   getSaleById,
@@ -135,16 +136,7 @@ export async function storeSale(
     const totalAmount = Number((subtotalAmount - discountAmount).toFixed(2));
     const payments = normalizeSalePayments(input, totalAmount);
 
-    for (const payment of payments) {
-      if (
-        !(await activePaymentMethodExists(
-          transaction,
-          payment.paymentMethodId,
-        ))
-      ) {
-        throw new AppError("Forma de pagamento informada nao disponivel.", 422);
-      }
-    }
+    await validateSaleClosingPaymentMethods(transaction, payments);
 
     return insertSale(
       transaction,
@@ -241,16 +233,7 @@ export async function updateCompletedSaleCommercialDetails(
       ? normalizeCommercialSalePayments(input.payments, lockedSale.totalAmount)
       : undefined;
 
-    for (const payment of payments ?? []) {
-      if (
-        !(await activePaymentMethodExists(
-          transaction,
-          payment.paymentMethodId,
-        ))
-      ) {
-        throw new AppError("Forma de pagamento informada nao disponivel.", 422);
-      }
-    }
+    await validateSaleClosingPaymentMethods(transaction, payments ?? []);
 
     return updateSaleCommercialDetails(transaction, id, input);
   });
@@ -457,6 +440,10 @@ export async function completeReopenedSale(id: string, branchId: string) {
       throw new AppError("Esta venda ja esta concluida.", 409);
     }
 
+    const sale = await getSaleById(id, transaction, { branchId });
+
+    await validateSaleClosingPaymentMethods(transaction, sale?.payments ?? []);
+
     return updateSaleStatus(transaction, id, "COMPLETED");
   });
 
@@ -627,6 +614,29 @@ function normalizeCommercialSalePayments(
   }
 
   return payments;
+}
+
+async function validateSaleClosingPaymentMethods(
+  transaction: Parameters<typeof findActivePaymentMethod>[0],
+  payments: Array<{ paymentMethodId: string }>,
+) {
+  for (const payment of payments) {
+    const paymentMethod = await findActivePaymentMethod(
+      transaction,
+      payment.paymentMethodId,
+    );
+
+    if (!paymentMethod) {
+      throw new AppError("Forma de pagamento informada nao disponivel.", 422);
+    }
+
+    if (paymentMethod.code === "TO_AGREE") {
+      throw new AppError(
+        "Forma de pagamento A combinar nao pode concluir venda.",
+        422,
+      );
+    }
+  }
 }
 
 function aggregateSaleItems(

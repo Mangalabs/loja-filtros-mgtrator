@@ -56,7 +56,7 @@ export function PaymentMethodsPage({
   return (
     <PagePanel wide>
       <PageHeader
-        description='PIX, débito, crédito e boleto podem ser ativados ou inativados conforme a operação da filial.'
+        description='PIX, débito, crédito, boleto e pagamentos pendentes podem ser ativados ou inativados conforme a operação da filial.'
         icon={<CreditCard size={18} />}
         title='Formas configuradas'
       />

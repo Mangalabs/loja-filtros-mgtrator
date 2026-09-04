@@ -2050,6 +2050,42 @@ describe("catalog routes", () => {
     assert.equal(cash.body.data?.paymentSummary[0]?.amount, "65.00");
   });
 
+  it("blocks closing a counter sale with pending payment method", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro pagamento a combinar", salePrice: 80 },
+    });
+    const toAgree = await activePaymentMethod("TO_AGREE");
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 1,
+        reason: "Saldo inicial para bloquear pagamento a combinar",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const response = await request("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: toAgree.id,
+        quantity: 1,
+      },
+    });
+
+    assert.equal(response.status, 422);
+    assert.equal(
+      response.body.message,
+      "Forma de pagamento A combinar nao pode concluir venda.",
+    );
+  });
+
   it("records a counter sale with multiple payment methods", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
@@ -7002,6 +7038,58 @@ describe("catalog routes", () => {
     assert.equal(fiscalDocument.body.data?.sourceId, completed.body.data?.id);
   });
 
+  it("blocks completing a pickup reservation with pending payment method", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro retirada a combinar", salePrice: 55 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente retirada a combinar" },
+    });
+    const toAgree = await activePaymentMethod("TO_AGREE");
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 1,
+        reason: "Saldo para retirada a combinar",
+      },
+    });
+
+    const reservation = await request<PickupReservation>(
+      "/pickup-reservations",
+      {
+        method: "POST",
+        body: {
+          clientId: client.body.data?.id,
+          productId: product.body.data?.id,
+          quantity: 1,
+        },
+      },
+    );
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const response = await request(
+      `/pickup-reservations/${reservation.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: { paymentMethodId: toAgree.id },
+      },
+    );
+
+    assert.equal(response.status, 422);
+    assert.equal(
+      response.body.message,
+      "Forma de pagamento A combinar nao pode concluir venda.",
+    );
+  });
+
   it("blocks pickup fiscal issue when the linked sale already has an active fiscal document", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
@@ -8017,13 +8105,13 @@ describe("catalog routes", () => {
     assert.equal(listed.status, 200);
     assert.deepEqual(
       listed.body.data?.map((paymentMethod) => paymentMethod.code),
-      ["CASH", "PIX", "DEBIT", "CREDIT", "BOLETO"],
+      ["CASH", "PIX", "DEBIT", "CREDIT", "BOLETO", "TO_AGREE"],
     );
     assert.equal(deactivated.status, 200);
     assert.equal(deactivated.body.data?.active, false);
     assert.deepEqual(
       active.body.data?.map((paymentMethod) => paymentMethod.code),
-      ["CASH", "PIX", "CREDIT", "BOLETO"],
+      ["CASH", "PIX", "CREDIT", "BOLETO", "TO_AGREE"],
     );
   });
 

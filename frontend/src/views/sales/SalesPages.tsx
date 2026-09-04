@@ -405,7 +405,9 @@ export function PaymentSplitFields({
   totalAmount: number
   onChange: (payments: SalePaymentDraft[]) => void
 }) {
-  const activePaymentMethods = paymentMethods.filter((method) => method.active)
+  const activePaymentMethods = paymentMethods.filter(
+    (method) => method.active && method.code !== 'TO_AGREE',
+  )
   const paymentTotal = salePaymentDraftTotal(payments, totalAmount)
   const difference = Number((totalAmount - paymentTotal).toFixed(2))
   const hasMultiplePayments = payments.length > 1

@@ -438,6 +438,16 @@ export async function activePaymentMethodExists(
   return Boolean(paymentMethod);
 }
 
+export async function findActivePaymentMethod(
+  transaction: Knex.Transaction,
+  paymentMethodId: string,
+): Promise<{ id: string; code: string; name: string } | undefined> {
+  return transaction("payment_methods")
+    .select(["id", "code", "name"])
+    .where({ id: paymentMethodId, active: true })
+    .first();
+}
+
 export async function activeClientExists(
   transaction: Knex.Transaction,
   clientId: string,

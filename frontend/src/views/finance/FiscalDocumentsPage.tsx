@@ -11,6 +11,7 @@ import { ChevronDown, FileText, Plus, Trash2 } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import type {
   Client,
+  ClientCompanyLookup,
   FiscalDocument,
   FiscalSettings,
   ManualFiscalDocumentInput,
@@ -26,6 +27,7 @@ import {
   PagePanel,
   ResponsiveTable,
 } from '../../components/layout'
+import { ProductSearchField } from '../../components/ProductSearchField'
 import {
   StatusChip,
   TableActionButton,
@@ -460,15 +462,31 @@ type ManualFiscalItemForm = {
 export function ManualFiscalDocumentPage({
   products,
   onIssueManualFiscalDocument,
+  onLookupCompany,
   onPreviewManualFiscalDocument,
 }: {
   products: Product[]
   onIssueManualFiscalDocument: (input: ManualFiscalDocumentInput) => void
+  onLookupCompany: (cnpj: string) => Promise<ClientCompanyLookup>
   onPreviewManualFiscalDocument: (input: ManualFiscalDocumentInput) => void
 }) {
   const [items, setItems] = useState<ManualFiscalItemForm[]>([
     emptyManualFiscalItem(),
   ])
+  const [clientPersonType, setClientPersonType] =
+    useState<ManualFiscalDocumentInput['client']['personType']>('PJ')
+  const [
+    clientStateRegistrationIndicator,
+    setClientStateRegistrationIndicator,
+  ] = useState<NonNullable<ManualFiscalDocumentInput['client']['stateRegistrationIndicator']>>(
+    '9',
+  )
+  const [lookupState, setLookupState] = useState<
+    'idle' | 'loading' | 'success' | 'error'
+  >('idle')
+  const [lookupValues, setLookupValues] = useState<
+    Record<string, string | null>
+  >({})
 
   function updateItem(index: number, input: Partial<ManualFiscalItemForm>) {
     setItems((currentItems) =>
@@ -478,11 +496,9 @@ export function ManualFiscalDocumentPage({
     )
   }
 
-  function selectProduct(index: number, productId: string) {
-    const product = products.find((currentProduct) => currentProduct.id === productId)
-
+  function selectProduct(index: number, product: Product | null) {
     updateItem(index, {
-      productId,
+      productId: product?.id ?? '',
       productInternalCode: product?.internalCode ?? '',
       productName: product?.name ?? '',
       productNcm: product?.ncm ?? '',
@@ -494,6 +510,39 @@ export function ManualFiscalDocumentPage({
       productUnit: product?.unit ?? 'UN',
       unitPrice: product?.salePrice ?? '',
     })
+  }
+
+  async function lookupCompany() {
+    const document = clientFieldValue('manualFiscalClientDocument').trim()
+
+    if (!document) {
+      setLookupState('error')
+      return
+    }
+
+    setLookupState('loading')
+
+    try {
+      const company = await onLookupCompany(document)
+
+      setLookupValues(manualFiscalClientLookupValues(company))
+      setClientPersonType('PJ')
+      setClientStateRegistrationIndicator(company.stateRegistrationIndicator)
+      setLookupState('success')
+    } catch {
+      setLookupState('error')
+    }
+  }
+
+  function clientFieldValue(name: string) {
+    return lookupValues[name] ?? ''
+  }
+
+  function updateClientField(name: string, value: string) {
+    setLookupValues((currentValues) => ({
+      ...currentValues,
+      [name]: value,
+    }))
   }
 
   function submitManualFiscalDocument(event: FormEvent<HTMLFormElement>) {
@@ -555,36 +604,181 @@ export function ManualFiscalDocumentPage({
             <strong className='text-[#2c281e]'>Destinatário / remetente</strong>
             <div className='grid gap-3 md:grid-cols-3'>
               <TextField
-                defaultValue='PJ'
                 label='Tipo'
                 name='manualFiscalClientPersonType'
                 select
+                value={clientPersonType}
+                onChange={(event) =>
+                  setClientPersonType(
+                    manualFiscalClientPersonTypeValue(event.target.value),
+                  )
+                }
                 required>
                 <MenuItem value='PF'>Pessoa física</MenuItem>
                 <MenuItem value='PJ'>Pessoa jurídica</MenuItem>
                 <MenuItem value='ES'>Estrangeiro</MenuItem>
               </TextField>
-              <TextField label='Nome' name='manualFiscalClientName' required />
-              <TextField label='CPF/CNPJ' name='manualFiscalClientDocument' />
-              <TextField label='Inscrição estadual' name='manualFiscalClientStateRegistration' />
               <TextField
-                defaultValue='9'
+                label='Nome'
+                name='manualFiscalClientName'
+                value={clientFieldValue('manualFiscalClientName')}
+                onChange={(event) =>
+                  updateClientField('manualFiscalClientName', event.target.value)
+                }
+                required
+              />
+              <div className='grid gap-2'>
+                <TextField
+                  label='CPF/CNPJ'
+                  name='manualFiscalClientDocument'
+                  value={clientFieldValue('manualFiscalClientDocument')}
+                  onChange={(event) =>
+                    updateClientField(
+                      'manualFiscalClientDocument',
+                      event.target.value,
+                    )
+                  }
+                />
+                <div className='flex flex-wrap items-center justify-between gap-2'>
+                  <span className='text-sm text-[#5f665f]'>
+                    {manualFiscalLookupStatusLabel[lookupState]}
+                  </span>
+                  <Button
+                    disabled={lookupState === 'loading'}
+                    type='button'
+                    variant='outlined'
+                    onClick={() => void lookupCompany()}>
+                    Buscar CNPJ
+                  </Button>
+                </div>
+              </div>
+              <TextField
+                label='Inscrição estadual'
+                name='manualFiscalClientStateRegistration'
+                value={clientFieldValue('manualFiscalClientStateRegistration')}
+                onChange={(event) =>
+                  updateClientField(
+                    'manualFiscalClientStateRegistration',
+                    event.target.value,
+                  )
+                }
+              />
+              <TextField
                 label='Indicador IE'
                 name='manualFiscalClientStateRegistrationIndicator'
-                select>
+                select
+                value={clientStateRegistrationIndicator}
+                onChange={(event) =>
+                  setClientStateRegistrationIndicator(
+                    manualFiscalClientStateRegistrationIndicatorValue(
+                      event.target.value,
+                    ),
+                  )
+                }>
                 <MenuItem value='9'>Não contribuinte</MenuItem>
                 <MenuItem value='1'>Contribuinte ICMS</MenuItem>
                 <MenuItem value='2'>Contribuinte isento</MenuItem>
               </TextField>
-              <TextField label='Telefone' name='manualFiscalClientPhone' />
-              <TextField label='Email' name='manualFiscalClientEmail' type='email' />
-              <TextField label='Logradouro' name='manualFiscalClientAddressStreet' required />
-              <TextField label='Número' name='manualFiscalClientAddressNumber' required />
-              <TextField label='Complemento' name='manualFiscalClientAddressComplement' />
-              <TextField label='Bairro' name='manualFiscalClientAddressDistrict' required />
-              <TextField label='Cidade' name='manualFiscalClientAddressCity' required />
-              <TextField label='UF' name='manualFiscalClientAddressState' required />
-              <TextField label='CEP' name='manualFiscalClientAddressZipCode' required />
+              <TextField
+                label='Telefone'
+                name='manualFiscalClientPhone'
+                value={clientFieldValue('manualFiscalClientPhone')}
+                onChange={(event) =>
+                  updateClientField('manualFiscalClientPhone', event.target.value)
+                }
+              />
+              <TextField
+                label='Email'
+                name='manualFiscalClientEmail'
+                type='email'
+                value={clientFieldValue('manualFiscalClientEmail')}
+                onChange={(event) =>
+                  updateClientField('manualFiscalClientEmail', event.target.value)
+                }
+              />
+              <TextField
+                label='Logradouro'
+                name='manualFiscalClientAddressStreet'
+                value={clientFieldValue('manualFiscalClientAddressStreet')}
+                onChange={(event) =>
+                  updateClientField(
+                    'manualFiscalClientAddressStreet',
+                    event.target.value,
+                  )
+                }
+                required
+              />
+              <TextField
+                label='Número'
+                name='manualFiscalClientAddressNumber'
+                value={clientFieldValue('manualFiscalClientAddressNumber')}
+                onChange={(event) =>
+                  updateClientField(
+                    'manualFiscalClientAddressNumber',
+                    event.target.value,
+                  )
+                }
+                required
+              />
+              <TextField
+                label='Complemento'
+                name='manualFiscalClientAddressComplement'
+                value={clientFieldValue('manualFiscalClientAddressComplement')}
+                onChange={(event) =>
+                  updateClientField(
+                    'manualFiscalClientAddressComplement',
+                    event.target.value,
+                  )
+                }
+              />
+              <TextField
+                label='Bairro'
+                name='manualFiscalClientAddressDistrict'
+                value={clientFieldValue('manualFiscalClientAddressDistrict')}
+                onChange={(event) =>
+                  updateClientField(
+                    'manualFiscalClientAddressDistrict',
+                    event.target.value,
+                  )
+                }
+                required
+              />
+              <TextField
+                label='Cidade'
+                name='manualFiscalClientAddressCity'
+                value={clientFieldValue('manualFiscalClientAddressCity')}
+                onChange={(event) =>
+                  updateClientField(
+                    'manualFiscalClientAddressCity',
+                    event.target.value,
+                  )
+                }
+                required
+              />
+              <TextField
+                label='UF'
+                name='manualFiscalClientAddressState'
+                value={clientFieldValue('manualFiscalClientAddressState')}
+                onChange={(event) =>
+                  updateClientField(
+                    'manualFiscalClientAddressState',
+                    event.target.value,
+                  )
+                }
+                required
+              />
+              <TextField
+                label='CEP'
+                name='manualFiscalClientAddressZipCode'
+                value={clientFieldValue('manualFiscalClientAddressZipCode')}
+                onChange={(event) =>
+                  updateClientField(
+                    'manualFiscalClientAddressZipCode',
+                    event.target.value,
+                  )
+                }
+                required
+              />
             </div>
           </div>
 
@@ -619,18 +813,14 @@ export function ManualFiscalDocumentPage({
                   </Button>
                 </div>
                 <div className='grid gap-3 md:grid-cols-3'>
-                  <TextField
+                  <ProductSearchField
                     label='Produto cadastrado'
-                    select
+                    name={`manualFiscalProductId-${index}`}
+                    products={products}
                     value={item.productId}
-                    onChange={(event) => selectProduct(index, event.target.value)}>
-                    <MenuItem value=''>Sem vínculo</MenuItem>
-                    {products.map((product) => (
-                      <MenuItem key={product.id} value={product.id}>
-                        {product.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                    onSelect={(product) => selectProduct(index, product)}
+                    stockLabel='current'
+                  />
                   <TextField
                     label='Descrição'
                     required
@@ -813,6 +1003,58 @@ function manualFiscalDocumentInput(
       discountAmount: Number(item.discountAmount || 0),
     })),
   }
+}
+
+const manualFiscalLookupStatusLabel = {
+  idle: 'Digite um CNPJ para buscar os dados.',
+  loading: 'Consultando CNPJ...',
+  success: 'Dados encontrados. Revise antes de emitir.',
+  error: 'Não foi possível buscar este CNPJ.',
+}
+
+function manualFiscalClientLookupValues(company: ClientCompanyLookup) {
+  return {
+    manualFiscalClientAddressCity: company.addressCity,
+    manualFiscalClientAddressComplement: company.addressComplement,
+    manualFiscalClientAddressDistrict: company.addressDistrict,
+    manualFiscalClientAddressNumber: company.addressNumber,
+    manualFiscalClientAddressState: company.addressState,
+    manualFiscalClientAddressStreet: company.addressStreet,
+    manualFiscalClientAddressZipCode: company.addressZipCode,
+    manualFiscalClientDocument: company.document,
+    manualFiscalClientEmail: company.email,
+    manualFiscalClientName: company.name,
+    manualFiscalClientPhone: company.phone,
+    manualFiscalClientStateRegistration: company.stateRegistration,
+  }
+}
+
+function manualFiscalClientPersonTypeValue(
+  value: string,
+): ManualFiscalDocumentInput['client']['personType'] {
+  const values: Record<string, ManualFiscalDocumentInput['client']['personType']> =
+    {
+      ES: 'ES',
+      PF: 'PF',
+      PJ: 'PJ',
+    }
+
+  return values[value] ?? 'PJ'
+}
+
+function manualFiscalClientStateRegistrationIndicatorValue(
+  value: string,
+): NonNullable<ManualFiscalDocumentInput['client']['stateRegistrationIndicator']> {
+  const values: Record<
+    string,
+    NonNullable<ManualFiscalDocumentInput['client']['stateRegistrationIndicator']>
+  > = {
+    '1': '1',
+    '2': '2',
+    '9': '9',
+  }
+
+  return values[value] ?? '9'
 }
 
 function formText(form: FormData, field: string) {

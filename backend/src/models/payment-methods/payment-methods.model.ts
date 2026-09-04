@@ -22,7 +22,7 @@ export async function listPaymentMethods(
       }
     })
     .orderByRaw(
-      "case code when 'CASH' then 1 when 'PIX' then 2 when 'DEBIT' then 3 when 'CREDIT' then 4 when 'BOLETO' then 5 else 6 end",
+      "case code when 'CASH' then 1 when 'PIX' then 2 when 'DEBIT' then 3 when 'CREDIT' then 4 when 'BOLETO' then 5 when 'TO_AGREE' then 6 else 7 end",
     )
     .orderBy("name", "asc");
 }

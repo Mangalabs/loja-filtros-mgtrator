@@ -1,6 +1,6 @@
 import { db } from "../../database/knex.js";
 import {
-  activePaymentMethodExists,
+  findActivePaymentMethod,
   findOpenCashRegister,
   insertSale,
   type SaleInput,
@@ -225,16 +225,7 @@ export async function completeReservedPickup(
       throw new AppError("Forma de pagamento informada nao disponivel.", 422);
     }
 
-    for (const payment of resolvedPayments) {
-      if (
-        !(await activePaymentMethodExists(
-          transaction,
-          payment.paymentMethodId,
-        ))
-      ) {
-        throw new AppError("Forma de pagamento informada nao disponivel.", 422);
-      }
-    }
+    await validateSaleClosingPaymentMethods(transaction, resolvedPayments);
 
     validateSalePaymentsTotal(
       resolvedPayments,
@@ -327,6 +318,29 @@ function validateSalePaymentsTotal(
       "Total dos pagamentos deve ser igual ao total da venda.",
       422,
     );
+  }
+}
+
+async function validateSaleClosingPaymentMethods(
+  transaction: Parameters<typeof findActivePaymentMethod>[0],
+  payments: NonNullable<SaleInput["payments"]>,
+) {
+  for (const payment of payments) {
+    const paymentMethod = await findActivePaymentMethod(
+      transaction,
+      payment.paymentMethodId,
+    );
+
+    if (!paymentMethod) {
+      throw new AppError("Forma de pagamento informada nao disponivel.", 422);
+    }
+
+    if (paymentMethod.code === "TO_AGREE") {
+      throw new AppError(
+        "Forma de pagamento A combinar nao pode concluir venda.",
+        422,
+      );
+    }
   }
 }
 

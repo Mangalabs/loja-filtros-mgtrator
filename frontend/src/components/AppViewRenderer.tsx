@@ -417,6 +417,7 @@ export function AppViewRenderer({
         onIssueManualFiscalDocument={(input) =>
           void financeActions.issueManualFiscalDocument(input)
         }
+        onLookupCompany={catalogActions.lookupClientCompany}
         onPreviewManualFiscalDocument={(input) =>
           void financeActions.previewManualFiscalDocument(input)
         }
