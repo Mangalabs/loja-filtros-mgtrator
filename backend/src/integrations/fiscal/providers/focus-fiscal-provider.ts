@@ -49,6 +49,7 @@ type FocusNfePayload = {
   notas_referenciadas?: Array<{ chave_nfe: string }>;
   formas_pagamento: FocusNfePaymentPayload[];
   modalidade_frete: 9;
+  volumes?: FocusNfeVolumePayload[];
   items: FocusNfeItemPayload[];
 };
 
@@ -62,6 +63,10 @@ type FocusNfeInstallmentPayload = {
   numero: string;
   data_vencimento: string;
   valor: number;
+};
+
+type FocusNfeVolumePayload = {
+  quantidade: number;
 };
 
 type FocusNfeItemPayload = {
@@ -312,6 +317,7 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
     ...focusReferencedInvoicesPayload(request),
     formas_pagamento: focusPaymentPayloads(request, totalAmount),
     modalidade_frete: 9,
+    ...focusTransportedVolumesPayload(request),
     items: request.sale.items.map((item) => focusNfeItemPayload(item, request)),
   };
 }
@@ -552,6 +558,16 @@ function focusReferencedInvoicesPayload(
           chave_nfe: accessKey,
         })),
       }
+    : {};
+}
+
+function focusTransportedVolumesPayload(
+  request: FiscalIssueRequest,
+): Partial<FocusNfePayload> {
+  const quantity = request.transportedVolumesQuantity;
+
+  return Number.isInteger(quantity) && Number(quantity) > 0
+    ? { volumes: [{ quantidade: Number(quantity) }] }
     : {};
 }
 

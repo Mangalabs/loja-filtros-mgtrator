@@ -513,6 +513,7 @@ export type ManualFiscalDocumentInput = {
   purpose: "NORMAL" | "RETURN";
   natureOperation: string;
   referencedAccessKeys: string[];
+  transportedVolumesQuantity: number | null;
   additionalInformation: string | null;
   client: {
     personType: "PF" | "PJ" | "ES";

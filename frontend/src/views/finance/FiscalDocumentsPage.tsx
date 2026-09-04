@@ -599,6 +599,16 @@ export function ManualFiscalDocumentPage({
             label='Chave da NF-e referenciada'
             name='manualFiscalReferencedAccessKey'
           />
+          <div className='grid gap-3 md:grid-cols-3'>
+            <TextField
+              defaultValue='1'
+              label='Quantidade de volumes'
+              name='manualFiscalTransportedVolumesQuantity'
+              required
+              type='number'
+              slotProps={{ htmlInput: { min: '1', step: '1' } }}
+            />
+          </div>
 
           <div className='grid gap-3 border-t border-[#e4e9e5] pt-4'>
             <strong className='text-[#2c281e]'>Destinatário / remetente</strong>
@@ -946,6 +956,9 @@ function manualFiscalDocumentInput(
   const referencedAccessKey = onlyDigits(
     formText(form, 'manualFiscalReferencedAccessKey'),
   )
+  const transportedVolumesQuantity = Number(
+    formText(form, 'manualFiscalTransportedVolumesQuantity') || 0,
+  )
 
   return {
     documentType: 'NFE',
@@ -955,6 +968,11 @@ function manualFiscalDocumentInput(
     purpose: formText(form, 'manualFiscalPurpose') as 'NORMAL' | 'RETURN',
     natureOperation: formText(form, 'manualFiscalNatureOperation'),
     referencedAccessKeys: referencedAccessKey ? [referencedAccessKey] : [],
+    transportedVolumesQuantity:
+      Number.isFinite(transportedVolumesQuantity) &&
+      transportedVolumesQuantity > 0
+        ? transportedVolumesQuantity
+        : null,
     additionalInformation: nullableFormText(
       form,
       'manualFiscalAdditionalInformation',

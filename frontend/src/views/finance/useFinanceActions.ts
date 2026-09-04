@@ -179,8 +179,8 @@ export function useFinanceActions({
 
     await runAction(async () => {
       await apiPost("/fiscal-documents/manual", input);
-      showFiscalDocuments();
       await refreshFiscalFlow();
+      showFiscalDocuments();
     });
   }
 

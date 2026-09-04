@@ -606,6 +606,7 @@ export type ManualFiscalDocumentInput = {
   purpose: "NORMAL" | "RETURN";
   natureOperation: string;
   referencedAccessKeys: string[];
+  transportedVolumesQuantity: number | null;
   additionalInformation: string | null;
   client: {
     personType: "PF" | "PJ" | "ES";
@@ -870,6 +871,7 @@ async function manualFiscalDocumentRequest(
       operationType: input.operationType,
       purpose: input.purpose,
       referencedAccessKeys: input.referencedAccessKeys,
+      transportedVolumesQuantity: input.transportedVolumesQuantity,
       defaultNatureOperation:
         input.natureOperation || fiscalSettings.defaultNatureOperation,
       defaultSaleCfop: fiscalSettings.defaultSaleCfop,

@@ -21,6 +21,7 @@ export type FiscalIssueRequest = {
   operationType?: "ENTRY" | "EXIT";
   purpose?: "NORMAL" | "RETURN";
   referencedAccessKeys?: string[];
+  transportedVolumesQuantity?: number | null;
   defaultNatureOperation: string | null;
   defaultSaleCfop: string | null;
   defaultIcmsCst: string | null;

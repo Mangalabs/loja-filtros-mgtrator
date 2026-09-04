@@ -64,6 +64,13 @@ const manualFiscalDocumentSchema = z
       .array(z.string().trim().regex(/^\d{44}$/))
       .max(10)
       .default([]),
+    transportedVolumesQuantity: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(999999999999999)
+      .nullable()
+      .default(null),
     additionalInformation: z
       .union([z.string().trim().max(5000), z.literal(""), z.null()])
       .transform((value) => value || null)
