@@ -4886,6 +4886,7 @@ describe("catalog routes", () => {
       assert.equal(payload.natureza_operacao, "Devolucao de mercadoria");
       assert.deepEqual(payload.volumes, [{ quantidade: 3 }]);
       assert.equal(payments[0]?.forma_pagamento, "90");
+      assert.equal(payments[0]?.valor_pagamento, 0);
       assert.equal(referencedInvoices[0]?.chave_nfe, "1".repeat(44));
       assert.equal(items[0]?.cfop, "1202");
       assert.equal(items[0]?.icms_situacao_tributaria, "090");

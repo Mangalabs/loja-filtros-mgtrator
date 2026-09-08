@@ -358,11 +358,12 @@ function focusPaymentPayload(
   amount: number,
 ): FocusNfePaymentPayload {
   const paymentCode = focusPaymentCode(paymentMethodCode);
+  const paymentAmount = paymentCode === "90" ? 0 : amount;
 
   return {
     indicador_pagamento: paymentCode === "15" ? 1 : 0,
     forma_pagamento: paymentCode,
-    valor_pagamento: amount,
+    valor_pagamento: paymentAmount,
   };
 }
 

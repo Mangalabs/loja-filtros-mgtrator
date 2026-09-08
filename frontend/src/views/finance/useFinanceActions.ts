@@ -185,7 +185,9 @@ export function useFinanceActions({
   }
 
   async function previewManualFiscalDocument(input: ManualFiscalDocumentInput) {
-    await openApiFile("/fiscal-documents/manual/preview", input);
+    await runAction(async () => {
+      await openApiFile("/fiscal-documents/manual/preview", input);
+    });
   }
 
   async function cancelFiscalDocument(

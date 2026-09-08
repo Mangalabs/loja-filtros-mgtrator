@@ -106,6 +106,7 @@ type AppViewRendererProps = {
   salesActions: ReturnType<typeof useSalesActions>;
   search: string;
   selectedClient?: Client;
+  selectedManualFiscalDocument?: FiscalDocument;
   selectedProduct?: Product;
   selectedQuote?: Quote;
   selectedSale?: Sale;
@@ -127,6 +128,7 @@ type AppViewRendererProps = {
   onOpenQuotes: () => void;
   onProductPageChange: (pageIndex: number, rowsPerPage?: number) => void;
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
+  onOpenFiscalDocumentSource: (fiscalDocument: FiscalDocument) => void;
   onSearchProducts: (search: string) => Promise<Product[]>;
   onLoadSalesReport: (filters?: {
     dateFrom?: string;
@@ -191,6 +193,7 @@ export function AppViewRenderer({
   salesActions,
   search,
   selectedClient,
+  selectedManualFiscalDocument,
   selectedProduct,
   selectedQuote,
   selectedSale,
@@ -216,6 +219,7 @@ export function AppViewRenderer({
   onLoadStockReport,
   onLoadUserPerformanceReport,
   onOpenQuotes,
+  onOpenFiscalDocumentSource,
   onProductPageChange,
   onResolveFiscalPendency,
   onSearchProducts,
@@ -406,14 +410,15 @@ export function AppViewRenderer({
         onCancelFiscalDocument={(event, fiscalDocument) =>
           void financeActions.cancelFiscalDocument(event, fiscalDocument)
         }
-        onOpenFiscalDocumentSource={(fiscalDocument) =>
-          onSelectView(fiscalDocumentSourceView(fiscalDocument))
-        }
+        onOpenFiscalDocumentSource={onOpenFiscalDocumentSource}
       />
     ),
     "manual-fiscal-document": (
       <ManualFiscalDocumentPage
+        key={selectedManualFiscalDocument?.id ?? "new"}
+        clients={clients}
         products={products}
+        sourceFiscalDocument={selectedManualFiscalDocument}
         onIssueManualFiscalDocument={(input) =>
           void financeActions.issueManualFiscalDocument(input)
         }
@@ -598,17 +603,4 @@ export function AppViewRenderer({
   };
 
   return <>{viewRenderers[view]}</>;
-}
-
-function fiscalDocumentSourceView(
-  fiscalDocument: FiscalDocument,
-): View {
-  const views: Record<FiscalDocument["sourceType"], View> = {
-    MANUAL_NFE: "manual-fiscal-document",
-    PICKUP_RESERVATION: "pickup-reservations",
-    SALE: "sales-history",
-    SHIPPING_ORDER: "shipping-orders",
-  };
-
-  return views[fiscalDocument.sourceType];
 }

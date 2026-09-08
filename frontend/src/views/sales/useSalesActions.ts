@@ -81,8 +81,10 @@ export function useSalesActions({
     sale: Sale,
     additionalInformation?: string,
   ) {
-    await openApiFile(`/sales/${sale.id}/fiscal-documents/preview`, {
-      ...fiscalDocumentPayload(additionalInformation),
+    await runAction(async () => {
+      await openApiFile(`/sales/${sale.id}/fiscal-documents/preview`, {
+        ...fiscalDocumentPayload(additionalInformation),
+      });
     });
   }
 
@@ -254,8 +256,10 @@ export function useSalesActions({
     order: ShippingOrder,
     additionalInformation?: string,
   ) {
-    await openApiFile(`/shipping-orders/${order.id}/fiscal-documents/preview`, {
-      ...fiscalDocumentPayload(additionalInformation),
+    await runAction(async () => {
+      await openApiFile(`/shipping-orders/${order.id}/fiscal-documents/preview`, {
+        ...fiscalDocumentPayload(additionalInformation),
+      });
     });
   }
 
@@ -286,12 +290,14 @@ export function useSalesActions({
     reservation: PickupReservation,
     additionalInformation?: string,
   ) {
-    await openApiFile(
-      `/pickup-reservations/${reservation.id}/fiscal-documents/preview`,
-      {
-        ...fiscalDocumentPayload(additionalInformation),
-      },
-    );
+    await runAction(async () => {
+      await openApiFile(
+        `/pickup-reservations/${reservation.id}/fiscal-documents/preview`,
+        {
+          ...fiscalDocumentPayload(additionalInformation),
+        },
+      );
+    });
   }
 
   async function approveShippingOrder(order: ShippingOrder) {

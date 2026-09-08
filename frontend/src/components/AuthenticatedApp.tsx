@@ -4,6 +4,7 @@ import {
   type ApiResult,
   type AuthUser,
   type Client,
+  type FiscalDocument,
   type Product,
   type Quote,
   type Sale,
@@ -47,6 +48,8 @@ export function AuthenticatedApp({
   );
   const [selectedProduct, setSelectedProduct] = useState<Product>();
   const [selectedClient, setSelectedClient] = useState<Client>();
+  const [selectedManualFiscalDocument, setSelectedManualFiscalDocument] =
+    useState<FiscalDocument>();
   const [selectedQuote, setSelectedQuote] = useState<Quote>();
   const [selectedSale, setSelectedSale] = useState<Sale>();
   const { closeConfirmation, confirmation, requestConfirmation } =
@@ -131,6 +134,28 @@ export function AuthenticatedApp({
     setViewState(nextView);
     storeActiveView(nextView);
   }, []);
+
+  const selectView = useCallback(
+    (nextView: View) => {
+      if (nextView === "manual-fiscal-document") {
+        setSelectedManualFiscalDocument(undefined);
+      }
+
+      setView(nextView);
+    },
+    [setView],
+  );
+
+  const openFiscalDocumentSource = useCallback(
+    (fiscalDocument: FiscalDocument) => {
+      if (fiscalDocument.sourceType === "MANUAL_NFE") {
+        setSelectedManualFiscalDocument(fiscalDocument);
+      }
+
+      setView(fiscalDocumentSourceView(fiscalDocument));
+    },
+    [setView],
+  );
 
   const catalogActions = useCatalogActions({
     refreshCatalogFlow,
@@ -223,7 +248,7 @@ export function AuthenticatedApp({
           setSelectedProduct(undefined);
           setView("new-product");
         }}
-        onSelectView={setView}
+        onSelectView={selectView}
         onToggleSection={toggleNavSection}
       />
 
@@ -243,7 +268,7 @@ export function AuthenticatedApp({
             storeActiveBranchId(branchId);
             setActiveBranchId(branchId);
           }}
-          onSelectView={setView}
+          onSelectView={selectView}
         />
 
         {message ? (
@@ -300,6 +325,7 @@ export function AuthenticatedApp({
             salesActions={salesActions}
             search={search}
             selectedClient={selectedClient}
+            selectedManualFiscalDocument={selectedManualFiscalDocument}
             selectedProduct={selectedProduct}
             selectedQuote={selectedQuote}
             selectedSale={selectedSale}
@@ -328,7 +354,8 @@ export function AuthenticatedApp({
             onResolveFiscalPendency={resolveFiscalPendency}
             onProductPageChange={setProductPage}
             onSearchProducts={searchProducts}
-            onSelectView={setView}
+            onOpenFiscalDocumentSource={openFiscalDocumentSource}
+            onSelectView={selectView}
             onSearchChange={setSearch}
             onSelectClient={setSelectedClient}
             onSelectQuote={(quote) => {
@@ -345,6 +372,19 @@ export function AuthenticatedApp({
       </section>
     </main>
   );
+}
+
+function fiscalDocumentSourceView(
+  fiscalDocument: FiscalDocument,
+): View {
+  const views: Record<FiscalDocument["sourceType"], View> = {
+    MANUAL_NFE: "manual-fiscal-document",
+    PICKUP_RESERVATION: "pickup-reservations",
+    SALE: "sales-history",
+    SHIPPING_ORDER: "shipping-orders",
+  };
+
+  return views[fiscalDocument.sourceType];
 }
 
 function readInitialView(user: AuthUser): View {

@@ -2,6 +2,7 @@ import Accordion from '@mui/material/Accordion'
 import AccordionDetails from '@mui/material/AccordionDetails'
 import AccordionSummary from '@mui/material/AccordionSummary'
 import Alert from '@mui/material/Alert'
+import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import MenuItem from '@mui/material/MenuItem'
@@ -459,41 +460,80 @@ type ManualFiscalItemForm = {
   discountAmount: string
 }
 
+type ManualFiscalOperationOption = {
+  codes: string
+  label: string
+  value: string
+}
+
 export function ManualFiscalDocumentPage({
+  clients,
   products,
+  sourceFiscalDocument,
   onIssueManualFiscalDocument,
   onLookupCompany,
   onPreviewManualFiscalDocument,
 }: {
+  clients: Client[]
   products: Product[]
+  sourceFiscalDocument?: FiscalDocument
   onIssueManualFiscalDocument: (input: ManualFiscalDocumentInput) => void
   onLookupCompany: (cnpj: string) => Promise<ClientCompanyLookup>
   onPreviewManualFiscalDocument: (input: ManualFiscalDocumentInput) => void
 }) {
+  const sourceValues = manualFiscalDocumentFormValues(sourceFiscalDocument)
   const [items, setItems] = useState<ManualFiscalItemForm[]>([
-    emptyManualFiscalItem(),
+    ...sourceValues.items,
   ])
+  const [manualTotalAmount, setManualTotalAmount] = useState(
+    sourceValues.totalAmount,
+  )
+  const [manualTotalEdited, setManualTotalEdited] = useState(false)
+  const [selectedNatureOperation, setSelectedNatureOperation] =
+    useState<ManualFiscalOperationOption | null>(
+      manualFiscalOperationOptionFromValue(sourceValues.natureOperation),
+    )
+  const [natureOperation, setNatureOperation] = useState(
+    sourceValues.natureOperation,
+  )
   const [clientPersonType, setClientPersonType] =
-    useState<ManualFiscalDocumentInput['client']['personType']>('PJ')
+    useState<ManualFiscalDocumentInput['client']['personType']>(
+      sourceValues.clientPersonType,
+    )
   const [
     clientStateRegistrationIndicator,
     setClientStateRegistrationIndicator,
   ] = useState<NonNullable<ManualFiscalDocumentInput['client']['stateRegistrationIndicator']>>(
-    '9',
+    sourceValues.clientStateRegistrationIndicator,
   )
   const [lookupState, setLookupState] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle')
   const [lookupValues, setLookupValues] = useState<
     Record<string, string | null>
-  >({})
+  >(sourceValues.clientValues)
+  const activeClients = clients.filter((client) => client.active)
+  const selectedRegisteredClient =
+    activeClients.find(
+      (client) =>
+        client.document &&
+        onlyDigits(client.document) ===
+          onlyDigits(clientFieldValue('manualFiscalClientDocument')),
+    ) ?? null
 
   function updateItem(index: number, input: Partial<ManualFiscalItemForm>) {
     setItems((currentItems) =>
-      currentItems.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, ...input } : item,
+      syncManualFiscalTotalAmount(
+        currentItems.map((item, itemIndex) =>
+          itemIndex === index ? { ...item, ...input } : item,
+        ),
       ),
     )
+  }
+
+  function syncManualFiscalTotalAmount(nextItems: ManualFiscalItemForm[]) {
+    setManualTotalAmount(manualFiscalItemsTotal(nextItems).toFixed(2))
+    return nextItems
   }
 
   function selectProduct(index: number, product: Product | null) {
@@ -545,6 +585,23 @@ export function ManualFiscalDocumentPage({
     }))
   }
 
+  function selectRegisteredClient(client: Client | null) {
+    if (!client) {
+      setLookupValues({})
+      setClientPersonType('PJ')
+      setClientStateRegistrationIndicator('9')
+      setLookupState('idle')
+      return
+    }
+
+    setLookupValues(manualFiscalRegisteredClientValues(client))
+    setClientPersonType(client.personType)
+    setClientStateRegistrationIndicator(
+      client.stateRegistrationIndicator ?? '9',
+    )
+    setLookupState('success')
+  }
+
   function submitManualFiscalDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
@@ -575,7 +632,7 @@ export function ManualFiscalDocumentPage({
         <form className='grid gap-4' onSubmit={submitManualFiscalDocument}>
           <div className='grid gap-3 md:grid-cols-3'>
             <TextField
-              defaultValue='RETURN'
+              defaultValue={sourceValues.purpose}
               label='Finalidade'
               name='manualFiscalPurpose'
               select
@@ -584,7 +641,7 @@ export function ManualFiscalDocumentPage({
               <MenuItem value='NORMAL'>Normal</MenuItem>
             </TextField>
             <TextField
-              defaultValue='ENTRY'
+              defaultValue={sourceValues.operationType}
               label='Tipo da nota'
               name='manualFiscalOperationType'
               select
@@ -592,21 +649,44 @@ export function ManualFiscalDocumentPage({
               <MenuItem value='ENTRY'>Entrada</MenuItem>
               <MenuItem value='EXIT'>Saída</MenuItem>
             </TextField>
-            <TextField
-              defaultValue='Devolucao de mercadoria'
-              label='Natureza da operação'
-              name='manualFiscalNatureOperation'
-              required
+            <Autocomplete
+              getOptionLabel={(option) =>
+                `${option.codes} - ${option.label}`
+              }
+              isOptionEqualToValue={(option, value) =>
+                option.value === value.value
+              }
+              noOptionsText='Nenhuma operação encontrada'
+              options={manualFiscalOperationOptions}
+              value={selectedNatureOperation}
+              onChange={(_event, option) => {
+                setSelectedNatureOperation(option)
+                setNatureOperation(option?.value ?? '')
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label='Natureza da operação'
+                  required
+                  size='medium'
+                />
+              )}
             />
           </div>
+          <input
+            name='manualFiscalNatureOperation'
+            type='hidden'
+            value={natureOperation}
+          />
           <TextField
             helperText='Obrigatória para devolução.'
             label='Chave da NF-e referenciada'
             name='manualFiscalReferencedAccessKey'
+            defaultValue={sourceValues.referencedAccessKey}
           />
           <div className='grid gap-3 md:grid-cols-3'>
             <TextField
-              defaultValue='1'
+              defaultValue={sourceValues.transportedVolumesQuantity}
               label='Quantidade de volumes'
               name='manualFiscalTransportedVolumesQuantity'
               required
@@ -617,6 +697,23 @@ export function ManualFiscalDocumentPage({
 
           <div className='grid gap-3 border-t border-[#e4e9e5] pt-4'>
             <strong className='text-[#2c281e]'>Destinatário / remetente</strong>
+            <Autocomplete
+              getOptionLabel={(client) =>
+                `${client.name}${client.document ? ` - ${client.document}` : ''}`
+              }
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              noOptionsText='Nenhum cliente encontrado'
+              options={activeClients}
+              value={selectedRegisteredClient}
+              onChange={(_event, client) => selectRegisteredClient(client)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label='Carregar cliente cadastrado'
+                  size='medium'
+                />
+              )}
+            />
             <div className='grid gap-3 md:grid-cols-3'>
               <TextField
                 label='Tipo'
@@ -804,7 +901,14 @@ export function ManualFiscalDocumentPage({
                 startIcon={<Plus size={16} />}
                 type='button'
                 variant='outlined'
-                onClick={() => setItems((currentItems) => [...currentItems, emptyManualFiscalItem()])}>
+                onClick={() =>
+                  setItems((currentItems) =>
+                    syncManualFiscalTotalAmount([
+                      ...currentItems,
+                      emptyManualFiscalItem(),
+                    ]),
+                  )
+                }>
                 Adicionar item
               </Button>
             </div>
@@ -821,7 +925,11 @@ export function ManualFiscalDocumentPage({
                     variant='text'
                     onClick={() =>
                       setItems((currentItems) =>
-                        currentItems.filter((_currentItem, itemIndex) => itemIndex !== index),
+                        syncManualFiscalTotalAmount(
+                          currentItems.filter(
+                            (_currentItem, itemIndex) => itemIndex !== index,
+                          ),
+                        ),
                       )
                     }>
                     Remover
@@ -917,10 +1025,36 @@ export function ManualFiscalDocumentPage({
           </div>
 
           <TextField
+            label='Valor total da nota'
+            name='manualFiscalTotalAmount'
+            type='number'
+            value={manualTotalAmount}
+            onChange={(event) => {
+              const value = event.target.value
+
+              setManualTotalEdited(true)
+              setItems((currentItems) =>
+                syncManualFiscalTotalAmount(
+                  applyManualFiscalTotalAmount(currentItems, Number(value || 0)),
+                ),
+              )
+            }}
+            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+          />
+          {manualTotalEdited ? (
+            <Alert severity='warning' variant='outlined'>
+              O valor total da nota foi alterado manualmente. Revise os itens,
+              valores unitários e descontos antes de pré-visualizar ou emitir,
+              pois a NF-e precisa manter o total igual à soma dos itens.
+            </Alert>
+          ) : null}
+
+          <TextField
             label='Observações no rodapé'
             multiline
             minRows={3}
             name='manualFiscalAdditionalInformation'
+            defaultValue={sourceValues.additionalInformation}
           />
           <div className='flex flex-wrap justify-end gap-2'>
             <Button name='manualFiscalAction' type='submit' value='preview' variant='outlined'>
@@ -952,6 +1086,163 @@ function emptyManualFiscalItem(): ManualFiscalItemForm {
     unitPrice: '',
     discountAmount: '0',
   }
+}
+
+const manualFiscalOperationOptions: ManualFiscalOperationOption[] = [
+  {
+    codes: '5.101 / 6.101',
+    label: 'Venda de produção do estabelecimento',
+    value: '5.101/6.101 - Venda producao estabelecimento',
+  },
+  {
+    codes: '5.102 / 6.102',
+    label: 'Venda de mercadoria adquirida de terceiros',
+    value: '5.102/6.102 - Venda mercadoria de terceiros',
+  },
+  {
+    codes: '5.401 / 6.401',
+    label: 'Venda de produção do estabelecimento (ST)',
+    value: '5.401/6.401 - Venda producao estabelecimento ST',
+  },
+  {
+    codes: '5.403 / 6.403',
+    label: 'Venda de mercadoria adquirida de terceiros (ST)',
+    value: '5.403/6.403 - Venda mercadoria terceiros ST',
+  },
+  {
+    codes: '5.115 / 6.115',
+    label: 'Venda de mercadoria recebida em consignação mercantil',
+    value: '5.115/6.115 - Venda mercadoria consignada',
+  },
+  {
+    codes: '5.201 / 6.201',
+    label: 'Devolução de compra para industrialização',
+    value: '5.201/6.201 - Devolucao compra industrializacao',
+  },
+  {
+    codes: '5.202 / 6.202',
+    label: 'Devolução de compra para comercialização',
+    value: '5.202/6.202 - Devolucao compra comercializacao',
+  },
+  {
+    codes: '5.411 / 6.411',
+    label: 'Devolução de compra para comercialização (ST)',
+    value: '5.411/6.411 - Devolucao compra comercializacao ST',
+  },
+  {
+    codes: '5.553 / 6.553',
+    label: 'Devolução de compra de bem para o ativo imobilizado',
+    value: '5.553/6.553 - Devolucao compra ativo imobilizado',
+  },
+  {
+    codes: '5.910 / 6.910',
+    label: 'Remessa em bonificação, doação ou brinde',
+    value: '5.910/6.910 - Remessa bonificacao/doacao/brinde',
+  },
+  {
+    codes: '5.911 / 6.911',
+    label: 'Remessa de amostra grátis',
+    value: '5.911/6.911 - Remessa amostra gratis',
+  },
+  {
+    codes: '5.915 / 6.915',
+    label: 'Remessa para conserto ou reparo',
+    value: '5.915/6.915 - Remessa conserto ou reparo',
+  },
+  {
+    codes: '5.917 / 6.917',
+    label: 'Remessa de mercadoria em consignação mercantil',
+    value: '5.917/6.917 - Remessa mercadoria consignacao',
+  },
+  {
+    codes: '5.949 / 6.949',
+    label: 'Outra saída de mercadoria ou serviço não especificado',
+    value: '5.949/6.949 - Outra saida nao especificada',
+  },
+  {
+    codes: '5.902 / 6.902',
+    label: 'Retorno de mercadoria recebida para industrialização',
+    value: '5.902/6.902 - Retorno industrializacao encomenda',
+  },
+  {
+    codes: '5.916 / 6.916',
+    label: 'Retorno de mercadoria recebida para conserto ou reparo',
+    value: '5.916/6.916 - Retorno conserto ou reparo',
+  },
+  {
+    codes: '5.921 / 6.921',
+    label: 'Retorno de vasilhame ou embalagem',
+    value: '5.921/6.921 - Retorno vasilhame ou embalagem',
+  },
+  {
+    codes: '1.101 / 2.101',
+    label: 'Compra para industrialização',
+    value: '1.101/2.101 - Compra industrializacao',
+  },
+  {
+    codes: '1.102 / 2.102',
+    label: 'Compra para comercialização',
+    value: '1.102/2.102 - Compra comercializacao',
+  },
+  {
+    codes: '1.403 / 2.403',
+    label: 'Compra para comercialização (ST)',
+    value: '1.403/2.403 - Compra comercializacao ST',
+  },
+  {
+    codes: '1.556 / 2.556',
+    label: 'Compra de material para uso ou consumo',
+    value: '1.556/2.556 - Compra uso ou consumo',
+  },
+  {
+    codes: '1.551 / 2.551',
+    label: 'Compra de bem para o ativo imobilizado',
+    value: '1.551/2.551 - Compra ativo imobilizado',
+  },
+  {
+    codes: '1.201 / 2.201',
+    label: 'Devolução de venda de produção do estabelecimento',
+    value: '1.201/2.201 - Devolucao venda producao',
+  },
+  {
+    codes: '1.202 / 2.202',
+    label: 'Devolução de venda de mercadoria adquirida de terceiros',
+    value: '1.202/2.202 - Devolucao venda mercadoria terceiros',
+  },
+  {
+    codes: '1.411 / 2.411',
+    label: 'Devolução de venda de mercadoria (ST)',
+    value: '1.411/2.411 - Devolucao venda mercadoria ST',
+  },
+  {
+    codes: '1.910 / 2.910',
+    label: 'Entrada de bonificação, doação ou brinde',
+    value: '1.910/2.910 - Entrada bonificacao/doacao/brinde',
+  },
+  {
+    codes: '1.915 / 2.915',
+    label: 'Entrada de mercadoria recebida para conserto ou reparo',
+    value: '1.915/2.915 - Entrada conserto ou reparo',
+  },
+  {
+    codes: '1.917 / 2.917',
+    label: 'Entrada de mercadoria recebida em consignação mercantil',
+    value: '1.917/2.917 - Entrada mercadoria consignacao',
+  },
+]
+
+function manualFiscalOperationOptionFromValue(value: string) {
+  return (
+    manualFiscalOperationOptions.find((option) => option.value === value) ??
+    manualFiscalOperationOptions.find((option) => option.label === value) ??
+    (value
+      ? {
+          codes: 'Anterior',
+          label: value,
+          value,
+        }
+      : null)
+  )
 }
 
 function manualFiscalDocumentInput(
@@ -1028,11 +1319,171 @@ function manualFiscalDocumentInput(
   }
 }
 
+function manualFiscalItemsTotal(items: ManualFiscalItemForm[]) {
+  return items.reduce((sum, item) => sum + manualFiscalItemTotal(item), 0)
+}
+
+function manualFiscalItemTotal(item: ManualFiscalItemForm) {
+  return Math.max(
+    0,
+    Number(item.quantity || 0) * Number(item.unitPrice || 0) -
+      Number(item.discountAmount || 0),
+  )
+}
+
+function applyManualFiscalTotalAmount(
+  items: ManualFiscalItemForm[],
+  targetAmount: number,
+) {
+  if (!Number.isFinite(targetAmount) || targetAmount < 0) {
+    return items
+  }
+
+  const targetCents = Math.round(targetAmount * 100)
+  const adjustableItems = items.filter((item) => Number(item.quantity || 0) > 0)
+
+  if (!adjustableItems.length) {
+    return items
+  }
+
+  const currentCents = items.reduce(
+    (sum, item) => sum + Math.round(manualFiscalItemTotal(item) * 100),
+    0,
+  )
+  let remainingCents = targetCents
+
+  return items.map((item) => {
+    const quantity = Number(item.quantity || 0)
+
+    if (quantity <= 0) {
+      return item
+    }
+
+    const isLastAdjustableItem = item === adjustableItems[adjustableItems.length - 1]
+    const itemCents = Math.round(manualFiscalItemTotal(item) * 100)
+    const nextItemCents = isLastAdjustableItem
+      ? remainingCents
+      : currentCents > 0
+        ? Math.round((targetCents * itemCents) / currentCents)
+        : 0
+    const discountAmount = Number(item.discountAmount || 0)
+    const unitPrice = Math.max(
+      0,
+      (nextItemCents / 100 + discountAmount) / quantity,
+    )
+
+    remainingCents -= nextItemCents
+
+    return {
+      ...item,
+      unitPrice: unitPrice.toFixed(2),
+    }
+  })
+}
+
 const manualFiscalLookupStatusLabel = {
   idle: 'Digite um CNPJ para buscar os dados.',
   loading: 'Consultando CNPJ...',
   success: 'Dados encontrados. Revise antes de emitir.',
   error: 'Não foi possível buscar este CNPJ.',
+}
+
+function manualFiscalDocumentFormValues(document?: FiscalDocument) {
+  const payload = document?.requestPayload ?? null
+  const sale = manualFiscalPayloadSale(payload)
+  const referencedAccessKey = Array.isArray(payload?.referencedAccessKeys)
+    ? stringPayloadValue(payload.referencedAccessKeys[0]) ?? ''
+    : ''
+  const transportedVolumesQuantity =
+    typeof payload?.transportedVolumesQuantity === 'number' &&
+    payload.transportedVolumesQuantity > 0
+      ? String(payload.transportedVolumesQuantity)
+      : '1'
+  const items = Array.isArray(sale?.items)
+    ? sale.items
+        .map((item) =>
+          typeof item === 'object' && item !== null
+            ? manualFiscalItemFromPayload(item as Record<string, unknown>)
+            : null,
+        )
+        .filter((item): item is ManualFiscalItemForm => Boolean(item))
+    : []
+
+  const formItems = items.length ? items : [emptyManualFiscalItem()]
+
+  return {
+    operationType:
+      payload?.operationType === 'EXIT' || payload?.operationType === 'ENTRY'
+        ? payload.operationType
+        : 'ENTRY',
+    purpose:
+      payload?.purpose === 'NORMAL' || payload?.purpose === 'RETURN'
+        ? payload.purpose
+        : 'RETURN',
+    natureOperation:
+      stringPayloadValue(payload?.defaultNatureOperation) ??
+      'Devolucao de mercadoria',
+    referencedAccessKey,
+    transportedVolumesQuantity,
+    additionalInformation: stringPayloadValue(payload?.additionalInformation) ?? '',
+    clientPersonType: manualFiscalClientPersonTypeValue(
+      stringPayloadValue(sale?.clientPersonType) ?? 'PJ',
+    ),
+    clientStateRegistrationIndicator:
+      manualFiscalClientStateRegistrationIndicatorValue(
+        stringPayloadValue(sale?.clientStateRegistrationIndicator) ?? '9',
+      ),
+    clientValues: {
+      manualFiscalClientAddressCity: stringPayloadValue(sale?.clientAddressCity),
+      manualFiscalClientAddressComplement: stringPayloadValue(
+        sale?.clientAddressComplement,
+      ),
+      manualFiscalClientAddressDistrict: stringPayloadValue(
+        sale?.clientAddressDistrict,
+      ),
+      manualFiscalClientAddressNumber: stringPayloadValue(
+        sale?.clientAddressNumber,
+      ),
+      manualFiscalClientAddressState: stringPayloadValue(sale?.clientAddressState),
+      manualFiscalClientAddressStreet: stringPayloadValue(
+        sale?.clientAddressStreet,
+      ),
+      manualFiscalClientAddressZipCode: stringPayloadValue(
+        sale?.clientAddressZipCode,
+      ),
+      manualFiscalClientDocument: stringPayloadValue(sale?.clientDocument),
+      manualFiscalClientEmail: stringPayloadValue(sale?.clientEmail),
+      manualFiscalClientName: stringPayloadValue(sale?.clientName),
+      manualFiscalClientPhone: stringPayloadValue(sale?.clientPhone),
+      manualFiscalClientStateRegistration: stringPayloadValue(
+        sale?.clientStateRegistration,
+      ),
+    },
+    items: formItems,
+    totalAmount: manualFiscalItemsTotal(formItems).toFixed(2),
+  }
+}
+
+function manualFiscalItemFromPayload(
+  item: Record<string, unknown>,
+): ManualFiscalItemForm {
+  const productId = stringPayloadValue(item.productId) ?? ''
+
+  return {
+    productId: productId.startsWith('manual-') ? '' : productId,
+    productInternalCode: stringPayloadValue(item.productInternalCode) ?? '',
+    productName: stringPayloadValue(item.productName) ?? '',
+    productNcm: stringPayloadValue(item.productNcm) ?? '',
+    productCfop: stringPayloadValue(item.productCfop) ?? '',
+    productIcmsCst: stringPayloadValue(item.productIcmsCst) ?? '',
+    productPisCst: stringPayloadValue(item.productPisCst) ?? '',
+    productCofinsCst: stringPayloadValue(item.productCofinsCst) ?? '',
+    productOrigin: stringPayloadValue(item.productOrigin) ?? '0',
+    productUnit: stringPayloadValue(item.productUnit) ?? 'UN',
+    quantity: stringPayloadValue(item.quantity) ?? '1',
+    unitPrice: stringPayloadValue(item.unitPrice) ?? '0',
+    discountAmount: stringPayloadValue(item.discountAmount) ?? '0',
+  }
 }
 
 function manualFiscalClientLookupValues(company: ClientCompanyLookup) {
@@ -1049,6 +1500,23 @@ function manualFiscalClientLookupValues(company: ClientCompanyLookup) {
     manualFiscalClientName: company.name,
     manualFiscalClientPhone: company.phone,
     manualFiscalClientStateRegistration: company.stateRegistration,
+  }
+}
+
+function manualFiscalRegisteredClientValues(client: Client) {
+  return {
+    manualFiscalClientAddressCity: client.addressCity,
+    manualFiscalClientAddressComplement: client.addressComplement,
+    manualFiscalClientAddressDistrict: client.addressDistrict,
+    manualFiscalClientAddressNumber: client.addressNumber,
+    manualFiscalClientAddressState: client.addressState,
+    manualFiscalClientAddressStreet: client.addressStreet,
+    manualFiscalClientAddressZipCode: client.addressZipCode,
+    manualFiscalClientDocument: client.document,
+    manualFiscalClientEmail: client.email,
+    manualFiscalClientName: client.name,
+    manualFiscalClientPhone: client.phone,
+    manualFiscalClientStateRegistration: client.stateRegistration,
   }
 }
 
