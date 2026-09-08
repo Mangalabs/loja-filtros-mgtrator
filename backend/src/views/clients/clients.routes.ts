@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   changeClientStatus,
+  destroyClient,
   indexClients,
   lookupClientCompany,
   replaceClient,
@@ -96,6 +97,13 @@ clientsRoutes.patch("/clients/:id/status", async (request, response) => {
     requireActiveBranchId(response.locals),
     body.active,
   );
+
+  response.status(200).json(result);
+});
+
+clientsRoutes.delete("/clients/:id", async (request, response) => {
+  const { id } = clientParamsSchema.parse(request.params);
+  const result = await destroyClient(id, requireActiveBranchId(response.locals));
 
   response.status(200).json(result);
 });

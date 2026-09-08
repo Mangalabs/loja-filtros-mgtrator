@@ -959,6 +959,16 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return apiWrite<T>(path, "PATCH", body);
 }
 
+export async function apiDelete<T>(path: string): Promise<T> {
+  const response = await fetch(apiUrl(path), {
+    method: "DELETE",
+    credentials: "include",
+    headers: apiHeaders(),
+  });
+
+  return parseResponse<T>(response, path);
+}
+
 export async function downloadApiFile(path: string, filename: string) {
   const response = await fetch(apiUrl(path), {
     credentials: "include",

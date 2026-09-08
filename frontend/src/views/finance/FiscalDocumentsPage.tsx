@@ -1229,6 +1229,71 @@ const manualFiscalOperationOptions: ManualFiscalOperationOption[] = [
     label: 'Entrada de mercadoria recebida em consignação mercantil',
     value: '1.917/2.917 - Entrada mercadoria consignacao',
   },
+  {
+    codes: '7.101',
+    label: 'Venda de produção do estabelecimento para o exterior',
+    value: '7.101 - Venda producao para exterior',
+  },
+  {
+    codes: '7.102',
+    label: 'Venda de mercadoria adquirida de terceiros para o exterior',
+    value: '7.102 - Venda mercadoria terceiros exterior',
+  },
+  {
+    codes: '7.949',
+    label: 'Outra saída de mercadoria ou serviço não especificado para o exterior',
+    value: '7.949 - Outra saida exterior',
+  },
+  {
+    codes: '7.551',
+    label: 'Venda de bem do ativo imobilizado para o exterior',
+    value: '7.551 - Venda ativo imobilizado exterior',
+  },
+  {
+    codes: '7.910',
+    label: 'Remessa em bonificação, doação ou brinde para o exterior',
+    value: '7.910 - Remessa bonificacao/doacao/brinde exterior',
+  },
+  {
+    codes: '7.911',
+    label: 'Remessa de amostra grátis para o exterior',
+    value: '7.911 - Remessa amostra gratis exterior',
+  },
+  {
+    codes: '3.101',
+    label: 'Compra para industrialização',
+    value: '3.101 - Compra industrializacao',
+  },
+  {
+    codes: '3.102',
+    label: 'Compra para comercialização',
+    value: '3.102 - Compra comercializacao',
+  },
+  {
+    codes: '3.551',
+    label: 'Compra de bem para o ativo imobilizado',
+    value: '3.551 - Compra ativo imobilizado',
+  },
+  {
+    codes: '3.556',
+    label: 'Compra de material para uso ou consumo',
+    value: '3.556 - Compra uso ou consumo',
+  },
+  {
+    codes: '3.201',
+    label: 'Devolução de venda de produção do estabelecimento',
+    value: '3.201 - Devolucao venda producao',
+  },
+  {
+    codes: '3.202',
+    label: 'Devolução de venda de mercadoria adquirida de terceiros',
+    value: '3.202 - Devolucao venda mercadoria terceiros',
+  },
+  {
+    codes: '3.949',
+    label: 'Outra entrada de mercadoria ou serviço não especificado do exterior',
+    value: '3.949 - Outra entrada exterior',
+  },
 ]
 
 function manualFiscalOperationOptionFromValue(value: string) {

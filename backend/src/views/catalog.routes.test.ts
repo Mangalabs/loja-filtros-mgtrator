@@ -8190,6 +8190,62 @@ describe("catalog routes", () => {
     assert.equal(active.body.data?.length, 0);
   });
 
+  it("deletes clients without operational references", async () => {
+    const created = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente sem historico",
+        document: "32165498700",
+      },
+    });
+    const deleted = await request<Client>(`/clients/${created.body.data?.id}`, {
+      method: "DELETE",
+    });
+    const listed = await request<Client[]>("/clients?search=32165498700");
+
+    assert.equal(created.status, 201);
+    assert.equal(deleted.status, 200);
+    assert.equal(deleted.body.data?.id, created.body.data?.id);
+    assert.equal(listed.body.data?.length, 0);
+  });
+
+  it("blocks deleting clients with operational references", async () => {
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente com historico",
+        document: "32165498701",
+      },
+    });
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro cliente historico", salePrice: 80 },
+    });
+    const paymentMethod = await activePaymentMethod();
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+    const deleted = await request(`/clients/${client.body.data?.id}`, {
+      method: "DELETE",
+    });
+    const listed = await request<Client[]>("/clients?search=32165498701");
+
+    assert.equal(quote.status, 201);
+    assert.equal(deleted.status, 409);
+    assert.equal(
+      deleted.body.message,
+      "Cliente possui movimentacoes vinculadas. Inative o cadastro para preservar o historico.",
+    );
+    assert.equal(listed.body.data?.length, 1);
+  });
+
   it("preserves state registration for individual ICMS taxpayers", async () => {
     const created = await request<Client>("/clients", {
       method: "POST",

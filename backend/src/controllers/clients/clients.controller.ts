@@ -1,6 +1,8 @@
 import { lookupCompanyByCnpj } from "../../integrations/company-registry/brasilapi-cnpj.js";
 import {
   createClient,
+  clientHasOperationalReferences,
+  deleteClient,
   listClients,
   updateClient,
   updateClientStatus,
@@ -99,6 +101,27 @@ export async function changeClientStatus(
   active: boolean,
 ) {
   const client = await updateClientStatus(id, branchId, active);
+
+  if (!client) {
+    throw new AppError("Client not found", 404);
+  }
+
+  return {
+    code: 200,
+    status: "success",
+    data: client,
+  };
+}
+
+export async function destroyClient(id: string, branchId: string) {
+  if (await clientHasOperationalReferences(id, branchId)) {
+    throw new AppError(
+      "Cliente possui movimentacoes vinculadas. Inative o cadastro para preservar o historico.",
+      409,
+    );
+  }
+
+  const client = await deleteClient(id, branchId);
 
   if (!client) {
     throw new AppError("Client not found", 404);

@@ -590,6 +590,7 @@ export function AppViewRenderer({
           onChangeStatus={(client) =>
             void catalogActions.changeClientStatus(client)
           }
+          onDelete={(client) => void catalogActions.deleteClient(client)}
         />
       ),
     suppliers: (

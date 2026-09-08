@@ -8,6 +8,7 @@ import {
   Power,
   PowerOff,
   Tags,
+  Trash2,
   Truck,
   UserRound,
   X,
@@ -811,6 +812,7 @@ export function ClientsPage({
   onEdit,
   onCancel,
   onChangeStatus,
+  onDelete,
 }: {
   clients: Client[]
   selectedClient?: Client
@@ -819,6 +821,7 @@ export function ClientsPage({
   onEdit: (client: Client) => void
   onCancel: () => void
   onChangeStatus: (client: Client) => void
+  onDelete: (client: Client) => void
 }) {
   const [clientSearch, setClientSearch] = useState('')
   const [clientStatusFilter, setClientStatusFilter] =
@@ -1175,6 +1178,7 @@ export function ClientsPage({
                       <ClientActionsMenu
                         client={client}
                         onChangeStatus={onChangeStatus}
+                        onDelete={onDelete}
                         onEdit={onEdit}
                       />
                     </div>
@@ -1216,6 +1220,7 @@ export function ClientsPage({
                   <ClientActionsMenu
                     client={client}
                     onChangeStatus={onChangeStatus}
+                    onDelete={onDelete}
                     onEdit={onEdit}
                   />
                 </div>
@@ -1236,10 +1241,12 @@ function ClientActionsMenu({
   client,
   onEdit,
   onChangeStatus,
+  onDelete,
 }: {
   client: Client
   onEdit: (client: Client) => void
   onChangeStatus: (client: Client) => void
+  onDelete: (client: Client) => void
 }) {
   return (
     <TableActionsMenu
@@ -1253,6 +1260,11 @@ function ClientActionsMenu({
           icon: client.active ? <PowerOff size={14} /> : <Power size={14} />,
           label: client.active ? 'Inativar' : 'Ativar',
           onSelect: () => onChangeStatus(client),
+        },
+        {
+          icon: <Trash2 size={14} />,
+          label: 'Excluir',
+          onSelect: () => onDelete(client),
         },
       ]}
     />

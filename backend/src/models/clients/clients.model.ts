@@ -127,6 +127,39 @@ export async function updateClientStatus(
   return updated ? findClientById(updated.id) : undefined;
 }
 
+export async function clientHasOperationalReferences(
+  id: string,
+  branchId: string,
+) {
+  const references = await Promise.all([
+    db("sales").where({ client_id: id, branch_id: branchId }).first("id"),
+    db("quotes").where({ client_id: id, branch_id: branchId }).first("id"),
+    db("shipping_orders").where({ client_id: id, branch_id: branchId }).first("id"),
+    db("pickup_reservations")
+      .where({ client_id: id, branch_id: branchId })
+      .first("id"),
+  ]);
+
+  return references.some(Boolean);
+}
+
+export async function deleteClient(
+  id: string,
+  branchId: string,
+): Promise<Client | undefined> {
+  const client = await clientsQuery()
+    .where({ "clients.id": id, "clients.branch_id": branchId })
+    .first();
+
+  if (!client) {
+    return undefined;
+  }
+
+  await db("clients").where({ id, branch_id: branchId }).delete();
+
+  return client;
+}
+
 function toDatabaseInput(input: ClientInput) {
   return {
     branch_id: input.branchId,

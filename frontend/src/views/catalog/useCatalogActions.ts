@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import {
+  apiDelete,
   apiGet,
   apiPatch,
   apiPost,
@@ -213,6 +214,23 @@ export function useCatalogActions({
     });
   }
 
+  async function deleteClient(client: Client) {
+    const confirmed = await requestConfirmation(
+      `Excluir definitivamente o cliente "${client.name}"? Esta acao so sera permitida se ele nao tiver vendas, orcamentos, pedidos ou reservas vinculadas.`,
+      "Excluir cliente?",
+      "Excluir",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiDelete(`/clients/${client.id}`);
+      await refreshCatalogFlow();
+    });
+  }
+
   function editProduct(product: Product) {
     setSelectedProduct(product);
     showEditProduct();
@@ -224,6 +242,7 @@ export function useCatalogActions({
     createNamedEntity,
     createProduct,
     createSupplier,
+    deleteClient,
     editProduct,
     lookupClientCompany,
     saveClient,
