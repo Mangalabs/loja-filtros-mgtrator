@@ -233,6 +233,8 @@ const billablePaymentMethodCodes = new Set(["BOLETO", "CREDIT"]);
 type SaleItemStockRow = {
   productId: string;
   quantity: string;
+  unitPrice: string;
+  position: number;
 };
 
 export async function listSales(filters: { branchId: string }): Promise<Sale[]> {
@@ -295,8 +297,14 @@ export async function listSaleItemsForStockCorrection(
   saleId: string,
 ): Promise<SaleItemStockRow[]> {
   return transaction("sale_items")
-    .select(["product_id as productId", "quantity"])
-    .where("sale_id", saleId);
+    .select([
+      "product_id as productId",
+      "quantity",
+      "unit_price as unitPrice",
+      "position",
+    ])
+    .where("sale_id", saleId)
+    .orderBy("position", "asc");
 }
 
 export async function saleHasLinkedOperation(

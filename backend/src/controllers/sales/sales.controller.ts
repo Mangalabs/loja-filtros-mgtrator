@@ -295,8 +295,10 @@ export async function updateOpenSale(
       position: number;
       availableStock: number;
     }> = [];
+    const currentItems = await listSaleItemsForStockCorrection(transaction, id);
 
     for (const [index, item] of input.items.entries()) {
+      const position = index + 1;
       const product = await lockSaleProduct(
         transaction,
         item.productId,
@@ -307,20 +309,23 @@ export async function updateOpenSale(
         throw new AppError("Produto informado nao disponivel para venda.", 422);
       }
 
+      const currentItem = currentItems.find(
+        (saleItem) =>
+          saleItem.position === position && saleItem.productId === item.productId,
+      );
+      const unitPrice = Number(currentItem?.unitPrice ?? product.salePrice);
+
       saleItems.push({
         productId: item.productId,
         quantity: item.quantity,
-        unitPrice: Number(product.salePrice),
-        totalAmount: Number(
-          (Number(product.salePrice) * item.quantity).toFixed(2),
-        ),
-        position: index + 1,
+        unitPrice,
+        totalAmount: Number((unitPrice * item.quantity).toFixed(2)),
+        position,
         availableStock:
           Number(product.currentStock) - Number(product.reservedStock),
       });
     }
 
-    const currentItems = await listSaleItemsForStockCorrection(transaction, id);
     const stockChanges = saleStockCorrectionChanges(currentItems, saleItems);
 
     for (const item of aggregateSaleItemsWithStock(saleItems)) {

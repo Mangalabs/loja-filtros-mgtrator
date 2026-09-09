@@ -5,17 +5,22 @@ import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import { ChevronDown, FileText, Plus, Trash2 } from 'lucide-react'
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import type {
   Client,
   ClientCompanyLookup,
+  CommercialSettings,
   FiscalDocument,
   FiscalSettings,
+  ManualFiscalDocumentDraft,
   ManualFiscalDocumentInput,
+  PaymentMethod,
   PickupReservation,
   Product,
   Sale,
@@ -80,7 +85,10 @@ export function FiscalDocumentsPage({
     reservation: PickupReservation,
     additionalInformation?: string,
   ) => void
-  onIssueSaleFiscalDocument: (sale: Sale, additionalInformation?: string) => void
+  onIssueSaleFiscalDocument: (
+    sale: Sale,
+    additionalInformation?: string,
+  ) => void
   onIssueShippingOrderFiscalDocument: (
     order: ShippingOrder,
     additionalInformation?: string,
@@ -120,10 +128,10 @@ export function FiscalDocumentsPage({
     [fiscalRequests, requestReadinessFilter, requestSearch],
   )
   const { pagination: requestPagination, visibleItems: visibleFiscalRequests } =
-    usePaginatedRows<FiscalRequest>(filteredFiscalRequests, [
-      requestReadinessFilter,
-      requestSearch,
-    ].join('|'))
+    usePaginatedRows<FiscalRequest>(
+      filteredFiscalRequests,
+      [requestReadinessFilter, requestSearch].join('|'),
+    )
 
   return (
     <section className='grid min-w-0 gap-4'>
@@ -300,10 +308,10 @@ export function IssuedFiscalDocumentsPage({
   const {
     pagination: documentPagination,
     visibleItems: visibleFiscalDocuments,
-  } = usePaginatedRows<FiscalDocument>(filteredFiscalDocuments, [
-    documentSearch,
-    documentStatusFilter,
-  ].join('|'))
+  } = usePaginatedRows<FiscalDocument>(
+    filteredFiscalDocuments,
+    [documentSearch, documentStatusFilter].join('|'),
+  )
 
   return (
     <section className='grid min-w-0 gap-4'>
@@ -466,22 +474,52 @@ type ManualFiscalOperationOption = {
   value: string
 }
 
+type ManualFiscalPaymentForm = {
+  paymentMethodCode: string
+  paymentMethodName: string
+  amount: string
+}
+
+type ManualFiscalPaymentInstallmentForm = {
+  dueDate: string
+  amount: string
+}
+
 export function ManualFiscalDocumentPage({
   clients,
+  commercialSettings,
+  manualFiscalDocumentDrafts,
+  paymentMethods,
   products,
+  sourceDraft,
   sourceFiscalDocument,
+  onDeleteManualFiscalDocumentDraft,
   onIssueManualFiscalDocument,
   onLookupCompany,
+  onOpenManualFiscalDocumentDraft,
   onPreviewManualFiscalDocument,
+  onSaveManualFiscalDocumentDraft,
 }: {
   clients: Client[]
+  commercialSettings: CommercialSettings | null
+  manualFiscalDocumentDrafts: ManualFiscalDocumentDraft[]
+  paymentMethods: PaymentMethod[]
   products: Product[]
+  sourceDraft?: ManualFiscalDocumentDraft
   sourceFiscalDocument?: FiscalDocument
+  onDeleteManualFiscalDocumentDraft: (draft: ManualFiscalDocumentDraft) => void
   onIssueManualFiscalDocument: (input: ManualFiscalDocumentInput) => void
   onLookupCompany: (cnpj: string) => Promise<ClientCompanyLookup>
+  onOpenManualFiscalDocumentDraft: (draft: ManualFiscalDocumentDraft) => void
   onPreviewManualFiscalDocument: (input: ManualFiscalDocumentInput) => void
+  onSaveManualFiscalDocumentDraft: (
+    input: ManualFiscalDocumentInput,
+    draft?: ManualFiscalDocumentDraft,
+  ) => void
 }) {
-  const sourceValues = manualFiscalDocumentFormValues(sourceFiscalDocument)
+  const sourceValues = sourceDraft
+    ? manualFiscalDocumentDraftFormValues(sourceDraft.payload)
+    : manualFiscalDocumentFormValues(sourceFiscalDocument)
   const [items, setItems] = useState<ManualFiscalItemForm[]>([
     ...sourceValues.items,
   ])
@@ -489,6 +527,27 @@ export function ManualFiscalDocumentPage({
     sourceValues.totalAmount,
   )
   const [manualTotalEdited, setManualTotalEdited] = useState(false)
+  const [manualBillingEnabled, setManualBillingEnabled] = useState(
+    sourceValues.billingEnabled,
+  )
+  const [manualBillingIssueDate, setManualBillingIssueDate] = useState(
+    sourceValues.billingIssueDate || todayInputDate(),
+  )
+  const [manualBillingDueDate, setManualBillingDueDate] = useState(
+    sourceValues.billingDueDate ||
+      manualFiscalDueDate(
+        sourceValues.billingIssueDate || todayInputDate(),
+        commercialSettings,
+      ),
+  )
+  const [manualBillingDueDateTouched, setManualBillingDueDateTouched] =
+    useState(Boolean(sourceValues.billingDueDate))
+  const [manualPayments, setManualPayments] = useState<
+    ManualFiscalPaymentForm[]
+  >([...sourceValues.payments])
+  const [manualPaymentInstallments, setManualPaymentInstallments] = useState<
+    ManualFiscalPaymentInstallmentForm[]
+  >([...sourceValues.paymentInstallments])
   const [selectedNatureOperation, setSelectedNatureOperation] =
     useState<ManualFiscalOperationOption | null>(
       manualFiscalOperationOptionFromValue(sourceValues.natureOperation),
@@ -496,16 +555,17 @@ export function ManualFiscalDocumentPage({
   const [natureOperation, setNatureOperation] = useState(
     sourceValues.natureOperation,
   )
-  const [clientPersonType, setClientPersonType] =
-    useState<ManualFiscalDocumentInput['client']['personType']>(
-      sourceValues.clientPersonType,
-    )
+  const [clientPersonType, setClientPersonType] = useState<
+    ManualFiscalDocumentInput['client']['personType']
+  >(sourceValues.clientPersonType)
   const [
     clientStateRegistrationIndicator,
     setClientStateRegistrationIndicator,
-  ] = useState<NonNullable<ManualFiscalDocumentInput['client']['stateRegistrationIndicator']>>(
-    sourceValues.clientStateRegistrationIndicator,
-  )
+  ] = useState<
+    NonNullable<
+      ManualFiscalDocumentInput['client']['stateRegistrationIndicator']
+    >
+  >(sourceValues.clientStateRegistrationIndicator)
   const [lookupState, setLookupState] = useState<
     'idle' | 'loading' | 'success' | 'error'
   >('idle')
@@ -513,6 +573,31 @@ export function ManualFiscalDocumentPage({
     Record<string, string | null>
   >(sourceValues.clientValues)
   const activeClients = clients.filter((client) => client.active)
+  const activePaymentMethods = paymentMethods.filter(
+    (method) => method.active && method.code !== 'TO_AGREE',
+  )
+  const manualPaymentsTotal = manualFiscalPaymentsTotal(
+    manualPayments,
+    Number(manualTotalAmount || 0),
+  )
+  const manualBillablePaymentsTotal = manualFiscalBillablePaymentsTotal(
+    manualPayments,
+    activePaymentMethods,
+    Number(manualTotalAmount || 0),
+  )
+  const manualInstallmentsTotal = manualFiscalInstallmentsTotal(
+    manualPaymentInstallments,
+  )
+  const manualPaymentDifference = Number(
+    (manualPaymentsTotal - Number(manualTotalAmount || 0)).toFixed(2),
+  )
+  const manualInstallmentDifference = Number(
+    (manualInstallmentsTotal - manualBillablePaymentsTotal).toFixed(2),
+  )
+  const manualAllowsBilling = manualFiscalPaymentsAllowBilling(
+    manualPayments,
+    activePaymentMethods,
+  )
   const selectedRegisteredClient =
     activeClients.find(
       (client) =>
@@ -520,6 +605,67 @@ export function ManualFiscalDocumentPage({
         onlyDigits(client.document) ===
           onlyDigits(clientFieldValue('manualFiscalClientDocument')),
     ) ?? null
+
+  useEffect(() => {
+    if (manualAllowsBilling) {
+      if (manualBillingEnabled && manualPaymentInstallments.length === 0) {
+        setManualPaymentInstallments([
+          defaultManualFiscalInstallment(
+            manualBillingDueDate,
+            manualBillablePaymentsTotal,
+          ),
+        ])
+      }
+      return
+    }
+
+    setManualBillingEnabled(false)
+    setManualPaymentInstallments([])
+  }, [
+    manualAllowsBilling,
+    manualBillingDueDate,
+    manualBillingEnabled,
+    manualBillablePaymentsTotal,
+    manualPaymentInstallments.length,
+  ])
+
+  useEffect(() => {
+    if (manualBillingDueDateTouched) {
+      return
+    }
+
+    setManualBillingDueDate(
+      manualFiscalDueDate(manualBillingIssueDate, commercialSettings),
+    )
+  }, [
+    commercialSettings?.defaultQuoteDueDays,
+    manualBillingDueDateTouched,
+    manualBillingIssueDate,
+  ])
+
+  useEffect(() => {
+    if (!manualBillingEnabled || manualPaymentInstallments.length === 0) {
+      return
+    }
+
+    setManualPaymentInstallments((currentInstallments) =>
+      currentInstallments.map((installment, index) => {
+        if (index > 0 || installment.dueDate || installment.amount) {
+          return installment
+        }
+
+        return defaultManualFiscalInstallment(
+          manualBillingDueDate,
+          manualBillablePaymentsTotal,
+        )
+      }),
+    )
+  }, [
+    manualBillingDueDate,
+    manualBillingEnabled,
+    manualBillablePaymentsTotal,
+    manualPaymentInstallments.length,
+  ])
 
   function updateItem(index: number, input: Partial<ManualFiscalItemForm>) {
     setItems((currentItems) =>
@@ -602,6 +748,41 @@ export function ManualFiscalDocumentPage({
     setLookupState('success')
   }
 
+  function updateManualPayment(
+    index: number,
+    changes: Partial<ManualFiscalPaymentForm>,
+  ) {
+    setManualPayments((currentPayments) =>
+      currentPayments.map((payment, paymentIndex) =>
+        paymentIndex === index ? { ...payment, ...changes } : payment,
+      ),
+    )
+  }
+
+  function selectManualPaymentMethod(index: number, methodCode: string) {
+    const method = activePaymentMethods.find(
+      (paymentMethod) => paymentMethod.code === methodCode,
+    )
+
+    updateManualPayment(index, {
+      paymentMethodCode: method?.code ?? '',
+      paymentMethodName: method?.name ?? '',
+    })
+  }
+
+  function updateManualInstallment(
+    index: number,
+    changes: Partial<ManualFiscalPaymentInstallmentForm>,
+  ) {
+    setManualPaymentInstallments((currentInstallments) =>
+      currentInstallments.map((installment, installmentIndex) =>
+        installmentIndex === index
+          ? { ...installment, ...changes }
+          : installment,
+      ),
+    )
+  }
+
   function submitManualFiscalDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
@@ -611,7 +792,19 @@ export function ManualFiscalDocumentPage({
         : null
     const action =
       submitter instanceof HTMLButtonElement ? submitter.value : 'preview'
-    const input = manualFiscalDocumentInput(form, items)
+    const input = manualFiscalDocumentInput(
+      form,
+      items,
+      manualPayments,
+      manualPaymentInstallments,
+      activePaymentMethods,
+      Number(manualTotalAmount || 0),
+    )
+
+    if (action === 'draft') {
+      onSaveManualFiscalDocumentDraft(input, sourceDraft)
+      return
+    }
 
     if (action === 'issue') {
       onIssueManualFiscalDocument(input)
@@ -629,16 +822,54 @@ export function ManualFiscalDocumentPage({
           icon={<FileText size={18} />}
           title='NF-e avulsa / devolução'
         />
+        <div className='grid gap-3 pb-4'>
+          <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]'>
+            <Autocomplete
+              getOptionLabel={(draft) =>
+                `${draft.title} - ${formatDateTime(draft.updatedAt)}`
+              }
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              noOptionsText='Nenhum rascunho salvo'
+              options={manualFiscalDocumentDrafts}
+              value={sourceDraft ?? null}
+              onChange={(_event, draft) => {
+                if (draft) {
+                  onOpenManualFiscalDocumentDraft(draft)
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label='Carregar rascunho'
+                  size='medium'
+                />
+              )}
+            />
+            {sourceDraft ? (
+              <Button
+                color='error'
+                type='button'
+                variant='outlined'
+                onClick={() => onDeleteManualFiscalDocumentDraft(sourceDraft)}>
+                Excluir rascunho
+              </Button>
+            ) : null}
+          </div>
+        </div>
         <form className='grid gap-4' onSubmit={submitManualFiscalDocument}>
-          <div className='grid gap-3 md:grid-cols-3'>
+          <div className='grid gap-3 md:grid-cols-4'>
             <TextField
               defaultValue={sourceValues.purpose}
               label='Finalidade'
               name='manualFiscalPurpose'
               select
               required>
-              <MenuItem value='RETURN'>Devolução</MenuItem>
-              <MenuItem value='NORMAL'>Normal</MenuItem>
+              <MenuItem value='NORMAL'>NF-e normal</MenuItem>
+              <MenuItem value='COMPLEMENTARY'>NF-e complementar</MenuItem>
+              <MenuItem value='ADJUSTMENT'>NF-e de ajuste</MenuItem>
+              <MenuItem value='RETURN'>Devolução de mercadoria</MenuItem>
+              <MenuItem value='CREDIT_NOTE'>Nota de crédito</MenuItem>
+              <MenuItem value='DEBIT_NOTE'>Nota de débito</MenuItem>
             </TextField>
             <TextField
               defaultValue={sourceValues.operationType}
@@ -649,10 +880,18 @@ export function ManualFiscalDocumentPage({
               <MenuItem value='ENTRY'>Entrada</MenuItem>
               <MenuItem value='EXIT'>Saída</MenuItem>
             </TextField>
+            <TextField
+              defaultValue={sourceValues.destinationOperation}
+              label='Destino da operação'
+              name='manualFiscalDestinationOperation'
+              select
+              required>
+              <MenuItem value='INTERNAL'>Operação interna</MenuItem>
+              <MenuItem value='INTERSTATE'>Operação interestadual</MenuItem>
+              <MenuItem value='EXTERIOR'>Operação com exterior</MenuItem>
+            </TextField>
             <Autocomplete
-              getOptionLabel={(option) =>
-                `${option.codes} - ${option.label}`
-              }
+              getOptionLabel={(option) => `${option.codes} - ${option.label}`}
               isOptionEqualToValue={(option, value) =>
                 option.value === value.value
               }
@@ -735,7 +974,10 @@ export function ManualFiscalDocumentPage({
                 name='manualFiscalClientName'
                 value={clientFieldValue('manualFiscalClientName')}
                 onChange={(event) =>
-                  updateClientField('manualFiscalClientName', event.target.value)
+                  updateClientField(
+                    'manualFiscalClientName',
+                    event.target.value,
+                  )
                 }
                 required
               />
@@ -796,7 +1038,10 @@ export function ManualFiscalDocumentPage({
                 name='manualFiscalClientPhone'
                 value={clientFieldValue('manualFiscalClientPhone')}
                 onChange={(event) =>
-                  updateClientField('manualFiscalClientPhone', event.target.value)
+                  updateClientField(
+                    'manualFiscalClientPhone',
+                    event.target.value,
+                  )
                 }
               />
               <TextField
@@ -805,7 +1050,10 @@ export function ManualFiscalDocumentPage({
                 type='email'
                 value={clientFieldValue('manualFiscalClientEmail')}
                 onChange={(event) =>
-                  updateClientField('manualFiscalClientEmail', event.target.value)
+                  updateClientField(
+                    'manualFiscalClientEmail',
+                    event.target.value,
+                  )
                 }
               />
               <TextField
@@ -948,58 +1196,71 @@ export function ManualFiscalDocumentPage({
                     label='Descrição'
                     required
                     value={item.productName}
-                    onChange={(event) => updateItem(index, { productName: event.target.value })}
+                    onChange={(event) =>
+                      updateItem(index, { productName: event.target.value })
+                    }
                   />
                   <TextField
                     label='Código'
                     value={item.productInternalCode}
                     onChange={(event) =>
-                      updateItem(index, { productInternalCode: event.target.value })
+                      updateItem(index, {
+                        productInternalCode: event.target.value,
+                      })
                     }
                   />
                   <TextField
                     label='NCM'
                     value={item.productNcm}
-                    onChange={(event) => updateItem(index, { productNcm: event.target.value })}
-                  />
-                  <TextField
-                    label='CFOP'
-                    value={item.productCfop}
-                    onChange={(event) => updateItem(index, { productCfop: event.target.value })}
+                    onChange={(event) =>
+                      updateItem(index, { productNcm: event.target.value })
+                    }
                   />
                   <TextField
                     label='Origem'
                     value={item.productOrigin}
-                    onChange={(event) => updateItem(index, { productOrigin: event.target.value })}
+                    onChange={(event) =>
+                      updateItem(index, { productOrigin: event.target.value })
+                    }
                   />
                   <TextField
                     label='CST ICMS'
                     value={item.productIcmsCst}
-                    onChange={(event) => updateItem(index, { productIcmsCst: event.target.value })}
+                    onChange={(event) =>
+                      updateItem(index, { productIcmsCst: event.target.value })
+                    }
                   />
                   <TextField
                     label='CST PIS'
                     value={item.productPisCst}
-                    onChange={(event) => updateItem(index, { productPisCst: event.target.value })}
+                    onChange={(event) =>
+                      updateItem(index, { productPisCst: event.target.value })
+                    }
                   />
                   <TextField
                     label='CST COFINS'
                     value={item.productCofinsCst}
                     onChange={(event) =>
-                      updateItem(index, { productCofinsCst: event.target.value })
+                      updateItem(index, {
+                        productCofinsCst: event.target.value,
+                      })
                     }
                   />
                   <TextField
                     label='Unidade'
                     value={item.productUnit}
-                    onChange={(event) => updateItem(index, { productUnit: event.target.value })}
+                    onChange={(event) =>
+                      updateItem(index, { productUnit: event.target.value })
+                    }
                   />
                   <TextField
                     label='Quantidade'
                     required
                     type='number'
                     value={item.quantity}
-                    onChange={(event) => updateItem(index, { quantity: event.target.value })}
+                    onChange={(event) =>
+                      updateItem(index, { quantity: event.target.value })
+                    }
                     slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
                   />
                   <TextField
@@ -1007,7 +1268,9 @@ export function ManualFiscalDocumentPage({
                     required
                     type='number'
                     value={item.unitPrice}
-                    onChange={(event) => updateItem(index, { unitPrice: event.target.value })}
+                    onChange={(event) =>
+                      updateItem(index, { unitPrice: event.target.value })
+                    }
                     slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
                   />
                   <TextField
@@ -1035,7 +1298,10 @@ export function ManualFiscalDocumentPage({
               setManualTotalEdited(true)
               setItems((currentItems) =>
                 syncManualFiscalTotalAmount(
-                  applyManualFiscalTotalAmount(currentItems, Number(value || 0)),
+                  applyManualFiscalTotalAmount(
+                    currentItems,
+                    Number(value || 0),
+                  ),
                 ),
               )
             }}
@@ -1049,6 +1315,204 @@ export function ManualFiscalDocumentPage({
             </Alert>
           ) : null}
 
+          <div className='grid gap-3 border-t border-[#e4e9e5] pt-4'>
+            <div className='flex flex-wrap items-center justify-between gap-2'>
+              <strong className='text-[#2c281e]'>
+                Pagamento e faturamento
+              </strong>
+              <Button
+                startIcon={<Plus size={16} />}
+                type='button'
+                variant='outlined'
+                onClick={() =>
+                  setManualPayments((currentPayments) => [
+                    ...currentPayments,
+                    emptyManualFiscalPayment(),
+                  ])
+                }>
+                Adicionar forma
+              </Button>
+            </div>
+            {manualPayments.map((payment, index) => (
+              <div
+                className='grid gap-3 rounded-lg border border-[#e4e9e5] bg-[#fbfcfb] p-3 md:grid-cols-[minmax(0,1fr)_180px_auto]'
+                key={index}>
+                <TextField
+                  label={`Pagamento ${index + 1}`}
+                  select
+                  value={payment.paymentMethodCode}
+                  onChange={(event) =>
+                    selectManualPaymentMethod(index, event.target.value)
+                  }
+                  required>
+                  <MenuItem value='' disabled>
+                    Pagamento
+                  </MenuItem>
+                  {activePaymentMethods.map((method) => (
+                    <MenuItem key={method.id} value={method.code}>
+                      {method.name}
+                    </MenuItem>
+                  ))}
+                  <MenuItem value='NO_PAYMENT'>Sem pagamento</MenuItem>
+                </TextField>
+                <TextField
+                  helperText={
+                    manualPayments.length === 1 && index === 0
+                      ? 'Vazio usa o total.'
+                      : undefined
+                  }
+                  label='Valor'
+                  type='number'
+                  value={payment.amount}
+                  onChange={(event) =>
+                    updateManualPayment(index, { amount: event.target.value })
+                  }
+                  slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+                />
+                <Button
+                  disabled={manualPayments.length === 1}
+                  startIcon={<Trash2 size={15} />}
+                  type='button'
+                  variant='text'
+                  onClick={() =>
+                    setManualPayments((currentPayments) =>
+                      currentPayments.filter(
+                        (_currentPayment, paymentIndex) =>
+                          paymentIndex !== index,
+                      ),
+                    )
+                  }>
+                  Remover
+                </Button>
+              </div>
+            ))}
+            <Alert
+              severity={
+                Math.abs(manualPaymentDifference) < 0.01 ? 'success' : 'info'
+              }
+              variant='outlined'>
+              Total dos pagamentos: {formatCurrency(manualPaymentsTotal)}.
+              Diferença: {formatCurrency(Math.abs(manualPaymentDifference))}.
+            </Alert>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={manualBillingEnabled}
+                  disabled={!manualAllowsBilling}
+                  name='manualFiscalBillingEnabled'
+                  onChange={(event) =>
+                    setManualBillingEnabled(event.target.checked)
+                  }
+                />
+              }
+              label='Adicionar parcelas ao faturamento'
+            />
+            {manualBillingEnabled ? (
+              <div className='grid gap-3'>
+                <div className='grid gap-3 md:grid-cols-2'>
+                  <TextField
+                    label='Data da fatura'
+                    name='manualFiscalBillingIssueDate'
+                    type='date'
+                    value={manualBillingIssueDate}
+                    onChange={(event) =>
+                      setManualBillingIssueDate(event.target.value)
+                    }
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                  <TextField
+                    label='Vencimento padrão'
+                    name='manualFiscalBillingDueDate'
+                    type='date'
+                    value={manualBillingDueDate}
+                    onChange={(event) => {
+                      setManualBillingDueDateTouched(true)
+                      setManualBillingDueDate(event.target.value)
+                    }}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </div>
+                <div className='flex flex-wrap items-center justify-between gap-2'>
+                  <strong className='text-sm text-[#2c281e]'>Parcelas</strong>
+                  <Button
+                    startIcon={<Plus size={16} />}
+                    type='button'
+                    variant='outlined'
+                    onClick={() =>
+                      setManualPaymentInstallments((currentInstallments) => [
+                        ...currentInstallments,
+                        defaultManualFiscalInstallment(
+                          manualBillingDueDate,
+                          manualFiscalRemainingInstallmentAmount(
+                            manualBillablePaymentsTotal,
+                            currentInstallments,
+                          ),
+                        ),
+                      ])
+                    }>
+                    Adicionar parcela
+                  </Button>
+                </div>
+                {manualPaymentInstallments.map((installment, index) => (
+                  <div
+                    className='grid gap-3 rounded-lg border border-[#e4e9e5] bg-[#fbfcfb] p-3 md:grid-cols-[minmax(0,1fr)_180px_auto]'
+                    key={index}>
+                    <TextField
+                      label={`Vencimento ${index + 1}`}
+                      required
+                      type='date'
+                      value={installment.dueDate}
+                      onChange={(event) =>
+                        updateManualInstallment(index, {
+                          dueDate: event.target.value,
+                        })
+                      }
+                      slotProps={{ inputLabel: { shrink: true } }}
+                    />
+                    <TextField
+                      label='Valor'
+                      required
+                      type='number'
+                      value={installment.amount}
+                      onChange={(event) =>
+                        updateManualInstallment(index, {
+                          amount: event.target.value,
+                        })
+                      }
+                      slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+                    />
+                    <Button
+                      disabled={manualPaymentInstallments.length === 1}
+                      startIcon={<Trash2 size={15} />}
+                      type='button'
+                      variant='text'
+                      onClick={() =>
+                        setManualPaymentInstallments((currentInstallments) =>
+                          currentInstallments.filter(
+                            (_currentInstallment, installmentIndex) =>
+                              installmentIndex !== index,
+                          ),
+                        )
+                      }>
+                      Remover
+                    </Button>
+                  </div>
+                ))}
+                <Alert
+                  severity={
+                    Math.abs(manualInstallmentDifference) < 0.01
+                      ? 'success'
+                      : 'info'
+                  }
+                  variant='outlined'>
+                  Total das parcelas: {formatCurrency(manualInstallmentsTotal)}.
+                  Diferença:{' '}
+                  {formatCurrency(Math.abs(manualInstallmentDifference))}.
+                </Alert>
+              </div>
+            ) : null}
+          </div>
+
           <TextField
             label='Observações no rodapé'
             multiline
@@ -1057,10 +1521,26 @@ export function ManualFiscalDocumentPage({
             defaultValue={sourceValues.additionalInformation}
           />
           <div className='flex flex-wrap justify-end gap-2'>
-            <Button name='manualFiscalAction' type='submit' value='preview' variant='outlined'>
+            <Button
+              formNoValidate
+              name='manualFiscalAction'
+              type='submit'
+              value='draft'
+              variant='outlined'>
+              {sourceDraft ? 'Atualizar rascunho' : 'Salvar rascunho'}
+            </Button>
+            <Button
+              name='manualFiscalAction'
+              type='submit'
+              value='preview'
+              variant='outlined'>
               Pré-visualizar DANFE
             </Button>
-            <Button name='manualFiscalAction' type='submit' value='issue' variant='contained'>
+            <Button
+              name='manualFiscalAction'
+              type='submit'
+              value='issue'
+              variant='contained'>
               Emitir NF-e
             </Button>
           </div>
@@ -1088,6 +1568,39 @@ function emptyManualFiscalItem(): ManualFiscalItemForm {
   }
 }
 
+function emptyManualFiscalPayment(): ManualFiscalPaymentForm {
+  return {
+    paymentMethodCode: '',
+    paymentMethodName: '',
+    amount: '',
+  }
+}
+
+function defaultManualFiscalInstallment(
+  dueDate: string,
+  amount: number,
+): ManualFiscalPaymentInstallmentForm {
+  return {
+    dueDate,
+    amount: amount > 0 ? amount.toFixed(2) : '',
+  }
+}
+
+function manualFiscalRemainingInstallmentAmount(
+  totalAmount: number,
+  installments: ManualFiscalPaymentInstallmentForm[],
+) {
+  return Number(
+    (
+      totalAmount -
+      installments.reduce(
+        (sum, installment) => sum + moneyInputValue(installment.amount),
+        0,
+      )
+    ).toFixed(2),
+  )
+}
+
 const manualFiscalOperationOptions: ManualFiscalOperationOption[] = [
   {
     codes: '5.101 / 6.101',
@@ -1096,8 +1609,8 @@ const manualFiscalOperationOptions: ManualFiscalOperationOption[] = [
   },
   {
     codes: '5.102 / 6.102',
-    label: 'Venda de mercadoria adquirida de terceiros',
-    value: '5.102/6.102 - Venda mercadoria de terceiros',
+    label: 'Venda fora do estado',
+    value: '5.102/6.102 - Venda fora do estado',
   },
   {
     codes: '5.401 / 6.401',
@@ -1241,7 +1754,8 @@ const manualFiscalOperationOptions: ManualFiscalOperationOption[] = [
   },
   {
     codes: '7.949',
-    label: 'Outra saída de mercadoria ou serviço não especificado para o exterior',
+    label:
+      'Outra saída de mercadoria ou serviço não especificado para o exterior',
     value: '7.949 - Outra saida exterior',
   },
   {
@@ -1291,7 +1805,8 @@ const manualFiscalOperationOptions: ManualFiscalOperationOption[] = [
   },
   {
     codes: '3.949',
-    label: 'Outra entrada de mercadoria ou serviço não especificado do exterior',
+    label:
+      'Outra entrada de mercadoria ou serviço não especificado do exterior',
     value: '3.949 - Outra entrada exterior',
   },
 ]
@@ -1313,6 +1828,10 @@ function manualFiscalOperationOptionFromValue(value: string) {
 function manualFiscalDocumentInput(
   form: FormData,
   items: ManualFiscalItemForm[],
+  payments: ManualFiscalPaymentForm[],
+  paymentInstallments: ManualFiscalPaymentInstallmentForm[],
+  paymentMethods: PaymentMethod[],
+  totalAmount: number,
 ): ManualFiscalDocumentInput {
   const referencedAccessKey = onlyDigits(
     formText(form, 'manualFiscalReferencedAccessKey'),
@@ -1326,7 +1845,10 @@ function manualFiscalDocumentInput(
     operationType: formText(form, 'manualFiscalOperationType') as
       | 'ENTRY'
       | 'EXIT',
-    purpose: formText(form, 'manualFiscalPurpose') as 'NORMAL' | 'RETURN',
+    destinationOperation: manualFiscalDestinationOperationValue(
+      formText(form, 'manualFiscalDestinationOperation'),
+    ),
+    purpose: manualFiscalPurposeValue(formText(form, 'manualFiscalPurpose')),
     natureOperation: formText(form, 'manualFiscalNatureOperation'),
     referencedAccessKeys: referencedAccessKey ? [referencedAccessKey] : [],
     transportedVolumesQuantity:
@@ -1334,6 +1856,19 @@ function manualFiscalDocumentInput(
       transportedVolumesQuantity > 0
         ? transportedVolumesQuantity
         : null,
+    billingEnabled: form.get('manualFiscalBillingEnabled') === 'on',
+    billingIssueDate: nullableFormText(form, 'manualFiscalBillingIssueDate'),
+    billingDueDate: nullableFormText(form, 'manualFiscalBillingDueDate'),
+    payments: manualFiscalPaymentPayloads(
+      payments,
+      paymentMethods,
+      totalAmount,
+    ),
+    paymentInstallments: paymentInstallments.map((installment, index) => ({
+      position: index + 1,
+      dueDate: installment.dueDate,
+      amount: moneyInputValue(installment.amount),
+    })),
     additionalInformation: nullableFormText(
       form,
       'manualFiscalAdditionalInformation',
@@ -1363,7 +1898,10 @@ function manualFiscalDocumentInput(
       ),
       addressDistrict: formText(form, 'manualFiscalClientAddressDistrict'),
       addressCity: formText(form, 'manualFiscalClientAddressCity'),
-      addressState: formText(form, 'manualFiscalClientAddressState').toUpperCase(),
+      addressState: formText(
+        form,
+        'manualFiscalClientAddressState',
+      ).toUpperCase(),
       addressZipCode: formText(form, 'manualFiscalClientAddressZipCode'),
     },
     items: items.map((item) => ({
@@ -1382,6 +1920,115 @@ function manualFiscalDocumentInput(
       discountAmount: Number(item.discountAmount || 0),
     })),
   }
+}
+
+function manualFiscalPaymentPayloads(
+  payments: ManualFiscalPaymentForm[],
+  paymentMethods: PaymentMethod[],
+  totalAmount: number,
+) {
+  const filledPayments = payments.filter((payment) => payment.paymentMethodCode)
+  const usesSinglePaymentTotal =
+    filledPayments.length === 1 &&
+    !filledPayments[0].amount &&
+    filledPayments[0].paymentMethodCode !== 'NO_PAYMENT'
+
+  return filledPayments.map((payment) => {
+    const method = paymentMethods.find(
+      (paymentMethod) => paymentMethod.code === payment.paymentMethodCode,
+    )
+
+    return {
+      paymentMethodCode: payment.paymentMethodCode,
+      paymentMethodName:
+        payment.paymentMethodName ||
+        method?.name ||
+        manualFiscalPaymentName(payment.paymentMethodCode),
+      amount:
+        payment.paymentMethodCode === 'NO_PAYMENT'
+          ? 0
+          : usesSinglePaymentTotal
+            ? Number(totalAmount.toFixed(2))
+            : moneyInputValue(payment.amount),
+    }
+  })
+}
+
+function manualFiscalPaymentsTotal(
+  payments: ManualFiscalPaymentForm[],
+  totalAmount: number,
+) {
+  const payloads = manualFiscalPaymentPayloads(payments, [], totalAmount)
+
+  return Number(
+    payloads.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2),
+  )
+}
+
+function manualFiscalBillablePaymentsTotal(
+  payments: ManualFiscalPaymentForm[],
+  paymentMethods: PaymentMethod[],
+  totalAmount: number,
+) {
+  const payloads = manualFiscalPaymentPayloads(
+    payments,
+    paymentMethods,
+    totalAmount,
+  )
+
+  return Number(
+    payloads
+      .filter((payment) =>
+        manualFiscalPaymentCodeAllowsBilling(payment.paymentMethodCode),
+      )
+      .reduce((sum, payment) => sum + payment.amount, 0)
+      .toFixed(2),
+  )
+}
+
+function manualFiscalInstallmentsTotal(
+  installments: ManualFiscalPaymentInstallmentForm[],
+) {
+  return Number(
+    installments
+      .reduce(
+        (sum, installment) => sum + moneyInputValue(installment.amount),
+        0,
+      )
+      .toFixed(2),
+  )
+}
+
+function manualFiscalPaymentsAllowBilling(
+  payments: ManualFiscalPaymentForm[],
+  paymentMethods: PaymentMethod[],
+) {
+  return payments.some((payment) => {
+    const method = paymentMethods.find(
+      (paymentMethod) => paymentMethod.code === payment.paymentMethodCode,
+    )
+
+    return manualFiscalPaymentCodeAllowsBilling(
+      method?.code ?? payment.paymentMethodCode,
+    )
+  })
+}
+
+function manualFiscalPaymentCodeAllowsBilling(code: string) {
+  return code === 'BOLETO' || code === 'CREDIT'
+}
+
+function manualFiscalPaymentName(code: string) {
+  const names: Record<string, string> = {
+    BOLETO: 'Fatura / boleto',
+    CASH: 'Dinheiro',
+    CREDIT: 'Crédito',
+    DEBIT: 'Débito',
+    NO_PAYMENT: 'Sem pagamento',
+    PIX: 'PIX',
+  }
+
+  return names[code] ?? code
 }
 
 function manualFiscalItemsTotal(items: ManualFiscalItemForm[]) {
@@ -1424,7 +2071,8 @@ function applyManualFiscalTotalAmount(
       return item
     }
 
-    const isLastAdjustableItem = item === adjustableItems[adjustableItems.length - 1]
+    const isLastAdjustableItem =
+      item === adjustableItems[adjustableItems.length - 1]
     const itemCents = Math.round(manualFiscalItemTotal(item) * 100)
     const nextItemCents = isLastAdjustableItem
       ? remainingCents
@@ -1457,7 +2105,7 @@ function manualFiscalDocumentFormValues(document?: FiscalDocument) {
   const payload = document?.requestPayload ?? null
   const sale = manualFiscalPayloadSale(payload)
   const referencedAccessKey = Array.isArray(payload?.referencedAccessKeys)
-    ? stringPayloadValue(payload.referencedAccessKeys[0]) ?? ''
+    ? (stringPayloadValue(payload.referencedAccessKeys[0]) ?? '')
     : ''
   const transportedVolumesQuantity =
     typeof payload?.transportedVolumesQuantity === 'number' &&
@@ -1481,16 +2129,24 @@ function manualFiscalDocumentFormValues(document?: FiscalDocument) {
       payload?.operationType === 'EXIT' || payload?.operationType === 'ENTRY'
         ? payload.operationType
         : 'ENTRY',
-    purpose:
-      payload?.purpose === 'NORMAL' || payload?.purpose === 'RETURN'
-        ? payload.purpose
-        : 'RETURN',
+    destinationOperation: manualFiscalDestinationOperationValue(
+      stringPayloadValue(payload?.destinationOperation) ?? 'INTERNAL',
+    ),
+    purpose: manualFiscalPurposeValue(
+      stringPayloadValue(payload?.purpose) ?? 'NORMAL',
+    ),
     natureOperation:
       stringPayloadValue(payload?.defaultNatureOperation) ??
-      'Devolucao de mercadoria',
+      '5.102/6.102 - Venda mercadoria terceiros',
     referencedAccessKey,
     transportedVolumesQuantity,
-    additionalInformation: stringPayloadValue(payload?.additionalInformation) ?? '',
+    billingEnabled: manualFiscalPayloadHasBilling(sale),
+    billingIssueDate: stringPayloadValue(sale?.billingIssueDate) ?? '',
+    billingDueDate: stringPayloadValue(sale?.billingDueDate) ?? '',
+    payments: manualFiscalPaymentsFromPayload(sale, formItems),
+    paymentInstallments: manualFiscalInstallmentsFromPayload(sale),
+    additionalInformation:
+      stringPayloadValue(payload?.additionalInformation) ?? '',
     clientPersonType: manualFiscalClientPersonTypeValue(
       stringPayloadValue(sale?.clientPersonType) ?? 'PJ',
     ),
@@ -1499,7 +2155,9 @@ function manualFiscalDocumentFormValues(document?: FiscalDocument) {
         stringPayloadValue(sale?.clientStateRegistrationIndicator) ?? '9',
       ),
     clientValues: {
-      manualFiscalClientAddressCity: stringPayloadValue(sale?.clientAddressCity),
+      manualFiscalClientAddressCity: stringPayloadValue(
+        sale?.clientAddressCity,
+      ),
       manualFiscalClientAddressComplement: stringPayloadValue(
         sale?.clientAddressComplement,
       ),
@@ -1509,7 +2167,9 @@ function manualFiscalDocumentFormValues(document?: FiscalDocument) {
       manualFiscalClientAddressNumber: stringPayloadValue(
         sale?.clientAddressNumber,
       ),
-      manualFiscalClientAddressState: stringPayloadValue(sale?.clientAddressState),
+      manualFiscalClientAddressState: stringPayloadValue(
+        sale?.clientAddressState,
+      ),
       manualFiscalClientAddressStreet: stringPayloadValue(
         sale?.clientAddressStreet,
       ),
@@ -1526,6 +2186,269 @@ function manualFiscalDocumentFormValues(document?: FiscalDocument) {
     },
     items: formItems,
     totalAmount: manualFiscalItemsTotal(formItems).toFixed(2),
+  }
+}
+
+function manualFiscalDocumentDraftFormValues(
+  payload?: Record<string, unknown>,
+) {
+  const client =
+    typeof payload?.client === 'object' && payload.client !== null
+      ? (payload.client as Record<string, unknown>)
+      : {}
+  const referencedAccessKey = Array.isArray(payload?.referencedAccessKeys)
+    ? (stringPayloadValue(payload.referencedAccessKeys[0]) ?? '')
+    : ''
+  const transportedVolumesQuantity =
+    typeof payload?.transportedVolumesQuantity === 'number' &&
+    payload.transportedVolumesQuantity > 0
+      ? String(payload.transportedVolumesQuantity)
+      : '1'
+  const items = Array.isArray(payload?.items)
+    ? payload.items
+        .map((item) =>
+          typeof item === 'object' && item !== null
+            ? manualFiscalItemFromDraftPayload(item as Record<string, unknown>)
+            : null,
+        )
+        .filter((item): item is ManualFiscalItemForm => Boolean(item))
+    : []
+  const formItems = items.length ? items : [emptyManualFiscalItem()]
+
+  return {
+    operationType:
+      payload?.operationType === 'EXIT' || payload?.operationType === 'ENTRY'
+        ? payload.operationType
+        : 'ENTRY',
+    destinationOperation: manualFiscalDestinationOperationValue(
+      stringPayloadValue(payload?.destinationOperation) ?? 'INTERNAL',
+    ),
+    purpose: manualFiscalPurposeValue(
+      stringPayloadValue(payload?.purpose) ?? 'NORMAL',
+    ),
+    natureOperation:
+      stringPayloadValue(payload?.natureOperation) ??
+      '5.102/6.102 - Venda mercadoria terceiros',
+    referencedAccessKey,
+    transportedVolumesQuantity,
+    billingEnabled: payload?.billingEnabled === true,
+    billingIssueDate: stringPayloadValue(payload?.billingIssueDate) ?? '',
+    billingDueDate: stringPayloadValue(payload?.billingDueDate) ?? '',
+    payments: manualFiscalPaymentsFromDraftPayload(payload, formItems),
+    paymentInstallments: manualFiscalInstallmentsFromDraftPayload(payload),
+    additionalInformation:
+      stringPayloadValue(payload?.additionalInformation) ?? '',
+    clientPersonType: manualFiscalClientPersonTypeValue(
+      stringPayloadValue(client.personType) ?? 'PJ',
+    ),
+    clientStateRegistrationIndicator:
+      manualFiscalClientStateRegistrationIndicatorValue(
+        stringPayloadValue(client.stateRegistrationIndicator) ?? '9',
+      ),
+    clientValues: {
+      manualFiscalClientAddressCity: stringPayloadValue(client.addressCity),
+      manualFiscalClientAddressComplement: stringPayloadValue(
+        client.addressComplement,
+      ),
+      manualFiscalClientAddressDistrict: stringPayloadValue(
+        client.addressDistrict,
+      ),
+      manualFiscalClientAddressNumber: stringPayloadValue(client.addressNumber),
+      manualFiscalClientAddressState: stringPayloadValue(client.addressState),
+      manualFiscalClientAddressStreet: stringPayloadValue(client.addressStreet),
+      manualFiscalClientAddressZipCode: stringPayloadValue(
+        client.addressZipCode,
+      ),
+      manualFiscalClientDocument: stringPayloadValue(client.document),
+      manualFiscalClientEmail: stringPayloadValue(client.email),
+      manualFiscalClientName: stringPayloadValue(client.name),
+      manualFiscalClientPhone: stringPayloadValue(client.phone),
+      manualFiscalClientStateRegistration: stringPayloadValue(
+        client.stateRegistration,
+      ),
+    },
+    items: formItems,
+    totalAmount: manualFiscalItemsTotal(formItems).toFixed(2),
+  }
+}
+
+function manualFiscalPayloadHasBilling(sale: Record<string, unknown> | null) {
+  const paymentMethodCode = stringPayloadValue(sale?.paymentMethodCode)
+  const payments = Array.isArray(sale?.payments) ? sale.payments : []
+
+  return (
+    paymentMethodCode === 'BOLETO' ||
+    payments.some(
+      (payment) =>
+        typeof payment === 'object' &&
+        payment !== null &&
+        stringPayloadValue(
+          (payment as Record<string, unknown>).paymentMethodCode,
+        ) === 'BOLETO',
+    )
+  )
+}
+
+function manualFiscalPaymentsFromPayload(
+  sale: Record<string, unknown> | null,
+  items: ManualFiscalItemForm[],
+): ManualFiscalPaymentForm[] {
+  const payments = Array.isArray(sale?.payments) ? sale.payments : []
+  const parsedPayments = payments
+    .map((payment) =>
+      typeof payment === 'object' && payment !== null
+        ? manualFiscalPaymentFromPayload(payment as Record<string, unknown>)
+        : null,
+    )
+    .filter((payment): payment is ManualFiscalPaymentForm => Boolean(payment))
+
+  if (parsedPayments.length > 0) {
+    return parsedPayments
+  }
+
+  const paymentMethodCode = stringPayloadValue(sale?.paymentMethodCode) ?? ''
+
+  if (paymentMethodCode) {
+    return [
+      {
+        paymentMethodCode,
+        paymentMethodName:
+          stringPayloadValue(sale?.paymentMethodName) ??
+          manualFiscalPaymentName(paymentMethodCode),
+        amount: stringPayloadValue(sale?.totalAmount) ?? '',
+      },
+    ]
+  }
+
+  return [
+    {
+      paymentMethodCode: 'NO_PAYMENT',
+      paymentMethodName: manualFiscalPaymentName('NO_PAYMENT'),
+      amount: '0',
+    },
+  ]
+}
+
+function manualFiscalPaymentFromPayload(
+  payment: Record<string, unknown>,
+): ManualFiscalPaymentForm | null {
+  const paymentMethodCode = stringPayloadValue(payment.paymentMethodCode)
+
+  if (!paymentMethodCode) {
+    return null
+  }
+
+  return {
+    paymentMethodCode,
+    paymentMethodName:
+      stringPayloadValue(payment.paymentMethodName) ??
+      manualFiscalPaymentName(paymentMethodCode),
+    amount: stringPayloadValue(payment.amount) ?? '',
+  }
+}
+
+function manualFiscalInstallmentsFromPayload(
+  sale: Record<string, unknown> | null,
+): ManualFiscalPaymentInstallmentForm[] {
+  const installments = Array.isArray(sale?.paymentInstallments)
+    ? sale.paymentInstallments
+    : []
+
+  return installments
+    .map((installment) =>
+      typeof installment === 'object' && installment !== null
+        ? manualFiscalInstallmentFromPayload(
+            installment as Record<string, unknown>,
+          )
+        : null,
+    )
+    .filter((installment): installment is ManualFiscalPaymentInstallmentForm =>
+      Boolean(installment),
+    )
+}
+
+function manualFiscalPaymentsFromDraftPayload(
+  payload: Record<string, unknown> | undefined,
+  items: ManualFiscalItemForm[],
+) {
+  const payments = Array.isArray(payload?.payments) ? payload.payments : []
+  const parsedPayments = payments
+    .map((payment) =>
+      typeof payment === 'object' && payment !== null
+        ? manualFiscalPaymentFromPayload(payment as Record<string, unknown>)
+        : null,
+    )
+    .filter((payment): payment is ManualFiscalPaymentForm => Boolean(payment))
+
+  if (parsedPayments.length > 0) {
+    return parsedPayments
+  }
+
+  if (payload?.billingEnabled === true) {
+    return [
+      {
+        paymentMethodCode: 'BOLETO',
+        paymentMethodName: manualFiscalPaymentName('BOLETO'),
+        amount: manualFiscalItemsTotal(items).toFixed(2),
+      },
+    ]
+  }
+
+  return [emptyManualFiscalPayment()]
+}
+
+function manualFiscalInstallmentsFromDraftPayload(
+  payload: Record<string, unknown> | undefined,
+): ManualFiscalPaymentInstallmentForm[] {
+  const installments = Array.isArray(payload?.paymentInstallments)
+    ? payload.paymentInstallments
+    : []
+
+  return installments
+    .map((installment) =>
+      typeof installment === 'object' && installment !== null
+        ? manualFiscalInstallmentFromPayload(
+            installment as Record<string, unknown>,
+          )
+        : null,
+    )
+    .filter((installment): installment is ManualFiscalPaymentInstallmentForm =>
+      Boolean(installment),
+    )
+}
+
+function manualFiscalInstallmentFromPayload(
+  installment: Record<string, unknown>,
+): ManualFiscalPaymentInstallmentForm | null {
+  const dueDate = stringPayloadValue(installment.dueDate)
+
+  if (!dueDate) {
+    return null
+  }
+
+  return {
+    dueDate,
+    amount: stringPayloadValue(installment.amount) ?? '',
+  }
+}
+
+function manualFiscalItemFromDraftPayload(
+  item: Record<string, unknown>,
+): ManualFiscalItemForm {
+  return {
+    productId: stringPayloadValue(item.productId) ?? '',
+    productInternalCode: stringPayloadValue(item.productInternalCode) ?? '',
+    productName: stringPayloadValue(item.productName) ?? '',
+    productNcm: stringPayloadValue(item.productNcm) ?? '',
+    productCfop: stringPayloadValue(item.productCfop) ?? '',
+    productIcmsCst: stringPayloadValue(item.productIcmsCst) ?? '',
+    productPisCst: stringPayloadValue(item.productPisCst) ?? '',
+    productCofinsCst: stringPayloadValue(item.productCofinsCst) ?? '',
+    productOrigin: stringPayloadValue(item.productOrigin) ?? '0',
+    productUnit: stringPayloadValue(item.productUnit) ?? 'UN',
+    quantity: stringPayloadValue(item.quantity) ?? '1',
+    unitPrice: stringPayloadValue(item.unitPrice) ?? '0',
+    discountAmount: stringPayloadValue(item.discountAmount) ?? '0',
   }
 }
 
@@ -1588,22 +2511,28 @@ function manualFiscalRegisteredClientValues(client: Client) {
 function manualFiscalClientPersonTypeValue(
   value: string,
 ): ManualFiscalDocumentInput['client']['personType'] {
-  const values: Record<string, ManualFiscalDocumentInput['client']['personType']> =
-    {
-      ES: 'ES',
-      PF: 'PF',
-      PJ: 'PJ',
-    }
+  const values: Record<
+    string,
+    ManualFiscalDocumentInput['client']['personType']
+  > = {
+    ES: 'ES',
+    PF: 'PF',
+    PJ: 'PJ',
+  }
 
   return values[value] ?? 'PJ'
 }
 
 function manualFiscalClientStateRegistrationIndicatorValue(
   value: string,
-): NonNullable<ManualFiscalDocumentInput['client']['stateRegistrationIndicator']> {
+): NonNullable<
+  ManualFiscalDocumentInput['client']['stateRegistrationIndicator']
+> {
   const values: Record<
     string,
-    NonNullable<ManualFiscalDocumentInput['client']['stateRegistrationIndicator']>
+    NonNullable<
+      ManualFiscalDocumentInput['client']['stateRegistrationIndicator']
+    >
   > = {
     '1': '1',
     '2': '2',
@@ -1613,12 +2542,59 @@ function manualFiscalClientStateRegistrationIndicatorValue(
   return values[value] ?? '9'
 }
 
+function manualFiscalDestinationOperationValue(
+  value: string,
+): ManualFiscalDocumentInput['destinationOperation'] {
+  const values: Record<string, ManualFiscalDocumentInput['destinationOperation']> =
+    {
+      EXTERIOR: 'EXTERIOR',
+      INTERNAL: 'INTERNAL',
+      INTERSTATE: 'INTERSTATE',
+    }
+
+  return values[value] ?? 'INTERNAL'
+}
+
+function manualFiscalPurposeValue(
+  value: string,
+): ManualFiscalDocumentInput['purpose'] {
+  const values: Record<string, ManualFiscalDocumentInput['purpose']> = {
+    ADJUSTMENT: 'ADJUSTMENT',
+    COMPLEMENTARY: 'COMPLEMENTARY',
+    CREDIT_NOTE: 'CREDIT_NOTE',
+    DEBIT_NOTE: 'DEBIT_NOTE',
+    NORMAL: 'NORMAL',
+    RETURN: 'RETURN',
+  }
+
+  return values[value] ?? 'RETURN'
+}
+
 function formText(form: FormData, field: string) {
   return String(form.get(field) ?? '').trim()
 }
 
 function nullableFormText(form: FormData, field: string) {
   return formText(form, field) || null
+}
+
+function todayInputDate() {
+  return new Date().toLocaleDateString('en-CA')
+}
+
+function manualFiscalDueDate(
+  issueDate: string,
+  settings: CommercialSettings | null,
+) {
+  const date = new Date(`${issueDate || todayInputDate()}T00:00:00`)
+  date.setDate(date.getDate() + Number(settings?.defaultQuoteDueDays ?? 0))
+
+  return date.toLocaleDateString('en-CA')
+}
+
+function moneyInputValue(value: string) {
+  const parsedValue = Number(value || 0)
+  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0
 }
 
 function onlyDigits(value: string | null) {
@@ -1861,7 +2837,9 @@ function fiscalRequestSearchText(request: FiscalRequest) {
       request.document?.series,
       request.document?.providerReference,
       request.document?.accessKey,
-      request.document ? fiscalDocumentStatusLabel(request.document.status) : '',
+      request.document
+        ? fiscalDocumentStatusLabel(request.document.status)
+        : '',
       ...request.readinessIssues,
     ].join(' '),
   )
@@ -1953,7 +2931,10 @@ function FiscalRequestAction({
     reservation: PickupReservation,
     additionalInformation?: string,
   ) => void
-  onIssueSaleFiscalDocument: (sale: Sale, additionalInformation?: string) => void
+  onIssueSaleFiscalDocument: (
+    sale: Sale,
+    additionalInformation?: string,
+  ) => void
   onIssueShippingOrderFiscalDocument: (
     order: ShippingOrder,
     additionalInformation?: string,

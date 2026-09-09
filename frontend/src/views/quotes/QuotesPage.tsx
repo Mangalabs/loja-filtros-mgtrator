@@ -97,6 +97,7 @@ export type QuoteDraftInput = {
 export function QuotesPage({
   clients,
   commercialSettings,
+  mode = 'all',
   paymentMethods,
   products,
   quotes,
@@ -107,6 +108,7 @@ export function QuotesPage({
 }: {
   clients: Client[]
   commercialSettings: CommercialSettings | null
+  mode?: 'all' | 'form' | 'list'
   paymentMethods: PaymentMethod[]
   products: Product[]
   quotes: Quote[]
@@ -319,6 +321,7 @@ export function QuotesPage({
 
   return (
     <section className='grid gap-4'>
+      {mode !== 'list' ? (
       <FormGrid className='gap-5 sm:gap-6' onSubmit={submit}>
         <PageHeader
           description='Monte itens, valores e dados comerciais antes do PDF.'
@@ -551,7 +554,9 @@ export function QuotesPage({
           </PrimaryButton>
         </ActionGroup>
       </FormGrid>
+      ) : null}
 
+      {mode !== 'form' ? (
       <PagePanel wide>
         <PageHeader
           actions={<StatusChip label='PDF disponível' tone='success' />}
@@ -703,6 +708,7 @@ export function QuotesPage({
           pagination={pagination}
         />
       </PagePanel>
+      ) : null}
     </section>
   )
 }
@@ -1307,7 +1313,22 @@ function quoteActions({
 }
 
 function downloadQuotePdf(quote: Quote) {
-  return downloadApiFile(`/quotes/${quote.id}/pdf`, `orçamento-${quote.id}.pdf`)
+  return downloadApiFile(`/quotes/${quote.id}/pdf`, quotePdfFileName(quote))
+}
+
+function quotePdfFileName(quote: Quote) {
+  return `ORCAMENTO-${quotePdfFileNamePart(quote.clientName)}-${
+    quote.quoteNumber
+  }.pdf`
+}
+
+function quotePdfFileNamePart(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toUpperCase()
 }
 
 const quoteShippingStatusLabels: Record<

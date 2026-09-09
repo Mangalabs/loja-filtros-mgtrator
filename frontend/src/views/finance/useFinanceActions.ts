@@ -1,11 +1,13 @@
 import type { FormEvent } from "react";
 import {
+  apiDelete,
   apiPatch,
   apiPost,
   apiPut,
   openApiFile,
   type FiscalDocument,
   type FiscalSettings,
+  type ManualFiscalDocumentDraft,
   type ManualFiscalDocumentInput,
   type PaymentMethod,
 } from "../../api";
@@ -166,7 +168,10 @@ export function useFinanceActions({
     });
   }
 
-  async function issueManualFiscalDocument(input: ManualFiscalDocumentInput) {
+  async function issueManualFiscalDocument(
+    input: ManualFiscalDocumentInput,
+    draft?: ManualFiscalDocumentDraft,
+  ) {
     const confirmed = await requestConfirmation(
       "A NF-e avulsa sera enviada ao provedor fiscal. Confira os dados antes de emitir.",
       "Emitir NF-e avulsa?",
@@ -179,6 +184,11 @@ export function useFinanceActions({
 
     await runAction(async () => {
       await apiPost("/fiscal-documents/manual", input);
+
+      if (draft) {
+        await apiDelete(`/fiscal-documents/manual/drafts/${draft.id}`);
+      }
+
       await refreshFiscalFlow();
       showFiscalDocuments();
     });
@@ -187,6 +197,40 @@ export function useFinanceActions({
   async function previewManualFiscalDocument(input: ManualFiscalDocumentInput) {
     await runAction(async () => {
       await openApiFile("/fiscal-documents/manual/preview", input);
+    });
+  }
+
+  async function saveManualFiscalDocumentDraft(
+    input: ManualFiscalDocumentInput,
+    draft?: ManualFiscalDocumentDraft,
+  ) {
+    await runAction(async () => {
+      if (draft) {
+        await apiPut(`/fiscal-documents/manual/drafts/${draft.id}`, input);
+      } else {
+        await apiPost("/fiscal-documents/manual/drafts", input);
+      }
+
+      await refreshFiscalFlow();
+    });
+  }
+
+  async function deleteManualFiscalDocumentDraft(
+    draft: ManualFiscalDocumentDraft,
+  ) {
+    const confirmed = await requestConfirmation(
+      `Excluir o rascunho "${draft.title}"?`,
+      "Excluir rascunho?",
+      "Excluir",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiDelete(`/fiscal-documents/manual/drafts/${draft.id}`);
+      await refreshFiscalFlow();
     });
   }
 
@@ -226,6 +270,8 @@ export function useFinanceActions({
     issueManualFiscalDocument,
     openCashRegister,
     previewManualFiscalDocument,
+    saveManualFiscalDocumentDraft,
+    deleteManualFiscalDocumentDraft,
     saveFiscalSettings,
     syncFiscalDocument,
   };

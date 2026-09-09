@@ -266,17 +266,31 @@ export function AppSidebar({
         ) : null}
 
         <NavSection
+          active={isSectionActive('quotes')}
+          icon={<FileText size={17} />}
+          open={openSections.quotes}
+          title='Orçamentos'
+          onToggle={() => onToggleSection('quotes')}>
+          <NavButton
+            active={view === 'new-quote'}
+            icon={<FileText size={18} />}
+            onClick={() => onSelectView('new-quote')}>
+            Novo orçamento
+          </NavButton>
+          <NavButton
+            active={view === 'quotes'}
+            icon={<ListIcon size={18} />}
+            onClick={() => onSelectView('quotes')}>
+            Fila de orçamentos
+          </NavButton>
+        </NavSection>
+
+        <NavSection
           active={isSectionActive('sales')}
           icon={<ShoppingCart size={17} />}
           open={openSections.sales}
           title='Vendas'
           onToggle={() => onToggleSection('sales')}>
-          <NavButton
-            active={view === 'quotes'}
-            icon={<ListIcon size={18} />}
-            onClick={() => onSelectView('quotes')}>
-            Orçamentos
-          </NavButton>
           <NavButton
             active={view === 'sales'}
             icon={<ShoppingCart size={18} />}

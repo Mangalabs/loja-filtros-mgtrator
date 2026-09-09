@@ -4,6 +4,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Skeleton from '@mui/material/Skeleton'
 import TextField from '@mui/material/TextField'
 import {
+  ArrowLeft,
   AlertTriangle,
   Banknote,
   CircleDollarSign,
@@ -14,6 +15,7 @@ import {
   PackagePlus,
   Send,
   ShoppingCart,
+  SlidersHorizontal,
   Truck,
 } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
@@ -26,6 +28,7 @@ import type {
   StockReport,
   UserPerformanceReport,
 } from '../../api'
+import { downloadApiFile } from '../../api'
 import { PageHeader, PagePanel, ResponsiveTable } from '../../components/layout'
 import { StatusChip, type StatusTone } from '../../components/ui'
 import { frontendPalette } from '../../theme'
@@ -66,6 +69,7 @@ export function ReportsPage({
   stockReport: StockReport | null
   userPerformanceReport: UserPerformanceReport | null
 }) {
+  const [activeReport, setActiveReport] = useState<ReportHubView>('hub')
   const contentByState = {
     loading: <ReportsLoading />,
     ready:
@@ -84,6 +88,8 @@ export function ReportsPage({
           salesReport={salesReport}
           stockReport={stockReport}
           userPerformanceReport={userPerformanceReport}
+          activeReport={activeReport}
+          onSelectReport={setActiveReport}
         />
       ) : null,
   }
@@ -94,6 +100,15 @@ export function ReportsPage({
 
   return contentByState[state]
 }
+
+type ReportHubView =
+  | 'hub'
+  | 'sales'
+  | 'users'
+  | 'purchases'
+  | 'cash'
+  | 'stock'
+  | 'inventory'
 
 function ReportsLoading() {
   return (
@@ -112,6 +127,7 @@ function ReportsLoading() {
 }
 
 function ReportsOverviewContent({
+  activeReport,
   cashReport,
   inventoryReport,
   onLoadCashReport,
@@ -125,7 +141,9 @@ function ReportsOverviewContent({
   salesReport,
   stockReport,
   userPerformanceReport,
+  onSelectReport,
 }: {
+  activeReport: ReportHubView
   cashReport: CashReport
   inventoryReport: InventoryReport | null
   onLoadCashReport: (filters?: SalesReportFilters) => Promise<boolean>
@@ -141,7 +159,60 @@ function ReportsOverviewContent({
   salesReport: SalesReport
   stockReport: StockReport
   userPerformanceReport: UserPerformanceReport | null
+  onSelectReport: (report: ReportHubView) => void
 }) {
+  if (activeReport !== 'hub') {
+    return (
+      <section className='grid gap-4'>
+        <div>
+          <Button
+            startIcon={<ArrowLeft size={16} />}
+            type='button'
+            variant='outlined'
+            onClick={() => onSelectReport('hub')}>
+            Voltar aos relatórios
+          </Button>
+        </div>
+        {activeReport === 'sales' ? (
+          <SalesReportSection
+            salesReport={salesReport}
+            onLoadSalesReport={onLoadSalesReport}
+          />
+        ) : null}
+        {activeReport === 'users' && userPerformanceReport ? (
+          <UserPerformanceReportSection
+            report={userPerformanceReport}
+            onLoadUserPerformanceReport={onLoadUserPerformanceReport}
+          />
+        ) : null}
+        {activeReport === 'purchases' ? (
+          <PurchaseReportSection
+            purchaseReport={purchaseReport}
+            onLoadPurchaseReport={onLoadPurchaseReport}
+          />
+        ) : null}
+        {activeReport === 'cash' ? (
+          <CashReportSection
+            cashReport={cashReport}
+            onLoadCashReport={onLoadCashReport}
+          />
+        ) : null}
+        {activeReport === 'stock' ? (
+          <StockReportSection
+            stockReport={stockReport}
+            onLoadStockReport={onLoadStockReport}
+          />
+        ) : null}
+        {activeReport === 'inventory' && inventoryReport ? (
+          <InventoryReportSection
+            report={inventoryReport}
+            onLoadInventoryReport={onLoadInventoryReport}
+          />
+        ) : null}
+      </section>
+    )
+  }
+
   return (
     <section className='grid gap-4'>
       <section className='grid gap-4 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.4fr)]'>
@@ -206,35 +277,83 @@ function ReportsOverviewContent({
         </PagePanel>
       </section>
 
-      <SalesReportSection
-        salesReport={salesReport}
-        onLoadSalesReport={onLoadSalesReport}
-      />
-      {userPerformanceReport ? (
-        <UserPerformanceReportSection
-          report={userPerformanceReport}
-          onLoadUserPerformanceReport={onLoadUserPerformanceReport}
+      <PagePanel wide>
+        <PageHeader
+          description='Escolha uma área para consultar os dados detalhados.'
+          icon={<SlidersHorizontal size={18} />}
+          title='Hub de relatórios'
         />
-      ) : null}
-      <PurchaseReportSection
-        purchaseReport={purchaseReport}
-        onLoadPurchaseReport={onLoadPurchaseReport}
-      />
-      <CashReportSection
-        cashReport={cashReport}
-        onLoadCashReport={onLoadCashReport}
-      />
-      <StockReportSection
-        stockReport={stockReport}
-        onLoadStockReport={onLoadStockReport}
-      />
-      {inventoryReport ? (
-        <InventoryReportSection
-          report={inventoryReport}
-          onLoadInventoryReport={onLoadInventoryReport}
-        />
-      ) : null}
+        <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-3'>
+          <ReportHubCard
+            description='Período, produtos, clientes e formas de pagamento.'
+            icon={<ShoppingCart size={20} />}
+            title='Vendas'
+            onClick={() => onSelectReport('sales')}
+          />
+          {userPerformanceReport ? (
+            <ReportHubCard
+              description='Vendas e ações operacionais por usuário.'
+              icon={<CircleDollarSign size={20} />}
+              title='Usuários'
+              onClick={() => onSelectReport('users')}
+            />
+          ) : null}
+          <ReportHubCard
+            description='Compras manuais e XMLs lançados no estoque.'
+            icon={<Truck size={20} />}
+            title='Compras'
+            onClick={() => onSelectReport('purchases')}
+          />
+          <ReportHubCard
+            description='Movimentações, fechamento e diferenças por forma.'
+            icon={<Banknote size={20} />}
+            title='Caixa'
+            onClick={() => onSelectReport('cash')}
+          />
+          <ReportHubCard
+            description='Entradas, saídas, giro e produtos sem movimento.'
+            icon={<PackageSearch size={20} />}
+            title='Estoque'
+            onClick={() => onSelectReport('stock')}
+          />
+          {inventoryReport ? (
+            <ReportHubCard
+              description='Saldo físico, valor em estoque e filtros de inventário.'
+              icon={<PackagePlus size={20} />}
+              title='Inventário'
+              onClick={() => onSelectReport('inventory')}
+            />
+          ) : null}
+        </div>
+      </PagePanel>
     </section>
+  )
+}
+
+function ReportHubCard({
+  description,
+  icon,
+  title,
+  onClick,
+}: {
+  description: string
+  icon: ReactNode
+  title: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      className='grid min-h-[132px] gap-3 rounded-lg border border-[#dfe5df] bg-white p-4 text-left shadow-sm transition hover:border-[#b7c4b8] hover:bg-[#fbfcfb] focus:outline-none focus:ring-2 focus:ring-[#203466]'
+      type='button'
+      onClick={onClick}>
+      <span className='flex h-10 w-10 items-center justify-center rounded-lg bg-[#eef2f6] text-[#203466]'>
+        {icon}
+      </span>
+      <span className='grid gap-1'>
+        <strong className='text-base text-[#2c281e]'>{title}</strong>
+        <span className='text-sm leading-5 text-[#5f665f]'>{description}</span>
+      </span>
+    </button>
   )
 }
 
@@ -271,7 +390,7 @@ function SalesReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto] lg:w-auto'
             onSubmit={filterSalesReport}>
             <TextField
               label='De'
@@ -305,6 +424,19 @@ function SalesReportSection({
               variant='outlined'
               onClick={() => exportSalesReportCsv(salesReport)}>
               CSV
+            </Button>
+            <Button
+              startIcon={<FileText size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() =>
+                void downloadReportPdf(
+                  '/reports/sales/pdf',
+                  { dateFrom, dateTo },
+                  'relatorio-vendas',
+                )
+              }>
+              PDF
             </Button>
           </form>
         }
@@ -509,7 +641,7 @@ function UserPerformanceReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto] lg:w-auto'
             onSubmit={filterUserPerformanceReport}>
             <TextField
               label='De'
@@ -543,6 +675,19 @@ function UserPerformanceReportSection({
               variant='outlined'
               onClick={() => exportUserPerformanceReportCsv(report)}>
               CSV
+            </Button>
+            <Button
+              startIcon={<FileText size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() =>
+                void downloadReportPdf(
+                  '/reports/users/pdf',
+                  { dateFrom, dateTo },
+                  'relatorio-usuarios',
+                )
+              }>
+              PDF
             </Button>
           </form>
         }
@@ -694,7 +839,7 @@ function PurchaseReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto] lg:w-auto'
             onSubmit={filterPurchaseReport}>
             <TextField
               label='De'
@@ -728,6 +873,19 @@ function PurchaseReportSection({
               variant='outlined'
               onClick={() => exportPurchaseReportCsv(purchaseReport)}>
               CSV
+            </Button>
+            <Button
+              startIcon={<FileText size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() =>
+                void downloadReportPdf(
+                  '/reports/purchases/pdf',
+                  { dateFrom, dateTo },
+                  'relatorio-compras',
+                )
+              }>
+              PDF
             </Button>
           </form>
         }
@@ -868,7 +1026,7 @@ function CashReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto] lg:w-auto'
             onSubmit={filterCashReport}>
             <TextField
               label='De'
@@ -902,6 +1060,19 @@ function CashReportSection({
               variant='outlined'
               onClick={() => exportCashReportCsv(cashReport)}>
               CSV
+            </Button>
+            <Button
+              startIcon={<FileText size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() =>
+                void downloadReportPdf(
+                  '/reports/cash/pdf',
+                  { dateFrom, dateTo },
+                  'relatorio-caixa',
+                )
+              }>
+              PDF
             </Button>
           </form>
         }
@@ -1051,7 +1222,7 @@ function StockReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto] lg:w-auto'
             onSubmit={filterStockReport}>
             <TextField
               label='De'
@@ -1086,9 +1257,22 @@ function StockReportSection({
               onClick={() => exportStockReportCsv(stockReport)}>
               CSV
             </Button>
+            <Button
+              startIcon={<FileText size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() =>
+                void downloadReportPdf(
+                  '/reports/stock/pdf',
+                  { dateFrom, dateTo },
+                  'relatorio-estoque',
+                )
+              }>
+              PDF
+            </Button>
           </form>
         }
-        description='Estoque baixo, produtos sem movimentacao e giro por vendas.'
+        description='Estoque baixo, produtos sem movimentacao, giro e valores movimentados.'
         icon={<PackageSearch size={18} />}
         title='Relatorio de estoque'
       />
@@ -1112,6 +1296,92 @@ function StockReportSection({
           icon={<ShoppingCart size={18} />}
           label='Qtde vendida'
           value={formatQuantity(stockReport.summary.soldQuantity)}
+        />
+        <ReportMetric
+          icon={<Truck size={18} />}
+          label='Entradas'
+          value={formatCurrency(stockReport.summary.entryAmount)}
+        />
+        <ReportMetric
+          icon={<Send size={18} />}
+          label='Saidas por custo'
+          value={formatCurrency(stockReport.summary.exitCostAmount)}
+        />
+        <ReportMetric
+          icon={<SlidersHorizontal size={18} />}
+          label='Ajustes/recomposicoes'
+          value={formatCurrency(stockReport.summary.adjustmentCostAmount)}
+        />
+        <ReportMetric
+          icon={<PackagePlus size={18} />}
+          label='Saldo mov.'
+          value={formatQuantity(stockReport.summary.netQuantity)}
+        />
+      </div>
+
+      <div className='mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]'>
+        <ResponsiveTable
+          columns={[
+            {
+              header: 'Produto movimentado',
+              render: (item) => (
+                <div className='grid gap-1'>
+                  <strong>{item.productName}</strong>
+                  <span className='text-xs text-[#5f665f]'>
+                    {item.movementsCount} mov. ·{' '}
+                    {item.lastMovementAt
+                      ? formatDateTime(item.lastMovementAt)
+                      : 'Sem data'}
+                  </span>
+                </div>
+              ),
+            },
+            {
+              align: 'right',
+              header: 'Entrada',
+              render: (item) => formatCurrency(item.entryAmount),
+            },
+            {
+              align: 'right',
+              header: 'Saida custo',
+              render: (item) => formatCurrency(item.exitCostAmount),
+            },
+            {
+              align: 'right',
+              header: 'Saldo qtde',
+              render: (item) => formatQuantity(item.netQuantity),
+            },
+          ]}
+          emptyMessage='Nenhum produto movimentado no periodo.'
+          getRowId={(item) => item.productId}
+          items={stockReport.movedProducts ?? []}
+        />
+
+        <ResponsiveTable
+          columns={[
+            {
+              header: 'Tipo',
+              render: (item) => stockMovementTypeLabel(item.type),
+            },
+            {
+              align: 'right',
+              header: 'Mov.',
+              render: (item) => item.movementsCount,
+            },
+            {
+              align: 'right',
+              header: 'Qtde',
+              render: (item) => formatQuantity(item.quantity),
+            },
+            {
+              align: 'right',
+              header: 'Valor',
+              render: (item) => formatCurrency(item.costAmount),
+            },
+          ]}
+          emptyMessage='Nenhuma movimentacao no periodo.'
+          getRowId={(item) => item.type}
+          items={stockReport.byMovementType ?? []}
         />
       </div>
 
@@ -1228,7 +1498,7 @@ function InventoryReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 md:grid-cols-[minmax(220px,1fr)_170px_170px_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 md:grid-cols-[minmax(220px,1fr)_170px_170px_auto_auto_auto_auto] lg:w-auto'
             onSubmit={filterInventoryReport}>
             <TextField
               label='Buscar'
@@ -1286,6 +1556,26 @@ function InventoryReportSection({
               variant='outlined'
               onClick={() => exportInventoryReportCsv(report)}>
               CSV
+            </Button>
+            <Button
+              startIcon={<FileText size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() =>
+                void downloadReportPdf(
+                  '/reports/inventory/pdf',
+                  {
+                    active:
+                      activeFilter === 'ALL'
+                        ? undefined
+                        : activeFilter === 'ACTIVE',
+                    search,
+                    stockStatus,
+                  },
+                  'relatorio-inventario',
+                )
+              }>
+              PDF
             </Button>
           </form>
         }
@@ -1456,6 +1746,47 @@ function inventoryStockStatusTone(
   return 'error'
 }
 
+function stockMovementTypeLabel(type: StockReport['byMovementType'][number]['type']) {
+  const labels = {
+    ENTRY: 'Entrada',
+    ADJUSTMENT: 'Ajuste manual',
+    SALE: 'Venda',
+    SALE_CANCEL: 'Cancelamento de venda',
+    SALE_RETURN: 'Devolucao de venda',
+    SALE_CORRECTION: 'Correcao de venda',
+  }
+
+  return labels[type] ?? type
+}
+
+function downloadReportPdf(
+  path: string,
+  filters: SalesReportFilters | InventoryReportFilters,
+  filename: string,
+) {
+  return downloadApiFile(
+    reportDownloadPath(path, filters),
+    `${filename}-${new Date().toISOString().slice(0, 10)}.pdf`,
+  )
+}
+
+function reportDownloadPath(
+  path: string,
+  filters: SalesReportFilters | InventoryReportFilters,
+) {
+  const query = new URLSearchParams()
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      return
+    }
+
+    query.set(key, String(value))
+  })
+
+  return query.size > 0 ? `${path}?${query.toString()}` : path
+}
+
 function exportSalesReportCsv(report: SalesReport) {
   downloadCsv('relatorio-vendas', [
     ['Secao', 'Indicador', 'Valor'],
@@ -1609,43 +1940,27 @@ function exportInventoryReportCsv(report: InventoryReport) {
     [],
     [
       'Inventario',
-      'Produto',
       'Codigo interno',
-      'Codigo de barras',
-      'Fabricante',
-      'Grupo',
+      'Nome',
+      'NCM',
+      'Estado anterior',
+      'Entrada',
+      'Saida',
+      'Saldo',
       'Unidade',
-      'Locação',
-      'Custo unitario',
-      'Venda unitaria',
-      'Fisico',
-      'Reservado',
-      'Disponivel',
-      'Minimo',
-      'Custo total',
-      'Venda total',
-      'Situacao',
-      'Status cadastro',
+      'Custo medio',
     ],
     ...report.items.map((item) => [
       'Inventario',
-      item.productName,
       item.internalCode ?? '',
-      item.barcode ?? '',
-      item.brandName ?? '',
-      item.groupName ?? '',
-      item.unit,
-      item.location ?? '',
-      item.costPrice,
-      item.salePrice,
+      item.productName,
+      item.ncm ?? '',
+      item.previousStock,
+      item.entryQuantity,
+      item.exitQuantity,
       item.currentStock,
-      item.reservedStock,
-      item.availableStock,
-      item.minimumStock,
-      item.totalCostAmount,
-      item.totalSaleAmount,
-      inventoryStockStatusLabel(item.stockStatus),
-      item.active ? 'Ativo' : 'Inativo',
+      item.unit,
+      item.costPrice,
     ]),
   ])
 }
@@ -1757,6 +2072,50 @@ function exportStockReportCsv(report: StockReport) {
     ['Resumo', 'Estoque baixo', report.summary.lowStockProductsCount],
     ['Resumo', 'Sem movimentacao', report.summary.productsWithoutMovementCount],
     ['Resumo', 'Quantidade vendida', report.summary.soldQuantity],
+    ['Resumo', 'Movimentacoes', report.summary.movementsCount],
+    ['Resumo', 'Quantidade entrada', report.summary.entryQuantity],
+    ['Resumo', 'Valor de entradas', report.summary.entryAmount],
+    ['Resumo', 'Quantidade saida', report.summary.exitQuantity],
+    ['Resumo', 'Custo de saidas', report.summary.exitCostAmount],
+    ['Resumo', 'Quantidade ajustes/recomposicoes', report.summary.adjustmentQuantity],
+    ['Resumo', 'Valor ajustes/recomposicoes', report.summary.adjustmentCostAmount],
+    ['Resumo', 'Saldo movimentado', report.summary.netQuantity],
+    [],
+    [
+      'Produtos movimentados',
+      'Produto',
+      'Movimentacoes',
+      'Quantidade entrada',
+      'Valor entrada',
+      'Quantidade saida',
+      'Custo saida',
+      'Quantidade ajustes/recomposicoes',
+      'Valor ajustes/recomposicoes',
+      'Saldo quantidade',
+      'Ultima movimentacao',
+    ],
+    ...report.movedProducts.map((item) => [
+      'Produtos movimentados',
+      item.productName,
+      item.movementsCount,
+      item.entryQuantity,
+      item.entryAmount,
+      item.exitQuantity,
+      item.exitCostAmount,
+      item.adjustmentQuantity,
+      item.adjustmentCostAmount,
+      item.netQuantity,
+      item.lastMovementAt ? formatDateTime(item.lastMovementAt) : '',
+    ]),
+    [],
+    ['Movimentacoes por tipo', 'Tipo', 'Movimentacoes', 'Quantidade', 'Valor'],
+    ...report.byMovementType.map((item) => [
+      'Movimentacoes por tipo',
+      stockMovementTypeLabel(item.type),
+      item.movementsCount,
+      item.quantity,
+      item.costAmount,
+    ]),
     [],
     ['Estoque baixo', 'Produto', 'Fisico', 'Reservado', 'Disponivel', 'Minimo'],
     ...report.lowStockProducts.map((item) => [

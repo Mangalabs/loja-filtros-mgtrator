@@ -8,6 +8,7 @@ import type {
   AuthUser,
   NamedEntity,
   FiscalDocument,
+  ManualFiscalDocumentDraft,
   FiscalSettings,
   InventoryReport,
   PaymentMethod,
@@ -89,6 +90,7 @@ type AppViewRendererProps = {
   fiscalSettings: FiscalSettings | null;
   inventoryReport: InventoryReport | null;
   lowStockProducts: Product[];
+  manualFiscalDocumentDrafts: ManualFiscalDocumentDraft[];
   ncmOptions: NcmOption[];
   paymentMethods: PaymentMethod[];
   pickupReservations: PickupReservation[];
@@ -107,6 +109,7 @@ type AppViewRendererProps = {
   search: string;
   selectedClient?: Client;
   selectedManualFiscalDocument?: FiscalDocument;
+  selectedManualFiscalDocumentDraft?: ManualFiscalDocumentDraft;
   selectedProduct?: Product;
   selectedQuote?: Quote;
   selectedSale?: Sale;
@@ -129,6 +132,9 @@ type AppViewRendererProps = {
   onProductPageChange: (pageIndex: number, rowsPerPage?: number) => void;
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
   onOpenFiscalDocumentSource: (fiscalDocument: FiscalDocument) => void;
+  onOpenManualFiscalDocumentDraft: (
+    draft: ManualFiscalDocumentDraft,
+  ) => void;
   onSearchProducts: (search: string) => Promise<Product[]>;
   onLoadSalesReport: (filters?: {
     dateFrom?: string;
@@ -176,6 +182,7 @@ export function AppViewRenderer({
   fiscalSettings,
   inventoryReport,
   lowStockProducts,
+  manualFiscalDocumentDrafts,
   ncmOptions,
   paymentMethods,
   pickupReservations,
@@ -194,6 +201,7 @@ export function AppViewRenderer({
   search,
   selectedClient,
   selectedManualFiscalDocument,
+  selectedManualFiscalDocumentDraft,
   selectedProduct,
   selectedQuote,
   selectedSale,
@@ -220,6 +228,7 @@ export function AppViewRenderer({
   onLoadUserPerformanceReport,
   onOpenQuotes,
   onOpenFiscalDocumentSource,
+  onOpenManualFiscalDocumentDraft,
   onProductPageChange,
   onResolveFiscalPendency,
   onSearchProducts,
@@ -415,16 +424,34 @@ export function AppViewRenderer({
     ),
     "manual-fiscal-document": (
       <ManualFiscalDocumentPage
-        key={selectedManualFiscalDocument?.id ?? "new"}
+        key={
+          selectedManualFiscalDocument?.id ??
+          selectedManualFiscalDocumentDraft?.id ??
+          "new"
+        }
         clients={clients}
+        commercialSettings={commercialSettings}
+        manualFiscalDocumentDrafts={manualFiscalDocumentDrafts}
+        paymentMethods={paymentMethods}
         products={products}
+        sourceDraft={selectedManualFiscalDocumentDraft}
         sourceFiscalDocument={selectedManualFiscalDocument}
+        onDeleteManualFiscalDocumentDraft={(draft) =>
+          void financeActions.deleteManualFiscalDocumentDraft(draft)
+        }
         onIssueManualFiscalDocument={(input) =>
-          void financeActions.issueManualFiscalDocument(input)
+          void financeActions.issueManualFiscalDocument(
+            input,
+            selectedManualFiscalDocumentDraft,
+          )
         }
         onLookupCompany={catalogActions.lookupClientCompany}
+        onOpenManualFiscalDocumentDraft={onOpenManualFiscalDocumentDraft}
         onPreviewManualFiscalDocument={(input) =>
           void financeActions.previewManualFiscalDocument(input)
+        }
+        onSaveManualFiscalDocumentDraft={(input, draft) =>
+          void financeActions.saveManualFiscalDocumentDraft(input, draft)
         }
       />
     ),
@@ -454,10 +481,29 @@ export function AppViewRenderer({
         onLoadUserPerformanceReport={onLoadUserPerformanceReport}
       />
     ),
+    "new-quote": (
+        <QuotesPage
+          clients={clients}
+          commercialSettings={commercialSettings}
+          mode="form"
+          paymentMethods={paymentMethods}
+          products={products}
+          quotes={quotes}
+          onSubmit={quoteActions.createQuote}
+          onEditQuote={onSelectQuote}
+          onCancelQuote={(event, quote) =>
+            void quoteActions.cancelQuote(event, quote)
+          }
+          onCreateShippingOrder={(quote) =>
+            void quoteActions.createShippingOrderFromQuote(quote)
+          }
+        />
+      ),
     quotes: (
         <QuotesPage
           clients={clients}
           commercialSettings={commercialSettings}
+          mode="list"
           paymentMethods={paymentMethods}
           products={products}
           quotes={quotes}

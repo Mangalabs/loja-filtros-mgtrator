@@ -5,6 +5,7 @@ import {
   type AuthUser,
   type Client,
   type FiscalDocument,
+  type ManualFiscalDocumentDraft,
   type Product,
   type Quote,
   type Sale,
@@ -50,6 +51,8 @@ export function AuthenticatedApp({
   const [selectedClient, setSelectedClient] = useState<Client>();
   const [selectedManualFiscalDocument, setSelectedManualFiscalDocument] =
     useState<FiscalDocument>();
+  const [selectedManualFiscalDocumentDraft, setSelectedManualFiscalDocumentDraft] =
+    useState<ManualFiscalDocumentDraft>();
   const [selectedQuote, setSelectedQuote] = useState<Quote>();
   const [selectedSale, setSelectedSale] = useState<Sale>();
   const { closeConfirmation, confirmation, requestConfirmation } =
@@ -73,6 +76,7 @@ export function AuthenticatedApp({
     loadSalesReport,
     loadStockReport,
     lowStockProducts,
+    manualFiscalDocumentDrafts,
     message,
     ncmOptions,
     paymentMethods,
@@ -139,6 +143,7 @@ export function AuthenticatedApp({
     (nextView: View) => {
       if (nextView === "manual-fiscal-document") {
         setSelectedManualFiscalDocument(undefined);
+        setSelectedManualFiscalDocumentDraft(undefined);
       }
 
       setView(nextView);
@@ -150,6 +155,7 @@ export function AuthenticatedApp({
     (fiscalDocument: FiscalDocument) => {
       if (fiscalDocument.sourceType === "MANUAL_NFE") {
         setSelectedManualFiscalDocument(fiscalDocument);
+        setSelectedManualFiscalDocumentDraft(undefined);
       }
 
       setView(fiscalDocumentSourceView(fiscalDocument));
@@ -302,6 +308,7 @@ export function AuthenticatedApp({
             fiscalSettings={fiscalSettings}
             inventoryReport={inventoryReport}
             lowStockProducts={lowStockProducts}
+            manualFiscalDocumentDrafts={manualFiscalDocumentDrafts}
             ncmOptions={ncmOptions}
             paymentMethods={paymentMethods}
             pickupReservations={pickupReservations}
@@ -326,6 +333,7 @@ export function AuthenticatedApp({
             search={search}
             selectedClient={selectedClient}
             selectedManualFiscalDocument={selectedManualFiscalDocument}
+            selectedManualFiscalDocumentDraft={selectedManualFiscalDocumentDraft}
             selectedProduct={selectedProduct}
             selectedQuote={selectedQuote}
             selectedSale={selectedSale}
@@ -355,6 +363,11 @@ export function AuthenticatedApp({
             onProductPageChange={setProductPage}
             onSearchProducts={searchProducts}
             onOpenFiscalDocumentSource={openFiscalDocumentSource}
+            onOpenManualFiscalDocumentDraft={(draft) => {
+              setSelectedManualFiscalDocument(undefined);
+              setSelectedManualFiscalDocumentDraft(draft);
+              setView("manual-fiscal-document");
+            }}
             onSelectView={selectView}
             onSearchChange={setSearch}
             onSelectClient={setSelectedClient}

@@ -51,9 +51,25 @@ export async function showQuotePdf(id: string, branchId: string) {
   }
 
   return {
-    filename: `orçamento-${quote.id}.pdf`,
+    filename: quotePdfFileName(quote),
     pdf: await generateQuotePdf(quote, await pdfStoreProfile(quote.branchId)),
   }
+}
+
+function quotePdfFileName(quote: Awaited<ReturnType<typeof getQuoteById>>) {
+  const clientName = sanitizeQuotePdfFileNamePart(quote?.clientName ?? 'cliente')
+  const quoteNumber = quote?.quoteNumber ?? quote?.id ?? 'sem-numero'
+
+  return `ORCAMENTO-${clientName}-${quoteNumber}.pdf`
+}
+
+function sanitizeQuotePdfFileNamePart(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toUpperCase()
 }
 
 async function pdfStoreProfile(branchId: string | null) {

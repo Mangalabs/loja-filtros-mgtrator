@@ -19,6 +19,7 @@ export type View =
   | 'manual-fiscal-document'
   | 'cash-register'
   | 'reports'
+  | 'new-quote'
   | 'quotes'
   | 'edit-quote'
   | 'sales'
@@ -40,6 +41,7 @@ export type NavSectionKey =
   | 'finance'
   | 'cash'
   | 'reports'
+  | 'quotes'
   | 'sales'
   | 'administration'
 
@@ -63,9 +65,8 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
   ],
   cash: ['cash-register'],
   reports: ['reports'],
+  quotes: ['new-quote', 'quotes', 'edit-quote'],
   sales: [
-    'quotes',
-    'edit-quote',
     'sales',
     'edit-sale',
     'sales-history',
@@ -83,6 +84,7 @@ const initialOpenNavSections: Record<NavSectionKey, boolean> = {
   finance: false,
   cash: false,
   reports: false,
+  quotes: false,
   sales: false,
   administration: false,
 }
@@ -107,6 +109,7 @@ const viewValues: View[] = [
   'manual-fiscal-document',
   'cash-register',
   'reports',
+  'new-quote',
   'quotes',
   'edit-quote',
   'sales',
@@ -269,10 +272,14 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       title: 'Relatórios',
       description: 'Acompanhe indicadores operacionais e pendências da filial.',
     },
-    quotes: {
-      title: 'Orçamentos',
+    'new-quote': {
+      title: 'Novo orçamento',
       description:
         'Monte orçamentos com cliente, múltiplos produtos e valores personalizados.',
+    },
+    quotes: {
+      title: 'Fila de orçamentos',
+      description: 'Acompanhe orçamentos salvos, PDFs e conversão em venda.',
     },
     'edit-quote': {
       title: 'Editar orçamento',

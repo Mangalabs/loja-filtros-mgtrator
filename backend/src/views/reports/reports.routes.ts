@@ -1,6 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  generateCashReportPdf,
+  generateInventoryReportPdf,
+  generatePurchaseReportPdf,
+  generateSalesReportPdf,
+  generateStockReportPdf,
+  generateUserPerformanceReportPdf,
   showCashReport,
   showInventoryReport,
   showPurchaseReport,
@@ -58,6 +64,20 @@ reportsRoutes.get(
 );
 
 reportsRoutes.get(
+  "/reports/sales/pdf",
+  requirePermission("VIEW_REPORTS"),
+  async (request, response) => {
+    const query = salesReportQuerySchema.parse(request.query);
+    const pdf = await generateSalesReportPdf({
+      ...query,
+      branchId: requireActiveBranchId(response.locals),
+    });
+
+    sendReportPdf(response, pdf, "relatorio-vendas.pdf");
+  },
+);
+
+reportsRoutes.get(
   "/reports/stock",
   requirePermission("VIEW_REPORTS"),
   async (request, response) => {
@@ -71,6 +91,20 @@ reportsRoutes.get(
           branchId: requireActiveBranchId(response.locals),
         }),
       );
+  },
+);
+
+reportsRoutes.get(
+  "/reports/stock/pdf",
+  requirePermission("VIEW_REPORTS"),
+  async (request, response) => {
+    const query = salesReportQuerySchema.parse(request.query);
+    const pdf = await generateStockReportPdf({
+      ...query,
+      branchId: requireActiveBranchId(response.locals),
+    });
+
+    sendReportPdf(response, pdf, "relatorio-estoque.pdf");
   },
 );
 
@@ -92,6 +126,20 @@ reportsRoutes.get(
 );
 
 reportsRoutes.get(
+  "/reports/inventory/pdf",
+  requirePermission("VIEW_REPORTS"),
+  async (request, response) => {
+    const query = inventoryReportQuerySchema.parse(request.query);
+    const pdf = await generateInventoryReportPdf({
+      ...query,
+      branchId: requireActiveBranchId(response.locals),
+    });
+
+    sendReportPdf(response, pdf, "relatorio-inventario.pdf");
+  },
+);
+
+reportsRoutes.get(
   "/reports/purchases",
   requirePermission("VIEW_REPORTS"),
   async (request, response) => {
@@ -105,6 +153,20 @@ reportsRoutes.get(
           branchId: requireActiveBranchId(response.locals),
         }),
       );
+  },
+);
+
+reportsRoutes.get(
+  "/reports/purchases/pdf",
+  requirePermission("VIEW_REPORTS"),
+  async (request, response) => {
+    const query = salesReportQuerySchema.parse(request.query);
+    const pdf = await generatePurchaseReportPdf({
+      ...query,
+      branchId: requireActiveBranchId(response.locals),
+    });
+
+    sendReportPdf(response, pdf, "relatorio-compras.pdf");
   },
 );
 
@@ -126,6 +188,20 @@ reportsRoutes.get(
 );
 
 reportsRoutes.get(
+  "/reports/cash/pdf",
+  requirePermission("VIEW_REPORTS"),
+  async (request, response) => {
+    const query = salesReportQuerySchema.parse(request.query);
+    const pdf = await generateCashReportPdf({
+      ...query,
+      branchId: requireActiveBranchId(response.locals),
+    });
+
+    sendReportPdf(response, pdf, "relatorio-caixa.pdf");
+  },
+);
+
+reportsRoutes.get(
   "/reports/users",
   requirePermission("VIEW_REPORTS"),
   async (request, response) => {
@@ -141,3 +217,25 @@ reportsRoutes.get(
       );
   },
 );
+
+reportsRoutes.get(
+  "/reports/users/pdf",
+  requirePermission("VIEW_REPORTS"),
+  async (request, response) => {
+    const query = salesReportQuerySchema.parse(request.query);
+    const pdf = await generateUserPerformanceReportPdf({
+      ...query,
+      branchId: requireActiveBranchId(response.locals),
+    });
+
+    sendReportPdf(response, pdf, "relatorio-usuarios.pdf");
+  },
+);
+
+function sendReportPdf(response: import("express").Response, pdf: Buffer, filename: string) {
+  response
+    .status(200)
+    .setHeader("content-type", "application/pdf")
+    .setHeader("content-disposition", `attachment; filename="${filename}"`)
+    .send(pdf);
+}

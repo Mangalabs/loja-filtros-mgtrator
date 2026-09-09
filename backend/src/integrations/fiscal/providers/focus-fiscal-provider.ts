@@ -18,8 +18,8 @@ type FocusNfePayload = {
   data_emissao: string;
   data_entrada_saida: string;
   tipo_documento: 0 | 1;
-  local_destino: 1;
-  finalidade_emissao: 1 | 4;
+  local_destino: 1 | 2 | 3;
+  finalidade_emissao: 1 | 2 | 3 | 4;
   consumidor_final: 1;
   presenca_comprador: 1;
   cnpj_emitente?: string;
@@ -279,8 +279,8 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
     data_emissao: issueDateTime,
     data_entrada_saida: issueDateTime,
     tipo_documento: request.operationType === "ENTRY" ? 0 : 1,
-    local_destino: 1,
-    finalidade_emissao: request.purpose === "RETURN" ? 4 : 1,
+    local_destino: focusDestinationOperation(request.destinationOperation),
+    finalidade_emissao: focusIssuePurpose(request.purpose),
     consumidor_final: 1,
     presenca_comprador: 1,
     cnpj_emitente: digits(request.companyCnpj),
@@ -412,9 +412,17 @@ function hasBillingPayment(request: FiscalIssueRequest) {
     ? request.sale.payments
     : [{ paymentMethodCode: request.sale.paymentMethodCode }];
 
-  return payments.some(
-    (payment) => focusPaymentCode(payment.paymentMethodCode) === "15",
-  );
+  return payments.some((payment) => {
+    if (payment.paymentMethodCode === "BOLETO") {
+      return true;
+    }
+
+    return (
+      payment.paymentMethodCode === "CREDIT" &&
+      (request.sale.paymentInstallments.length > 0 ||
+        Boolean(request.sale.billingDueDate))
+    );
+  });
 }
 
 function focusBillingInstallments(
@@ -506,6 +514,36 @@ function focusCustomerStateRegistration(request: FiscalIssueRequest) {
   return focusCustomerStateRegistrationIndicator(request) === 1
     ? focusString(request.sale.clientStateRegistration) ?? undefined
     : undefined;
+}
+
+function focusDestinationOperation(
+  destinationOperation: FiscalIssueRequest["destinationOperation"],
+): 1 | 2 | 3 {
+  const values: Record<
+    NonNullable<FiscalIssueRequest["destinationOperation"]>,
+    1 | 2 | 3
+  > = {
+    INTERNAL: 1,
+    INTERSTATE: 2,
+    EXTERIOR: 3,
+  };
+
+  return destinationOperation ? values[destinationOperation] : 1;
+}
+
+function focusIssuePurpose(
+  purpose: FiscalIssueRequest["purpose"],
+): 1 | 2 | 3 | 4 {
+  const values: Record<NonNullable<FiscalIssueRequest["purpose"]>, 1 | 2 | 3 | 4> = {
+    NORMAL: 1,
+    COMPLEMENTARY: 2,
+    ADJUSTMENT: 3,
+    RETURN: 4,
+    CREDIT_NOTE: 1,
+    DEBIT_NOTE: 1,
+  };
+
+  return purpose ? values[purpose] : 1;
 }
 
 function focusNfeItemPayload(

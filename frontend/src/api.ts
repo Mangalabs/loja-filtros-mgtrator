@@ -510,10 +510,30 @@ export type FiscalDocument = {
 export type ManualFiscalDocumentInput = {
   documentType: "NFE";
   operationType: "ENTRY" | "EXIT";
-  purpose: "NORMAL" | "RETURN";
+  destinationOperation: "INTERNAL" | "INTERSTATE" | "EXTERIOR";
+  purpose:
+    | "NORMAL"
+    | "COMPLEMENTARY"
+    | "ADJUSTMENT"
+    | "RETURN"
+    | "CREDIT_NOTE"
+    | "DEBIT_NOTE";
   natureOperation: string;
   referencedAccessKeys: string[];
   transportedVolumesQuantity: number | null;
+  billingEnabled: boolean;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
+  payments: Array<{
+    paymentMethodCode: string;
+    paymentMethodName: string;
+    amount: number;
+  }>;
+  paymentInstallments: Array<{
+    position: number;
+    dueDate: string;
+    amount: number;
+  }>;
   additionalInformation: string | null;
   client: {
     personType: "PF" | "PJ" | "ES";
@@ -546,6 +566,17 @@ export type ManualFiscalDocumentInput = {
     unitPrice: number;
     discountAmount: number;
   }>;
+};
+
+export type ManualFiscalDocumentDraft = {
+  id: string;
+  branchId: string;
+  createdByUserId: string;
+  createdByUserName: string;
+  title: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type FiscalSettings = {
@@ -623,7 +654,40 @@ export type StockReport = {
     lowStockProductsCount: number;
     productsWithoutMovementCount: number;
     soldQuantity: string;
+    movementsCount: number;
+    entryQuantity: string;
+    entryAmount: string;
+    exitQuantity: string;
+    exitCostAmount: string;
+    adjustmentQuantity: string;
+    adjustmentCostAmount: string;
+    netQuantity: string;
   };
+  byMovementType: Array<{
+    type:
+      | "ENTRY"
+      | "ADJUSTMENT"
+      | "SALE"
+      | "SALE_CANCEL"
+      | "SALE_RETURN"
+      | "SALE_CORRECTION";
+    movementsCount: number;
+    quantity: string;
+    costAmount: string;
+  }>;
+  movedProducts: Array<{
+    productId: string;
+    productName: string;
+    movementsCount: number;
+    entryQuantity: string;
+    entryAmount: string;
+    exitQuantity: string;
+    exitCostAmount: string;
+    adjustmentQuantity: string;
+    adjustmentCostAmount: string;
+    netQuantity: string;
+    lastMovementAt: string | null;
+  }>;
   lowStockProducts: Array<{
     productId: string;
     productName: string;
@@ -692,6 +756,7 @@ export type InventoryReport = {
     productName: string;
     internalCode: string | null;
     barcode: string | null;
+    ncm: string | null;
     brandName: string | null;
     groupName: string | null;
     unit: string;
@@ -699,6 +764,9 @@ export type InventoryReport = {
     costPrice: string;
     salePrice: string;
     currentStock: string;
+    previousStock: string;
+    entryQuantity: string;
+    exitQuantity: string;
     reservedStock: string;
     availableStock: string;
     minimumStock: string;

@@ -19,7 +19,14 @@ export type FiscalIssueRequest = {
   companyCnpj: string | null;
   additionalInformation: string | null;
   operationType?: "ENTRY" | "EXIT";
-  purpose?: "NORMAL" | "RETURN";
+  destinationOperation?: "INTERNAL" | "INTERSTATE" | "EXTERIOR";
+  purpose?:
+    | "NORMAL"
+    | "COMPLEMENTARY"
+    | "ADJUSTMENT"
+    | "RETURN"
+    | "CREDIT_NOTE"
+    | "DEBIT_NOTE";
   referencedAccessKeys?: string[];
   transportedVolumesQuantity?: number | null;
   defaultNatureOperation: string | null;

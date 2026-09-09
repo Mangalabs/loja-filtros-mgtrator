@@ -15,6 +15,12 @@ import {
   type FiscalDocumentStatus,
   type FiscalDocumentSourceType,
 } from "../../models/fiscal-documents/fiscal-documents.model.js";
+import {
+  deleteManualFiscalDocumentDraft,
+  insertManualFiscalDocumentDraft,
+  listManualFiscalDocumentDrafts,
+  updateManualFiscalDocumentDraft,
+} from "../../models/fiscal-documents/manual-fiscal-document-drafts.model.js";
 import { getPickupReservationById } from "../../models/pickup-reservations/pickup-reservations.model.js";
 import {
   getSaleById,
@@ -29,6 +35,85 @@ export async function indexFiscalDocuments(filters: { branchId: string }) {
     code: 200,
     status: "success",
     data: await listFiscalDocuments(filters),
+  };
+}
+
+export async function indexManualFiscalDocumentDrafts(
+  branchId: string,
+  userId: string,
+) {
+  return {
+    code: 200,
+    status: "success",
+    data: await listManualFiscalDocumentDrafts({
+      branchId,
+      createdByUserId: userId,
+    }),
+  };
+}
+
+export async function storeManualFiscalDocumentDraft(
+  payload: Record<string, unknown>,
+  userId: string,
+  branchId: string,
+) {
+  const draft = await insertManualFiscalDocumentDraft({
+    branchId,
+    createdByUserId: userId,
+    title: manualFiscalDocumentDraftTitle(payload),
+    payload,
+  });
+
+  return {
+    code: 201,
+    status: "success",
+    data: draft,
+  };
+}
+
+export async function replaceManualFiscalDocumentDraft(
+  id: string,
+  payload: Record<string, unknown>,
+  userId: string,
+  branchId: string,
+) {
+  const draft = await updateManualFiscalDocumentDraft(id, {
+    branchId,
+    createdByUserId: userId,
+    title: manualFiscalDocumentDraftTitle(payload),
+    payload,
+  });
+
+  if (!draft) {
+    throw new AppError("Rascunho de NF-e avulsa nao encontrado.", 404);
+  }
+
+  return {
+    code: 200,
+    status: "success",
+    data: draft,
+  };
+}
+
+export async function destroyManualFiscalDocumentDraft(
+  id: string,
+  userId: string,
+  branchId: string,
+) {
+  const deleted = await deleteManualFiscalDocumentDraft({
+    id,
+    branchId,
+    createdByUserId: userId,
+  });
+
+  if (!deleted) {
+    throw new AppError("Rascunho de NF-e avulsa nao encontrado.", 404);
+  }
+
+  return {
+    code: 200,
+    status: "success",
+    data: { id },
   };
 }
 
@@ -603,10 +688,30 @@ export async function previewPickupReservationFiscalDocument(
 export type ManualFiscalDocumentInput = {
   documentType: FiscalDocumentType;
   operationType: "ENTRY" | "EXIT";
-  purpose: "NORMAL" | "RETURN";
+  destinationOperation: "INTERNAL" | "INTERSTATE" | "EXTERIOR";
+  purpose:
+    | "NORMAL"
+    | "COMPLEMENTARY"
+    | "ADJUSTMENT"
+    | "RETURN"
+    | "CREDIT_NOTE"
+    | "DEBIT_NOTE";
   natureOperation: string;
   referencedAccessKeys: string[];
   transportedVolumesQuantity: number | null;
+  billingEnabled: boolean;
+  billingIssueDate: string | null;
+  billingDueDate: string | null;
+  payments: Array<{
+    paymentMethodCode: string;
+    paymentMethodName: string;
+    amount: number;
+  }>;
+  paymentInstallments: Array<{
+    position: number;
+    dueDate: string;
+    amount: number;
+  }>;
   additionalInformation: string | null;
   client: {
     personType: "PF" | "PJ" | "ES";
@@ -869,6 +974,7 @@ async function manualFiscalDocumentRequest(
       companyCnpj: fiscalSettings.companyCnpj,
       additionalInformation: input.additionalInformation,
       operationType: input.operationType,
+      destinationOperation: input.destinationOperation,
       purpose: input.purpose,
       referencedAccessKeys: input.referencedAccessKeys,
       transportedVolumesQuantity: input.transportedVolumesQuantity,
@@ -893,6 +999,15 @@ function manualFiscalSale(input: ManualFiscalDocumentInput): FiscalIssueRequest[
     0,
   );
   const totalAmount = subtotalAmount - discountAmount;
+  const payments = manualFiscalPayments(input, totalAmount);
+  ensureManualFiscalPaymentsMatchTotal(payments, totalAmount);
+  const hasBillablePayment = payments.some((payment) =>
+    manualFiscalPaymentAllowsBilling(payment.paymentMethodCode),
+  );
+  const paymentInstallments = hasBillablePayment
+    ? manualFiscalPaymentInstallments(input, payments)
+    : [];
+  ensureManualFiscalInstallmentsMatchPayments(paymentInstallments, payments);
 
   return {
     id: "manual",
@@ -910,25 +1025,32 @@ function manualFiscalSale(input: ManualFiscalDocumentInput): FiscalIssueRequest[
     clientAddressCity: input.client.addressCity,
     clientAddressState: input.client.addressState,
     clientAddressZipCode: input.client.addressZipCode,
-    paymentMethodCode: "NO_PAYMENT",
-    paymentMethodName: "Sem pagamento",
-    payments: [
-      {
-        paymentMethodCode: "NO_PAYMENT",
-        paymentMethodName: "Sem pagamento",
-        amount: totalAmount.toFixed(2),
-      },
-    ],
-    paymentInstallments: [],
+    paymentMethodCode:
+      payments.length > 1 ? "MULTIPLE" : payments[0]?.paymentMethodCode ?? "",
+    paymentMethodName:
+      payments.length > 1
+        ? payments.map((payment) => payment.paymentMethodName).join(" + ")
+        : payments[0]?.paymentMethodName ?? "",
+    payments: payments.map((payment) => ({
+      paymentMethodCode: payment.paymentMethodCode,
+      paymentMethodName: payment.paymentMethodName,
+      amount: payment.amount.toFixed(2),
+    })),
+    paymentInstallments,
     totalAmount: totalAmount.toFixed(2),
     discountAmount: "0.00",
-    billingIssueDate: null,
-    billingDueDate: null,
+    billingIssueDate: hasBillablePayment ? input.billingIssueDate : null,
+    billingDueDate: hasBillablePayment ? input.billingDueDate : null,
     items: input.items.map((item, index) => ({
       productId: item.productId ?? `manual-${index + 1}`,
       productInternalCode: item.productInternalCode,
       productName: item.productName,
-      productCfop: item.productCfop,
+      productCfop:
+        cfopFromNatureOperation(
+          input.natureOperation,
+          input.operationType,
+          input.destinationOperation,
+        ) ?? item.productCfop,
       productIcmsCst: item.productIcmsCst,
       productNcm: item.productNcm,
       productPisCst: item.productPisCst,
@@ -944,6 +1066,194 @@ function manualFiscalSale(input: ManualFiscalDocumentInput): FiscalIssueRequest[
       position: index + 1,
     })),
   };
+}
+
+function cfopFromNatureOperation(
+  natureOperation: string,
+  operationType: "ENTRY" | "EXIT",
+  destinationOperation: "INTERNAL" | "INTERSTATE" | "EXTERIOR",
+) {
+  const cfops = natureOperation.match(/\d\.\d{3}|\d{4}/g) ?? [];
+
+  if (cfops.length === 0) {
+    return null;
+  }
+
+  const preferredInitial = cfopInitial(operationType, destinationOperation);
+  const preferredCfop = cfops.find(
+    (cfop) => cfop.replace(/\D/g, "").startsWith(preferredInitial),
+  );
+
+  const fallbackCfop = cfops[0];
+
+  return fallbackCfop ? (preferredCfop ?? fallbackCfop).replace(/\D/g, "") : null;
+}
+
+function cfopInitial(
+  operationType: "ENTRY" | "EXIT",
+  destinationOperation: "INTERNAL" | "INTERSTATE" | "EXTERIOR",
+) {
+  if (destinationOperation === "EXTERIOR") {
+    return operationType === "ENTRY" ? "3" : "7";
+  }
+
+  if (destinationOperation === "INTERSTATE") {
+    return operationType === "ENTRY" ? "2" : "6";
+  }
+
+  return operationType === "ENTRY" ? "1" : "5";
+}
+
+function manualFiscalPayments(
+  input: ManualFiscalDocumentInput,
+  totalAmount: number,
+) {
+  if (input.payments.length > 0) {
+    return input.payments;
+  }
+
+  if (input.billingEnabled) {
+    return [
+      {
+        paymentMethodCode: "BOLETO",
+        paymentMethodName: "Fatura / boleto",
+        amount: totalAmount,
+      },
+    ];
+  }
+
+  return [
+    {
+      paymentMethodCode: "NO_PAYMENT",
+      paymentMethodName: "Sem pagamento",
+      amount: 0,
+    },
+  ];
+}
+
+function manualFiscalPaymentInstallments(
+  input: ManualFiscalDocumentInput,
+  payments: Array<{
+    paymentMethodCode: string;
+    amount: number;
+  }>,
+) {
+  if (input.paymentInstallments.length > 0) {
+    return input.paymentInstallments.map((installment) => ({
+      position: installment.position,
+      dueDate: installment.dueDate,
+      amount: installment.amount.toFixed(2),
+    }));
+  }
+
+  if (!input.billingDueDate) {
+    return [];
+  }
+
+  return payments
+    .filter((payment) =>
+      manualFiscalPaymentAllowsBilling(payment.paymentMethodCode),
+    )
+    .map((payment, index) => ({
+      position: index + 1,
+      dueDate: input.billingDueDate as string,
+      amount: payment.amount.toFixed(2),
+    }));
+}
+
+function manualFiscalPaymentAllowsBilling(code: string) {
+  return code === "BOLETO" || code === "CREDIT";
+}
+
+function ensureManualFiscalPaymentsMatchTotal(
+  payments: Array<{ paymentMethodCode: string; amount: number }>,
+  totalAmount: number,
+) {
+  if (
+    payments.length === 1 &&
+    payments[0]?.paymentMethodCode === "NO_PAYMENT"
+  ) {
+    return;
+  }
+
+  const paymentsAmount = moneyValue(
+    payments.reduce((sum, payment) => sum + payment.amount, 0),
+  );
+
+  if (paymentsAmount === moneyValue(totalAmount)) {
+    return;
+  }
+
+  throw new AppError(
+    "Total das formas de pagamento deve ser igual ao total da nota.",
+    422,
+    [
+      {
+        field: "payments",
+        message:
+          "Revise os valores informados nas formas de pagamento da NF-e avulsa.",
+      },
+    ],
+  );
+}
+
+function ensureManualFiscalInstallmentsMatchPayments(
+  installments: Array<{ amount: string }>,
+  payments: Array<{ paymentMethodCode: string; amount: number }>,
+) {
+  if (installments.length === 0) {
+    return;
+  }
+
+  const installmentsAmount = moneyValue(
+    installments.reduce(
+      (sum, installment) => sum + Number(installment.amount),
+      0,
+    ),
+  );
+  const billableAmount = moneyValue(
+    payments
+      .filter((payment) =>
+        manualFiscalPaymentAllowsBilling(payment.paymentMethodCode),
+      )
+      .reduce((sum, payment) => sum + payment.amount, 0),
+  );
+
+  if (installmentsAmount === billableAmount) {
+    return;
+  }
+
+  throw new AppError(
+    "Total das parcelas deve ser igual ao total faturado por boleto ou credito.",
+    422,
+    [
+      {
+        field: "paymentInstallments",
+        message: "Revise os valores das parcelas da NF-e avulsa.",
+      },
+    ],
+  );
+}
+
+function moneyValue(value: number) {
+  return Number(value.toFixed(2));
+}
+
+function manualFiscalDocumentDraftTitle(payload: Record<string, unknown>) {
+  const client =
+    typeof payload.client === "object" && payload.client !== null
+      ? (payload.client as Record<string, unknown>)
+      : {};
+  const clientName =
+    typeof client.name === "string" && client.name.trim()
+      ? client.name.trim()
+      : "NF-e avulsa";
+  const natureOperation =
+    typeof payload.natureOperation === "string" && payload.natureOperation.trim()
+      ? payload.natureOperation.trim()
+      : "sem natureza";
+
+  return `${clientName} - ${natureOperation}`.slice(0, 180);
 }
 
 function ensureFiscalSettingsCanIssue(
@@ -1235,9 +1545,16 @@ function hasBillingPayment(sale: FiscalIssueRequest["sale"]) {
     ? sale.payments
     : [{ paymentMethodCode: sale.paymentMethodCode }];
 
-  return payments.some(
-    (payment) => paymentFiscalCode(payment.paymentMethodCode) === "15",
-  );
+  return payments.some((payment) => {
+    if (payment.paymentMethodCode === "BOLETO") {
+      return true;
+    }
+
+    return (
+      payment.paymentMethodCode === "CREDIT" &&
+      (sale.paymentInstallments.length > 0 || Boolean(sale.billingDueDate))
+    );
+  });
 }
 
 function saleFirstBillingDueDate(sale: FiscalIssueRequest["sale"]) {

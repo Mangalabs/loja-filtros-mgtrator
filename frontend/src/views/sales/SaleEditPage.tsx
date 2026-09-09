@@ -74,10 +74,7 @@ export function SaleEditPage({
       product.active || items.some((item) => item.productId === product.id),
   )
   const saleSubtotal = items.reduce((sum, item) => {
-    const product = products.find(
-      (currentProduct) => currentProduct.id === item.productId,
-    )
-    const unitPrice = Number(product?.salePrice ?? item.unitPrice ?? 0)
+    const unitPrice = Number(item.unitPrice || 0)
 
     return sum + Number(item.quantity || 0) * unitPrice
   }, 0)

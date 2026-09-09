@@ -204,6 +204,7 @@ type Sale = {
   totalAmount: string;
   billingIssueDate: string | null;
   billingDueDate: string | null;
+  clientId: string | null;
   items: Array<{
     id: string;
     productId: string;
@@ -543,7 +544,40 @@ type StockReport = {
     lowStockProductsCount: number;
     productsWithoutMovementCount: number;
     soldQuantity: string;
+    movementsCount: number;
+    entryQuantity: string;
+    entryAmount: string;
+    exitQuantity: string;
+    exitCostAmount: string;
+    adjustmentQuantity: string;
+    adjustmentCostAmount: string;
+    netQuantity: string;
   };
+  byMovementType: Array<{
+    type:
+      | "ENTRY"
+      | "ADJUSTMENT"
+      | "SALE"
+      | "SALE_CANCEL"
+      | "SALE_RETURN"
+      | "SALE_CORRECTION";
+    movementsCount: number;
+    quantity: string;
+    costAmount: string;
+  }>;
+  movedProducts: Array<{
+    productId: string;
+    productName: string;
+    movementsCount: number;
+    entryQuantity: string;
+    entryAmount: string;
+    exitQuantity: string;
+    exitCostAmount: string;
+    adjustmentQuantity: string;
+    adjustmentCostAmount: string;
+    netQuantity: string;
+    lastMovementAt: string | null;
+  }>;
   lowStockProducts: Array<{
     productId: string;
     productName: string;
@@ -584,6 +618,7 @@ type InventoryReport = {
     productName: string;
     internalCode: string | null;
     barcode: string | null;
+    ncm: string | null;
     brandName: string | null;
     groupName: string | null;
     unit: string;
@@ -591,6 +626,9 @@ type InventoryReport = {
     costPrice: string;
     salePrice: string;
     currentStock: string;
+    previousStock: string;
+    entryQuantity: string;
+    exitQuantity: string;
     reservedStock: string;
     availableStock: string;
     minimumStock: string;
@@ -728,6 +766,17 @@ type FiscalDocument = {
   cancelledByUserName: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
+};
+
+type ManualFiscalDocumentDraft = {
+  id: string;
+  branchId: string;
+  createdByUserId: string;
+  createdByUserName: string;
+  title: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type FiscalSettings = {
@@ -2383,6 +2432,83 @@ describe("catalog routes", () => {
     assert.equal(completed.body.data?.status, "COMPLETED");
   });
 
+  it("preserves open sale item prices when changing only the client", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro venda aberta troca cliente",
+        salePrice: 712,
+      },
+    });
+    const firstClient = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente original venda aberta",
+        document: "12345678901",
+      },
+    });
+    const secondClient = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente novo venda aberta",
+        document: "10987654321",
+      },
+    });
+    const paymentMethod = await activePaymentMethod();
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo inicial para troca de cliente",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        clientId: firstClient.body.data?.id,
+        productId: product.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        quantity: 1,
+      },
+    });
+    const reopened = await request<Sale>(`/sales/${sale.body.data?.id}/reopen`, {
+      method: "PATCH",
+    });
+
+    await request<Product>(`/products/${product.body.data?.id}`, {
+      method: "PUT",
+      body: {
+        salePrice: 713,
+      },
+    });
+
+    const updated = await request<Sale>(`/sales/${sale.body.data?.id}`, {
+      method: "PUT",
+      body: {
+        clientId: secondClient.body.data?.id,
+        discountAmount: 0,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+        payments: [{ paymentMethodId: paymentMethod.id, amount: 712 }],
+      },
+    });
+
+    assert.equal(reopened.status, 200);
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data?.clientId, secondClient.body.data?.id);
+    assert.equal(updated.body.data?.items[0]?.unitPrice, "712.00");
+    assert.equal(updated.body.data?.totalAmount, "712.00");
+    assert.equal(updated.body.data?.payments[0]?.amount, "712.00");
+  });
+
   it("blocks completed sale commercial date updates when fiscal document is active", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
@@ -3158,14 +3284,25 @@ describe("catalog routes", () => {
   });
 
   it("issues a manual mock return fiscal document", async () => {
+    const input = manualFiscalDocumentRequest();
+
+    input.destinationOperation = "INTERSTATE";
+    input.natureOperation =
+      "1.202/2.202 - Devolucao venda mercadoria terceiros";
+    (input.items[0] as { productCfop: string | null }).productCfop = null;
+
     const manualFiscalDocument = await request<FiscalDocument>(
       "/fiscal-documents/manual",
       {
         method: "POST",
-        body: manualFiscalDocumentRequest(),
+        body: input,
       },
     );
     const listed = await request<FiscalDocument[]>("/fiscal-documents");
+    const requestPayload = manualFiscalDocument.body.data
+      ?.requestPayload as Record<string, unknown>;
+    const sale = requestPayload.sale as Record<string, unknown>;
+    const items = sale.items as Array<Record<string, unknown>>;
 
     assert.equal(manualFiscalDocument.status, 201);
     assert.equal(manualFiscalDocument.body.data?.sourceType, "MANUAL_NFE");
@@ -3177,9 +3314,14 @@ describe("catalog routes", () => {
       "ENTRY",
     );
     assert.equal(
+      manualFiscalDocument.body.data?.requestPayload.destinationOperation,
+      "INTERSTATE",
+    );
+    assert.equal(
       manualFiscalDocument.body.data?.requestPayload.purpose,
       "RETURN",
     );
+    assert.equal(items[0]?.productCfop, "2202");
     assert.deepEqual(
       manualFiscalDocument.body.data?.requestPayload.referencedAccessKeys,
       ["1".repeat(44)],
@@ -3191,6 +3333,123 @@ describe("catalog routes", () => {
     assert.ok(
       listed.body.data?.some(
         (document) => document.id === manualFiscalDocument.body.data?.id,
+      ),
+    );
+  });
+
+  it("issues a manual mock return fiscal document with billing", async () => {
+    const input = {
+      ...manualFiscalDocumentRequest(),
+      billingEnabled: true,
+      billingIssueDate: "2099-01-10",
+      billingDueDate: "2099-02-10",
+      payments: [
+        {
+          paymentMethodCode: "BOLETO",
+          paymentMethodName: "Fatura / boleto",
+          amount: 35,
+        },
+      ],
+      paymentInstallments: [
+        {
+          position: 1,
+          dueDate: "2099-02-10",
+          amount: 15,
+        },
+        {
+          position: 2,
+          dueDate: "2099-03-10",
+          amount: 20,
+        },
+      ],
+    };
+    const manualFiscalDocument = await request<FiscalDocument>(
+      "/fiscal-documents/manual",
+      {
+        method: "POST",
+        body: input,
+      },
+    );
+    const sale = manualFiscalDocument.body.data?.requestPayload.sale as
+      | Record<string, unknown>
+      | undefined;
+
+    assert.equal(manualFiscalDocument.status, 201);
+    assert.equal(sale?.paymentMethodCode, "BOLETO");
+    assert.deepEqual(sale?.payments, [
+      {
+        paymentMethodCode: "BOLETO",
+        paymentMethodName: "Fatura / boleto",
+        amount: "35.00",
+      },
+    ]);
+    assert.deepEqual(sale?.paymentInstallments, [
+      {
+        position: 1,
+        dueDate: "2099-02-10",
+        amount: "15.00",
+      },
+      {
+        position: 2,
+        dueDate: "2099-03-10",
+        amount: "20.00",
+      },
+    ]);
+    assert.equal(sale?.billingIssueDate, "2099-01-10");
+    assert.equal(sale?.billingDueDate, "2099-02-10");
+  });
+
+  it("saves, updates, lists and deletes a manual fiscal document draft", async () => {
+    const input = manualFiscalDocumentRequest();
+    const created = await request<ManualFiscalDocumentDraft>(
+      "/fiscal-documents/manual/drafts",
+      {
+        method: "POST",
+        body: input,
+      },
+    );
+    const listed = await request<ManualFiscalDocumentDraft[]>(
+      "/fiscal-documents/manual/drafts",
+    );
+    const updatedInput = {
+      ...input,
+      client: {
+        ...input.client,
+        name: "Cliente rascunho atualizado",
+      },
+    };
+    const updated = await request<ManualFiscalDocumentDraft>(
+      `/fiscal-documents/manual/drafts/${created.body.data?.id}`,
+      {
+        method: "PUT",
+        body: updatedInput,
+      },
+    );
+    const deleted = await request<{ id: string }>(
+      `/fiscal-documents/manual/drafts/${created.body.data?.id}`,
+      {
+        method: "DELETE",
+      },
+    );
+    const listedAfterDelete = await request<ManualFiscalDocumentDraft[]>(
+      "/fiscal-documents/manual/drafts",
+    );
+
+    assert.equal(created.status, 201);
+    assert.match(created.body.data?.title ?? "", /Cliente devolucao manual/);
+    assert.ok(
+      listed.body.data?.some((draft) => draft.id === created.body.data?.id),
+    );
+    assert.equal(updated.status, 200);
+    assert.equal(
+      (updated.body.data?.payload.client as Record<string, unknown>)?.name,
+      "Cliente rascunho atualizado",
+    );
+    assert.equal(deleted.status, 200);
+    assert.equal(deleted.body.data?.id, created.body.data?.id);
+    assert.ok(
+      !listedAfterDelete.body.data?.some(
+        (draft) => draft.id === created.body.data?.id,
       ),
     );
   });
@@ -4834,6 +5093,7 @@ describe("catalog routes", () => {
     let submittedPayload: Record<string, unknown> | null = null;
 
     requestPayload.operationType = "ENTRY";
+    requestPayload.destinationOperation = "INTERSTATE";
     requestPayload.purpose = "RETURN";
     requestPayload.defaultNatureOperation = "Devolucao de mercadoria";
     requestPayload.referencedAccessKeys = ["1".repeat(44)];
@@ -4882,6 +5142,7 @@ describe("catalog routes", () => {
       >;
 
       assert.equal(payload.tipo_documento, 0);
+      assert.equal(payload.local_destino, 2);
       assert.equal(payload.finalidade_emissao, 4);
       assert.equal(payload.natureza_operacao, "Devolucao de mercadoria");
       assert.deepEqual(payload.volumes, [{ quantidade: 3 }]);
@@ -4892,6 +5153,61 @@ describe("catalog routes", () => {
       assert.equal(items[0]?.icms_situacao_tributaria, "090");
       assert.equal(items[0]?.pis_situacao_tributaria, "99");
       assert.equal(items[0]?.cofins_situacao_tributaria, "99");
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("maps Focus manual destination and purpose values", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const submittedPayloads: Array<Record<string, unknown>> = [];
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayloads.push(
+        JSON.parse(String(init?.body)) as Record<string, unknown>,
+      );
+
+      return new Response(
+        JSON.stringify({
+          ref: `SALEfocusprovidertest${submittedPayloads.length}`,
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      const complementary = focusIssueRequest();
+      complementary.destinationOperation = "EXTERIOR";
+      complementary.purpose = "COMPLEMENTARY";
+      await new FocusFiscalProvider().issue(complementary);
+
+      const adjustment = focusIssueRequest();
+      adjustment.purpose = "ADJUSTMENT";
+      await new FocusFiscalProvider().issue(adjustment);
+
+      const creditNote = focusIssueRequest();
+      creditNote.purpose = "CREDIT_NOTE";
+      await new FocusFiscalProvider().issue(creditNote);
+
+      const debitNote = focusIssueRequest();
+      debitNote.purpose = "DEBIT_NOTE";
+      await new FocusFiscalProvider().issue(debitNote);
+
+      assert.equal(submittedPayloads[0]?.local_destino, 3);
+      assert.equal(submittedPayloads[0]?.finalidade_emissao, 2);
+      assert.equal(submittedPayloads[1]?.finalidade_emissao, 3);
+      assert.equal(submittedPayloads[2]?.finalidade_emissao, 1);
+      assert.equal(submittedPayloads[3]?.finalidade_emissao, 1);
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
@@ -5183,6 +5499,8 @@ describe("catalog routes", () => {
           valor_pagamento: 35,
         },
       ]);
+      assert.equal(payload.numero_fatura, undefined);
+      assert.equal(payload.duplicatas, undefined);
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
@@ -5802,6 +6120,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         name: "Filtro relatorio estoque baixo",
+        costPrice: 8,
         minimumStock: 5,
         salePrice: 30,
       },
@@ -5810,6 +6129,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         name: "Filtro relatorio giro",
+        costPrice: 20,
         minimumStock: 1,
         salePrice: 50,
       },
@@ -5864,6 +6184,14 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.summary.lowStockProductsCount, 1);
     assert.equal(report.body.data?.summary.productsWithoutMovementCount, 1);
     assert.equal(report.body.data?.summary.soldQuantity, "3.000");
+    assert.equal(report.body.data?.summary.movementsCount, 3);
+    assert.equal(report.body.data?.summary.entryQuantity, "0.000");
+    assert.equal(report.body.data?.summary.entryAmount, "0.00");
+    assert.equal(report.body.data?.summary.exitQuantity, "3.000");
+    assert.equal(report.body.data?.summary.exitCostAmount, "60.00");
+    assert.equal(report.body.data?.summary.adjustmentQuantity, "7.000");
+    assert.equal(report.body.data?.summary.adjustmentCostAmount, "116.00");
+    assert.equal(report.body.data?.summary.netQuantity, "4.000");
     assert.equal(
       report.body.data?.lowStockProducts[0]?.productName,
       lowStockProduct.body.data?.name,
@@ -5877,6 +6205,44 @@ describe("catalog routes", () => {
       soldProduct.body.data?.id,
     );
     assert.equal(report.body.data?.turnoverProducts[0]?.soldQuantity, "3.000");
+    assert.equal(report.body.data?.movedProducts.length, 2);
+    const movedSoldProduct = report.body.data?.movedProducts.find(
+      (item) => item.productId === soldProduct.body.data?.id,
+    );
+
+    assert.equal(movedSoldProduct?.exitCostAmount, "60.00");
+    assert.deepEqual(
+      report.body.data?.byMovementType.map((item) => ({
+        type: item.type,
+        movementsCount: item.movementsCount,
+        quantity: item.quantity,
+        costAmount: item.costAmount,
+      })),
+      [
+        {
+          type: "ADJUSTMENT",
+          movementsCount: 2,
+          quantity: "7.000",
+          costAmount: "116.00",
+        },
+        {
+          type: "SALE",
+          movementsCount: 1,
+          quantity: "-3.000",
+          costAmount: "60.00",
+        },
+      ],
+    );
+
+    const pdf = await requestRaw("/reports/stock/pdf");
+
+    assert.equal(pdf.status, 200);
+    assert.equal(pdf.contentType, "application/pdf");
+    assert.equal(
+      pdf.contentDisposition,
+      'attachment; filename="relatorio-estoque.pdf"',
+    );
+    assert.equal(pdf.body.subarray(0, 4).toString(), "%PDF");
   });
 
   it("returns inventory reports with stock values and product filters", async () => {
@@ -5885,6 +6251,7 @@ describe("catalog routes", () => {
       body: {
         name: "Inventario produto disponivel",
         internalCode: "INV-DISP",
+        ncm: "84212300",
         costPrice: 4,
         salePrice: 10,
         currentStock: 10,
@@ -5940,10 +6307,20 @@ describe("catalog routes", () => {
     assert.equal(activeReport.body.data?.summary.potentialProfitAmount, "52.00");
     assert.equal(activeReport.body.data?.summary.lowStockProductsCount, 0);
     assert.equal(activeReport.body.data?.summary.negativeStockProductsCount, 1);
+    const availableInventoryItem = activeReport.body.data?.items.find(
+      (item) => item.productId === availableProduct.body.data?.id,
+    );
+
+    assert.equal(availableInventoryItem?.internalCode, "INV-DISP");
+    assert.equal(availableInventoryItem?.ncm, "84212300");
+    assert.equal(availableInventoryItem?.previousStock, "0.000");
+    assert.equal(availableInventoryItem?.entryQuantity, "10.000");
+    assert.equal(availableInventoryItem?.exitQuantity, "0.000");
+    assert.equal(availableInventoryItem?.currentStock, "10.000");
+    assert.equal(availableInventoryItem?.unit, "UN");
+    assert.equal(availableInventoryItem?.costPrice, "4.00");
     assert.equal(
-      activeReport.body.data?.items.find(
-        (item) => item.productId === availableProduct.body.data?.id,
-      )?.stockStatus,
+      availableInventoryItem?.stockStatus,
       "AVAILABLE",
     );
     assert.equal(
@@ -7415,6 +7792,10 @@ describe("catalog routes", () => {
     assert.equal(listed.body.data?.[0]?.shippingOrderId, null);
     assert.equal(pdf.status, 200);
     assert.equal(pdf.contentType, "application/pdf");
+    assert.equal(
+      pdf.contentDisposition,
+      'attachment; filename="ORCAMENTO-CLIENTE-ORCAMENTO-1.pdf"',
+    );
     assert.equal(pdf.body.subarray(0, 4).toString(), "%PDF");
     assert.equal(shippingOrder.status, 201);
     assert.equal(shippingOrder.body.data?.quoteId, created.body.data?.id);
@@ -9639,10 +10020,16 @@ function manualFiscalDocumentRequest() {
   return {
     documentType: "NFE",
     operationType: "ENTRY",
+    destinationOperation: "INTERNAL",
     purpose: "RETURN",
     natureOperation: "Devolucao de mercadoria",
     referencedAccessKeys: ["1".repeat(44)],
     transportedVolumesQuantity: 1,
+    billingEnabled: false,
+    billingIssueDate: null,
+    billingDueDate: null,
+    payments: [],
+    paymentInstallments: [],
     additionalInformation: "Devolucao preenchida manualmente",
     client: {
       personType: "PJ",

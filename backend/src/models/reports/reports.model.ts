@@ -98,7 +98,40 @@ export type StockReport = {
     lowStockProductsCount: number;
     productsWithoutMovementCount: number;
     soldQuantity: string;
+    movementsCount: number;
+    entryQuantity: string;
+    entryAmount: string;
+    exitQuantity: string;
+    exitCostAmount: string;
+    adjustmentQuantity: string;
+    adjustmentCostAmount: string;
+    netQuantity: string;
   };
+  byMovementType: Array<{
+    type:
+      | "ENTRY"
+      | "ADJUSTMENT"
+      | "SALE"
+      | "SALE_CANCEL"
+      | "SALE_RETURN"
+      | "SALE_CORRECTION";
+    movementsCount: number;
+    quantity: string;
+    costAmount: string;
+  }>;
+  movedProducts: Array<{
+    productId: string;
+    productName: string;
+    movementsCount: number;
+    entryQuantity: string;
+    entryAmount: string;
+    exitQuantity: string;
+    exitCostAmount: string;
+    adjustmentQuantity: string;
+    adjustmentCostAmount: string;
+    netQuantity: string;
+    lastMovementAt: Date | null;
+  }>;
   lowStockProducts: Array<{
     productId: string;
     productName: string;
@@ -139,6 +172,7 @@ export type InventoryReport = {
     productName: string;
     internalCode: string | null;
     barcode: string | null;
+    ncm: string | null;
     brandName: string | null;
     groupName: string | null;
     unit: string;
@@ -146,6 +180,9 @@ export type InventoryReport = {
     costPrice: string;
     salePrice: string;
     currentStock: string;
+    previousStock: string;
+    entryQuantity: string;
+    exitQuantity: string;
     reservedStock: string;
     availableStock: string;
     minimumStock: string;
@@ -335,6 +372,38 @@ type StockTurnoverProductRow = {
 
 type StockSummaryRow = {
   soldQuantity: string;
+};
+
+type StockMovementSummaryRow = {
+  movementsCount: string;
+  entryQuantity: string;
+  entryAmount: string;
+  exitQuantity: string;
+  exitCostAmount: string;
+  adjustmentQuantity: string;
+  adjustmentCostAmount: string;
+  netQuantity: string;
+};
+
+type StockMovementTypeRow = {
+  type: StockReport["byMovementType"][number]["type"];
+  movementsCount: string;
+  quantity: string;
+  costAmount: string;
+};
+
+type StockMovedProductRow = {
+  productId: string;
+  productName: string;
+  movementsCount: string;
+  entryQuantity: string;
+  entryAmount: string;
+  exitQuantity: string;
+  exitCostAmount: string;
+  adjustmentQuantity: string;
+  adjustmentCostAmount: string;
+  netQuantity: string;
+  lastMovementAt: Date | null;
 };
 
 type InventoryReportSummaryRow = {
@@ -531,8 +600,8 @@ export async function getSalesReport(
     salesReportBaseQuery(filters)
       .join("products", "products.id", "sale_items.product_id")
       .select<SalesByProductRow[]>([
-        "products.id as productId",
         "products.name as productName",
+        "products.id as productId",
         db.raw("sum(sale_items.quantity)::numeric(12, 3)::text as ??", [
           "quantity",
         ]),
@@ -622,6 +691,9 @@ export async function getStockReport(
     productsWithoutMovement,
     turnoverProducts,
     stockSummary,
+    movementSummary,
+    byMovementType,
+    movedProducts,
   ] = await Promise.all([
     db("products")
       .where("branch_id", filters.branchId)
@@ -678,6 +750,34 @@ export async function getStockReport(
         ),
       ])
       .first(),
+    stockMovementReportQuery(filters)
+      .select<StockMovementSummaryRow[]>(stockMovementSummarySelect())
+      .first(),
+    stockMovementReportQuery(filters)
+      .select<StockMovementTypeRow[]>([
+        "stock_movements.type",
+        db.raw("count(stock_movements.id)::text as ??", ["movementsCount"]),
+        db.raw("sum(stock_movements.quantity)::numeric(12, 3)::text as ??", [
+          "quantity",
+        ]),
+        db.raw(
+          `sum(abs(stock_movements.quantity) * ${stockMovementUnitCostSql()})::numeric(12, 2)::text as ??`,
+          ["costAmount"],
+        ),
+      ])
+      .groupBy("stock_movements.type")
+      .orderBy("stock_movements.type", "asc"),
+    stockMovementReportQuery(filters)
+      .select<StockMovedProductRow[]>([
+        "products.id as productId",
+        "products.name as productName",
+        db.raw("count(stock_movements.id)::text as ??", ["movementsCount"]),
+        ...stockMovementProductSelect(),
+        db.raw("max(stock_movements.created_at) as ??", ["lastMovementAt"]),
+      ])
+      .groupBy("products.id", "products.name")
+      .orderByRaw("max(stock_movements.created_at) desc")
+      .limit(50),
   ]);
 
   return {
@@ -688,7 +788,23 @@ export async function getStockReport(
         productsWithoutMovementCount?.count ?? 0,
       ),
       soldQuantity: stockSummary?.soldQuantity ?? "0.000",
+      movementsCount: Number(movementSummary?.movementsCount ?? 0),
+      entryQuantity: movementSummary?.entryQuantity ?? "0.000",
+      entryAmount: movementSummary?.entryAmount ?? "0.00",
+      exitQuantity: movementSummary?.exitQuantity ?? "0.000",
+      exitCostAmount: movementSummary?.exitCostAmount ?? "0.00",
+      adjustmentQuantity: movementSummary?.adjustmentQuantity ?? "0.000",
+      adjustmentCostAmount: movementSummary?.adjustmentCostAmount ?? "0.00",
+      netQuantity: movementSummary?.netQuantity ?? "0.000",
     },
+    byMovementType: byMovementType.map((item) => ({
+      ...item,
+      movementsCount: Number(item.movementsCount),
+    })),
+    movedProducts: movedProducts.map((item) => ({
+      ...item,
+      movementsCount: Number(item.movementsCount),
+    })),
     lowStockProducts,
     productsWithoutMovement,
     turnoverProducts,
@@ -742,6 +858,7 @@ export async function getInventoryReport(
         "products.name as productName",
         "products.internal_code as internalCode",
         "products.barcode",
+        "products.ncm",
         "brands.name as brandName",
         "product_groups.name as groupName",
         "products.unit",
@@ -749,6 +866,18 @@ export async function getInventoryReport(
         "products.cost_price as costPrice",
         "products.sale_price as salePrice",
         "products.current_stock as currentStock",
+        db.raw(
+          "(products.current_stock - coalesce(inventory_movement_totals.net_movement_quantity, 0))::numeric(12, 3)::text as ??",
+          ["previousStock"],
+        ),
+        db.raw(
+          "coalesce(inventory_movement_totals.entry_quantity, 0)::numeric(12, 3)::text as ??",
+          ["entryQuantity"],
+        ),
+        db.raw(
+          "coalesce(inventory_movement_totals.exit_quantity, 0)::numeric(12, 3)::text as ??",
+          ["exitQuantity"],
+        ),
         "products.reserved_stock as reservedStock",
         db.raw("products.current_stock - products.reserved_stock as ??", [
           "availableStock",
@@ -1127,6 +1256,11 @@ function inventoryReportProductsQuery(filters: InventoryReportFilters) {
   return db("products")
     .leftJoin("brands", "brands.id", "products.brand_id")
     .leftJoin("product_groups", "product_groups.id", "products.group_id")
+    .leftJoin(
+      inventoryMovementTotalsSubquery(),
+      "inventory_movement_totals.product_id",
+      "products.id",
+    )
     .where("products.branch_id", filters.branchId)
     .modify((query) => {
       if (typeof filters.active === "boolean") {
@@ -1165,6 +1299,22 @@ function inventoryReportProductsQuery(filters: InventoryReportFilters) {
         }
       }
     });
+}
+
+function inventoryMovementTotalsSubquery() {
+  return db("stock_movements")
+    .select([
+      "stock_movements.product_id",
+      db.raw(
+        "coalesce(sum(case when stock_movements.quantity > 0 then stock_movements.quantity else 0 end), 0) as entry_quantity",
+      ),
+      db.raw(
+        "coalesce(abs(sum(case when stock_movements.quantity < 0 then stock_movements.quantity else 0 end)), 0) as exit_quantity",
+      ),
+      db.raw("coalesce(sum(stock_movements.quantity), 0) as net_movement_quantity"),
+    ])
+    .groupBy("stock_movements.product_id")
+    .as("inventory_movement_totals");
 }
 
 function inventoryStockStatusSql() {
@@ -1351,6 +1501,70 @@ function stockTurnoverQuery(filters: StockReportFilters) {
         );
       }
     });
+}
+
+function stockMovementReportQuery(filters: StockReportFilters) {
+  return db("stock_movements")
+    .join("products", "products.id", "stock_movements.product_id")
+    .where("products.active", true)
+    .where("products.branch_id", filters.branchId)
+    .modify((query) => {
+      if (filters.dateFrom) {
+        query.where("stock_movements.created_at", ">=", filters.dateFrom);
+      }
+
+      if (filters.dateTo) {
+        query.where(
+          "stock_movements.created_at",
+          "<",
+          db.raw("?::date + interval '1 day'", [filters.dateTo]),
+        );
+      }
+    });
+}
+
+function stockMovementSummarySelect() {
+  return [
+    db.raw("count(stock_movements.id)::text as ??", ["movementsCount"]),
+    ...stockMovementProductSelect(),
+  ];
+}
+
+function stockMovementProductSelect() {
+  return [
+    db.raw(
+      "coalesce(sum(case when stock_movements.quantity > 0 and stock_movements.type = 'ENTRY' then stock_movements.quantity else 0 end), 0)::numeric(12, 3)::text as ??",
+      ["entryQuantity"],
+    ),
+    db.raw(
+      `coalesce(sum(case when stock_movements.quantity > 0 and stock_movements.type = 'ENTRY' then stock_movements.quantity * ${stockMovementUnitCostSql()} else 0 end), 0)::numeric(12, 2)::text as ??`,
+      ["entryAmount"],
+    ),
+    db.raw(
+      "coalesce(abs(sum(case when stock_movements.quantity < 0 then stock_movements.quantity else 0 end)), 0)::numeric(12, 3)::text as ??",
+      ["exitQuantity"],
+    ),
+    db.raw(
+      `coalesce(sum(case when stock_movements.quantity < 0 then abs(stock_movements.quantity) * ${stockMovementUnitCostSql()} else 0 end), 0)::numeric(12, 2)::text as ??`,
+      ["exitCostAmount"],
+    ),
+    db.raw(
+      "coalesce(sum(case when stock_movements.type <> 'ENTRY' and stock_movements.quantity > 0 then stock_movements.quantity when stock_movements.type = 'ADJUSTMENT' and stock_movements.quantity < 0 then stock_movements.quantity else 0 end), 0)::numeric(12, 3)::text as ??",
+      ["adjustmentQuantity"],
+    ),
+    db.raw(
+      `coalesce(sum(case when stock_movements.type <> 'ENTRY' and stock_movements.quantity > 0 then stock_movements.quantity * ${stockMovementUnitCostSql()} when stock_movements.type = 'ADJUSTMENT' and stock_movements.quantity < 0 then abs(stock_movements.quantity) * ${stockMovementUnitCostSql()} else 0 end), 0)::numeric(12, 2)::text as ??`,
+      ["adjustmentCostAmount"],
+    ),
+    db.raw(
+      "coalesce(sum(stock_movements.quantity), 0)::numeric(12, 3)::text as ??",
+      ["netQuantity"],
+    ),
+  ];
+}
+
+function stockMovementUnitCostSql() {
+  return "coalesce(stock_movements.unit_cost, products.cost_price, 0)";
 }
 
 function purchaseReportBaseQuery(filters: PurchaseReportFilters) {

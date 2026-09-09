@@ -3,8 +3,10 @@ import type { Response } from "express";
 import { z } from "zod";
 import {
   cancelFiscalDocument,
+  destroyManualFiscalDocumentDraft,
   downloadFiscalDocumentFile,
   indexFiscalDocuments,
+  indexManualFiscalDocumentDrafts,
   issueManualFiscalDocument,
   issuePickupReservationFiscalDocument,
   issueSaleFiscalDocument,
@@ -14,7 +16,9 @@ import {
   previewPickupReservationFiscalDocument,
   previewSaleFiscalDocument,
   previewShippingOrderFiscalDocument,
+  replaceManualFiscalDocumentDraft,
   showFiscalDocument,
+  storeManualFiscalDocumentDraft,
   syncFiscalDocument,
   type ManualFiscalDocumentInput,
 } from "../../controllers/fiscal-documents/fiscal-documents.controller.js";
@@ -25,6 +29,10 @@ import { validateBody } from "../../shared/validation/validate-request.js";
 export const fiscalDocumentsRoutes = Router();
 
 const fiscalDocumentParamsSchema = z.object({
+  id: z.uuid(),
+});
+
+const manualFiscalDocumentDraftParamsSchema = z.object({
   id: z.uuid(),
 });
 
@@ -58,7 +66,19 @@ const manualFiscalDocumentSchema = z
   .object({
     documentType: z.literal("NFE").default("NFE"),
     operationType: z.enum(["ENTRY", "EXIT"]).default("ENTRY"),
-    purpose: z.enum(["NORMAL", "RETURN"]).default("RETURN"),
+    destinationOperation: z
+      .enum(["INTERNAL", "INTERSTATE", "EXTERIOR"])
+      .default("INTERNAL"),
+    purpose: z
+      .enum([
+        "NORMAL",
+        "COMPLEMENTARY",
+        "ADJUSTMENT",
+        "RETURN",
+        "CREDIT_NOTE",
+        "DEBIT_NOTE",
+      ])
+      .default("NORMAL"),
     natureOperation: z.string().trim().min(1).max(60),
     referencedAccessKeys: z
       .array(z.string().trim().regex(/^\d{44}$/))
@@ -71,6 +91,45 @@ const manualFiscalDocumentSchema = z
       .max(999999999999999)
       .nullable()
       .default(null),
+    billingEnabled: z.boolean().default(false),
+    billingIssueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .default(null),
+    billingDueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .default(null),
+    payments: z
+      .array(
+        z
+          .object({
+            paymentMethodCode: z.enum([
+              "BOLETO",
+              "CASH",
+              "CREDIT",
+              "DEBIT",
+              "NO_PAYMENT",
+              "PIX",
+              "TO_AGREE",
+            ]),
+            paymentMethodName: z.string().trim().min(1).max(80),
+            amount: z.coerce.number().min(0),
+          })
+          .strict(),
+      )
+      .default([]),
+    paymentInstallments: z
+      .array(
+        z
+          .object({
+            position: z.coerce.number().int().min(1).max(999),
+            dueDate: z.iso.date(),
+            amount: z.coerce.number().positive(),
+          })
+          .strict(),
+      )
+      .default([]),
     additionalInformation: z
       .union([z.string().trim().max(5000), z.literal(""), z.null()])
       .transform((value) => value || null)
@@ -122,7 +181,43 @@ const manualFiscalDocumentSchema = z
       message: "Chave da NF-e referenciada e obrigatoria para devolucao.",
       path: ["referencedAccessKeys"],
     },
+  )
+  .refine(
+    (value) => !value.billingEnabled || Boolean(value.billingDueDate),
+    {
+      message: "Vencimento da fatura e obrigatorio para faturamento.",
+      path: ["billingDueDate"],
+    },
+  )
+  .refine(
+    (value) =>
+      value.paymentInstallments.length === 0 ||
+      value.payments.some((payment) =>
+        ["BOLETO", "CREDIT"].includes(payment.paymentMethodCode),
+      ),
+    {
+      message: "Parcelas exigem pagamento por boleto ou credito.",
+      path: ["paymentInstallments"],
+    },
+  )
+  .refine(
+    (value) =>
+      value.payments.length === 0 ||
+      value.payments.every(
+        (payment) =>
+          payment.paymentMethodCode !== "NO_PAYMENT" || payment.amount === 0,
+      ),
+    {
+      message: "Sem pagamento nao deve informar valor.",
+      path: ["payments"],
+    },
   );
+
+const manualFiscalDocumentDraftPayloadSchema = z
+  .record(z.string(), z.unknown())
+  .refine((value) => !Array.isArray(value), {
+    message: "Payload do rascunho deve ser um objeto.",
+  });
 
 const cancelFiscalDocumentSchema = z
   .object({
@@ -165,6 +260,82 @@ fiscalDocumentsRoutes.get(
         `attachment; filename="${file.fileName}"`,
       )
       .send(file.content);
+  },
+);
+
+fiscalDocumentsRoutes.get(
+  "/fiscal-documents/manual/drafts",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (_request, response) => {
+    const userId = response.locals.authenticatedUser.id as string;
+
+    response
+      .status(200)
+      .json(
+        await indexManualFiscalDocumentDrafts(
+          requireActiveBranchId(response.locals),
+          userId,
+        ),
+      );
+  },
+);
+
+fiscalDocumentsRoutes.post(
+  "/fiscal-documents/manual/drafts",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const payload = validateBody(request, manualFiscalDocumentDraftPayloadSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+
+    response
+      .status(201)
+      .json(
+        await storeManualFiscalDocumentDraft(
+          payload,
+          userId,
+          requireActiveBranchId(response.locals),
+        ),
+      );
+  },
+);
+
+fiscalDocumentsRoutes.put(
+  "/fiscal-documents/manual/drafts/:id",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { id } = manualFiscalDocumentDraftParamsSchema.parse(request.params);
+    const payload = validateBody(request, manualFiscalDocumentDraftPayloadSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+
+    response
+      .status(200)
+      .json(
+        await replaceManualFiscalDocumentDraft(
+          id,
+          payload,
+          userId,
+          requireActiveBranchId(response.locals),
+        ),
+      );
+  },
+);
+
+fiscalDocumentsRoutes.delete(
+  "/fiscal-documents/manual/drafts/:id",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { id } = manualFiscalDocumentDraftParamsSchema.parse(request.params);
+    const userId = response.locals.authenticatedUser.id as string;
+
+    response
+      .status(200)
+      .json(
+        await destroyManualFiscalDocumentDraft(
+          id,
+          userId,
+          requireActiveBranchId(response.locals),
+        ),
+      );
   },
 );
 

@@ -11,6 +11,7 @@ import {
   type Client,
   type CommercialSettings,
   type FiscalDocument,
+  type ManualFiscalDocumentDraft,
   type FiscalSettings,
   type InventoryReport,
   type NamedEntity,
@@ -86,6 +87,9 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [fiscalDocuments, setFiscalDocuments] = useState<FiscalDocument[]>([]);
+  const [manualFiscalDocumentDrafts, setManualFiscalDocumentDrafts] = useState<
+    ManualFiscalDocumentDraft[]
+  >([]);
   const [fiscalSettings, setFiscalSettings] = useState<FiscalSettings | null>(
     null,
   );
@@ -138,6 +142,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         quotesResult,
         salesResult,
         fiscalDocumentsResult,
+        manualFiscalDocumentDraftsResult,
         fiscalSettingsResult,
         commercialSettingsResult,
         shippingOrdersResult,
@@ -189,6 +194,11 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         canAccessView(user, "fiscal-documents")
           ? apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents")
           : emptyResult<FiscalDocument[]>([]),
+        canAccessView(user, "fiscal-documents")
+          ? apiGet<ApiResult<ManualFiscalDocumentDraft[]>>(
+              "/fiscal-documents/manual/drafts",
+            )
+          : emptyResult<ManualFiscalDocumentDraft[]>([]),
         canAccessView(user, "fiscal-settings")
           ? apiGet<ApiResult<FiscalSettings>>("/fiscal-settings")
           : emptyResult<FiscalSettings | null>(null),
@@ -221,6 +231,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       setQuotes(quotesResult.data);
       setSales(salesResult.data);
       setFiscalDocuments(fiscalDocumentsResult.data);
+      setManualFiscalDocumentDrafts(manualFiscalDocumentDraftsResult.data);
       setFiscalSettings(fiscalSettingsResult.data);
       setCommercialSettings(commercialSettingsResult);
       setShippingOrders(shippingOrdersResult.data);
@@ -371,12 +382,18 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   async function refreshFiscalFlow() {
     const [
       fiscalDocumentsResult,
+      manualFiscalDocumentDraftsResult,
       fiscalSettingsResult,
       reportsOverviewResult,
     ] = await Promise.all([
       canAccessView(user, "fiscal-documents")
         ? apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents")
         : emptyResult<FiscalDocument[]>([]),
+      canAccessView(user, "fiscal-documents")
+        ? apiGet<ApiResult<ManualFiscalDocumentDraft[]>>(
+            "/fiscal-documents/manual/drafts",
+          )
+        : emptyResult<ManualFiscalDocumentDraft[]>([]),
       canAccessView(user, "fiscal-settings")
         ? apiGet<ApiResult<FiscalSettings>>("/fiscal-settings")
         : emptyResult<FiscalSettings | null>(null),
@@ -384,6 +401,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     ]);
 
     setFiscalDocuments(fiscalDocumentsResult.data);
+    setManualFiscalDocumentDrafts(manualFiscalDocumentDraftsResult.data);
     setFiscalSettings(fiscalSettingsResult.data);
     setReportsOverview(reportsOverviewResult.data);
   }
@@ -618,6 +636,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     loadCashReport,
     loadInventoryReport,
     loadUserPerformanceReport,
+    manualFiscalDocumentDrafts,
     lowStockProducts,
     loadPurchaseReport,
     loadStockReport,
