@@ -3,6 +3,8 @@ import Alert from '@mui/material/Alert'
 import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import TextField from '@mui/material/TextField'
 import { CreditCard, List as ListIcon, Pencil, Plus } from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
@@ -56,6 +58,8 @@ type QuotePaymentDraft = {
   amount: string
 }
 
+type QuoteDiscountMode = 'PERCENTAGE' | 'AMOUNT'
+
 type QuoteListStatusFilter =
   | 'ALL'
   | 'CANCELLED'
@@ -80,6 +84,7 @@ export type QuoteDraftInput = {
   notes?: string | null
   showBrand?: boolean
   discountPercentage?: number
+  discountAmount?: number
   paymentInstallments?: Array<{
     amount: number
     dueDate: string
@@ -131,7 +136,10 @@ export function QuotesPage({
   )
   const [notes, setNotes] = useState('')
   const [showBrand, setShowBrand] = useState(true)
+  const [discountMode, setDiscountMode] =
+    useState<QuoteDiscountMode>('PERCENTAGE')
   const [discountPercentage, setDiscountPercentage] = useState('')
+  const [discountAmount, setDiscountAmount] = useState('')
   const [installmentCount, setInstallmentCount] = useState(1)
   const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
   const [quoteSearch, setQuoteSearch] = useState('')
@@ -188,9 +196,11 @@ export function QuotesPage({
     0,
   )
   const totalBeforeGeneralDiscount = quoteSubtotal - itemDiscountTotal
-  const generalDiscount = percentageAmount(
+  const generalDiscount = quoteGeneralDiscountAmount(
     totalBeforeGeneralDiscount,
-    Number(discountPercentage || 0),
+    discountMode,
+    discountPercentage,
+    discountAmount,
   )
   const quoteTotal = Math.max(totalBeforeGeneralDiscount - generalDiscount, 0)
   const bankSlipAmount = usesBankSlip
@@ -208,6 +218,7 @@ export function QuotesPage({
   const hasPaymentDifference = Math.abs(paymentDifference) >= 0.01
   const quoteFormIssues = quoteBlockingIssues({
     clientId,
+    discountExceedsTotal: generalDiscount > totalBeforeGeneralDiscount,
     hasPaymentDifference,
     items,
     paymentDifference,
@@ -281,7 +292,9 @@ export function QuotesPage({
     setValidUntil(quoteValidityDate(issueDate, commercialSettings))
     setNotes('')
     setShowBrand(true)
+    setDiscountMode('PERCENTAGE')
     setDiscountPercentage('')
+    setDiscountAmount('')
     setInstallmentCount(1)
     setItems([emptyQuoteItem()])
   }
@@ -298,7 +311,11 @@ export function QuotesPage({
       validUntil: validUntil || null,
       notes: notes.trim() || null,
       showBrand,
-      discountPercentage: Number(discountPercentage || 0),
+      ...quoteGeneralDiscountInput(
+        discountMode,
+        discountPercentage,
+        discountAmount,
+      ),
       paymentInstallments: paymentInstallments.map((installment) => ({
         amount: Number(installment.amount),
         dueDate: installment.dueDate,
@@ -417,14 +434,47 @@ export function QuotesPage({
           />
         </FormRow>
         <FormRow>
-          <TextField
-            label='Desconto geral (%)'
-            value={discountPercentage}
-            type='number'
-            size='medium'
-            onChange={(event) => setDiscountPercentage(event.target.value)}
-            slotProps={{ htmlInput: { min: '0', max: '100', step: '0.01' } }}
-          />
+          <div className='grid gap-2'>
+            <ToggleButtonGroup
+              exclusive
+              size='small'
+              value={discountMode}
+              onChange={(_event, value: QuoteDiscountMode | null) => {
+                if (value) {
+                  setDiscountMode(value)
+                }
+              }}>
+              <ToggleButton value='PERCENTAGE'>%</ToggleButton>
+              <ToggleButton value='AMOUNT'>R$</ToggleButton>
+            </ToggleButtonGroup>
+            <TextField
+              label={
+                discountMode === 'PERCENTAGE'
+                  ? 'Desconto geral (%)'
+                  : 'Desconto geral (R$)'
+              }
+              value={
+                discountMode === 'PERCENTAGE'
+                  ? discountPercentage
+                  : discountAmount
+              }
+              type='number'
+              size='medium'
+              onChange={(event) => {
+                if (discountMode === 'PERCENTAGE') {
+                  setDiscountPercentage(event.target.value)
+                } else {
+                  setDiscountAmount(event.target.value)
+                }
+              }}
+              slotProps={{
+                htmlInput:
+                  discountMode === 'PERCENTAGE'
+                    ? { min: '0', max: '100', step: '0.01' }
+                    : { min: '0', step: '0.01' },
+              }}
+            />
+          </div>
           <TextField
             disabled
             label='Total final'
@@ -745,9 +795,12 @@ export function QuoteEditPage({
   )
   const [notes, setNotes] = useState(quote.notes ?? '')
   const [showBrand, setShowBrand] = useState(quote.showBrand)
+  const [discountMode, setDiscountMode] =
+    useState<QuoteDiscountMode>('PERCENTAGE')
   const [discountPercentage, setDiscountPercentage] = useState(
     quote.discountPercentage,
   )
+  const [discountAmount, setDiscountAmount] = useState(quote.discountAmount)
   const [installmentCount, setInstallmentCount] = useState(
     Math.max(quote.paymentInstallments.length, 1),
   )
@@ -795,9 +848,11 @@ export function QuoteEditPage({
     0,
   )
   const totalBeforeGeneralDiscount = quoteSubtotal - itemDiscountTotal
-  const generalDiscount = percentageAmount(
+  const generalDiscount = quoteGeneralDiscountAmount(
     totalBeforeGeneralDiscount,
-    Number(discountPercentage || 0),
+    discountMode,
+    discountPercentage,
+    discountAmount,
   )
   const quoteTotal = Math.max(totalBeforeGeneralDiscount - generalDiscount, 0)
   const bankSlipAmount = usesBankSlip
@@ -815,6 +870,7 @@ export function QuoteEditPage({
   const hasPaymentDifference = Math.abs(paymentDifference) >= 0.01
   const quoteFormIssues = quoteBlockingIssues({
     clientId,
+    discountExceedsTotal: generalDiscount > totalBeforeGeneralDiscount,
     hasPaymentDifference,
     items,
     paymentDifference,
@@ -832,7 +888,9 @@ export function QuoteEditPage({
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
     setNotes(quote.notes ?? '')
     setShowBrand(quote.showBrand)
+    setDiscountMode('PERCENTAGE')
     setDiscountPercentage(quote.discountPercentage)
+    setDiscountAmount(quote.discountAmount)
     setInstallmentCount(Math.max(quote.paymentInstallments.length, 1))
     setItems(
       quote.items.map((item) => ({
@@ -892,7 +950,11 @@ export function QuoteEditPage({
       validUntil: validUntil || null,
       notes: notes.trim() || null,
       showBrand,
-      discountPercentage: Number(discountPercentage || 0),
+      ...quoteGeneralDiscountInput(
+        discountMode,
+        discountPercentage,
+        discountAmount,
+      ),
       paymentInstallments: paymentInstallments.map((installment) => ({
         amount: Number(installment.amount),
         dueDate: installment.dueDate,
@@ -1010,14 +1072,45 @@ export function QuoteEditPage({
         />
       </FormRow>
       <FormRow>
-        <TextField
-          label='Desconto geral (%)'
-          value={discountPercentage}
-          type='number'
-          size='medium'
-          onChange={(event) => setDiscountPercentage(event.target.value)}
-          slotProps={{ htmlInput: { min: '0', max: '100', step: '0.01' } }}
-        />
+        <div className='grid gap-2'>
+          <ToggleButtonGroup
+            exclusive
+            size='small'
+            value={discountMode}
+            onChange={(_event, value: QuoteDiscountMode | null) => {
+              if (value) {
+                setDiscountMode(value)
+              }
+            }}>
+            <ToggleButton value='PERCENTAGE'>%</ToggleButton>
+            <ToggleButton value='AMOUNT'>R$</ToggleButton>
+          </ToggleButtonGroup>
+          <TextField
+            label={
+              discountMode === 'PERCENTAGE'
+                ? 'Desconto geral (%)'
+                : 'Desconto geral (R$)'
+            }
+            value={
+              discountMode === 'PERCENTAGE' ? discountPercentage : discountAmount
+            }
+            type='number'
+            size='medium'
+            onChange={(event) => {
+              if (discountMode === 'PERCENTAGE') {
+                setDiscountPercentage(event.target.value)
+              } else {
+                setDiscountAmount(event.target.value)
+              }
+            }}
+            slotProps={{
+              htmlInput:
+                discountMode === 'PERCENTAGE'
+                  ? { min: '0', max: '100', step: '0.01' }
+                  : { min: '0', step: '0.01' },
+            }}
+          />
+        </div>
         <TextField
           disabled
           label='Total final'
@@ -1596,18 +1689,27 @@ function QuotePaymentFields({
             <TextField
               helperText={
                 payments.length === 1 && index === 0
-                  ? 'Vazio usa o total final.'
+                  ? 'Com uma forma, acompanha o total final.'
                   : undefined
               }
               label='Valor'
+              disabled={payments.length === 1}
               onChange={(event) =>
                 updatePayment(index, { amount: event.target.value })
               }
               required={payments.length > 1}
               size='medium'
-              slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
-              type='number'
-              value={payment.amount}
+              slotProps={
+                payments.length > 1
+                  ? { htmlInput: { min: '0', step: '0.01' } }
+                  : undefined
+              }
+              type={payments.length > 1 ? 'number' : undefined}
+              value={
+                payments.length === 1
+                  ? formatCurrency(totalAmount)
+                  : payment.amount
+              }
             />
             {payments.length > 1 ? (
               <TableActionButton type='button' onClick={() => removePayment(index)}>
@@ -1685,8 +1787,7 @@ function quotePaymentPayloads(
   totalAmount: number,
 ) {
   const filledPayments = payments.filter((payment) => payment.paymentMethodId)
-  const usesSinglePaymentTotal =
-    filledPayments.length === 1 && !filledPayments[0].amount
+  const usesSinglePaymentTotal = filledPayments.length === 1
 
   return filledPayments.map((payment, index) => ({
     paymentMethodId: payment.paymentMethodId,
@@ -1731,6 +1832,7 @@ function quotePaymentMethodAmount(
 
 function quoteBlockingIssues({
   clientId,
+  discountExceedsTotal,
   hasPaymentDifference,
   items,
   paymentDifference,
@@ -1738,6 +1840,7 @@ function quoteBlockingIssues({
   quoteTotal,
 }: {
   clientId: string
+  discountExceedsTotal: boolean
   hasPaymentDifference: boolean
   items: QuoteDraftItem[]
   paymentDifference: number
@@ -1757,6 +1860,9 @@ function quoteBlockingIssues({
       : 'Selecione o produto de todos os itens.',
     zeroPriceItem
       ? 'Existe item com valor unitario zerado. Preencha o valor de venda antes de salvar.'
+      : null,
+    discountExceedsTotal
+      ? 'Desconto geral nao pode ser maior que o total dos itens.'
       : null,
     quoteTotal > 0 ? null : 'O total do orçamento precisa ser maior que zero.',
     hasPaymentDifference
@@ -1809,6 +1915,35 @@ function quoteItemDiscountAmount(item: QuoteDraftItem) {
     Number(item.quantity || 0) * Number(item.unitPrice || 0),
     Number(item.discountPercentage || 0),
   )
+}
+
+function quoteGeneralDiscountAmount(
+  baseAmount: number,
+  mode: QuoteDiscountMode,
+  percentage: string,
+  amount: string,
+) {
+  if (mode === 'AMOUNT') {
+    return moneyInputValue(amount)
+  }
+
+  return percentageAmount(baseAmount, Number(percentage || 0))
+}
+
+function quoteGeneralDiscountInput(
+  mode: QuoteDiscountMode,
+  percentage: string,
+  amount: string,
+) {
+  return mode === 'AMOUNT'
+    ? {
+        discountAmount: moneyInputValue(amount),
+        discountPercentage: undefined,
+      }
+    : {
+        discountAmount: undefined,
+        discountPercentage: Number(percentage || 0),
+      }
 }
 
 function percentageAmount(baseAmount: number, percentage: number) {

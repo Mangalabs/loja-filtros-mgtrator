@@ -19,6 +19,7 @@ export type QuoteInput = {
   notes?: string | null
   showBrand?: boolean
   discountPercentage?: number
+  discountAmount?: number
   paymentInstallments?: QuotePaymentInstallmentInput[]
   items: QuoteItemInput[]
 }

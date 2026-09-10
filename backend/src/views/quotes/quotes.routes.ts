@@ -48,6 +48,7 @@ const createQuoteSchema = z
       .optional(),
     showBrand: z.boolean().optional(),
     discountPercentage: z.coerce.number().min(0).max(100).optional(),
+    discountAmount: z.coerce.number().min(0).optional(),
     paymentInstallments: z
       .array(
         z

@@ -7938,6 +7938,49 @@ describe("catalog routes", () => {
     );
   });
 
+  it("creates a quote with a fixed general discount amount", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro quote desconto valor", salePrice: 250 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente desconto valor" },
+    });
+    const pix = await activePaymentMethod();
+
+    const created = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: pix.id,
+        discountAmount: 50,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+    const invalid = await request("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: pix.id,
+        discountAmount: 251,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data?.subtotalAmount, "250.00");
+    assert.equal(created.body.data?.discountAmount, "50.00");
+    assert.equal(created.body.data?.discountPercentage, "20.00");
+    assert.equal(created.body.data?.totalAmount, "200.00");
+    assert.equal(created.body.data?.payments[0]?.amount, "200.00");
+    assert.equal(invalid.status, 422);
+    assert.equal(
+      invalid.body.message,
+      "Desconto geral nao pode ser maior que o total dos itens.",
+    );
+  });
+
   it("stores boleto installments for a quote", async () => {
     const product = await request<Product>("/products", {
       method: "POST",

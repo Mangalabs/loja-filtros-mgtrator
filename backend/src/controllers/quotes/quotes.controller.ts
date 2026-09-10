@@ -337,10 +337,9 @@ async function prepareQuoteInput(
   const totalBeforeGeneralDiscount = Number(
     quoteItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
   )
-  const discountPercentage = Number((input.discountPercentage ?? 0).toFixed(2))
-  const discountAmount = percentageAmount(
+  const { discountAmount, discountPercentage } = quoteGeneralDiscount(
     totalBeforeGeneralDiscount,
-    discountPercentage,
+    input,
   )
 
   const totalAmount = Number(
@@ -442,6 +441,39 @@ function quoteInstallmentTargetAmount(
 
 function percentageAmount(baseAmount: number, percentage: number) {
   return Number(((baseAmount * percentage) / 100).toFixed(2))
+}
+
+function quoteGeneralDiscount(baseAmount: number, input: QuoteInput) {
+  if (input.discountAmount !== undefined) {
+    const discountAmount = Number(input.discountAmount.toFixed(2))
+
+    if (discountAmount > baseAmount) {
+      throw new AppError(
+        'Desconto geral nao pode ser maior que o total dos itens.',
+        422,
+      )
+    }
+
+    return {
+      discountAmount,
+      discountPercentage: percentageFromAmount(baseAmount, discountAmount),
+    }
+  }
+
+  const discountPercentage = Number((input.discountPercentage ?? 0).toFixed(2))
+
+  return {
+    discountAmount: percentageAmount(baseAmount, discountPercentage),
+    discountPercentage,
+  }
+}
+
+function percentageFromAmount(baseAmount: number, amount: number) {
+  if (baseAmount <= 0) {
+    return 0
+  }
+
+  return Number(((amount / baseAmount) * 100).toFixed(2))
 }
 
 function normalizePaymentInstallments(
