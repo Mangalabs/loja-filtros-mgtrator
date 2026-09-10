@@ -1,6 +1,13 @@
 import type { FormEvent } from 'react'
-import { apiPatch, apiPost, apiPut, type Quote } from '../../api'
-import type { QuoteDraftInput } from './QuotesPage'
+import {
+  apiDelete,
+  apiPatch,
+  apiPost,
+  apiPut,
+  type Quote,
+  type QuoteFormDraft,
+} from '../../api'
+import type { QuoteDraftInput, QuoteFormDraftPayload } from './QuotesPage'
 
 type QuoteActionsOptions = {
   refreshQuoteFlow: () => Promise<void>
@@ -29,6 +36,45 @@ export function useQuoteActions({
   async function updateQuote(id: string, input: QuoteDraftInput) {
     return runAction(async () => {
       await apiPut(`/quotes/${id}`, input)
+      await refreshQuoteFlow()
+    })
+  }
+
+  async function saveQuoteFormDraft(
+    input: QuoteFormDraftPayload,
+    draft?: QuoteFormDraft,
+  ) {
+    return runAction(async () => {
+      if (draft) {
+        await apiPut(`/quotes/drafts/${draft.id}`, input)
+      } else {
+        await apiPost('/quotes/drafts', input)
+      }
+
+      await refreshQuoteFlow()
+    })
+  }
+
+  async function deleteQuoteFormDraft(draft: QuoteFormDraft) {
+    const confirmed = await requestConfirmation(
+      `Excluir o rascunho "${draft.title}"?`,
+      'Excluir rascunho?',
+      'Excluir',
+    )
+
+    if (!confirmed) {
+      return false
+    }
+
+    return runAction(async () => {
+      await apiDelete(`/quotes/drafts/${draft.id}`)
+      await refreshQuoteFlow()
+    })
+  }
+
+  async function discardQuoteFormDraft(draft: QuoteFormDraft) {
+    return runAction(async () => {
+      await apiDelete(`/quotes/drafts/${draft.id}`)
       await refreshQuoteFlow()
     })
   }
@@ -78,6 +124,9 @@ export function useQuoteActions({
     cancelQuote,
     createQuote,
     createShippingOrderFromQuote,
+    deleteQuoteFormDraft,
+    discardQuoteFormDraft,
+    saveQuoteFormDraft,
     updateQuote,
   }
 }

@@ -87,6 +87,7 @@ export function AuthenticatedApp({
     products,
     purchaseInvoices,
     purchaseReport,
+    quoteFormDrafts,
     quotes,
     refreshCatalogFlow,
     refreshCashFlow,
@@ -318,6 +319,7 @@ export function AuthenticatedApp({
             products={products}
             purchaseInvoices={purchaseInvoices}
             purchaseReport={purchaseReport}
+            quoteFormDrafts={quoteFormDrafts}
             quoteActions={quoteActions}
             quotes={quotes}
             reportsOverview={reportsOverview}

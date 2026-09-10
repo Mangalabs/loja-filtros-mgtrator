@@ -122,6 +122,7 @@ export type StockReport = {
   movedProducts: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     movementsCount: number;
     entryQuantity: string;
     entryAmount: string;
@@ -135,6 +136,7 @@ export type StockReport = {
   lowStockProducts: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     currentStock: string;
     reservedStock: string;
     availableStock: string;
@@ -143,12 +145,14 @@ export type StockReport = {
   productsWithoutMovement: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     currentStock: string;
     minimumStock: string;
   }>;
   turnoverProducts: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     soldQuantity: string;
     lastSaleAt: Date | null;
   }>;
@@ -350,6 +354,7 @@ type CashRegisterRow = {
 type LowStockProductRow = {
   productId: string;
   productName: string;
+  location: string | null;
   currentStock: string;
   reservedStock: string;
   availableStock: string;
@@ -359,6 +364,7 @@ type LowStockProductRow = {
 type ProductWithoutMovementRow = {
   productId: string;
   productName: string;
+  location: string | null;
   currentStock: string;
   minimumStock: string;
 };
@@ -366,6 +372,7 @@ type ProductWithoutMovementRow = {
 type StockTurnoverProductRow = {
   productId: string;
   productName: string;
+  location: string | null;
   soldQuantity: string;
   lastSaleAt: Date | null;
 };
@@ -395,6 +402,7 @@ type StockMovementTypeRow = {
 type StockMovedProductRow = {
   productId: string;
   productName: string;
+  location: string | null;
   movementsCount: string;
   entryQuantity: string;
   entryAmount: string;
@@ -707,6 +715,7 @@ export async function getStockReport(
       .select<LowStockProductRow[]>([
         "products.id as productId",
         "products.name as productName",
+        "products.location",
         "products.current_stock as currentStock",
         "products.reserved_stock as reservedStock",
         db.raw("products.current_stock - products.reserved_stock as ??", [
@@ -724,6 +733,7 @@ export async function getStockReport(
       .select<ProductWithoutMovementRow[]>([
         "products.id as productId",
         "products.name as productName",
+        "products.location",
         "products.current_stock as currentStock",
         "products.minimum_stock as minimumStock",
       ])
@@ -733,13 +743,14 @@ export async function getStockReport(
       .select<StockTurnoverProductRow[]>([
         "products.id as productId",
         "products.name as productName",
+        "products.location",
         db.raw(
           "abs(sum(stock_movements.quantity))::numeric(12, 3)::text as ??",
           ["soldQuantity"],
         ),
         db.raw("max(stock_movements.created_at) as ??", ["lastSaleAt"]),
       ])
-      .groupBy("products.id", "products.name")
+      .groupBy("products.id", "products.name", "products.location")
       .orderByRaw("abs(sum(stock_movements.quantity)) desc")
       .limit(20),
     stockTurnoverQuery(filters)
@@ -771,11 +782,12 @@ export async function getStockReport(
       .select<StockMovedProductRow[]>([
         "products.id as productId",
         "products.name as productName",
+        "products.location",
         db.raw("count(stock_movements.id)::text as ??", ["movementsCount"]),
         ...stockMovementProductSelect(),
         db.raw("max(stock_movements.created_at) as ??", ["lastMovementAt"]),
       ])
-      .groupBy("products.id", "products.name")
+      .groupBy("products.id", "products.name", "products.location")
       .orderByRaw("max(stock_movements.created_at) desc")
       .limit(50),
   ]);

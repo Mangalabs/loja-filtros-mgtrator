@@ -2,6 +2,12 @@ import { db } from '../../database/knex.js'
 import { generateQuotePdf } from '../../integrations/pdf/quote-pdf.js'
 import { findBranchById } from '../../models/branches/branches.model.js'
 import {
+  deleteQuoteFormDraft,
+  insertQuoteFormDraft,
+  listQuoteFormDrafts,
+  updateQuoteFormDraft,
+} from '../../models/quotes/quote-form-drafts.model.js'
+import {
   activeQuoteClientExists,
   cancelQuote,
   getQuoteById,
@@ -26,6 +32,82 @@ export async function indexQuotes(filters: { branchId: string }) {
     code: 200,
     status: 'success',
     data: await listQuotes(filters),
+  }
+}
+
+export async function indexQuoteFormDrafts(branchId: string, userId: string) {
+  return {
+    code: 200,
+    status: 'success',
+    data: await listQuoteFormDrafts({
+      branchId,
+      createdByUserId: userId,
+    }),
+  }
+}
+
+export async function storeQuoteFormDraft(
+  payload: Record<string, unknown>,
+  userId: string,
+  branchId: string,
+) {
+  const draft = await insertQuoteFormDraft({
+    branchId,
+    createdByUserId: userId,
+    title: quoteFormDraftTitle(payload),
+    payload,
+  })
+
+  return {
+    code: 201,
+    status: 'success',
+    data: draft,
+  }
+}
+
+export async function replaceQuoteFormDraft(
+  id: string,
+  payload: Record<string, unknown>,
+  userId: string,
+  branchId: string,
+) {
+  const draft = await updateQuoteFormDraft(id, {
+    branchId,
+    createdByUserId: userId,
+    title: quoteFormDraftTitle(payload),
+    payload,
+  })
+
+  if (!draft) {
+    throw new AppError('Rascunho de orçamento nao encontrado.', 404)
+  }
+
+  return {
+    code: 200,
+    status: 'success',
+    data: draft,
+  }
+}
+
+export async function destroyQuoteFormDraft(
+  id: string,
+  userId: string,
+  branchId: string,
+) {
+  const deleted = await deleteQuoteFormDraft({
+    id,
+    branchId,
+    createdByUserId: userId,
+  })
+
+  if (!deleted) {
+    throw new AppError('Rascunho de orçamento nao encontrado.', 404)
+  }
+
+  return {
+    code: 200,
+    status: 'success',
+    data: { deleted: true },
   }
 }
 
@@ -70,6 +152,20 @@ function sanitizeQuotePdfFileNamePart(value: string) {
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .toUpperCase()
+}
+
+function quoteFormDraftTitle(payload: Record<string, unknown>) {
+  const clientName = typeof payload.clientName === 'string'
+    ? payload.clientName.trim()
+    : ''
+  const totalAmount = typeof payload.totalAmount === 'number'
+    ? payload.totalAmount
+    : null
+  const totalLabel = totalAmount !== null
+    ? ` - R$ ${totalAmount.toFixed(2).replace('.', ',')}`
+    : ''
+
+  return `${clientName || 'Orçamento sem cliente'}${totalLabel}`
 }
 
 async function pdfStoreProfile(branchId: string | null) {

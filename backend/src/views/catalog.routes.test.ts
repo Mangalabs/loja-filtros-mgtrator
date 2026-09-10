@@ -568,6 +568,7 @@ type StockReport = {
   movedProducts: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     movementsCount: number;
     entryQuantity: string;
     entryAmount: string;
@@ -581,6 +582,7 @@ type StockReport = {
   lowStockProducts: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     currentStock: string;
     reservedStock: string;
     availableStock: string;
@@ -589,12 +591,14 @@ type StockReport = {
   productsWithoutMovement: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     currentStock: string;
     minimumStock: string;
   }>;
   turnoverProducts: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     soldQuantity: string;
     lastSaleAt: string | null;
   }>;
@@ -778,6 +782,8 @@ type ManualFiscalDocumentDraft = {
   createdAt: string;
   updatedAt: string;
 };
+
+type QuoteFormDraft = ManualFiscalDocumentDraft;
 
 type FiscalSettings = {
   id: string;
@@ -6121,6 +6127,7 @@ describe("catalog routes", () => {
       body: {
         name: "Filtro relatorio estoque baixo",
         costPrice: 8,
+        location: "A-01",
         minimumStock: 5,
         salePrice: 30,
       },
@@ -6130,6 +6137,7 @@ describe("catalog routes", () => {
       body: {
         name: "Filtro relatorio giro",
         costPrice: 20,
+        location: "B-02",
         minimumStock: 1,
         salePrice: 50,
       },
@@ -6138,6 +6146,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         name: "Filtro sem movimentacao",
+        location: "C-03",
         minimumStock: 0,
         salePrice: 15,
       },
@@ -6196,14 +6205,20 @@ describe("catalog routes", () => {
       report.body.data?.lowStockProducts[0]?.productName,
       lowStockProduct.body.data?.name,
     );
+    assert.equal(report.body.data?.lowStockProducts[0]?.location, "A-01");
     assert.equal(
       report.body.data?.productsWithoutMovement[0]?.productId,
       withoutMovementProduct.body.data?.id,
     );
     assert.equal(
+      report.body.data?.productsWithoutMovement[0]?.location,
+      "C-03",
+    );
+    assert.equal(
       report.body.data?.turnoverProducts[0]?.productId,
       soldProduct.body.data?.id,
     );
+    assert.equal(report.body.data?.turnoverProducts[0]?.location, "B-02");
     assert.equal(report.body.data?.turnoverProducts[0]?.soldQuantity, "3.000");
     assert.equal(report.body.data?.movedProducts.length, 2);
     const movedSoldProduct = report.body.data?.movedProducts.find(
@@ -6211,6 +6226,7 @@ describe("catalog routes", () => {
     );
 
     assert.equal(movedSoldProduct?.exitCostAmount, "60.00");
+    assert.equal(movedSoldProduct?.location, "B-02");
     assert.deepEqual(
       report.body.data?.byMovementType.map((item) => ({
         type: item.type,
@@ -6251,6 +6267,7 @@ describe("catalog routes", () => {
       body: {
         name: "Inventario produto disponivel",
         internalCode: "INV-DISP",
+        location: "INV-A-01",
         ncm: "84212300",
         costPrice: 4,
         salePrice: 10,
@@ -6312,6 +6329,7 @@ describe("catalog routes", () => {
     );
 
     assert.equal(availableInventoryItem?.internalCode, "INV-DISP");
+    assert.equal(availableInventoryItem?.location, "INV-A-01");
     assert.equal(availableInventoryItem?.ncm, "84212300");
     assert.equal(availableInventoryItem?.previousStock, "0.000");
     assert.equal(availableInventoryItem?.entryQuantity, "10.000");
@@ -7935,6 +7953,73 @@ describe("catalog routes", () => {
     assert.equal(
       updateAfterShippingOrder.body.message,
       "Orçamento enviado para pedido de envio deve seguir o fluxo do pedido.",
+    );
+  });
+
+  it("saves, updates, lists and deletes a quote form draft", async () => {
+    const input = {
+      clientId: "",
+      clientName: null,
+      notes: "Cliente ainda vai confirmar os filtros",
+      totalAmount: 0,
+      items: [
+        {
+          productId: "",
+          description: "Filtro em analise",
+          quantity: "1",
+          unitPrice: "",
+          discountPercentage: "",
+        },
+      ],
+    };
+    const beforeQuotes = await request<Quote[]>("/quotes");
+    const created = await request<QuoteFormDraft>("/quotes/drafts", {
+      method: "POST",
+      body: input,
+    });
+    const listed = await request<QuoteFormDraft[]>("/quotes/drafts");
+    const updatedInput = {
+      ...input,
+      clientName: "Cliente rascunho orçamento",
+      totalAmount: 120,
+    };
+    const updated = await request<QuoteFormDraft>(
+      `/quotes/drafts/${created.body.data?.id}`,
+      {
+        method: "PUT",
+        body: updatedInput,
+      },
+    );
+    const afterQuotes = await request<Quote[]>("/quotes");
+    const deleted = await request<{ deleted: boolean }>(
+      `/quotes/drafts/${created.body.data?.id}`,
+      {
+        method: "DELETE",
+      },
+    );
+    const listedAfterDelete = await request<QuoteFormDraft[]>("/quotes/drafts");
+
+    assert.equal(created.status, 201);
+    assert.match(created.body.data?.title ?? "", /Orçamento sem cliente/);
+    assert.ok(
+      listed.body.data?.some((draft) => draft.id === created.body.data?.id),
+    );
+    assert.equal(updated.status, 200);
+    assert.equal(
+      updated.body.data?.title,
+      "Cliente rascunho orçamento - R$ 120,00",
+    );
+    assert.equal(
+      updated.body.data?.payload.clientName,
+      "Cliente rascunho orçamento",
+    );
+    assert.equal(afterQuotes.body.data?.length, beforeQuotes.body.data?.length);
+    assert.equal(deleted.status, 200);
+    assert.equal(deleted.body.data?.deleted, true);
+    assert.ok(
+      !listedAfterDelete.body.data?.some(
+        (draft) => draft.id === created.body.data?.id,
+      ),
     );
   });
 

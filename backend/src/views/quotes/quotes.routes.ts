@@ -3,9 +3,13 @@ import { z } from "zod";
 import {
   cancelDraftQuote,
   createShippingOrderFromQuote,
+  destroyQuoteFormDraft,
+  indexQuoteFormDrafts,
   indexQuotes,
+  replaceQuoteFormDraft,
   showQuote,
   showQuotePdf,
+  storeQuoteFormDraft,
   storeQuote,
   updateDraftQuote,
 } from "../../controllers/quotes/quotes.controller.js";
@@ -103,6 +107,8 @@ const quoteParamsSchema = z.object({
   id: z.uuid(),
 });
 
+const quoteFormDraftPayloadSchema = z.record(z.string(), z.unknown());
+
 const cancelQuoteSchema = z.object({
   reason: z.string().trim().min(1).max(500),
 });
@@ -112,6 +118,58 @@ quotesRoutes.get("/quotes", async (_request, response) => {
     await indexQuotes({
       branchId: requireActiveBranchId(response.locals),
     }),
+  );
+});
+
+quotesRoutes.get("/quotes/drafts", async (_request, response) => {
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(200).json(
+    await indexQuoteFormDrafts(
+      requireActiveBranchId(response.locals),
+      userId,
+    ),
+  );
+});
+
+quotesRoutes.post("/quotes/drafts", async (request, response) => {
+  const payload = validateBody(request, quoteFormDraftPayloadSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(201).json(
+    await storeQuoteFormDraft(
+      payload,
+      userId,
+      requireActiveBranchId(response.locals),
+    ),
+  );
+});
+
+quotesRoutes.put("/quotes/drafts/:id", async (request, response) => {
+  const { id } = quoteParamsSchema.parse(request.params);
+  const payload = validateBody(request, quoteFormDraftPayloadSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(200).json(
+    await replaceQuoteFormDraft(
+      id,
+      payload,
+      userId,
+      requireActiveBranchId(response.locals),
+    ),
+  );
+});
+
+quotesRoutes.delete("/quotes/drafts/:id", async (request, response) => {
+  const { id } = quoteParamsSchema.parse(request.params);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(200).json(
+    await destroyQuoteFormDraft(
+      id,
+      userId,
+      requireActiveBranchId(response.locals),
+    ),
   );
 });
 

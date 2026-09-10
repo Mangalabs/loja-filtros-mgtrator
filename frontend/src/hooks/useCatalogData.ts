@@ -23,6 +23,7 @@ import {
   type PurchaseReport,
   type PurchaseInvoice,
   type Quote,
+  type QuoteFormDraft,
   type ReportsOverview,
   type Sale,
   type SalesReport,
@@ -85,6 +86,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   const [userPerformanceReport, setUserPerformanceReport] =
     useState<UserPerformanceReport | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [quoteFormDrafts, setQuoteFormDrafts] = useState<QuoteFormDraft[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [fiscalDocuments, setFiscalDocuments] = useState<FiscalDocument[]>([]);
   const [manualFiscalDocumentDrafts, setManualFiscalDocumentDrafts] = useState<
@@ -140,6 +142,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         cashReportResult,
         userPerformanceReportResult,
         quotesResult,
+        quoteFormDraftsResult,
         salesResult,
         fiscalDocumentsResult,
         manualFiscalDocumentDraftsResult,
@@ -190,6 +193,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
           ? apiGet<ApiResult<UserPerformanceReport>>("/reports/users")
           : emptyResult<UserPerformanceReport | null>(null),
         apiGet<ApiResult<Quote[]>>("/quotes"),
+        apiGet<ApiResult<QuoteFormDraft[]>>("/quotes/drafts"),
         apiGet<ApiResult<Sale[]>>("/sales"),
         canAccessView(user, "fiscal-documents")
           ? apiGet<ApiResult<FiscalDocument[]>>("/fiscal-documents")
@@ -229,6 +233,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       setCashReport(cashReportResult.data);
       setUserPerformanceReport(userPerformanceReportResult.data);
       setQuotes(quotesResult.data);
+      setQuoteFormDrafts(quoteFormDraftsResult.data);
       setSales(salesResult.data);
       setFiscalDocuments(fiscalDocumentsResult.data);
       setManualFiscalDocumentDrafts(manualFiscalDocumentDraftsResult.data);
@@ -244,12 +249,14 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   }
 
   async function refreshQuoteFlow() {
-    const [quotesResult, shippingOrdersResult] = await Promise.all([
+    const [quotesResult, quoteFormDraftsResult, shippingOrdersResult] = await Promise.all([
       apiGet<ApiResult<Quote[]>>("/quotes"),
+      apiGet<ApiResult<QuoteFormDraft[]>>("/quotes/drafts"),
       apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
     ]);
 
     setQuotes(quotesResult.data);
+    setQuoteFormDrafts(quoteFormDraftsResult.data);
     setShippingOrders(shippingOrdersResult.data);
   }
 
@@ -650,6 +657,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     products,
     purchaseReport,
     purchaseInvoices,
+    quoteFormDrafts,
     quotes,
     refreshCatalogFlow,
     refreshCashFlow,

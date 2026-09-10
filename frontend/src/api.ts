@@ -678,6 +678,7 @@ export type StockReport = {
   movedProducts: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     movementsCount: number;
     entryQuantity: string;
     entryAmount: string;
@@ -691,6 +692,7 @@ export type StockReport = {
   lowStockProducts: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     currentStock: string;
     reservedStock: string;
     availableStock: string;
@@ -699,12 +701,14 @@ export type StockReport = {
   productsWithoutMovement: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     currentStock: string;
     minimumStock: string;
   }>;
   turnoverProducts: Array<{
     productId: string;
     productName: string;
+    location: string | null;
     soldQuantity: string;
     lastSaleAt: string | null;
   }>;
@@ -1005,6 +1009,17 @@ export type Quote = {
     dueDate: string;
     amount: string;
   }>;
+};
+
+export type QuoteFormDraft = {
+  id: string;
+  branchId: string;
+  createdByUserId: string;
+  createdByUserName: string;
+  title: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export async function apiGet<T>(path: string): Promise<T> {

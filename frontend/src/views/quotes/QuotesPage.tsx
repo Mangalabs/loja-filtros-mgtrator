@@ -14,6 +14,7 @@ import type {
   PaymentMethod,
   Product,
   Quote,
+  QuoteFormDraft,
 } from '../../api'
 import { downloadApiFile } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
@@ -99,14 +100,36 @@ export type QuoteDraftInput = {
   }>
 }
 
+export type QuoteFormDraftPayload = {
+  clientId: string
+  clientName: string | null
+  payments: QuotePaymentDraft[]
+  billingIssueDate: string
+  billingDueDate: string
+  billingDueDateTouched: boolean
+  validUntil: string
+  notes: string
+  showBrand: boolean
+  discountMode: QuoteDiscountMode
+  discountPercentage: string
+  discountAmount: string
+  installmentCount: number
+  items: QuoteDraftItem[]
+  totalAmount: number
+}
+
 export function QuotesPage({
   clients,
   commercialSettings,
   mode = 'all',
   paymentMethods,
   products,
+  quoteFormDrafts,
   quotes,
   onSubmit,
+  onSaveQuoteFormDraft,
+  onDeleteQuoteFormDraft,
+  onDiscardQuoteFormDraft,
   onEditQuote,
   onCancelQuote,
   onCreateShippingOrder,
@@ -116,13 +139,23 @@ export function QuotesPage({
   mode?: 'all' | 'form' | 'list'
   paymentMethods: PaymentMethod[]
   products: Product[]
+  quoteFormDrafts: QuoteFormDraft[]
   quotes: Quote[]
   onSubmit: (input: QuoteDraftInput) => Promise<boolean>
+  onSaveQuoteFormDraft: (
+    input: QuoteFormDraftPayload,
+    draft?: QuoteFormDraft,
+  ) => Promise<boolean>
+  onDeleteQuoteFormDraft: (draft: QuoteFormDraft) => Promise<boolean | void>
+  onDiscardQuoteFormDraft: (draft: QuoteFormDraft) => Promise<boolean>
   onEditQuote: (quote: Quote) => void
   onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void
   onCreateShippingOrder: (quote: Quote) => void
 }) {
   const [clientId, setClientId] = useState('')
+  const [sourceDraft, setSourceDraft] = useState<QuoteFormDraft | null>(null)
+  const [pendingSavedDraftSignature, setPendingSavedDraftSignature] =
+    useState<string | null>(null)
   const [payments, setPayments] = useState<QuotePaymentDraft[]>([
     emptyQuotePayment(),
   ])
@@ -246,6 +279,25 @@ export function QuotesPage({
     commercialSettings?.defaultQuoteDueDays,
   ])
 
+  useEffect(() => {
+    if (!pendingSavedDraftSignature || sourceDraft) {
+      return
+    }
+
+    const savedDraft = quoteFormDrafts.find(
+      (draft) =>
+        quoteFormDraftPayloadSignature(draft.payload) ===
+        pendingSavedDraftSignature,
+    )
+
+    if (!savedDraft) {
+      return
+    }
+
+    setSourceDraft(savedDraft)
+    setPendingSavedDraftSignature(null)
+  }, [pendingSavedDraftSignature, quoteFormDrafts, sourceDraft])
+
   function updateItem(index: number, changes: Partial<QuoteDraftItem>) {
     setItems((currentItems) =>
       currentItems.map((item, itemIndex) => {
@@ -283,6 +335,8 @@ export function QuotesPage({
 
   function resetQuoteForm() {
     setClientId('')
+    setSourceDraft(null)
+    setPendingSavedDraftSignature(null)
     setPayments([emptyQuotePayment()])
     const issueDate = todayInputDate()
 
@@ -297,6 +351,77 @@ export function QuotesPage({
     setDiscountAmount('')
     setInstallmentCount(1)
     setItems([emptyQuoteItem()])
+  }
+
+  function currentQuoteFormDraftPayload(): QuoteFormDraftPayload {
+    return {
+      clientId,
+      clientName: selectedClient?.name ?? null,
+      payments,
+      billingIssueDate,
+      billingDueDate,
+      billingDueDateTouched,
+      validUntil,
+      notes,
+      showBrand,
+      discountMode,
+      discountPercentage,
+      discountAmount,
+      installmentCount,
+      items,
+      totalAmount: quoteTotal,
+    }
+  }
+
+  function loadQuoteFormDraft(draft: QuoteFormDraft) {
+    const payload = normalizeQuoteFormDraftPayload(draft.payload)
+
+    setSourceDraft(draft)
+    setClientId(payload.clientId)
+    setPayments(payload.payments)
+    setBillingIssueDate(payload.billingIssueDate)
+    setBillingDueDate(payload.billingDueDate)
+    setBillingDueDateTouched(payload.billingDueDateTouched)
+    setValidUntil(payload.validUntil)
+    setNotes(payload.notes)
+    setShowBrand(payload.showBrand)
+    setDiscountMode(payload.discountMode)
+    setDiscountPercentage(payload.discountPercentage)
+    setDiscountAmount(payload.discountAmount)
+    setInstallmentCount(payload.installmentCount)
+    setItems(payload.items)
+  }
+
+  async function saveQuoteFormDraft() {
+    const payload = currentQuoteFormDraftPayload()
+    const saved = await onSaveQuoteFormDraft(payload, sourceDraft ?? undefined)
+
+    if (!saved) {
+      return
+    }
+
+    if (!sourceDraft) {
+      setPendingSavedDraftSignature(quoteFormDraftPayloadSignature(payload))
+      return
+    }
+
+    setSourceDraft({
+      ...sourceDraft,
+      payload,
+      updatedAt: new Date().toISOString(),
+    })
+  }
+
+  async function deleteLoadedQuoteFormDraft() {
+    if (!sourceDraft) {
+      return
+    }
+
+    const deleted = await onDeleteQuoteFormDraft(sourceDraft)
+
+    if (deleted) {
+      setSourceDraft(null)
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -332,6 +457,10 @@ export function QuotesPage({
     const saved = await onSubmit(input)
 
     if (saved) {
+      if (sourceDraft) {
+        await onDiscardQuoteFormDraft(sourceDraft)
+      }
+
       resetQuoteForm()
     }
   }
@@ -345,6 +474,39 @@ export function QuotesPage({
           icon={<ListIcon size={18} />}
           title='Novo orçamento'
         />
+        <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]'>
+          <Autocomplete
+            getOptionLabel={(draft) =>
+              `${draft.title} - ${formatDateTime(draft.updatedAt)}`
+            }
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            noOptionsText='Nenhum rascunho salvo'
+            options={quoteFormDrafts}
+            value={sourceDraft}
+            onChange={(_event, draft) => {
+              if (draft) {
+                loadQuoteFormDraft(draft)
+              }
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label='Carregar rascunho'
+                size='medium'
+              />
+            )}
+          />
+          <SecondaryButton type='button' onClick={saveQuoteFormDraft}>
+            {sourceDraft ? 'Atualizar rascunho' : 'Salvar rascunho'}
+          </SecondaryButton>
+          {sourceDraft ? (
+            <SecondaryButton
+              type='button'
+              onClick={() => void deleteLoadedQuoteFormDraft()}>
+              Excluir rascunho
+            </SecondaryButton>
+          ) : null}
+        </div>
         <Autocomplete
           getOptionLabel={(client) =>
             `${client.name}${client.phone ? ` - ${client.phone}` : ''}`
@@ -1960,6 +2122,96 @@ function emptyQuotePayment(): QuotePaymentDraft {
     amount: '',
     paymentMethodId: '',
   }
+}
+
+function normalizeQuoteFormDraftPayload(
+  payload: Record<string, unknown>,
+): QuoteFormDraftPayload {
+  return {
+    clientId: stringPayloadValue(payload.clientId),
+    clientName: nullableStringPayloadValue(payload.clientName),
+    payments: quotePaymentDraftPayloads(payload.payments),
+    billingIssueDate: stringPayloadValue(payload.billingIssueDate) || todayInputDate(),
+    billingDueDate: stringPayloadValue(payload.billingDueDate),
+    billingDueDateTouched: booleanPayloadValue(payload.billingDueDateTouched),
+    validUntil: stringPayloadValue(payload.validUntil),
+    notes: stringPayloadValue(payload.notes),
+    showBrand: payload.showBrand === undefined
+      ? true
+      : booleanPayloadValue(payload.showBrand),
+    discountMode: quoteDiscountModePayloadValue(payload.discountMode),
+    discountPercentage: stringPayloadValue(payload.discountPercentage),
+    discountAmount: stringPayloadValue(payload.discountAmount),
+    installmentCount: numberPayloadValue(payload.installmentCount, 1),
+    items: quoteItemDraftPayloads(payload.items),
+    totalAmount: numberPayloadValue(payload.totalAmount, 0),
+  }
+}
+
+function quoteFormDraftPayloadSignature(payload: unknown) {
+  const draftPayload =
+    payload && typeof payload === 'object'
+      ? (payload as Record<string, unknown>)
+      : {}
+
+  return JSON.stringify(normalizeQuoteFormDraftPayload(draftPayload))
+}
+
+function quotePaymentDraftPayloads(value: unknown): QuotePaymentDraft[] {
+  if (!Array.isArray(value)) {
+    return [emptyQuotePayment()]
+  }
+
+  const payments = value
+    .filter((payment): payment is Record<string, unknown> =>
+      Boolean(payment) && typeof payment === 'object',
+    )
+    .map((payment) => ({
+      amount: stringPayloadValue(payment.amount),
+      paymentMethodId: stringPayloadValue(payment.paymentMethodId),
+    }))
+
+  return payments.length > 0 ? payments : [emptyQuotePayment()]
+}
+
+function quoteItemDraftPayloads(value: unknown): QuoteDraftItem[] {
+  if (!Array.isArray(value)) {
+    return [emptyQuoteItem()]
+  }
+
+  const items = value
+    .filter((item): item is Record<string, unknown> =>
+      Boolean(item) && typeof item === 'object',
+    )
+    .map((item) => ({
+      productId: stringPayloadValue(item.productId),
+      description: stringPayloadValue(item.description),
+      quantity: stringPayloadValue(item.quantity) || '1',
+      unitPrice: stringPayloadValue(item.unitPrice),
+      discountPercentage: stringPayloadValue(item.discountPercentage),
+    }))
+
+  return items.length > 0 ? items : [emptyQuoteItem()]
+}
+
+function quoteDiscountModePayloadValue(value: unknown): QuoteDiscountMode {
+  return value === 'AMOUNT' ? 'AMOUNT' : 'PERCENTAGE'
+}
+
+function stringPayloadValue(value: unknown) {
+  return typeof value === 'string' ? value : ''
+}
+
+function nullableStringPayloadValue(value: unknown) {
+  return typeof value === 'string' ? value : null
+}
+
+function booleanPayloadValue(value: unknown) {
+  return value === true
+}
+
+function numberPayloadValue(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
 function totalQuoteDiscount(quote: Quote) {

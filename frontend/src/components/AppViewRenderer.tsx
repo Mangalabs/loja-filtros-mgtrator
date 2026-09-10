@@ -19,6 +19,7 @@ import type {
   PurchaseInvoice,
   PurchaseReport,
   Quote,
+  QuoteFormDraft,
   ReportsOverview,
   Sale,
   SalesReport,
@@ -100,6 +101,7 @@ type AppViewRendererProps = {
   products: Product[];
   purchaseInvoices: PurchaseInvoice[];
   purchaseReport: PurchaseReport | null;
+  quoteFormDrafts: QuoteFormDraft[];
   quoteActions: ReturnType<typeof useQuoteActions>;
   quotes: Quote[];
   reportsOverview: ReportsOverview | null;
@@ -192,6 +194,7 @@ export function AppViewRenderer({
   products,
   purchaseInvoices,
   purchaseReport,
+  quoteFormDrafts,
   quoteActions,
   quotes,
   reportsOverview,
@@ -488,8 +491,12 @@ export function AppViewRenderer({
           mode="form"
           paymentMethods={paymentMethods}
           products={products}
+          quoteFormDrafts={quoteFormDrafts}
           quotes={quotes}
           onSubmit={quoteActions.createQuote}
+          onSaveQuoteFormDraft={quoteActions.saveQuoteFormDraft}
+          onDeleteQuoteFormDraft={quoteActions.deleteQuoteFormDraft}
+          onDiscardQuoteFormDraft={quoteActions.discardQuoteFormDraft}
           onEditQuote={onSelectQuote}
           onCancelQuote={(event, quote) =>
             void quoteActions.cancelQuote(event, quote)
@@ -506,8 +513,12 @@ export function AppViewRenderer({
           mode="list"
           paymentMethods={paymentMethods}
           products={products}
+          quoteFormDrafts={quoteFormDrafts}
           quotes={quotes}
           onSubmit={quoteActions.createQuote}
+          onSaveQuoteFormDraft={quoteActions.saveQuoteFormDraft}
+          onDeleteQuoteFormDraft={quoteActions.deleteQuoteFormDraft}
+          onDiscardQuoteFormDraft={quoteActions.discardQuoteFormDraft}
           onEditQuote={onSelectQuote}
           onCancelQuote={(event, quote) =>
             void quoteActions.cancelQuote(event, quote)

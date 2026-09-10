@@ -230,6 +230,7 @@ function stockReportDocument(
         emptyMessage: "Nenhum produto movimentado no periodo.",
         columns: [
           { label: "Produto" },
+          { label: "Locacao" },
           { label: "Mov.", align: "right" },
           { label: "Entrada", align: "right" },
           { label: "Valor entrada", align: "right" },
@@ -240,6 +241,7 @@ function stockReportDocument(
         ],
         rows: report.movedProducts.map((item) => [
           item.productName,
+          item.location ?? "",
           item.movementsCount,
           formatQuantity(item.entryQuantity),
           formatCurrency(item.entryAmount),
@@ -270,6 +272,7 @@ function stockReportDocument(
         emptyMessage: "Nenhum produto em estoque baixo.",
         columns: [
           { label: "Produto" },
+          { label: "Locacao" },
           { label: "Fisico", align: "right" },
           { label: "Reservado", align: "right" },
           { label: "Disponivel", align: "right" },
@@ -277,6 +280,7 @@ function stockReportDocument(
         ],
         rows: report.lowStockProducts.map((item) => [
           item.productName,
+          item.location ?? "",
           formatQuantity(item.currentStock),
           formatQuantity(item.reservedStock),
           formatQuantity(item.availableStock),
@@ -288,11 +292,13 @@ function stockReportDocument(
         emptyMessage: "Nenhum produto sem movimentacao.",
         columns: [
           { label: "Produto" },
+          { label: "Locacao" },
           { label: "Fisico", align: "right" },
           { label: "Minimo", align: "right" },
         ],
         rows: report.productsWithoutMovement.map((item) => [
           item.productName,
+          item.location ?? "",
           formatQuantity(item.currentStock),
           formatQuantity(item.minimumStock),
         ]),
@@ -307,44 +313,27 @@ function inventoryReportDocument(
 ): ReportPdfDocument {
   return {
     title: "Inventario",
-    subtitle: "Saldos fisicos, reservados, disponiveis e valores de estoque.",
+    subtitle: "Arquivo para verificacao, contagem periodica e manutencao.",
     generatedAt: new Date(),
     periodLabel: inventoryFilterLabel(filters),
-    metrics: [
-      { label: "Produtos", value: report.summary.productsCount },
-      { label: "Exibidos", value: report.summary.returnedProductsCount },
-      { label: "Fisico", value: formatQuantity(report.summary.totalCurrentStock) },
-      { label: "Disponivel", value: formatQuantity(report.summary.totalAvailableStock) },
-      { label: "Custo total", value: formatCurrency(report.summary.totalCostAmount) },
-      { label: "Venda total", value: formatCurrency(report.summary.totalSaleAmount) },
-      { label: "Lucro potencial", value: formatCurrency(report.summary.potentialProfitAmount) },
-      { label: "Negativos", value: report.summary.negativeStockProductsCount },
-    ],
+    metrics: [],
     sections: [
       {
         title: "Itens do inventario",
         emptyMessage: "Nenhum produto encontrado no inventario.",
         columns: [
-          { label: "Codigo interno" },
+          { label: "Codigo" },
           { label: "Nome" },
-          { label: "NCM" },
-          { label: "Estado anterior", align: "right" },
-          { label: "Entrada", align: "right" },
-          { label: "Saida", align: "right" },
-          { label: "Saldo", align: "right" },
           { label: "Unidade", align: "center" },
-          { label: "Custo medio", align: "right" },
+          { label: "Estoque atual", align: "right" },
+          { label: "Locacao" },
         ],
         rows: report.items.map((item) => [
           item.internalCode ?? "",
           item.productName,
-          item.ncm ?? "",
-          formatQuantity(item.previousStock),
-          formatQuantity(item.entryQuantity),
-          formatQuantity(item.exitQuantity),
-          formatQuantity(item.currentStock),
           item.unit,
-          formatCurrency(item.costPrice),
+          formatQuantity(item.currentStock),
+          item.location ?? "",
         ]),
       },
     ],
