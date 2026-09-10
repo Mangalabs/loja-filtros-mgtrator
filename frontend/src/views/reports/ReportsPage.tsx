@@ -28,7 +28,7 @@ import type {
   StockReport,
   UserPerformanceReport,
 } from '../../api'
-import { downloadApiFile } from '../../api'
+import { apiGet, downloadApiFile, type ApiResult } from '../../api'
 import { PageHeader, PagePanel, ResponsiveTable } from '../../components/layout'
 import { StatusChip, type StatusTone } from '../../components/ui'
 import { frontendPalette } from '../../theme'
@@ -1469,17 +1469,26 @@ function InventoryReportSection({
   const [activeFilter, setActiveFilter] = useState<
     'ALL' | 'ACTIVE' | 'INACTIVE'
   >('ACTIVE')
+  const [appliedFilters, setAppliedFilters] = useState<InventoryReportFilters>({
+    active: true,
+  })
   const [loading, setLoading] = useState(false)
 
   async function filterInventoryReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoading(true)
-
-    await onLoadInventoryReport({
-      active: activeFilter === 'ALL' ? undefined : activeFilter === 'ACTIVE',
+    const filters = inventoryReportFiltersFromControls({
+      activeFilter,
       search,
       stockStatus,
     })
+
+    const loaded = await onLoadInventoryReport(filters)
+
+    if (loaded) {
+      setAppliedFilters(filters)
+    }
+
     setLoading(false)
   }
 
@@ -1489,7 +1498,12 @@ function InventoryReportSection({
     setActiveFilter('ACTIVE')
     setLoading(true)
 
-    await onLoadInventoryReport({ active: true })
+    const loaded = await onLoadInventoryReport({ active: true })
+
+    if (loaded) {
+      setAppliedFilters({ active: true })
+    }
+
     setLoading(false)
   }
 
@@ -1554,7 +1568,7 @@ function InventoryReportSection({
               startIcon={<Download size={16} />}
               type='button'
               variant='outlined'
-              onClick={() => exportInventoryReportCsv(report)}>
+              onClick={() => void exportInventoryReportCsv(appliedFilters)}>
               CSV
             </Button>
             <Button
@@ -1565,12 +1579,8 @@ function InventoryReportSection({
                 void downloadReportPdf(
                   '/reports/inventory/pdf',
                   {
-                    active:
-                      activeFilter === 'ALL'
-                        ? undefined
-                        : activeFilter === 'ACTIVE',
-                    search,
-                    stockStatus,
+                    ...appliedFilters,
+                    limit: 0,
                   },
                   'relatorio-inventario',
                 )
@@ -1691,8 +1701,25 @@ type SalesReportFilters = {
 
 type InventoryReportFilters = {
   active?: boolean
+  limit?: number
   search?: string
   stockStatus?: 'ALL' | 'LOW' | 'NEGATIVE' | 'AVAILABLE' | 'OUT_OF_STOCK'
+}
+
+function inventoryReportFiltersFromControls({
+  activeFilter,
+  search,
+  stockStatus,
+}: {
+  activeFilter: 'ALL' | 'ACTIVE' | 'INACTIVE'
+  search: string
+  stockStatus: InventoryReportFilters['stockStatus']
+}): InventoryReportFilters {
+  return {
+    active: activeFilter === 'ALL' ? undefined : activeFilter === 'ACTIVE',
+    search,
+    stockStatus,
+  }
 }
 
 function abcTone(abcClass: 'A' | 'B' | 'C'): StatusTone {
@@ -1916,7 +1943,13 @@ function exportUserPerformanceReportCsv(report: UserPerformanceReport) {
   ])
 }
 
-function exportInventoryReportCsv(report: InventoryReport) {
+async function exportInventoryReportCsv(filters: InventoryReportFilters) {
+  const result = await apiGet<ApiResult<InventoryReport>>(
+    reportDownloadPath('/reports/inventory', {
+      ...filters,
+      limit: 0,
+    }),
+  )
   const generatedAt = formatDateTime(new Date().toISOString())
 
   downloadCsv('relatorio-inventario', [
@@ -1927,9 +1960,9 @@ function exportInventoryReportCsv(report: InventoryReport) {
       'Nome',
       'Unidade',
       'Estoque atual',
-      'Locacao',
+      'Locação',
     ],
-    ...report.items.map((item) => [
+    ...result.data.items.map((item) => [
       item.internalCode ?? '',
       item.productName,
       item.unit,
@@ -2058,7 +2091,7 @@ function exportStockReportCsv(report: StockReport) {
     [
       'Produtos movimentados',
       'Produto',
-      'Locacao',
+      'Locação',
       'Movimentacoes',
       'Quantidade entrada',
       'Valor entrada',
@@ -2096,7 +2129,7 @@ function exportStockReportCsv(report: StockReport) {
     [
       'Estoque baixo',
       'Produto',
-      'Locacao',
+      'Locação',
       'Fisico',
       'Reservado',
       'Disponivel',
@@ -2112,7 +2145,7 @@ function exportStockReportCsv(report: StockReport) {
       item.minimumStock,
     ]),
     [],
-    ['Sem movimentacao', 'Produto', 'Locacao', 'Fisico', 'Minimo'],
+    ['Sem movimentacao', 'Produto', 'Locação', 'Fisico', 'Minimo'],
     ...report.productsWithoutMovement.map((item) => [
       'Sem movimentacao',
       item.productName,
@@ -2124,7 +2157,7 @@ function exportStockReportCsv(report: StockReport) {
     [
       'Giro por venda',
       'Produto',
-      'Locacao',
+      'Locação',
       'Quantidade vendida',
       'Ultima venda',
     ],

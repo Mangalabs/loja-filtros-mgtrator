@@ -31,6 +31,7 @@ const inventoryReportQuerySchema = z.object({
     .transform((value) => value === "true")
     .optional(),
   search: z.string().trim().min(1).max(120).optional(),
+  limit: z.coerce.number().int().min(0).max(10000).optional(),
   stockStatus: z
     .enum(["ALL", "LOW", "NEGATIVE", "AVAILABLE", "OUT_OF_STOCK"])
     .optional(),

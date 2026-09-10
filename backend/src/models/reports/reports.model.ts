@@ -71,6 +71,7 @@ export type InventoryReportFilters = {
   branchId: string;
   active?: boolean;
   search?: string;
+  limit?: number;
   stockStatus?: "ALL" | "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
 };
 
@@ -907,7 +908,13 @@ export async function getInventoryReport(
         "products.active",
       ])
       .orderBy("products.name", "asc")
-      .limit(500),
+      .modify((query) => {
+        if (filters.limit === 0) {
+          return;
+        }
+
+        query.limit(filters.limit ?? 500);
+      }),
   ]);
 
   return {

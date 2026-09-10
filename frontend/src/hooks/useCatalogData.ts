@@ -697,6 +697,7 @@ type ReportPeriodFilters = {
 
 type InventoryReportFilters = {
   active?: boolean;
+  limit?: number;
   search?: string;
   stockStatus?: "ALL" | "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
 };
@@ -714,6 +715,10 @@ function inventoryReportPath(filters: InventoryReportFilters) {
 
   if (filters.search) {
     params.set("search", filters.search);
+  }
+
+  if (filters.limit !== undefined) {
+    params.set("limit", String(filters.limit));
   }
 
   if (filters.stockStatus && filters.stockStatus !== "ALL") {
