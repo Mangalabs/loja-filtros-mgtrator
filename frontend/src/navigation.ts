@@ -37,7 +37,6 @@ export type NavSectionKey =
   | 'products'
   | 'catalog'
   | 'stock'
-  | 'suppliers'
   | 'finance'
   | 'cash'
   | 'reports'
@@ -47,7 +46,7 @@ export type NavSectionKey =
 
 export const navSectionViews: Record<NavSectionKey, View[]> = {
   products: ['products', 'new-product', 'edit-product', 'commercial-settings'],
-  catalog: ['brands', 'clients'],
+  catalog: ['brands', 'clients', 'suppliers'],
   stock: [
     'stock-entries',
     'purchase-invoices',
@@ -55,7 +54,6 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
     'stock-movements',
     'low-stock',
   ],
-  suppliers: ['suppliers'],
   finance: [
     'payment-methods',
     'fiscal-settings',
@@ -80,7 +78,6 @@ const initialOpenNavSections: Record<NavSectionKey, boolean> = {
   products: false,
   catalog: false,
   stock: false,
-  suppliers: false,
   finance: false,
   cash: false,
   reports: false,

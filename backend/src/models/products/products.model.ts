@@ -4,6 +4,7 @@ import type { Knex } from "knex";
 export type ProductListFilters = {
   search?: string;
   active?: boolean;
+  stockStatus?: "ALL" | "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
   branchId?: string | null;
   page: number;
   limit: number;
@@ -124,6 +125,7 @@ export async function listLowStockProducts(filters: {
     .leftJoin("product_groups", "product_groups.id", "products.group_id")
     .select(productListColumns())
     .where("products.active", true)
+    .whereNull("products.deleted_at")
     .modify((query) => {
       if (filters.branchId) {
         query.where("products.branch_id", filters.branchId);
@@ -159,6 +161,8 @@ function applyProductFilters(
   query: Knex.QueryBuilder,
   filters: ProductListFilters,
 ) {
+  query.whereNull("products.deleted_at");
+
   if (filters.search) {
     query.where((builder) => {
       builder
@@ -172,6 +176,28 @@ function applyProductFilters(
 
   if (typeof filters.active === "boolean") {
     query.where("products.active", filters.active);
+  }
+
+  if (filters.stockStatus && filters.stockStatus !== "ALL") {
+    if (filters.stockStatus === "LOW") {
+      query
+        .where("products.minimum_stock", ">", 0)
+        .whereRaw(
+          "products.current_stock - products.reserved_stock <= products.minimum_stock",
+        );
+    }
+
+    if (filters.stockStatus === "NEGATIVE") {
+      query.where("products.current_stock", "<", 0);
+    }
+
+    if (filters.stockStatus === "AVAILABLE") {
+      query.whereRaw("products.current_stock - products.reserved_stock > 0");
+    }
+
+    if (filters.stockStatus === "OUT_OF_STOCK") {
+      query.whereRaw("products.current_stock - products.reserved_stock <= 0");
+    }
   }
 
   if (filters.branchId) {
@@ -235,6 +261,7 @@ export async function updateProduct(
 ): Promise<ProductListItem | undefined> {
   const [updated] = await database("products")
     .where("id", id)
+    .whereNull("deleted_at")
     .update({
       name: input.name,
       internal_code: input.internalCode,
@@ -277,6 +304,7 @@ export async function updateProductStatus(
 ): Promise<ProductListItem | undefined> {
   const [updated] = await db("products")
     .where("id", id)
+    .whereNull("deleted_at")
     .update({
       active,
       updated_at: db.fn.now(),
@@ -297,6 +325,7 @@ export async function updateProductReplenishmentMonitor(
 ): Promise<ProductListItem | undefined> {
   const [updated] = await db("products")
     .where({ id, branch_id: branchId })
+    .whereNull("deleted_at")
     .update({
       replenishment_monitor_enabled: enabled,
       updated_at: db.fn.now(),
@@ -310,6 +339,25 @@ export async function updateProductReplenishmentMonitor(
   return findProductById(updated.id);
 }
 
+export async function deleteProduct(
+  id: string,
+  branchId: string,
+): Promise<ProductListItem | undefined> {
+  const product = await findProductById(id);
+
+  if (!product || product.branchId !== branchId) {
+    return undefined;
+  }
+
+  await db("products").where({ id, branch_id: branchId }).update({
+    active: false,
+    deleted_at: db.fn.now(),
+    updated_at: db.fn.now(),
+  });
+
+  return product;
+}
+
 async function findProductById(
   id: string,
   database: Knex | Knex.Transaction = db,
@@ -320,6 +368,7 @@ async function findProductById(
     .leftJoin("product_groups", "product_groups.id", "products.group_id")
     .select(productListColumns())
     .where("products.id", id)
+    .whereNull("products.deleted_at")
     .first();
 }
 

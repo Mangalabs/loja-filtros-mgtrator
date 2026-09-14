@@ -25,7 +25,11 @@ type CatalogActionsOptions = {
   selectedProduct?: Product;
   setSelectedClient: (client: Client | undefined) => void;
   setSelectedProduct: (product: Product | undefined) => void;
+  afterClientSave?: () => Promise<void> | void;
+  afterCommercialSettingsSave?: () => Promise<void> | void;
+  afterProductSave?: () => Promise<void> | void;
   showEditProduct: () => void;
+  showNewProduct: () => void;
   showProducts: () => void;
 };
 
@@ -37,7 +41,11 @@ export function useCatalogActions({
   selectedProduct,
   setSelectedClient,
   setSelectedProduct,
+  afterClientSave,
+  afterCommercialSettingsSave,
+  afterProductSave,
   showEditProduct,
+  showNewProduct,
   showProducts,
 }: CatalogActionsOptions) {
   async function createNamedEntity(
@@ -117,6 +125,7 @@ export function useCatalogActions({
       formElement.reset();
       setSelectedClient(undefined);
       await refreshCatalogFlow();
+      await afterClientSave?.();
     });
   }
 
@@ -143,6 +152,7 @@ export function useCatalogActions({
         ),
       });
       await refreshCatalogFlow();
+      await afterCommercialSettingsSave?.();
     });
   }
 
@@ -154,8 +164,13 @@ export function useCatalogActions({
     await runAction(async () => {
       await apiPost("/products", productFormBody(form));
       formElement.reset();
-      showProducts();
+      setSelectedProduct(undefined);
       await refreshCatalogFlow();
+      if (afterProductSave) {
+        await afterProductSave();
+      } else {
+        showProducts();
+      }
     });
   }
 
@@ -171,8 +186,12 @@ export function useCatalogActions({
     await runAction(async () => {
       await apiPut(`/products/${selectedProduct.id}`, productFormBody(form));
       setSelectedProduct(undefined);
-      showProducts();
       await refreshCatalogFlow();
+      if (afterProductSave) {
+        await afterProductSave();
+      } else {
+        showProducts();
+      }
     });
   }
 
@@ -191,6 +210,23 @@ export function useCatalogActions({
       await apiPatch(`/products/${product.id}/status`, {
         active: !product.active,
       });
+      await refreshCatalogFlow();
+    });
+  }
+
+  async function deleteProduct(product: Product) {
+    const confirmed = await requestConfirmation(
+      `Excluir o produto "${product.name}" da lista? O historico de vendas, orcamentos e movimentacoes sera preservado.`,
+      "Excluir produto?",
+      "Excluir",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiDelete(`/products/${product.id}`);
       await refreshCatalogFlow();
     });
   }
@@ -236,13 +272,20 @@ export function useCatalogActions({
     showEditProduct();
   }
 
+  function cloneProduct(product: Product) {
+    setSelectedProduct(product);
+    showNewProduct();
+  }
+
   return {
     changeClientStatus,
     changeProductStatus,
+    cloneProduct,
     createNamedEntity,
     createProduct,
     createSupplier,
     deleteClient,
+    deleteProduct,
     editProduct,
     lookupClientCompany,
     saveClient,

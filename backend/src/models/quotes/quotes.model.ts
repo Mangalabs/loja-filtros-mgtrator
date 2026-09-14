@@ -176,8 +176,8 @@ const quoteColumns = [
   'cancelled_users.name as cancelledByUserName',
   'quotes.cancelled_at as cancelledAt',
   'quotes.cancellation_reason as cancellationReason',
-  'shipping_orders.id as shippingOrderId',
-  'shipping_orders.status as shippingOrderStatus',
+  'latest_shipping_orders.id as shippingOrderId',
+  'latest_shipping_orders.status as shippingOrderStatus',
   'created_users.name as createdByUserName',
   'created_users.email as createdByUserEmail',
   'created_users.phone as createdByUserPhone',
@@ -493,6 +493,19 @@ export async function cancelQuote(
 }
 
 function quoteQuery(database: Knex | Knex.Transaction) {
+  const latestShippingOrderByQuote = database('shipping_orders')
+    .select([
+      'shipping_orders.id',
+      'shipping_orders.quote_id',
+      'shipping_orders.status',
+    ])
+    .distinctOn('shipping_orders.quote_id')
+    .whereNotNull('shipping_orders.quote_id')
+    .orderBy('shipping_orders.quote_id')
+    .orderBy('shipping_orders.created_at', 'desc')
+    .orderBy('shipping_orders.id', 'desc')
+    .as('latest_shipping_orders')
+
   return database('quotes')
     .leftJoin('branches', 'branches.id', 'quotes.branch_id')
     .join('clients', 'clients.id', 'quotes.client_id')
@@ -511,7 +524,11 @@ function quoteQuery(database: Knex | Knex.Transaction) {
       'cancelled_users.id',
       'quotes.cancelled_by_user_id',
     )
-    .leftJoin('shipping_orders', 'shipping_orders.quote_id', 'quotes.id')
+    .leftJoin(
+      latestShippingOrderByQuote,
+      'latest_shipping_orders.quote_id',
+      'quotes.id',
+    )
     .select<QuoteRow[]>(quoteColumns)
 }
 

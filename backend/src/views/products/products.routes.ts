@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   changeProductReplenishmentMonitor,
   changeProductStatus,
+  destroyProduct,
   indexLowStockProducts,
   indexProducts,
   replaceProduct,
@@ -59,6 +60,10 @@ const updateProductReplenishmentMonitorSchema = z.object({
   enabled: z.boolean(),
 });
 
+const productStockStatusSchema = z
+  .enum(["ALL", "LOW", "NEGATIVE", "AVAILABLE", "OUT_OF_STOCK"])
+  .optional();
+
 const productParamsSchema = z.object({
   id: z.uuid(),
 });
@@ -68,6 +73,9 @@ productsRoutes.get("/products", async (request, response) => {
   const limit = Number(request.query.limit ?? 20);
   const active = parseBooleanFilter(request.query.active);
   const includeMeta = parseBooleanFilter(request.query.includeMeta) ?? false;
+  const stockStatus = productStockStatusSchema.parse(
+    parseStringFilter(request.query.stockStatus),
+  );
 
   if (!Number.isInteger(page) || page < 1) {
     throw new AppError("Invalid page parameter");
@@ -83,6 +91,7 @@ productsRoutes.get("/products", async (request, response) => {
     active,
     branchId: requireActiveBranchId(response.locals),
     search: parseStringFilter(request.query.search),
+    stockStatus,
   }, { includeMeta });
 
   response.status(200).json(result);
@@ -151,6 +160,13 @@ productsRoutes.patch(
     response.status(200).json(result);
   },
 );
+
+productsRoutes.delete("/products/:id", async (request, response) => {
+  const { id } = productParamsSchema.parse(request.params);
+  const result = await destroyProduct(id, requireActiveBranchId(response.locals));
+
+  response.status(200).json(result);
+});
 
 function optionalText(max: number) {
   return z

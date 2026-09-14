@@ -115,6 +115,73 @@ const createSaleSchema = z
     ],
   }));
 
+const updateSaleSchema = z
+  .object({
+    paymentMethodId: z.uuid().optional(),
+    payments: z
+      .array(
+        z
+          .object({
+            paymentMethodId: z.uuid(),
+            amount: z.coerce.number().positive(),
+          })
+          .strict(),
+      )
+      .min(1),
+    billingIssueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    billingDueDate: z
+      .union([z.iso.date(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    discountAmount: z.coerce.number().min(0).optional(),
+    allowInsufficientStock: z.boolean().optional(),
+    clientId: z
+      .union([z.uuid(), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    items: z
+      .array(
+        z
+          .object({
+            productId: z.uuid(),
+            quantity: z.coerce.number().positive(),
+            unitPrice: z.coerce.number().positive().optional(),
+          })
+          .strict(),
+      )
+      .min(1),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const hasValidBillingDates =
+      !value.billingIssueDate ||
+      !value.billingDueDate ||
+      value.billingDueDate >= value.billingIssueDate;
+
+    if (hasValidBillingDates) {
+      return;
+    }
+
+    context.addIssue({
+      code: "custom",
+      message: "Vencimento nao pode ser anterior a data da fatura.",
+      path: ["billingDueDate"],
+    });
+  })
+  .transform((value) => ({
+    paymentMethodId: value.paymentMethodId,
+    payments: value.payments,
+    clientId: value.clientId,
+    billingIssueDate: value.billingIssueDate,
+    billingDueDate: value.billingDueDate,
+    discountAmount: value.discountAmount ?? 0,
+    allowInsufficientStock: value.allowInsufficientStock ?? false,
+    items: value.items,
+  }));
+
 const cancelSaleSchema = z
   .object({
     reason: z.string().trim().min(1).max(500),
@@ -249,7 +316,7 @@ salesRoutes.patch("/sales/:id/complete", async (request, response) => {
 
 salesRoutes.put("/sales/:id", async (request, response) => {
   const { id } = saleParamsSchema.parse(request.params);
-  const body = validateBody(request, createSaleSchema);
+  const body = validateBody(request, updateSaleSchema);
   const userId = response.locals.authenticatedUser.id as string;
 
   response.status(200).json(

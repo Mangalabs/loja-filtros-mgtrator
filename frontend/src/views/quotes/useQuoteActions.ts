@@ -81,9 +81,11 @@ export function useQuoteActions({
 
   async function createShippingOrderFromQuote(quote: Quote) {
     const confirmed = await requestConfirmation(
-      `Criar venda a partir do orçamento de ${quote.clientName}?`,
-      'Criar venda?',
-      'Criar venda',
+      quote.shippingOrderId
+        ? `Criar uma nova venda a partir do orçamento de ${quote.clientName}? As vendas e pedidos anteriores permanecem no historico.`
+        : `Criar venda a partir do orçamento de ${quote.clientName}?`,
+      quote.shippingOrderId ? 'Criar nova venda?' : 'Criar venda?',
+      quote.shippingOrderId ? 'Criar nova venda' : 'Criar venda',
     )
 
     if (!confirmed) {

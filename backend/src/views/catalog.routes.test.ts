@@ -917,21 +917,67 @@ describe("catalog routes", () => {
   });
 
   it("lists inventory-based NCM options", async () => {
+    await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Produto com NCM de producao",
+        internalCode: "NCM-PROD-001",
+        salePrice: 90,
+        ncm: "27101932",
+      },
+    });
+
     const listed = await request<NcmOption[]>("/fiscal/ncm-options");
     const filtered = await request<NcmOption[]>(
       "/fiscal/ncm-options?search=separador",
     );
+    const filteredByProductNcm = await request<NcmOption[]>(
+      "/fiscal/ncm-options?search=27101932",
+    );
 
     assert.equal(listed.status, 200);
-    assert.ok(listed.body.data?.some((option) => option.code === "84212300"));
+    assert.ok(
+      listed.body.data?.some(
+        (option) =>
+          option.code === "84212300" &&
+          option.label ===
+            "Para filtrar carburantes ou óleos lubrificantes nos motores de ignição por centelha (faísca) ou por compressão",
+      ),
+    );
+    assert.ok(
+      listed.body.data?.some(
+        (option) =>
+          option.code === "27101932" &&
+          option.label === "Com aditivos",
+      ),
+    );
     assert.equal(filtered.status, 200);
+    assert.ok(
+      filtered.body.data?.some((option) => option.code === "84212300"),
+    );
+    assert.equal(filteredByProductNcm.status, 200);
     assert.deepEqual(
-      filtered.body.data?.map((option) => option.code),
-      ["84212300"],
+      filteredByProductNcm.body.data?.map((option) => option.code),
+      ["27101932"],
     );
   });
 
   it("lists branch product CEST options", async () => {
+    const listedWithoutProducts = await request<CestOption[]>(
+      "/fiscal/cest-options",
+    );
+
+    assert.equal(listedWithoutProducts.status, 200);
+    assert.ok(
+      listedWithoutProducts.body.data?.some(
+        (option) =>
+          option.code === "0100800" &&
+          option.productCount === 3757 &&
+          option.label ===
+            "Partes de veículos automóveis, tratores e máquinas autopropulsadas",
+      ),
+    );
+
     await request<Product>("/products", {
       method: "POST",
       body: {
@@ -959,6 +1005,15 @@ describe("catalog routes", () => {
         cest: "2800100",
       },
     });
+    await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro com CEST pontuado",
+        internalCode: "CEST-004",
+        salePrice: 80,
+        cest: "01.037.00",
+      },
+    });
 
     const listed = await request<CestOption[]>("/fiscal/cest-options");
     const filtered = await request<CestOption[]>(
@@ -968,12 +1023,34 @@ describe("catalog routes", () => {
     assert.equal(listed.status, 200);
     assert.ok(
       listed.body.data?.some(
-        (option) => option.code === "0100100" && option.productCount === 2,
+        (option) =>
+          option.code === "0100100" &&
+          option.productCount === 2 &&
+          option.label ===
+            "Catalisadores em colmeia cerâmica ou metálica para conversão catalítica de gases de escape de veículos e outros catalisadores",
+      ),
+    );
+    assert.ok(
+      listed.body.data?.some(
+        (option) =>
+          option.code === "0103700" &&
+          option.productCount === 1 &&
+          option.label ===
+            "Aparelhos para filtrar óleos minerais nos motores de ignição por centelha ou por compressão",
       ),
     );
     assert.equal(filtered.status, 200);
+    assert.ok(
+      filtered.body.data?.some((option) => option.code === "0100100"),
+    );
+
+    const filteredByOfficialLabel = await request<CestOption[]>(
+      "/fiscal/cest-options?search=catalisadores",
+    );
+
+    assert.equal(filteredByOfficialLabel.status, 200);
     assert.deepEqual(
-      filtered.body.data?.map((option) => option.code),
+      filteredByOfficialLabel.body.data?.map((option) => option.code),
       ["0100100"],
     );
   });
@@ -2513,6 +2590,72 @@ describe("catalog routes", () => {
     assert.equal(updated.body.data?.items[0]?.unitPrice, "712.00");
     assert.equal(updated.body.data?.totalAmount, "712.00");
     assert.equal(updated.body.data?.payments[0]?.amount, "712.00");
+  });
+
+  it("updates open sale item unit prices", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro venda edicao valor unitario",
+        salePrice: 120,
+      },
+    });
+    const paymentMethod = await activePaymentMethod();
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo inicial para editar valor unitario",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        quantity: 1,
+      },
+    });
+    const reopened = await request<Sale>(`/sales/${sale.body.data?.id}/reopen`, {
+      method: "PATCH",
+    });
+    const updated = await request<Sale>(`/sales/${sale.body.data?.id}`, {
+      method: "PUT",
+      body: {
+        discountAmount: 15.5,
+        items: [
+          {
+            productId: product.body.data?.id,
+            quantity: 1,
+            unitPrice: 135.5,
+          },
+        ],
+        payments: [{ paymentMethodId: paymentMethod.id, amount: 120 }],
+      },
+    });
+    const completed = await request<Sale>(
+      `/sales/${sale.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+      },
+    );
+
+    assert.equal(reopened.status, 200);
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data?.items[0]?.unitPrice, "135.50");
+    assert.equal(updated.body.data?.subtotalAmount, "135.50");
+    assert.equal(updated.body.data?.discountAmount, "15.50");
+    assert.equal(updated.body.data?.totalAmount, "120.00");
+    assert.equal(updated.body.data?.payments[0]?.amount, "120.00");
+    assert.equal(completed.status, 200);
+    assert.equal(completed.body.data?.status, "COMPLETED");
   });
 
   it("blocks completed sale commercial date updates when fiscal document is active", async () => {
@@ -7750,7 +7893,7 @@ describe("catalog routes", () => {
         body: {},
       },
     );
-    const repeatedShippingOrder = await request(
+    const repeatedShippingOrder = await request<ShippingOrder>(
       `/quotes/${created.body.data?.id}/shipping-order`,
       {
         method: "POST",
@@ -7834,26 +7977,23 @@ describe("catalog routes", () => {
       "Descricao comercial limpa para o cliente",
     );
     assert.equal(shippingOrder.body.data?.items[1]?.unitPrice, "80.00");
-    assert.equal(repeatedShippingOrder.status, 409);
-    assert.equal(
-      repeatedShippingOrder.body.message,
-      "Este orçamento ja foi enviado para pedidos de envio.",
-    );
+    assert.equal(repeatedShippingOrder.status, 201);
+    assert.equal(repeatedShippingOrder.body.data?.quoteId, created.body.data?.id);
     assert.equal(
       listedAfterShippingOrder.body.data?.[0]?.shippingOrderId,
-      shippingOrder.body.data?.id,
+      repeatedShippingOrder.body.data?.id,
     );
     assert.equal(
       listedAfterShippingOrder.body.data?.[0]?.shippingOrderStatus,
       "QUOTED",
     );
-    assert.equal(listedShippingOrders.body.data?.length, 1);
+    assert.equal(listedShippingOrders.body.data?.length, 2);
     assert.equal(listedShippingOrders.body.data?.[0]?.items.length, 2);
     assert.equal(unchangedProduct.body.data?.currentStock, "2.000");
     assert.equal(unchangedProduct.body.data?.reservedStock, "0.000");
   });
 
-  it("updates a draft quote before it becomes a shipping order", async () => {
+  it("updates a draft quote and keeps it reusable after shipping order creation", async () => {
     const firstProduct = await request<Product>("/products", {
       method: "POST",
       body: { name: "Filtro quote edicao A", salePrice: 40 },
@@ -7907,7 +8047,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {},
     });
-    const updateAfterShippingOrder = await request(
+    const updateAfterShippingOrder = await request<Quote>(
       `/quotes/${created.body.data?.id}`,
       {
         method: "PUT",
@@ -7916,6 +8056,13 @@ describe("catalog routes", () => {
           paymentMethodId: pix.id,
           items: [{ productId: firstProduct.body.data?.id, quantity: 1 }],
         },
+      },
+    );
+    const newShippingOrder = await request<ShippingOrder>(
+      `/quotes/${created.body.data?.id}/shipping-order`,
+      {
+        method: "POST",
+        body: {},
       },
     );
 
@@ -7949,10 +8096,15 @@ describe("catalog routes", () => {
     assert.ok(shown.body.data?.billingIssueDate?.startsWith("2026-07-01"));
     assert.ok(shown.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.equal(shown.body.data?.items.length, 1);
-    assert.equal(updateAfterShippingOrder.status, 409);
+    assert.equal(updateAfterShippingOrder.status, 200);
+    assert.equal(updateAfterShippingOrder.body.data?.totalAmount, "40.00");
+    assert.equal(newShippingOrder.status, 201);
+    assert.equal(newShippingOrder.body.data?.quoteId, created.body.data?.id);
+    assert.equal(newShippingOrder.body.data?.totalAmount, "40.00");
+    assert.equal(newShippingOrder.body.data?.items.length, 1);
     assert.equal(
-      updateAfterShippingOrder.body.message,
-      "Orçamento enviado para pedido de envio deve seguir o fluxo do pedido.",
+      newShippingOrder.body.data?.items[0]?.productName,
+      "Filtro quote edicao A",
     );
   });
 
@@ -8753,6 +8905,62 @@ describe("catalog routes", () => {
       "Cliente possui movimentacoes vinculadas. Inative o cadastro para preservar o historico.",
     );
     assert.equal(listed.body.data?.length, 1);
+  });
+
+  it("deletes products without operational references", async () => {
+    const created = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Produto sem historico",
+        internalCode: "PROD-DELETE-001",
+      },
+    });
+    const deleted = await request<Product>(`/products/${created.body.data?.id}`, {
+      method: "DELETE",
+    });
+    const listed = await request<Product[]>("/products?search=PROD-DELETE-001");
+
+    assert.equal(created.status, 201);
+    assert.equal(deleted.status, 200);
+    assert.equal(deleted.body.data?.id, created.body.data?.id);
+    assert.equal(listed.body.data?.length, 0);
+  });
+
+  it("soft deletes products with operational references", async () => {
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente produto historico",
+        document: "32165498702",
+      },
+    });
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Produto com historico",
+        internalCode: "PROD-DELETE-002",
+        salePrice: 120,
+      },
+    });
+    const paymentMethod = await activePaymentMethod();
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+    const deleted = await request<Product>(`/products/${product.body.data?.id}`, {
+      method: "DELETE",
+    });
+    const listed = await request<Product[]>("/products?search=PROD-DELETE-002");
+
+    assert.equal(quote.status, 201);
+    assert.equal(deleted.status, 200);
+    assert.equal(deleted.body.data?.id, product.body.data?.id);
+    assert.equal(listed.body.data?.length, 0);
   });
 
   it("preserves state registration for individual ICMS taxpayers", async () => {

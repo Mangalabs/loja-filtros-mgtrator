@@ -53,6 +53,9 @@ export function AuthenticatedApp({
     useState<FiscalDocument>();
   const [selectedManualFiscalDocumentDraft, setSelectedManualFiscalDocumentDraft] =
     useState<ManualFiscalDocumentDraft>();
+  const [fiscalQueueSearch, setFiscalQueueSearch] = useState("");
+  const [fiscalPendencyReturnView, setFiscalPendencyReturnView] =
+    useState<View>();
   const [selectedQuote, setSelectedQuote] = useState<Quote>();
   const [selectedSale, setSelectedSale] = useState<Sale>();
   const { closeConfirmation, confirmation, requestConfirmation } =
@@ -84,6 +87,8 @@ export function AuthenticatedApp({
     productPage,
     productPageIndex,
     productRowsPerPage,
+    productStatusFilter,
+    productStockStatusFilter,
     products,
     purchaseInvoices,
     purchaseReport,
@@ -104,6 +109,7 @@ export function AuthenticatedApp({
     searchProducts,
     search,
     setProductPage,
+    setProductFilters,
     setMessage,
     setSearch,
     shippingOrders,
@@ -142,6 +148,8 @@ export function AuthenticatedApp({
 
   const selectView = useCallback(
     (nextView: View) => {
+      setFiscalPendencyReturnView(undefined);
+
       if (nextView === "manual-fiscal-document") {
         setSelectedManualFiscalDocument(undefined);
         setSelectedManualFiscalDocumentDraft(undefined);
@@ -164,6 +172,22 @@ export function AuthenticatedApp({
     [setView],
   );
 
+  const completeFiscalPendencyCorrection = useCallback(
+    async (fallbackView: View) => {
+      const returnView = fiscalPendencyReturnView;
+
+      if (!returnView) {
+        setView(fallbackView);
+        return;
+      }
+
+      setFiscalPendencyReturnView(undefined);
+      await refreshFiscalFlow();
+      setView(returnView);
+    },
+    [fiscalPendencyReturnView, refreshFiscalFlow, setView],
+  );
+
   const catalogActions = useCatalogActions({
     refreshCatalogFlow,
     requestConfirmation,
@@ -172,7 +196,12 @@ export function AuthenticatedApp({
     selectedProduct,
     setSelectedClient,
     setSelectedProduct,
+    afterClientSave: () => completeFiscalPendencyCorrection("clients"),
+    afterCommercialSettingsSave: () =>
+      completeFiscalPendencyCorrection("fiscal-settings"),
+    afterProductSave: () => completeFiscalPendencyCorrection("products"),
     showEditProduct: () => setView("edit-product"),
+    showNewProduct: () => setView("new-product"),
     showProducts: () => setView("products"),
   });
 
@@ -211,7 +240,25 @@ export function AuthenticatedApp({
 
   const activeTitle = viewTitles[view];
 
+  async function openSaleEditor(sale: Sale) {
+    if (sale.status === "COMPLETED") {
+      const reopened = await salesActions.reopenSale(sale);
+
+      if (!reopened) {
+        return false;
+      }
+    }
+
+    setSelectedSale({ ...sale, status: "OPEN" });
+    setView("edit-sale");
+    return true;
+  }
+
   function resolveFiscalPendency(target: FiscalPendencyTarget) {
+    setFiscalPendencyReturnView(
+      view === "fiscal-issued-documents" ? view : "fiscal-documents",
+    );
+
     if (target.view === "clients" && target.clientId) {
       setSelectedClient(
         clients.find((client) => client.id === target.clientId),
@@ -307,6 +354,7 @@ export function AuthenticatedApp({
             financeActions={financeActions}
             fiscalDocuments={fiscalDocuments}
             fiscalSettings={fiscalSettings}
+            fiscalQueueSearch={fiscalQueueSearch}
             inventoryReport={inventoryReport}
             lowStockProducts={lowStockProducts}
             manualFiscalDocumentDrafts={manualFiscalDocumentDrafts}
@@ -316,6 +364,8 @@ export function AuthenticatedApp({
             productPage={productPage}
             productPageIndex={productPageIndex}
             productRowsPerPage={productRowsPerPage}
+            productStatusFilter={productStatusFilter}
+            productStockStatusFilter={productStockStatusFilter}
             products={products}
             purchaseInvoices={purchaseInvoices}
             purchaseReport={purchaseReport}
@@ -350,8 +400,14 @@ export function AuthenticatedApp({
             userPerformanceReport={userPerformanceReport}
             user={user}
             view={view}
-            onCancelClient={() => setSelectedClient(undefined)}
-            onCancelProductEdit={() => setView("products")}
+            onCancelClient={() => {
+              setSelectedClient(undefined);
+              setFiscalPendencyReturnView(undefined);
+            }}
+            onCancelProductEdit={() => {
+              setFiscalPendencyReturnView(undefined);
+              setView("products");
+            }}
             onCancelQuoteEdit={() => {
               setSelectedQuote(undefined);
               setView("quotes");
@@ -363,8 +419,13 @@ export function AuthenticatedApp({
             onOpenQuotes={() => setView("quotes")}
             onResolveFiscalPendency={resolveFiscalPendency}
             onProductPageChange={setProductPage}
+            onProductFiltersChange={setProductFilters}
             onSearchProducts={searchProducts}
             onOpenFiscalDocumentSource={openFiscalDocumentSource}
+            onOpenSaleFiscalQueue={(sale) => {
+              setFiscalQueueSearch(String(sale.saleNumber));
+              setView("fiscal-documents");
+            }}
             onOpenManualFiscalDocumentDraft={(draft) => {
               setSelectedManualFiscalDocument(undefined);
               setSelectedManualFiscalDocumentDraft(draft);
@@ -377,10 +438,7 @@ export function AuthenticatedApp({
               setSelectedQuote(quote);
               setView("edit-quote");
             }}
-            onSelectSale={(sale) => {
-              setSelectedSale(sale);
-              setView("edit-sale");
-            }}
+            onSelectSale={openSaleEditor}
             requestConfirmation={requestConfirmation}
           />
         </section>

@@ -1039,7 +1039,7 @@ export function QuoteEditPage({
     primaryPaymentMethodId,
     quoteTotal,
   })
-  const quoteIsEditable = quote.status === 'DRAFT' && !quote.shippingOrderId
+  const quoteIsEditable = quote.status === 'DRAFT'
   const hasQuoteBlockingIssues = quoteFormIssues.length > 0 || !quoteIsEditable
 
   useEffect(() => {
@@ -1145,7 +1145,7 @@ export function QuoteEditPage({
       />
       {!quoteIsEditable ? (
         <Alert severity='warning' variant='outlined'>
-          Orçamentos cancelados ou que já geraram pedido não podem ser editados.
+          Orçamentos cancelados não podem ser editados.
         </Alert>
       ) : null}
       <Autocomplete
@@ -1477,7 +1477,7 @@ function QuoteActions({
     quote,
   })
 
-  if (quote.shippingOrderId) {
+  if (quote.shippingOrderId && quote.status !== 'DRAFT') {
     return (
       <ActionStack className='ml-auto w-fit justify-items-end'>
         <div className='inline-flex justify-end'>
@@ -1548,14 +1548,13 @@ function quoteActions({
   ]
 
   quote.status === 'DRAFT' &&
-    !quote.shippingOrderId &&
     actions.push(
       {
         label: 'Editar',
         onSelect: onEditQuote,
       },
       {
-        label: 'Criar venda',
+        label: quote.shippingOrderId ? 'Criar nova venda' : 'Criar venda',
         onSelect: onCreateShippingOrder,
       },
       {
@@ -1646,7 +1645,7 @@ function quoteMatchesStatusFilter(
   }
 
   if (status === 'DRAFT') {
-    return quote.status === 'DRAFT' && !quote.shippingOrderId
+    return quote.status === 'DRAFT'
   }
 
   if (status === 'CANCELLED') {

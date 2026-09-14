@@ -1,8 +1,10 @@
 import Autocomplete from '@mui/material/Autocomplete'
 import Alert from '@mui/material/Alert'
 import TextField from '@mui/material/TextField'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import { Pencil, Plus } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Client, PaymentMethod, Product, Sale } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
 import {
@@ -28,6 +30,8 @@ type SaleEditItemDraft = {
   unitPrice: string
 }
 
+type SaleDiscountMode = 'PERCENTAGE' | 'AMOUNT'
+
 export function SaleEditPage({
   clients,
   paymentMethods,
@@ -50,6 +54,8 @@ export function SaleEditPage({
   const [billingDueDate, setBillingDueDate] = useState(
     sale.billingDueDate?.slice(0, 10) ?? '',
   )
+  const [discountMode, setDiscountMode] = useState<SaleDiscountMode>('AMOUNT')
+  const [discountPercentage, setDiscountPercentage] = useState('')
   const [discountAmount, setDiscountAmount] = useState(sale.discountAmount)
   const [payments, setPayments] = useState<SalePaymentDraft[]>(
     sale.payments.length
@@ -78,16 +84,27 @@ export function SaleEditPage({
 
     return sum + Number(item.quantity || 0) * unitPrice
   }, 0)
-  const saleDiscount = moneyInputValue(discountAmount)
+  const saleDiscount = saleDiscountAmount(
+    saleSubtotal,
+    discountMode,
+    discountPercentage,
+    discountAmount,
+  )
   const saleTotal = Math.max(saleSubtotal - saleDiscount, 0)
+  const previousSaleTotalRef = useRef(saleTotal)
   const discountExceedsSubtotal = saleDiscount > saleSubtotal
   const hasEmptyItem = items.some((item) => !item.productId)
+  const hasInvalidUnitPrice = items.some(
+    (item) => moneyInputValue(item.unitPrice) <= 0,
+  )
   const saleAllowsBilling = salePaymentsAllowBilling(paymentMethods, payments)
 
   useEffect(() => {
     setClientId(sale.clientId ?? '')
     setBillingIssueDate(sale.billingIssueDate?.slice(0, 10) ?? '')
     setBillingDueDate(sale.billingDueDate?.slice(0, 10) ?? '')
+    setDiscountMode('AMOUNT')
+    setDiscountPercentage('')
     setDiscountAmount(sale.discountAmount)
     setPayments(
       sale.payments.length
@@ -104,6 +121,7 @@ export function SaleEditPage({
         unitPrice: item.unitPrice,
       })),
     )
+    previousSaleTotalRef.current = Number(sale.totalAmount)
   }, [sale])
 
   useEffect(() => {
@@ -114,6 +132,42 @@ export function SaleEditPage({
     setBillingIssueDate('')
     setBillingDueDate('')
   }, [saleAllowsBilling])
+
+  useEffect(() => {
+    const previousSaleTotal = previousSaleTotalRef.current
+    previousSaleTotalRef.current = saleTotal
+
+    if (Math.abs(previousSaleTotal - saleTotal) < 0.01) {
+      return
+    }
+
+    setPayments((currentPayments) => {
+      if (currentPayments.length !== 1) {
+        return currentPayments
+      }
+
+      const [payment] = currentPayments
+
+      if (!payment.paymentMethodId) {
+        return currentPayments
+      }
+
+      const paymentAmount = moneyInputValue(payment.amount)
+      const followsPreviousTotal =
+        !payment.amount || Math.abs(paymentAmount - previousSaleTotal) < 0.01
+
+      if (!followsPreviousTotal) {
+        return currentPayments
+      }
+
+      return [
+        {
+          ...payment,
+          amount: saleTotal > 0 ? saleTotal.toFixed(2) : '',
+        },
+      ]
+    })
+  }, [saleTotal])
 
   function updateItem(index: number, changes: Partial<SaleEditItemDraft>) {
     setItems((currentItems) =>
@@ -142,6 +196,7 @@ export function SaleEditPage({
       items: items.map((item) => ({
         productId: item.productId,
         quantity: Number(item.quantity),
+        unitPrice: moneyInputValue(item.unitPrice),
       })),
     })
 
@@ -217,6 +272,17 @@ export function SaleEditPage({
                 updateItem(index, { quantity: event.target.value })
               }
             />
+            <TextField
+              label='Valor unitário'
+              required
+              size='medium'
+              slotProps={{ htmlInput: { min: '0.01', step: '0.01' } }}
+              type='number'
+              value={item.unitPrice}
+              onChange={(event) =>
+                updateItem(index, { unitPrice: event.target.value })
+              }
+            />
           </FormCard>
         ))}
       </div>
@@ -260,20 +326,69 @@ export function SaleEditPage({
         </FormRow>
       ) : null}
       <FormRow>
-        <TextField
-          error={discountExceedsSubtotal}
-          helperText={
-            discountExceedsSubtotal
-              ? 'Desconto maior que o subtotal.'
-              : 'Informe o desconto em reais, se houver.'
-          }
-          label='Desconto'
-          size='medium'
-          type='number'
-          value={discountAmount}
-          onChange={(event) => setDiscountAmount(event.target.value)}
-          slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
-        />
+        <div className='grid gap-2'>
+          <ToggleButtonGroup
+            exclusive
+            size='small'
+            value={discountMode}
+            onChange={(_event, value: SaleDiscountMode | null) => {
+              if (!value) {
+                return
+              }
+
+              if (value === 'PERCENTAGE' && discountMode === 'AMOUNT') {
+                setDiscountPercentage(
+                  saleSubtotal > 0 && saleDiscount > 0
+                    ? Number(((saleDiscount / saleSubtotal) * 100).toFixed(2)).toString()
+                    : '',
+                )
+              }
+
+              if (value === 'AMOUNT' && discountMode === 'PERCENTAGE') {
+                setDiscountAmount(saleDiscount > 0 ? saleDiscount.toFixed(2) : '')
+              }
+
+              setDiscountMode(value)
+            }}>
+            <ToggleButton value='PERCENTAGE'>%</ToggleButton>
+            <ToggleButton value='AMOUNT'>R$</ToggleButton>
+          </ToggleButtonGroup>
+          <TextField
+            error={discountExceedsSubtotal}
+            helperText={
+              discountExceedsSubtotal
+                ? 'Desconto maior que o subtotal.'
+                : discountMode === 'PERCENTAGE'
+                  ? 'Informe o desconto percentual, se houver.'
+                  : 'Informe o desconto em reais, se houver.'
+            }
+            label={
+              discountMode === 'PERCENTAGE'
+                ? 'Desconto (%)'
+                : 'Desconto (R$)'
+            }
+            size='medium'
+            type='number'
+            value={
+              discountMode === 'PERCENTAGE'
+                ? discountPercentage
+                : discountAmount
+            }
+            onChange={(event) => {
+              if (discountMode === 'PERCENTAGE') {
+                setDiscountPercentage(event.target.value)
+              } else {
+                setDiscountAmount(event.target.value)
+              }
+            }}
+            slotProps={{
+              htmlInput:
+                discountMode === 'PERCENTAGE'
+                  ? { min: '0', max: '100', step: '0.01' }
+                  : { min: '0', step: '0.01' },
+            }}
+          />
+        </div>
         <TextField
           disabled
           label='Total final'
@@ -281,14 +396,23 @@ export function SaleEditPage({
           value={formatCurrency(saleTotal)}
         />
       </FormRow>
+      <InlineNote>
+        Desconto aplicado: {formatCurrency(saleDiscount)}
+      </InlineNote>
       <ActionGroup>
         {hasEmptyItem ? <InlineNote>Selecione o produto de todos os itens.</InlineNote> : null}
+        {hasInvalidUnitPrice ? (
+          <InlineNote>Informe o valor unitário de todos os itens.</InlineNote>
+        ) : null}
         <SecondaryButton type='button' onClick={onCancel}>
           Cancelar
         </SecondaryButton>
         <PrimaryButton
           disabled={
-            sale.status !== 'OPEN' || discountExceedsSubtotal || hasEmptyItem
+            sale.status !== 'OPEN' ||
+            discountExceedsSubtotal ||
+            hasEmptyItem ||
+            hasInvalidUnitPrice
           }
           icon={<Plus size={17} />}
           type='submit'>
@@ -313,6 +437,23 @@ function salePaymentPayloads(
       ? Number(totalAmount.toFixed(2))
       : moneyInputValue(payment.amount),
   }))
+}
+
+function saleDiscountAmount(
+  baseAmount: number,
+  mode: SaleDiscountMode,
+  percentage: string,
+  amount: string,
+) {
+  if (mode === 'AMOUNT') {
+    return moneyInputValue(amount)
+  }
+
+  return percentageAmount(baseAmount, Number(percentage || 0))
+}
+
+function percentageAmount(baseAmount: number, percentage: number) {
+  return Number(((baseAmount * percentage) / 100).toFixed(2))
 }
 
 function moneyInputValue(value: string) {

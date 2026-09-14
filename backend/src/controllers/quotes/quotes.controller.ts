@@ -226,15 +226,6 @@ export async function updateDraftQuote(
       throw new AppError('Orçamento cancelado nao pode ser editado.', 409)
     }
 
-    const existingOrder = await findShippingOrderByQuoteId(transaction, id)
-
-    if (existingOrder) {
-      throw new AppError(
-        'Orçamento enviado para pedido de envio deve seguir o fluxo do pedido.',
-        409,
-      )
-    }
-
     const {
       discountAmount,
       discountPercentage,
@@ -276,15 +267,6 @@ export async function createShippingOrderFromQuote(
 
     if (!quote) {
       throw new AppError('Orçamento nao encontrado.', 404)
-    }
-
-    const existingOrder = await findShippingOrderByQuoteId(transaction, id)
-
-    if (existingOrder) {
-      throw new AppError(
-        'Este orçamento ja foi enviado para pedidos de envio.',
-        409,
-      )
     }
 
     if (quote.items.length === 0) {

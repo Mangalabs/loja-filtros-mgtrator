@@ -1058,11 +1058,12 @@ export async function downloadApiFile(path: string, filename: string) {
     headers: apiHeaders(),
   });
   const file = await parseFileResponse(response, path);
+  const resolvedFilename = responseFileName(response) ?? filename;
   const url = URL.createObjectURL(file);
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = filename;
+  link.download = resolvedFilename;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -1129,6 +1130,30 @@ async function parseFileResponse(
   const payload = await response.json();
   notifyUnauthorizedResponse(response, path);
   throw new Error(errorMessage(payload));
+}
+
+function responseFileName(response: Response) {
+  const disposition = response.headers.get("content-disposition");
+
+  if (!disposition) {
+    return null;
+  }
+
+  const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+
+  if (encodedMatch?.[1]) {
+    return decodeURIComponent(encodedMatch[1].trim());
+  }
+
+  const quotedMatch = disposition.match(/filename="([^"]+)"/i);
+
+  if (quotedMatch?.[1]) {
+    return quotedMatch[1].trim();
+  }
+
+  const plainMatch = disposition.match(/filename=([^;]+)/i);
+
+  return plainMatch?.[1]?.trim() ?? null;
 }
 
 function notifyUnauthorizedResponse(response: Response, path: string) {

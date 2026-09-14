@@ -1,4 +1,9 @@
 import { db } from "../../database/knex.js";
+import {
+  businessCestRows,
+  officialCestDescriptions,
+  type FiscalCodeSeed,
+} from "./fiscal-code-business-options.js";
 
 export type CestOption = {
   code: string;
@@ -26,46 +31,104 @@ export async function listCestOptions({
     .where("branch_id", branchId)
     .whereNotNull("cest")
     .whereNot("cest", "")
-    .modify((query) => {
-      const normalizedSearch = search?.trim();
-
-      if (!normalizedSearch) {
-        return;
-      }
-
-      query.andWhere((builder) => {
-        builder
-          .whereILike("cest", `%${normalizedSearch}%`)
-          .orWhereILike("name", `%${normalizedSearch}%`);
-      });
-    })
+    .whereNull("deleted_at")
     .orderBy("cest", "asc")
     .orderBy("name", "asc");
 
-  return buildCestOptions(rows);
+  const normalizedSearch = normalizeSearch(search);
+
+  return buildCestOptions(rows)
+    .filter((option) => matchesSearch(option, normalizedSearch))
+    .sort((first, second) => first.code.localeCompare(second.code));
 }
 
 function buildCestOptions(rows: CestProductRow[]) {
-  const grouped = rows.reduce<Record<string, string[]>>(
-    (accumulator, row) => ({
-      ...accumulator,
-      [row.cest]: [...(accumulator[row.cest] ?? []), row.name],
-    }),
-    {},
+  const grouped = groupProductRows(
+    rows.map((row) => ({ code: row.cest, name: row.name })),
   );
 
-  return Object.entries(grouped).map(([code, productNames]) => ({
-    code,
-    label: labelFromProductNames(productNames),
-    productCount: productNames.length,
-    sampleProducts: productNames.slice(0, sampleLimit),
-  }));
+  return mergeBusinessRows({
+    grouped,
+    rows: businessCestRows,
+    descriptions: officialCestDescriptions,
+    fallbackLabel: "Produtos do cadastro",
+  });
 }
 
-function labelFromProductNames(productNames: string[]) {
-  const firstProduct = productNames[0] ?? "Produtos do cadastro";
+function groupProductRows(rows: Array<{ code: string; name: string }>) {
+  return rows.reduce<Record<string, string[]>>((accumulator, row) => {
+    const code = onlyDigits(row.code);
+
+    if (!code) {
+      return accumulator;
+    }
+
+    return {
+      ...accumulator,
+      [code]: [...(accumulator[code] ?? []), row.name],
+    };
+  }, {});
+}
+
+function mergeBusinessRows({
+  grouped,
+  rows,
+  descriptions,
+  fallbackLabel,
+}: {
+  grouped: Record<string, string[]>;
+  rows: readonly FiscalCodeSeed[];
+  descriptions: Record<string, string>;
+  fallbackLabel: string;
+}) {
+  const seededByCode = new Map(rows.map((row) => [row.code, row]));
+  const codes = new Set([...seededByCode.keys(), ...Object.keys(grouped)]);
+
+  return Array.from(codes).map((code) => {
+    const productNames = grouped[code] ?? [];
+    const seed = seededByCode.get(code);
+    const sampleProducts =
+      productNames.length > 0
+        ? productNames.slice(0, sampleLimit)
+        : [...(seed?.sampleProducts ?? [])].slice(0, sampleLimit);
+
+    return {
+      code,
+      label:
+        descriptions[code] ?? labelFromProductNames(sampleProducts, fallbackLabel),
+      productCount:
+        productNames.length > 0 ? productNames.length : (seed?.productCount ?? 0),
+      sampleProducts,
+    };
+  });
+}
+
+function labelFromProductNames(productNames: string[], fallbackLabel: string) {
+  const firstProduct = productNames[0] ?? fallbackLabel;
 
   return productNames.length > 1
     ? `${firstProduct} e relacionados`
     : firstProduct;
+}
+
+function matchesSearch(option: CestOption, search: string) {
+  if (!search) {
+    return true;
+  }
+
+  return [option.code, option.label, ...option.sampleProducts]
+    .map((value) => normalizeSearch(value))
+    .some((value) => value.includes(search));
+}
+
+function normalizeSearch(value?: string) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function onlyDigits(value: string) {
+  return value.replace(/\D/g, "");
 }

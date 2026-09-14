@@ -2,6 +2,7 @@ import { db } from "../../database/knex.js";
 import type { Knex } from "knex";
 import {
   createProduct,
+  deleteProduct,
   getProductById,
   listLowStockProducts,
   listProducts,
@@ -187,6 +188,20 @@ export async function changeProductReplenishmentMonitor(
   enabled: boolean,
 ) {
   const product = await updateProductReplenishmentMonitor(id, branchId, enabled);
+
+  if (!product) {
+    throw new AppError("Product not found", 404);
+  }
+
+  return {
+    code: 200,
+    status: "success",
+    data: product,
+  };
+}
+
+export async function destroyProduct(id: string, branchId: string) {
+  const product = await deleteProduct(id, branchId);
 
   if (!product) {
     throw new AppError("Product not found", 404);

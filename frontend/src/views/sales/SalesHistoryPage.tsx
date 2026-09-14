@@ -82,6 +82,10 @@ export type SaleStatusActionHandler = (
   sale: Sale,
 ) => Promise<boolean | void> | boolean | void
 
+export type SaleEditActionHandler = (
+  sale: Sale,
+) => Promise<boolean | void> | boolean | void
+
 export function SalesHistoryPage({
   fiscalDocuments = [],
   paymentMethods = [],
@@ -90,7 +94,7 @@ export function SalesHistoryPage({
   shippingOrders = [],
   onCompleteReopenedSale,
   onEditSale,
-  onReopenSale,
+  onOpenSaleFiscalQueue,
   onUpdateSaleCommercialDetails,
   onReturnItem,
 }: {
@@ -100,8 +104,8 @@ export function SalesHistoryPage({
   sales: Sale[]
   shippingOrders: ShippingOrder[]
   onCompleteReopenedSale: SaleStatusActionHandler
-  onEditSale: (sale: Sale) => void
-  onReopenSale: SaleStatusActionHandler
+  onEditSale: SaleEditActionHandler
+  onOpenSaleFiscalQueue: (sale: Sale) => void
   onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
   onReturnItem: SaleReturnHandler
 }) {
@@ -262,7 +266,7 @@ export function SalesHistoryPage({
               <SalesHistoryActions
                 onCompleteReopenedSale={onCompleteReopenedSale}
                 onEditSale={onEditSale}
-                onReopenSale={onReopenSale}
+                onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
                 paymentMethods={paymentMethods}
                 row={row}
                 onUpdateSaleCommercialDetails={onUpdateSaleCommercialDetails}
@@ -359,15 +363,15 @@ function SalesHistoryTotal({ row }: { row: SalesHistoryRow }) {
 function SalesHistoryActions({
   onCompleteReopenedSale,
   onEditSale,
-  onReopenSale,
+  onOpenSaleFiscalQueue,
   paymentMethods,
   row,
   onUpdateSaleCommercialDetails,
   onReturnItem,
 }: {
   onCompleteReopenedSale: SaleStatusActionHandler
-  onEditSale: (sale: Sale) => void
-  onReopenSale: SaleStatusActionHandler
+  onEditSale: SaleEditActionHandler
+  onOpenSaleFiscalQueue: (sale: Sale) => void
   paymentMethods: PaymentMethod[]
   row: SalesHistoryRow
   onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
@@ -416,16 +420,24 @@ function SalesHistoryActions({
     })
 
   row.sale?.status === 'COMPLETED' &&
+    !row.fiscalDocument &&
+    actions.push({
+      icon: <FileText size={14} />,
+      label: 'Gerar NF-e',
+      onSelect: () => onOpenSaleFiscalQueue(row.sale as Sale),
+    })
+
+  row.sale?.status === 'COMPLETED' &&
     actions.push({
       disabled: fiscalDocumentBlocksReturn,
-      label: 'Reabrir venda',
-      onSelect: () => void onReopenSale(row.sale as Sale),
+      label: 'Editar venda',
+      onSelect: () => void onEditSale(row.sale as Sale),
     })
 
   row.sale?.status === 'OPEN' &&
     actions.push({
-      label: 'Editar venda aberta',
-      onSelect: () => onEditSale(row.sale as Sale),
+      label: 'Editar venda',
+      onSelect: () => void onEditSale(row.sale as Sale),
     })
 
   row.sale?.status === 'OPEN' &&

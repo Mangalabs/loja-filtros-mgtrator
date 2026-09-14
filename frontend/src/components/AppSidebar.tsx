@@ -102,26 +102,6 @@ export function AppSidebar({
         </NavSection>
 
         <NavSection
-          active={isSectionActive('catalog')}
-          icon={<Tags size={17} />}
-          open={openSections.catalog}
-          title='Cadastros'
-          onToggle={() => onToggleSection('catalog')}>
-          <NavButton
-            active={view === 'brands'}
-            icon={<Tags size={18} />}
-            onClick={() => onSelectView('brands')}>
-            Fabricantes
-          </NavButton>
-          <NavButton
-            active={view === 'clients'}
-            icon={<UserRound size={18} />}
-            onClick={() => onSelectView('clients')}>
-            Clientes
-          </NavButton>
-        </NavSection>
-
-        <NavSection
           active={isSectionActive('stock')}
           icon={<ArrowLeftRight size={17} />}
           open={openSections.stock}
@@ -164,16 +144,54 @@ export function AppSidebar({
         </NavSection>
 
         <NavSection
-          active={isSectionActive('suppliers')}
-          icon={<Truck size={17} />}
-          open={openSections.suppliers}
-          title='Fornecedores'
-          onToggle={() => onToggleSection('suppliers')}>
+          active={isSectionActive('quotes')}
+          icon={<FileText size={17} />}
+          open={openSections.quotes}
+          title='Orçamentos'
+          onToggle={() => onToggleSection('quotes')}>
           <NavButton
-            active={view === 'suppliers'}
-            icon={<Truck size={18} />}
-            onClick={() => onSelectView('suppliers')}>
-            Cadastro
+            active={view === 'new-quote'}
+            icon={<FileText size={18} />}
+            onClick={() => onSelectView('new-quote')}>
+            Novo orçamento
+          </NavButton>
+          <NavButton
+            active={view === 'quotes'}
+            icon={<ListIcon size={18} />}
+            onClick={() => onSelectView('quotes')}>
+            Fila de orçamentos
+          </NavButton>
+        </NavSection>
+
+        <NavSection
+          active={isSectionActive('sales')}
+          icon={<ShoppingCart size={17} />}
+          open={openSections.sales}
+          title='Vendas'
+          onToggle={() => onToggleSection('sales')}>
+          <NavButton
+            active={view === 'sales'}
+            icon={<ShoppingCart size={18} />}
+            onClick={() => onSelectView('sales')}>
+            Venda direta
+          </NavButton>
+          <NavButton
+            active={view === 'sales-history'}
+            icon={<ReceiptText size={18} />}
+            onClick={() => onSelectView('sales-history')}>
+            Histórico de vendas
+          </NavButton>
+          <NavButton
+            active={view === 'shipping-orders'}
+            icon={<Send size={18} />}
+            onClick={() => onSelectView('shipping-orders')}>
+            Vendas
+          </NavButton>
+          <NavButton
+            active={view === 'pickup-reservations'}
+            icon={<PackagePlus size={18} />}
+            onClick={() => onSelectView('pickup-reservations')}>
+            Retirada
           </NavButton>
         </NavSection>
 
@@ -233,6 +251,32 @@ export function AppSidebar({
           </NavSection>
         ) : null}
 
+        <NavSection
+          active={isSectionActive('catalog')}
+          icon={<Tags size={17} />}
+          open={openSections.catalog}
+          title='Cadastros'
+          onToggle={() => onToggleSection('catalog')}>
+          <NavButton
+            active={view === 'brands'}
+            icon={<Tags size={18} />}
+            onClick={() => onSelectView('brands')}>
+            Fabricantes
+          </NavButton>
+          <NavButton
+            active={view === 'clients'}
+            icon={<UserRound size={18} />}
+            onClick={() => onSelectView('clients')}>
+            Clientes
+          </NavButton>
+          <NavButton
+            active={view === 'suppliers'}
+            icon={<Truck size={18} />}
+            onClick={() => onSelectView('suppliers')}>
+            Fornecedores
+          </NavButton>
+        </NavSection>
+
         {canAccess('cash-register') ? (
           <NavSection
             active={isSectionActive('cash')}
@@ -264,58 +308,6 @@ export function AppSidebar({
             </NavButton>
           </NavSection>
         ) : null}
-
-        <NavSection
-          active={isSectionActive('quotes')}
-          icon={<FileText size={17} />}
-          open={openSections.quotes}
-          title='Orçamentos'
-          onToggle={() => onToggleSection('quotes')}>
-          <NavButton
-            active={view === 'new-quote'}
-            icon={<FileText size={18} />}
-            onClick={() => onSelectView('new-quote')}>
-            Novo orçamento
-          </NavButton>
-          <NavButton
-            active={view === 'quotes'}
-            icon={<ListIcon size={18} />}
-            onClick={() => onSelectView('quotes')}>
-            Fila de orçamentos
-          </NavButton>
-        </NavSection>
-
-        <NavSection
-          active={isSectionActive('sales')}
-          icon={<ShoppingCart size={17} />}
-          open={openSections.sales}
-          title='Vendas'
-          onToggle={() => onToggleSection('sales')}>
-          <NavButton
-            active={view === 'sales'}
-            icon={<ShoppingCart size={18} />}
-            onClick={() => onSelectView('sales')}>
-            Venda direta
-          </NavButton>
-          <NavButton
-            active={view === 'sales-history'}
-            icon={<ReceiptText size={18} />}
-            onClick={() => onSelectView('sales-history')}>
-            Histórico de vendas
-          </NavButton>
-          <NavButton
-            active={view === 'shipping-orders'}
-            icon={<Send size={18} />}
-            onClick={() => onSelectView('shipping-orders')}>
-            Vendas
-          </NavButton>
-          <NavButton
-            active={view === 'pickup-reservations'}
-            icon={<PackagePlus size={18} />}
-            onClick={() => onSelectView('pickup-reservations')}>
-            Retirada
-          </NavButton>
-        </NavSection>
 
         {user.role === 'ADMIN' ? (
           <NavSection

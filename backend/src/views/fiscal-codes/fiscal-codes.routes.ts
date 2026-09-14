@@ -8,10 +8,13 @@ import { parseStringFilter } from "../../shared/http/query-params.js";
 
 export const fiscalCodesRoutes = Router();
 
-fiscalCodesRoutes.get("/fiscal/ncm-options", (request, response) => {
-  response
-    .status(200)
-    .json(indexNcmOptions(parseStringFilter(request.query.search)));
+fiscalCodesRoutes.get("/fiscal/ncm-options", async (request, response) => {
+  const result = await indexNcmOptions(
+    requireActiveBranchId(response.locals),
+    parseStringFilter(request.query.search),
+  );
+
+  response.status(200).json(result);
 });
 
 fiscalCodesRoutes.get("/fiscal/cest-options", async (request, response) => {

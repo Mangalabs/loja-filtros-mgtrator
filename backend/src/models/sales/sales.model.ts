@@ -16,7 +16,13 @@ export type SaleInput = {
   }>;
 };
 
-export type SaleUpdateInput = SaleInput;
+export type SaleUpdateInput = Omit<SaleInput, "items"> & {
+  items: Array<{
+    productId: string;
+    quantity: number;
+    unitPrice?: number;
+  }>;
+};
 
 export type SalePaymentInput = {
   paymentMethodId: string;

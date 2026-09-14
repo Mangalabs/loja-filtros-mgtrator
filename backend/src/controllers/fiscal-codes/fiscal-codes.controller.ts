@@ -9,10 +9,10 @@ export async function indexCestOptions(branchId: string, search?: string) {
   };
 }
 
-export function indexNcmOptions(search?: string) {
+export async function indexNcmOptions(branchId: string, search?: string) {
   return {
     code: 200,
     status: "success",
-    data: listNcmOptions(search),
+    data: await listNcmOptions({ branchId, search }),
   };
 }

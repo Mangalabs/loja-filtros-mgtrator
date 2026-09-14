@@ -46,6 +46,13 @@ import { productDisplayName } from '../../utils/productDisplay'
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 type ClientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE'
 type ClientPersonTypeFilter = Client['personType'] | 'ALL'
+type ProductStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE'
+type ProductStockStatusFilter =
+  | 'ALL'
+  | 'LOW'
+  | 'NEGATIVE'
+  | 'AVAILABLE'
+  | 'OUT_OF_STOCK'
 
 export function ProductsPage({
   products,
@@ -53,34 +60,76 @@ export function ProductsPage({
   rowsPerPage,
   search,
   state,
+  statusFilter,
+  stockStatusFilter,
   totalProducts,
+  onFiltersChange,
   onPageChange,
   onSearchChange,
   onEdit,
+  onClone,
   onChangeStatus,
+  onDelete,
 }: {
   products: Product[]
   pageIndex: number
   rowsPerPage: number
   search: string
   state: LoadState
+  statusFilter: ProductStatusFilter
+  stockStatusFilter: ProductStockStatusFilter
   totalProducts: number
+  onFiltersChange: (filters: {
+    status?: ProductStatusFilter
+    stockStatus?: ProductStockStatusFilter
+  }) => void
   onPageChange: (pageIndex: number, rowsPerPage?: number) => void
   onSearchChange: (value: string) => void
   onEdit: (product: Product) => void
+  onClone: (product: Product) => void
   onChangeStatus: (product: Product) => void
+  onDelete: (product: Product) => void
 }) {
   return (
     <PagePanel wide>
       <PageHeader
         actions={
-          <TextField
-            className='min-w-full md:min-w-80'
-            label='Buscar produto'
-            placeholder='Nome, código, fabricante ou locação'
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-          />
+          <div className='grid w-full gap-3 md:w-auto md:grid-cols-[minmax(16rem,22rem)_12rem_12rem]'>
+            <TextField
+              label='Buscar produto'
+              placeholder='Nome, código, fabricante ou locação'
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+            />
+            <TextField
+              label='Status'
+              select
+              value={statusFilter}
+              onChange={(event) =>
+                onFiltersChange({
+                  status: event.target.value as ProductStatusFilter,
+                })
+              }>
+              <MenuItem value='ALL'>Todos</MenuItem>
+              <MenuItem value='ACTIVE'>Ativos</MenuItem>
+              <MenuItem value='INACTIVE'>Inativos</MenuItem>
+            </TextField>
+            <TextField
+              label='Estoque'
+              select
+              value={stockStatusFilter}
+              onChange={(event) =>
+                onFiltersChange({
+                  stockStatus: event.target.value as ProductStockStatusFilter,
+                })
+              }>
+              <MenuItem value='ALL'>Todos</MenuItem>
+              <MenuItem value='AVAILABLE'>Disponivel</MenuItem>
+              <MenuItem value='LOW'>Baixo</MenuItem>
+              <MenuItem value='NEGATIVE'>Negativo</MenuItem>
+              <MenuItem value='OUT_OF_STOCK'>Sem saldo</MenuItem>
+            </TextField>
+          </div>
         }
         description={
           state === 'loading' ? 'Carregando...' : 'Produtos cadastrados'
@@ -95,7 +144,9 @@ export function ProductsPage({
         totalProducts={totalProducts}
         onPageChange={onPageChange}
         onEdit={onEdit}
+        onClone={onClone}
         onChangeStatus={onChangeStatus}
+        onDelete={onDelete}
       />
     </PagePanel>
   )
@@ -108,7 +159,9 @@ function ProductTable({
   totalProducts,
   onPageChange,
   onEdit,
+  onClone,
   onChangeStatus,
+  onDelete,
 }: {
   products: Product[]
   pageIndex: number
@@ -116,7 +169,9 @@ function ProductTable({
   totalProducts: number
   onPageChange: (pageIndex: number, rowsPerPage?: number) => void
   onEdit: (product: Product) => void
+  onClone: (product: Product) => void
   onChangeStatus: (product: Product) => void
+  onDelete: (product: Product) => void
 }) {
   return (
     <ResponsiveTable
@@ -183,6 +238,11 @@ function ProductTable({
                     onSelect: () => onEdit(product),
                   },
                   {
+                    icon: <Plus size={15} />,
+                    label: 'Clonar',
+                    onSelect: () => onClone(product),
+                  },
+                  {
                     icon: product.active ? (
                       <PowerOff size={15} />
                     ) : (
@@ -190,6 +250,11 @@ function ProductTable({
                     ),
                     label: product.active ? 'Inativar' : 'Ativar',
                     onSelect: () => onChangeStatus(product),
+                  },
+                  {
+                    icon: <Trash2 size={15} />,
+                    label: 'Excluir',
+                    onSelect: () => onDelete(product),
                   },
                 ]}
               />
@@ -218,6 +283,7 @@ export function ProductForm({
   commercialSettings,
   ncmOptions,
   product,
+  mode = product ? 'edit' : 'create',
   onSubmit,
   onCancel,
   submitLabel,
@@ -227,6 +293,7 @@ export function ProductForm({
   commercialSettings: CommercialSettings | null
   ncmOptions: NcmOption[]
   product?: Product
+  mode?: 'create' | 'edit' | 'clone'
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
   onCancel?: () => void
   submitLabel: string
@@ -292,8 +359,14 @@ export function ProductForm({
   return (
     <FormGrid className='max-w-5xl gap-5' onSubmit={onSubmit}>
       <PageHeader
-        icon={product ? <Pencil size={18} /> : <PackagePlus size={18} />}
-        title={product ? 'Editar produto' : 'Dados do produto'}
+        icon={mode === 'edit' ? <Pencil size={18} /> : <PackagePlus size={18} />}
+        title={
+          mode === 'edit'
+            ? 'Editar produto'
+            : mode === 'clone'
+              ? 'Clonar produto'
+              : 'Dados do produto'
+        }
       />
       <TextField
         label='Nome do produto'

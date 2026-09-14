@@ -46,6 +46,14 @@ const defaultProductPage: ProductPage = {
   totalPages: 1,
 };
 
+export type ProductStatusFilter = "ALL" | "ACTIVE" | "INACTIVE";
+export type ProductStockStatusFilter =
+  | "ALL"
+  | "LOW"
+  | "NEGATIVE"
+  | "AVAILABLE"
+  | "OUT_OF_STOCK";
+
 export function useCatalogData(user: AuthUser, activeBranchId: string) {
   const [products, setProducts] = useState<Product[]>([]);
   const [productPage, setProductPage] =
@@ -54,6 +62,10 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   const [productRowsPerPage, setProductRowsPerPage] = useState(
     defaultProductPage.limit,
   );
+  const [productStatusFilter, setProductStatusFilter] =
+    useState<ProductStatusFilter>("ALL");
+  const [productStockStatusFilter, setProductStockStatusFilter] =
+    useState<ProductStockStatusFilter>("ALL");
   const [branches, setBranches] = useState<Branch[]>([]);
   const [brands, setBrands] = useState<NamedEntity[]>([]);
   const [cestOptions, setCestOptions] = useState<CestOption[]>([]);
@@ -156,6 +168,8 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
           limit: productRowsPerPage,
           page: productPageIndex + 1,
           search,
+          statusFilter: productStatusFilter,
+          stockStatus: productStockStatusFilter,
         }),
         apiGet<ApiResult<NamedEntity[]>>("/brands"),
         fetchCestOptions(),
@@ -277,6 +291,8 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         limit: productRowsPerPage,
         page: productPageIndex + 1,
         search,
+        statusFilter: productStatusFilter,
+        stockStatus: productStockStatusFilter,
       }),
       apiGet<ApiResult<Product[]>>("/products/low-stock"),
       apiGet<ApiResult<CashRegisterSession | null>>("/cash-register/current"),
@@ -319,6 +335,8 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         limit: productRowsPerPage,
         page: productPageIndex + 1,
         search,
+        statusFilter: productStatusFilter,
+        stockStatus: productStockStatusFilter,
       }),
       apiGet<ApiResult<Supplier[]>>("/suppliers"),
       apiGet<ApiResult<StockEntry[]>>("/stock-entries"),
@@ -360,6 +378,8 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
           limit: productRowsPerPage,
           page: productPageIndex + 1,
           search,
+          statusFilter: productStatusFilter,
+          stockStatus: productStockStatusFilter,
         }),
         apiGet<ApiResult<Product[]>>("/products/low-stock"),
       ]);
@@ -439,6 +459,8 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         limit: productRowsPerPage,
         page: productPageIndex + 1,
         search,
+        statusFilter: productStatusFilter,
+        stockStatus: productStockStatusFilter,
       }),
       apiGet<ApiResult<NamedEntity[]>>("/brands"),
       fetchCestOptions(),
@@ -591,7 +613,13 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     }, 300);
 
     return () => window.clearTimeout(timeout);
-  }, [activeBranchId, search, user.role]);
+  }, [
+    activeBranchId,
+    productStatusFilter,
+    productStockStatusFilter,
+    search,
+    user.role,
+  ]);
 
   async function runAction(action: () => Promise<void>) {
     setMessage("");
@@ -620,6 +648,35 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
           limit: nextRowsPerPage,
           page: pageIndex + 1,
           search,
+          statusFilter: productStatusFilter,
+          stockStatus: productStockStatusFilter,
+        }),
+      );
+    } catch (error) {
+      setState("error");
+      setMessage(error instanceof Error ? error.message : "Erro inesperado");
+    }
+  }
+
+  async function changeProductFilters(filters: {
+    status?: ProductStatusFilter;
+    stockStatus?: ProductStockStatusFilter;
+  }) {
+    const nextStatus = filters.status ?? productStatusFilter;
+    const nextStockStatus = filters.stockStatus ?? productStockStatusFilter;
+
+    setProductStatusFilter(nextStatus);
+    setProductStockStatusFilter(nextStockStatus);
+    setProductPageIndex(0);
+
+    try {
+      setProductPage(
+        await fetchProductPage({
+          limit: productRowsPerPage,
+          page: 1,
+          search,
+          statusFilter: nextStatus,
+          stockStatus: nextStockStatus,
         }),
       );
     } catch (error) {
@@ -654,6 +711,8 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     productPage,
     productPageIndex,
     productRowsPerPage,
+    productStatusFilter,
+    productStockStatusFilter,
     products,
     purchaseReport,
     purchaseInvoices,
@@ -675,6 +734,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     loadSalesReport,
     search,
     setProductPage: changeProductPage,
+    setProductFilters: changeProductFilters,
     setMessage,
     setSearch,
     shippingOrders,
@@ -778,10 +838,14 @@ async function fetchProductPage({
   limit,
   page,
   search,
+  statusFilter = "ALL",
+  stockStatus = "ALL",
 }: {
   limit: number;
   page: number;
   search?: string;
+  statusFilter?: ProductStatusFilter;
+  stockStatus?: ProductStockStatusFilter;
 }) {
   const params = new URLSearchParams({
     includeMeta: "true",
@@ -792,6 +856,18 @@ async function fetchProductPage({
 
   if (term) {
     params.set("search", term);
+  }
+
+  if (statusFilter === "ACTIVE") {
+    params.set("active", "true");
+  }
+
+  if (statusFilter === "INACTIVE") {
+    params.set("active", "false");
+  }
+
+  if (stockStatus !== "ALL") {
+    params.set("stockStatus", stockStatus);
   }
 
   const result = await apiGet<ApiResult<ProductPage>>(

@@ -62,6 +62,7 @@ export function FiscalDocumentsPage({
   clients,
   fiscalDocuments,
   fiscalSettings,
+  initialRequestSearch = '',
   pickupReservations,
   products,
   sales,
@@ -77,6 +78,7 @@ export function FiscalDocumentsPage({
   clients: Client[]
   fiscalDocuments: FiscalDocument[]
   fiscalSettings: FiscalSettings | null
+  initialRequestSearch?: string
   pickupReservations: PickupReservation[]
   products: Product[]
   sales: Sale[]
@@ -110,6 +112,11 @@ export function FiscalDocumentsPage({
   const [requestSearch, setRequestSearch] = useState('')
   const [requestReadinessFilter, setRequestReadinessFilter] =
     useState<FiscalRequestReadinessFilter>('ALL')
+
+  useEffect(() => {
+    setRequestSearch(initialRequestSearch)
+  }, [initialRequestSearch])
+
   const fiscalRequests = buildFiscalRequests({
     clients,
     fiscalDocuments,

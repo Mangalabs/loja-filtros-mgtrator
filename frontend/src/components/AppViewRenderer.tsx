@@ -35,6 +35,10 @@ import type { ReactNode } from "react";
 import { canAccessView, type LoadState, type View } from "../navigation";
 import { PageHeader, PagePanel } from "./layout";
 import type { useCatalogActions } from "../views/catalog/useCatalogActions";
+import type {
+  ProductStatusFilter,
+  ProductStockStatusFilter,
+} from "../hooks/useCatalogData";
 import {
   BranchesPage,
   EmployeesPage,
@@ -88,6 +92,7 @@ type AppViewRendererProps = {
   commercialSettings: CommercialSettings | null;
   financeActions: ReturnType<typeof useFinanceActions>;
   fiscalDocuments: FiscalDocument[];
+  fiscalQueueSearch: string;
   fiscalSettings: FiscalSettings | null;
   inventoryReport: InventoryReport | null;
   lowStockProducts: Product[];
@@ -98,6 +103,8 @@ type AppViewRendererProps = {
   productPage: ProductPage;
   productPageIndex: number;
   productRowsPerPage: number;
+  productStatusFilter: ProductStatusFilter;
+  productStockStatusFilter: ProductStockStatusFilter;
   products: Product[];
   purchaseInvoices: PurchaseInvoice[];
   purchaseReport: PurchaseReport | null;
@@ -131,6 +138,11 @@ type AppViewRendererProps = {
   onCancelQuoteEdit: () => void;
   onCancelSaleEdit: () => void;
   onOpenQuotes: () => void;
+  onOpenSaleFiscalQueue: (sale: Sale) => void;
+  onProductFiltersChange: (filters: {
+    status?: ProductStatusFilter;
+    stockStatus?: ProductStockStatusFilter;
+  }) => void;
   onProductPageChange: (pageIndex: number, rowsPerPage?: number) => void;
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
   onOpenFiscalDocumentSource: (fiscalDocument: FiscalDocument) => void;
@@ -167,7 +179,7 @@ type AppViewRendererProps = {
   onSearchChange: (value: string) => void;
   onSelectClient: (client: Client | undefined) => void;
   onSelectQuote: (quote: Quote) => void;
-  onSelectSale: (sale: Sale) => void;
+  onSelectSale: (sale: Sale) => Promise<boolean | void> | boolean | void;
   requestConfirmation: RequestConfirmation;
 };
 
@@ -181,6 +193,7 @@ export function AppViewRenderer({
   commercialSettings,
   financeActions,
   fiscalDocuments,
+  fiscalQueueSearch,
   fiscalSettings,
   inventoryReport,
   lowStockProducts,
@@ -191,6 +204,8 @@ export function AppViewRenderer({
   productPage,
   productPageIndex,
   productRowsPerPage,
+  productStatusFilter,
+  productStockStatusFilter,
   products,
   purchaseInvoices,
   purchaseReport,
@@ -230,8 +245,10 @@ export function AppViewRenderer({
   onLoadStockReport,
   onLoadUserPerformanceReport,
   onOpenQuotes,
+  onOpenSaleFiscalQueue,
   onOpenFiscalDocumentSource,
   onOpenManualFiscalDocumentDraft,
+  onProductFiltersChange,
   onProductPageChange,
   onResolveFiscalPendency,
   onSearchProducts,
@@ -264,13 +281,18 @@ export function AppViewRenderer({
           rowsPerPage={productRowsPerPage}
           search={search}
           state={state}
+          statusFilter={productStatusFilter}
+          stockStatusFilter={productStockStatusFilter}
           totalProducts={productPage.total}
+          onFiltersChange={onProductFiltersChange}
           onPageChange={onProductPageChange}
           onSearchChange={onSearchChange}
           onEdit={catalogActions.editProduct}
+          onClone={catalogActions.cloneProduct}
           onChangeStatus={(product) =>
             void catalogActions.changeProductStatus(product)
           }
+          onDelete={(product) => void catalogActions.deleteProduct(product)}
         />
       ),
     "new-product": (
@@ -279,8 +301,10 @@ export function AppViewRenderer({
           cestOptions={cestOptions}
           commercialSettings={commercialSettings}
           ncmOptions={ncmOptions}
+          product={selectedProduct}
+          mode={selectedProduct ? "clone" : "create"}
           onSubmit={catalogActions.createProduct}
-          submitLabel="Cadastrar produto"
+          submitLabel={selectedProduct ? "Cadastrar produto clonado" : "Cadastrar produto"}
         />
       ),
     "edit-product": selectedProduct ? (
@@ -291,6 +315,7 @@ export function AppViewRenderer({
           commercialSettings={commercialSettings}
           ncmOptions={ncmOptions}
           product={selectedProduct}
+          mode="edit"
           onSubmit={catalogActions.updateProduct}
           onCancel={onCancelProductEdit}
           submitLabel="Salvar alteracoes"
@@ -360,6 +385,7 @@ export function AppViewRenderer({
           clients={clients}
           fiscalDocuments={fiscalDocuments}
           fiscalSettings={fiscalSettings}
+          initialRequestSearch={fiscalQueueSearch}
           pickupReservations={pickupReservations}
           products={products}
           sales={sales}
@@ -587,8 +613,8 @@ export function AppViewRenderer({
           onCompleteReopenedSale={(sale) =>
             void salesActions.completeReopenedSale(sale)
           }
-          onReopenSale={(sale) => void salesActions.reopenSale(sale)}
           onEditSale={onSelectSale}
+          onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
           onReturnItem={(event, sale) =>
             void salesActions.returnSaleItem(event, sale)
           }

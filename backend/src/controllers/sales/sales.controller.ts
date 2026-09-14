@@ -313,7 +313,9 @@ export async function updateOpenSale(
         (saleItem) =>
           saleItem.position === position && saleItem.productId === item.productId,
       );
-      const unitPrice = Number(currentItem?.unitPrice ?? product.salePrice);
+      const unitPrice = Number(
+        item.unitPrice ?? currentItem?.unitPrice ?? product.salePrice,
+      );
 
       saleItems.push({
         productId: item.productId,
