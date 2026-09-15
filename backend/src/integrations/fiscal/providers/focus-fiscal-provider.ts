@@ -66,7 +66,8 @@ type FocusNfeInstallmentPayload = {
 };
 
 type FocusNfeVolumePayload = {
-  quantidade: number;
+  quantidade?: number;
+  peso_bruto?: number;
 };
 
 type FocusNfeItemPayload = {
@@ -604,10 +605,18 @@ function focusTransportedVolumesPayload(
   request: FiscalIssueRequest,
 ): Partial<FocusNfePayload> {
   const quantity = request.transportedVolumesQuantity;
+  const grossWeight = request.transportedVolumesGrossWeight;
+  const volume: FocusNfeVolumePayload = {};
 
-  return Number.isInteger(quantity) && Number(quantity) > 0
-    ? { volumes: [{ quantidade: Number(quantity) }] }
-    : {};
+  if (Number.isInteger(quantity) && Number(quantity) > 0) {
+    volume.quantidade = Number(quantity);
+  }
+
+  if (Number.isFinite(grossWeight) && Number(grossWeight) > 0) {
+    volume.peso_bruto = Number(grossWeight);
+  }
+
+  return Object.keys(volume).length > 0 ? { volumes: [volume] } : {};
 }
 
 function focusNfeUrl(request: FiscalIssueRequest) {

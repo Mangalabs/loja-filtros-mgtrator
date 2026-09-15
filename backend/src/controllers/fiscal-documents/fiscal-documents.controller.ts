@@ -563,6 +563,73 @@ export async function previewSaleFiscalDocument(
   });
 }
 
+export async function issueEditedSaleFiscalDocument(
+  saleId: string,
+  input: ManualFiscalDocumentInput,
+  issuedByUserId: string,
+  branchId: string,
+) {
+  const sale = await getSaleById(saleId, db, { branchId });
+
+  if (!sale) {
+    throw new AppError("Venda informada nao encontrada.", 404);
+  }
+
+  if (sale.status === "CANCELLED") {
+    throw new AppError("Venda cancelada nao pode emitir NF-e.", 422);
+  }
+
+  if (sale.status === "OPEN") {
+    throw new AppError("Conclua a venda antes de emitir NF-e.", 422);
+  }
+
+  const source = await editedSaleFiscalSource(sale.id, branchId);
+
+  return issueFiscalDocument({
+    branchId,
+    sourceType: source.sourceType,
+    sourceId: source.sourceId,
+    saleId: sale.id,
+    issuedByUserId,
+    documentType: input.documentType,
+    additionalInformation: input.additionalInformation,
+    editedFiscalInput: input,
+    duplicateMessage: source.duplicateMessage,
+  });
+}
+
+export async function previewEditedSaleFiscalDocument(
+  saleId: string,
+  input: ManualFiscalDocumentInput,
+  branchId: string,
+) {
+  const sale = await getSaleById(saleId, db, { branchId });
+
+  if (!sale) {
+    throw new AppError("Venda informada nao encontrada.", 404);
+  }
+
+  if (sale.status === "CANCELLED") {
+    throw new AppError("Venda cancelada nao pode gerar previa de NF-e.", 422);
+  }
+
+  if (sale.status === "OPEN") {
+    throw new AppError("Conclua a venda antes de gerar previa de NF-e.", 422);
+  }
+
+  const source = await editedSaleFiscalSource(sale.id, branchId);
+
+  return previewFiscalDocument({
+    branchId,
+    sourceType: source.sourceType,
+    sourceId: source.sourceId,
+    saleId: sale.id,
+    documentType: input.documentType,
+    additionalInformation: input.additionalInformation,
+    editedFiscalInput: input,
+  });
+}
+
 export async function issueShippingOrderFiscalDocument(
   shippingOrderId: string,
   issuedByUserId: string,
@@ -699,6 +766,7 @@ export type ManualFiscalDocumentInput = {
   natureOperation: string;
   referencedAccessKeys: string[];
   transportedVolumesQuantity: number | null;
+  transportedVolumesGrossWeight: number | null;
   billingEnabled: boolean;
   billingIssueDate: string | null;
   billingDueDate: string | null;
@@ -810,6 +878,57 @@ export async function previewManualFiscalDocument(
   return provider.preview(requestPayload);
 }
 
+type EditedSaleFiscalSource = {
+  sourceType: "SALE" | "SHIPPING_ORDER" | "PICKUP_RESERVATION";
+  sourceId: string;
+  duplicateMessage: string;
+};
+
+async function editedSaleFiscalSource(
+  saleId: string,
+  branchId: string,
+): Promise<EditedSaleFiscalSource> {
+  const shippingOrder = await db("shipping_orders")
+    .select<{ id: string }>("id")
+    .where({
+      branch_id: branchId,
+      sale_id: saleId,
+      status: "COMPLETED",
+    })
+    .first();
+
+  if (shippingOrder) {
+    return {
+      sourceType: "SHIPPING_ORDER",
+      sourceId: shippingOrder.id,
+      duplicateMessage: "Documento fiscal ja emitido para este pedido.",
+    };
+  }
+
+  const pickupReservation = await db("pickup_reservations")
+    .select<{ id: string }>("id")
+    .where({
+      branch_id: branchId,
+      sale_id: saleId,
+      status: "COMPLETED",
+    })
+    .first();
+
+  if (pickupReservation) {
+    return {
+      sourceType: "PICKUP_RESERVATION",
+      sourceId: pickupReservation.id,
+      duplicateMessage: "Documento fiscal ja emitido para esta reserva.",
+    };
+  }
+
+  return {
+    sourceType: "SALE",
+    sourceId: saleId,
+    duplicateMessage: "Documento fiscal ja emitido para esta venda.",
+  };
+}
+
 type IssueFiscalDocumentInput = {
   branchId: string;
   sourceType: FiscalDocumentSourceType;
@@ -818,6 +937,7 @@ type IssueFiscalDocumentInput = {
   issuedByUserId: string;
   documentType: FiscalDocumentType;
   additionalInformation: string | null;
+  editedFiscalInput?: ManualFiscalDocumentInput;
   duplicateMessage: string;
 };
 
@@ -845,7 +965,7 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       input.documentType,
     );
 
-    if (existing && existing.status !== "REJECTED") {
+    if (existing && !canReplaceFiscalDocument(existing.status)) {
       throw new AppError(input.duplicateMessage, 409);
     }
 
@@ -855,7 +975,7 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       input.documentType,
     );
 
-    if (blockingFiscalDocument) {
+    if (blockingFiscalDocument && blockingFiscalDocument.id !== existing?.id) {
       throw new AppError(
         "Documento fiscal ja emitido para esta venda operacional.",
         409,
@@ -940,6 +1060,16 @@ async function fiscalDocumentRequest(
 
   const fiscalSettings = await currentFiscalSettings(input.branchId);
 
+  if (input.editedFiscalInput) {
+    return manualFiscalDocumentRequest(
+      input.editedFiscalInput,
+      input.sourceId,
+      input.branchId,
+      input.sourceType,
+      input.saleId,
+    );
+  }
+
   return {
     fiscalSettings,
     requestPayload: {
@@ -962,13 +1092,15 @@ async function manualFiscalDocumentRequest(
   input: ManualFiscalDocumentInput,
   sourceId: string,
   branchId: string,
+  sourceType: FiscalDocumentSourceType = "MANUAL_NFE",
+  saleId = "manual",
 ) {
   const fiscalSettings = await currentFiscalSettings(branchId);
 
   return {
     fiscalSettings,
     requestPayload: {
-      reference: fiscalReference("MANUAL_NFE", sourceId),
+      reference: fiscalReference(sourceType, sourceId),
       documentType: input.documentType,
       environment: fiscalSettings.environment,
       companyCnpj: fiscalSettings.companyCnpj,
@@ -978,18 +1110,22 @@ async function manualFiscalDocumentRequest(
       purpose: input.purpose,
       referencedAccessKeys: input.referencedAccessKeys,
       transportedVolumesQuantity: input.transportedVolumesQuantity,
+      transportedVolumesGrossWeight: input.transportedVolumesGrossWeight,
       defaultNatureOperation:
         input.natureOperation || fiscalSettings.defaultNatureOperation,
       defaultSaleCfop: fiscalSettings.defaultSaleCfop,
       defaultIcmsCst: fiscalSettings.defaultIcmsCst,
       defaultPisCst: fiscalSettings.defaultPisCst,
       defaultCofinsCst: fiscalSettings.defaultCofinsCst,
-      sale: manualFiscalSale(input),
+      sale: manualFiscalSale(input, saleId),
     },
   };
 }
 
-function manualFiscalSale(input: ManualFiscalDocumentInput): FiscalIssueRequest["sale"] {
+function manualFiscalSale(
+  input: ManualFiscalDocumentInput,
+  saleId = "manual",
+): FiscalIssueRequest["sale"] {
   const subtotalAmount = input.items.reduce(
     (sum, item) => sum + item.quantity * item.unitPrice,
     0,
@@ -1010,7 +1146,7 @@ function manualFiscalSale(input: ManualFiscalDocumentInput): FiscalIssueRequest[
   ensureManualFiscalInstallmentsMatchPayments(paymentInstallments, payments);
 
   return {
-    id: "manual",
+    id: saleId,
     clientPersonType: input.client.personType,
     clientName: input.client.name,
     clientDocument: input.client.document,
@@ -1555,6 +1691,10 @@ function hasBillingPayment(sale: FiscalIssueRequest["sale"]) {
       (sale.paymentInstallments.length > 0 || Boolean(sale.billingDueDate))
     );
   });
+}
+
+function canReplaceFiscalDocument(status: FiscalDocumentStatus) {
+  return status === "PENDING" || status === "REJECTED";
 }
 
 function saleFirstBillingDueDate(sale: FiscalIssueRequest["sale"]) {

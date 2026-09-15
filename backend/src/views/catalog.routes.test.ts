@@ -3548,6 +3548,139 @@ describe("catalog routes", () => {
     assert.equal(sale?.billingDueDate, "2099-02-10");
   });
 
+  it("issues an edited fiscal document linked to a sale", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro venda fiscal editada",
+        ncm: "84212300",
+        salePrice: 80,
+      },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PJ",
+        name: "Cliente fiscal editado",
+        document: "12345678000199",
+        stateRegistrationIndicator: "1",
+        stateRegistration: "123456",
+        addressStreet: "Rua Fiscal",
+        addressNumber: "123",
+        addressDistrict: "Centro",
+        addressCity: "Araguaina",
+        addressState: "TO",
+        addressZipCode: "77800000",
+      },
+    });
+    const paymentMethod = await activePaymentMethod("PIX");
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 1,
+        reason: "Saldo para fiscal editada",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const sale = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        quantity: 1,
+      },
+    });
+    const administrator = await db("users")
+      .select("id")
+      .where("email", "admin@example.com")
+      .first();
+    const [pendingFiscalDocument] = await db("fiscal_documents")
+      .insert({
+        branch_id: defaultBranchId,
+        source_type: "SALE",
+        source_id: sale.body.data?.id,
+        document_type: "NFE",
+        provider: "MOCK",
+        environment: "HOMOLOGATION",
+        status: "PENDING",
+        provider_reference: "pending-sale-edit-test",
+        request_payload: { old: true },
+        response_payload: {},
+        issued_by_user_id: administrator.id,
+      })
+      .returning("id");
+    const baseInput = manualFiscalDocumentRequest();
+    const input = {
+      ...baseInput,
+      operationType: "EXIT",
+      destinationOperation: "INTERNAL",
+      purpose: "NORMAL",
+      natureOperation: "5.102/6.102 - Venda mercadoria terceiros",
+      referencedAccessKeys: [],
+      transportedVolumesGrossWeight: 12.345,
+      payments: [
+        {
+          paymentMethodCode: "PIX",
+          paymentMethodName: "PIX",
+          amount: 80,
+        },
+      ],
+      client: {
+        ...baseInput.client,
+        name: "Cliente fiscal editado revisado",
+        document: "12345678000199",
+      },
+      items: [
+        {
+          ...baseInput.items[0],
+          productId: product.body.data?.id,
+          productName: "Filtro fiscal editado",
+          productCfop: null,
+          quantity: 1,
+          unitPrice: 80,
+          discountAmount: 0,
+        },
+      ],
+    };
+
+    const edited = await request<FiscalDocument>(
+      `/sales/${sale.body.data?.id}/fiscal-documents/edited`,
+      {
+        method: "POST",
+        body: input,
+      },
+    );
+    const listed = await request<FiscalDocument[]>("/fiscal-documents");
+    const requestPayload = edited.body.data?.requestPayload as
+      | Record<string, unknown>
+      | undefined;
+    const editedSale = requestPayload?.sale as Record<string, unknown> | undefined;
+
+    assert.equal(edited.status, 201);
+    assert.equal(edited.body.data?.id, pendingFiscalDocument.id);
+    assert.equal(edited.body.data?.sourceType, "SALE");
+    assert.equal(edited.body.data?.sourceId, sale.body.data?.id);
+    assert.equal(
+      requestPayload?.transportedVolumesGrossWeight,
+      12.345,
+    );
+    assert.equal(editedSale?.clientName, "Cliente fiscal editado revisado");
+    assert.ok(
+      listed.body.data?.some(
+        (document) =>
+          document.sourceType === "SALE" &&
+          document.sourceId === sale.body.data?.id,
+      ),
+    );
+  });
+
   it("saves, updates, lists and deletes a manual fiscal document draft", async () => {
     const input = manualFiscalDocumentRequest();
     const created = await request<ManualFiscalDocumentDraft>(
@@ -5247,6 +5380,7 @@ describe("catalog routes", () => {
     requestPayload.defaultNatureOperation = "Devolucao de mercadoria";
     requestPayload.referencedAccessKeys = ["1".repeat(44)];
     requestPayload.transportedVolumesQuantity = 3;
+    requestPayload.transportedVolumesGrossWeight = 12.345;
     requestPayload.sale.paymentMethodCode = "NO_PAYMENT";
     requestPayload.sale.paymentMethodName = "Sem pagamento";
     requestPayload.sale.payments = [
@@ -5294,7 +5428,9 @@ describe("catalog routes", () => {
       assert.equal(payload.local_destino, 2);
       assert.equal(payload.finalidade_emissao, 4);
       assert.equal(payload.natureza_operacao, "Devolucao de mercadoria");
-      assert.deepEqual(payload.volumes, [{ quantidade: 3 }]);
+      assert.deepEqual(payload.volumes, [
+        { quantidade: 3, peso_bruto: 12.345 },
+      ]);
       assert.equal(payments[0]?.forma_pagamento, "90");
       assert.equal(payments[0]?.valor_pagamento, 0);
       assert.equal(referencedInvoices[0]?.chave_nfe, "1".repeat(44));

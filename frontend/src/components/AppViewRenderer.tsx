@@ -119,8 +119,10 @@ type AppViewRendererProps = {
   selectedClient?: Client;
   selectedManualFiscalDocument?: FiscalDocument;
   selectedManualFiscalDocumentDraft?: ManualFiscalDocumentDraft;
+  selectedFiscalSale?: Sale;
   selectedProduct?: Product;
   selectedQuote?: Quote;
+  reusedQuote?: Quote;
   selectedSale?: Sale;
   shippingOrders: ShippingOrder[];
   state: LoadState;
@@ -149,6 +151,7 @@ type AppViewRendererProps = {
   onOpenManualFiscalDocumentDraft: (
     draft: ManualFiscalDocumentDraft,
   ) => void;
+  onOpenSaleFiscalDocumentEditor: (sale: Sale) => void;
   onSearchProducts: (search: string) => Promise<Product[]>;
   onLoadSalesReport: (filters?: {
     dateFrom?: string;
@@ -179,6 +182,7 @@ type AppViewRendererProps = {
   onSearchChange: (value: string) => void;
   onSelectClient: (client: Client | undefined) => void;
   onSelectQuote: (quote: Quote) => void;
+  onReuseQuote: (quote: Quote) => void;
   onSelectSale: (sale: Sale) => Promise<boolean | void> | boolean | void;
   requestConfirmation: RequestConfirmation;
 };
@@ -220,8 +224,10 @@ export function AppViewRenderer({
   selectedClient,
   selectedManualFiscalDocument,
   selectedManualFiscalDocumentDraft,
+  selectedFiscalSale,
   selectedProduct,
   selectedQuote,
+  reusedQuote,
   selectedSale,
   shippingOrders,
   state,
@@ -248,6 +254,7 @@ export function AppViewRenderer({
   onOpenSaleFiscalQueue,
   onOpenFiscalDocumentSource,
   onOpenManualFiscalDocumentDraft,
+  onOpenSaleFiscalDocumentEditor,
   onProductFiltersChange,
   onProductPageChange,
   onResolveFiscalPendency,
@@ -256,6 +263,7 @@ export function AppViewRenderer({
   onSearchChange,
   onSelectClient,
   onSelectQuote,
+  onReuseQuote,
   onSelectSale,
   requestConfirmation,
 }: AppViewRendererProps) {
@@ -432,6 +440,7 @@ export function AppViewRenderer({
               additionalInformation,
             )
           }
+          onEditSaleFiscalDocument={onOpenSaleFiscalDocumentEditor}
           onResolveFiscalPendency={onResolveFiscalPendency}
         />
       ),
@@ -454,6 +463,7 @@ export function AppViewRenderer({
     "manual-fiscal-document": (
       <ManualFiscalDocumentPage
         key={
+          selectedFiscalSale?.id ??
           selectedManualFiscalDocument?.id ??
           selectedManualFiscalDocumentDraft?.id ??
           "new"
@@ -465,6 +475,7 @@ export function AppViewRenderer({
         products={products}
         sourceDraft={selectedManualFiscalDocumentDraft}
         sourceFiscalDocument={selectedManualFiscalDocument}
+        sourceSale={selectedFiscalSale}
         onDeleteManualFiscalDocumentDraft={(draft) =>
           void financeActions.deleteManualFiscalDocumentDraft(draft)
         }
@@ -474,10 +485,16 @@ export function AppViewRenderer({
             selectedManualFiscalDocumentDraft,
           )
         }
+        onIssueSaleFiscalDocumentInput={(sale, input) =>
+          void salesActions.issueEditedSaleFiscalDocument(sale, input)
+        }
         onLookupCompany={catalogActions.lookupClientCompany}
         onOpenManualFiscalDocumentDraft={onOpenManualFiscalDocumentDraft}
         onPreviewManualFiscalDocument={(input) =>
           void financeActions.previewManualFiscalDocument(input)
+        }
+        onPreviewSaleFiscalDocumentInput={(sale, input) =>
+          void salesActions.previewEditedSaleFiscalDocument(sale, input)
         }
         onSaveManualFiscalDocumentDraft={(input, draft) =>
           void financeActions.saveManualFiscalDocumentDraft(input, draft)
@@ -519,11 +536,13 @@ export function AppViewRenderer({
           products={products}
           quoteFormDrafts={quoteFormDrafts}
           quotes={quotes}
+          sourceQuote={reusedQuote}
           onSubmit={quoteActions.createQuote}
           onSaveQuoteFormDraft={quoteActions.saveQuoteFormDraft}
           onDeleteQuoteFormDraft={quoteActions.deleteQuoteFormDraft}
           onDiscardQuoteFormDraft={quoteActions.discardQuoteFormDraft}
           onEditQuote={onSelectQuote}
+          onReuseQuote={onReuseQuote}
           onCancelQuote={(event, quote) =>
             void quoteActions.cancelQuote(event, quote)
           }
@@ -546,6 +565,7 @@ export function AppViewRenderer({
           onDeleteQuoteFormDraft={quoteActions.deleteQuoteFormDraft}
           onDiscardQuoteFormDraft={quoteActions.discardQuoteFormDraft}
           onEditQuote={onSelectQuote}
+          onReuseQuote={onReuseQuote}
           onCancelQuote={(event, quote) =>
             void quoteActions.cancelQuote(event, quote)
           }

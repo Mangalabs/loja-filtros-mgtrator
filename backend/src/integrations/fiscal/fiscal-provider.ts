@@ -29,6 +29,7 @@ export type FiscalIssueRequest = {
     | "DEBIT_NOTE";
   referencedAccessKeys?: string[];
   transportedVolumesQuantity?: number | null;
+  transportedVolumesGrossWeight?: number | null;
   defaultNatureOperation: string | null;
   defaultSaleCfop: string | null;
   defaultIcmsCst: string | null;

@@ -228,36 +228,41 @@ const fiscalRequestFactories: Array<
           order.status === 'COMPLETED' &&
           salesById.get(order.saleId ?? '')?.status === 'COMPLETED',
       )
-      .map((order) => ({
-        sourceType: 'SHIPPING_ORDER',
-        sourceId: order.id,
-        sourceNumber: salesById.get(order.saleId ?? '')?.saleNumber ?? null,
-        sourceLabel: '',
-        pendingLabel: 'Pendente',
-        clientId: order.clientId,
-        clientName: order.clientName,
-        createdAt: order.completedAt ?? order.createdAt,
-        totalAmount: order.totalAmount,
-        operatorName: order.completedByUserName ?? order.createdByUserName,
-        productIds: order.items.map((item) => item.productId),
-        readinessIssues: sourceFiscalReadinessIssues({
-          client: fiscalOperationClient(
-            findClient(input.clients, order.clientId),
-            order.saleId,
-            salesById,
+      .map((order) => {
+        const sale = salesById.get(order.saleId ?? '')
+
+        return {
+          sourceType: 'SHIPPING_ORDER',
+          sourceId: order.id,
+          sourceNumber: sale?.saleNumber ?? null,
+          sourceLabel: '',
+          pendingLabel: 'Pendente',
+          clientId: order.clientId,
+          clientName: order.clientName,
+          createdAt: order.completedAt ?? order.createdAt,
+          totalAmount: order.totalAmount,
+          operatorName: order.completedByUserName ?? order.createdByUserName,
+          productIds: order.items.map((item) => item.productId),
+          readinessIssues: sourceFiscalReadinessIssues({
+            client: fiscalOperationClient(
+              findClient(input.clients, order.clientId),
+              order.saleId,
+              salesById,
+            ),
+            fiscalSettings: input.fiscalSettings,
+            items: fiscalOperationItems(order.items, order.saleId, salesById),
+            products: input.products,
+            sale,
+          }),
+          sale,
+          shippingOrder: order,
+          document: findFiscalDocument(
+            input.fiscalDocuments,
+            'SHIPPING_ORDER',
+            order.id,
           ),
-          fiscalSettings: input.fiscalSettings,
-          items: fiscalOperationItems(order.items, order.saleId, salesById),
-          products: input.products,
-          sale: salesById.get(order.saleId ?? ''),
-        }),
-        shippingOrder: order,
-        document: findFiscalDocument(
-          input.fiscalDocuments,
-          'SHIPPING_ORDER',
-          order.id,
-        ),
-      }))
+        }
+      })
   },
   (input) => {
     const salesById = fiscalSalesById(input.sales)
@@ -268,42 +273,46 @@ const fiscalRequestFactories: Array<
           reservation.status === 'COMPLETED' &&
           salesById.get(reservation.saleId ?? '')?.status === 'COMPLETED',
       )
-      .map((reservation) => ({
-        sourceType: 'PICKUP_RESERVATION',
-        sourceId: reservation.id,
-        sourceNumber:
-          salesById.get(reservation.saleId ?? '')?.saleNumber ?? null,
-        sourceLabel: 'Retirada',
-        pendingLabel: 'Pendente',
-        clientId: reservation.clientId,
-        clientName: reservation.clientName,
-        createdAt: reservation.completedAt ?? reservation.createdAt,
-        totalAmount: reservation.totalAmount,
-        operatorName:
-          reservation.completedByUserName ?? reservation.createdByUserName,
-        productIds: reservation.items.map((item) => item.productId),
-        readinessIssues: sourceFiscalReadinessIssues({
-          client: fiscalOperationClient(
-            findClient(input.clients, reservation.clientId),
-            reservation.saleId,
-            salesById,
+      .map((reservation) => {
+        const sale = salesById.get(reservation.saleId ?? '')
+
+        return {
+          sourceType: 'PICKUP_RESERVATION',
+          sourceId: reservation.id,
+          sourceNumber: sale?.saleNumber ?? null,
+          sourceLabel: 'Retirada',
+          pendingLabel: 'Pendente',
+          clientId: reservation.clientId,
+          clientName: reservation.clientName,
+          createdAt: reservation.completedAt ?? reservation.createdAt,
+          totalAmount: reservation.totalAmount,
+          operatorName:
+            reservation.completedByUserName ?? reservation.createdByUserName,
+          productIds: reservation.items.map((item) => item.productId),
+          readinessIssues: sourceFiscalReadinessIssues({
+            client: fiscalOperationClient(
+              findClient(input.clients, reservation.clientId),
+              reservation.saleId,
+              salesById,
+            ),
+            fiscalSettings: input.fiscalSettings,
+            items: fiscalOperationItems(
+              reservation.items,
+              reservation.saleId,
+              salesById,
+            ),
+            products: input.products,
+            sale,
+          }),
+          sale,
+          pickupReservation: reservation,
+          document: findFiscalDocument(
+            input.fiscalDocuments,
+            'PICKUP_RESERVATION',
+            reservation.id,
           ),
-          fiscalSettings: input.fiscalSettings,
-          items: fiscalOperationItems(
-            reservation.items,
-            reservation.saleId,
-            salesById,
-          ),
-          products: input.products,
-          sale: salesById.get(reservation.saleId ?? ''),
-        }),
-        pickupReservation: reservation,
-        document: findFiscalDocument(
-          input.fiscalDocuments,
-          'PICKUP_RESERVATION',
-          reservation.id,
-        ),
-      }))
+        }
+      })
   },
 ]
 

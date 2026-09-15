@@ -521,6 +521,7 @@ export type ManualFiscalDocumentInput = {
   natureOperation: string;
   referencedAccessKeys: string[];
   transportedVolumesQuantity: number | null;
+  transportedVolumesGrossWeight: number | null;
   billingEnabled: boolean;
   billingIssueDate: string | null;
   billingDueDate: string | null;

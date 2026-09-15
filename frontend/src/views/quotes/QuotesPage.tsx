@@ -126,11 +126,13 @@ export function QuotesPage({
   products,
   quoteFormDrafts,
   quotes,
+  sourceQuote,
   onSubmit,
   onSaveQuoteFormDraft,
   onDeleteQuoteFormDraft,
   onDiscardQuoteFormDraft,
   onEditQuote,
+  onReuseQuote,
   onCancelQuote,
   onCreateShippingOrder,
 }: {
@@ -141,6 +143,7 @@ export function QuotesPage({
   products: Product[]
   quoteFormDrafts: QuoteFormDraft[]
   quotes: Quote[]
+  sourceQuote?: Quote
   onSubmit: (input: QuoteDraftInput) => Promise<boolean>
   onSaveQuoteFormDraft: (
     input: QuoteFormDraftPayload,
@@ -149,6 +152,7 @@ export function QuotesPage({
   onDeleteQuoteFormDraft: (draft: QuoteFormDraft) => Promise<boolean | void>
   onDiscardQuoteFormDraft: (draft: QuoteFormDraft) => Promise<boolean>
   onEditQuote: (quote: Quote) => void
+  onReuseQuote: (quote: Quote) => void
   onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void
   onCreateShippingOrder: (quote: Quote) => void
 }) {
@@ -298,6 +302,14 @@ export function QuotesPage({
     setPendingSavedDraftSignature(null)
   }, [pendingSavedDraftSignature, quoteFormDrafts, sourceDraft])
 
+  useEffect(() => {
+    if (!sourceQuote) {
+      return
+    }
+
+    loadReusableQuote(sourceQuote)
+  }, [sourceQuote?.id])
+
   function updateItem(index: number, changes: Partial<QuoteDraftItem>) {
     setItems((currentItems) =>
       currentItems.map((item, itemIndex) => {
@@ -390,6 +402,38 @@ export function QuotesPage({
     setDiscountAmount(payload.discountAmount)
     setInstallmentCount(payload.installmentCount)
     setItems(payload.items)
+  }
+
+  function loadReusableQuote(quote: Quote) {
+    const issueDate = todayInputDate()
+    const discountMode =
+      Number(quote.discountPercentage || 0) > 0 ? 'PERCENTAGE' : 'AMOUNT'
+
+    setSourceDraft(null)
+    setPendingSavedDraftSignature(null)
+    setClientId(quote.clientId)
+    setPayments(quotePaymentDrafts(quote))
+    setBillingIssueDate(issueDate)
+    setBillingDueDate(quoteDueDate(issueDate, commercialSettings))
+    setBillingDueDateTouched(false)
+    setValidUntil(quoteValidityDate(issueDate, commercialSettings))
+    setNotes(quote.notes ?? '')
+    setShowBrand(quote.showBrand)
+    setDiscountMode(discountMode)
+    setDiscountPercentage(
+      discountMode === 'PERCENTAGE' ? quote.discountPercentage : '',
+    )
+    setDiscountAmount(discountMode === 'AMOUNT' ? quote.discountAmount : '')
+    setInstallmentCount(Math.max(quote.paymentInstallments.length, 1))
+    setItems(
+      quote.items.map((item) => ({
+        productId: item.productId,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discountPercentage: item.discountPercentage,
+      })),
+    )
   }
 
   async function saveQuoteFormDraft() {
@@ -908,6 +952,7 @@ export function QuotesPage({
                 <QuoteActions
                   quote={quote}
                   onEditQuote={onEditQuote}
+                  onReuseQuote={onReuseQuote}
                   onCancelQuote={onCancelQuote}
                   onCreateShippingOrder={onCreateShippingOrder}
                 />
@@ -1461,11 +1506,13 @@ function QuoteStatusSummary({ quote }: { quote: Quote }) {
 function QuoteActions({
   quote,
   onEditQuote,
+  onReuseQuote,
   onCancelQuote,
   onCreateShippingOrder,
 }: {
   quote: Quote
   onEditQuote: (quote: Quote) => void
+  onReuseQuote: (quote: Quote) => void
   onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void
   onCreateShippingOrder: (quote: Quote) => void
 }) {
@@ -1474,6 +1521,7 @@ function QuoteActions({
     onCancelQuote: () => setShowCancellationForm(true),
     onCreateShippingOrder: () => onCreateShippingOrder(quote),
     onEditQuote: () => onEditQuote(quote),
+    onReuseQuote: () => onReuseQuote(quote),
     quote,
   })
 
@@ -1533,17 +1581,23 @@ function quoteActions({
   onCancelQuote,
   onCreateShippingOrder,
   onEditQuote,
+  onReuseQuote,
   quote,
 }: {
   onCancelQuote: () => void
   onCreateShippingOrder: () => void
   onEditQuote: () => void
+  onReuseQuote: () => void
   quote: Quote
 }) {
   const actions: TableActionsMenuAction[] = [
     {
       label: 'Baixar PDF',
       onSelect: () => void downloadQuotePdf(quote),
+    },
+    {
+      label: 'Reutilizar orçamento',
+      onSelect: onReuseQuote,
     },
   ]
 

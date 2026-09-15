@@ -7,12 +7,14 @@ import {
   downloadFiscalDocumentFile,
   indexFiscalDocuments,
   indexManualFiscalDocumentDrafts,
+  issueEditedSaleFiscalDocument,
   issueManualFiscalDocument,
   issuePickupReservationFiscalDocument,
   issueSaleFiscalDocument,
   issueShippingOrderFiscalDocument,
   mockFiscalDocumentFile,
   previewManualFiscalDocument,
+  previewEditedSaleFiscalDocument,
   previewPickupReservationFiscalDocument,
   previewSaleFiscalDocument,
   previewShippingOrderFiscalDocument,
@@ -88,6 +90,12 @@ const manualFiscalDocumentSchema = z
       .number()
       .int()
       .min(1)
+      .max(999999999999999)
+      .nullable()
+      .default(null),
+    transportedVolumesGrossWeight: z.coerce
+      .number()
+      .positive()
       .max(999999999999999)
       .nullable()
       .default(null),
@@ -475,6 +483,43 @@ fiscalDocumentsRoutes.post(
           body.documentType,
           requireActiveBranchId(response.locals),
           body.additionalInformation ?? null,
+        ),
+      );
+  },
+);
+
+fiscalDocumentsRoutes.post(
+  "/sales/:id/fiscal-documents/edited/preview",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { id } = saleParamsSchema.parse(request.params);
+    const body = validateBody(request, manualFiscalDocumentSchema);
+    const file = await previewEditedSaleFiscalDocument(
+      id,
+      normalizeManualFiscalDocumentInput(body),
+      requireActiveBranchId(response.locals),
+    );
+
+    sendFiscalPreview(response, file);
+  },
+);
+
+fiscalDocumentsRoutes.post(
+  "/sales/:id/fiscal-documents/edited",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { id } = saleParamsSchema.parse(request.params);
+    const body = validateBody(request, manualFiscalDocumentSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+
+    response
+      .status(201)
+      .json(
+        await issueEditedSaleFiscalDocument(
+          id,
+          normalizeManualFiscalDocumentInput(body),
+          userId,
+          requireActiveBranchId(response.locals),
         ),
       );
   },

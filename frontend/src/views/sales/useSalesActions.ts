@@ -4,6 +4,7 @@ import {
   apiPost,
   apiPut,
   openApiFile,
+  type ManualFiscalDocumentInput,
   type Sale,
   type PickupReservation,
   type Product,
@@ -85,6 +86,39 @@ export function useSalesActions({
       await openApiFile(`/sales/${sale.id}/fiscal-documents/preview`, {
         ...fiscalDocumentPayload(additionalInformation),
       });
+    });
+  }
+
+  async function issueEditedSaleFiscalDocument(
+    sale: Sale,
+    input: ManualFiscalDocumentInput,
+  ) {
+    const confirmed = await requestConfirmation(
+      `Emitir NF-e editada para a venda Nº ${sale.saleNumber}? Confira os dados antes de enviar ao provedor fiscal.`,
+      "Emitir NF-e editada?",
+      "Emitir NF-e",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiPost(`/sales/${sale.id}/fiscal-documents/edited`, input);
+      showFiscalDocuments();
+      await refreshSalesFlow();
+    });
+  }
+
+  async function previewEditedSaleFiscalDocument(
+    sale: Sale,
+    input: ManualFiscalDocumentInput,
+  ) {
+    await runAction(async () => {
+      await openApiFile(
+        `/sales/${sale.id}/fiscal-documents/edited/preview`,
+        input,
+      );
     });
   }
 
@@ -524,9 +558,11 @@ export function useSalesActions({
     createPickupReservation,
     createSale,
     issuePickupReservationFiscalDocument,
+    issueEditedSaleFiscalDocument,
     issueSaleFiscalDocument,
     issueShippingOrderFiscalDocument,
     previewPickupReservationFiscalDocument,
+    previewEditedSaleFiscalDocument,
     previewSaleFiscalDocument,
     previewShippingOrderFiscalDocument,
     reopenSale,

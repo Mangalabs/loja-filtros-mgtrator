@@ -73,6 +73,7 @@ export function FiscalDocumentsPage({
   onPreviewPickupReservationFiscalDocument,
   onPreviewSaleFiscalDocument,
   onPreviewShippingOrderFiscalDocument,
+  onEditSaleFiscalDocument,
   onResolveFiscalPendency,
 }: {
   clients: Client[]
@@ -107,6 +108,7 @@ export function FiscalDocumentsPage({
     order: ShippingOrder,
     additionalInformation?: string,
   ) => void
+  onEditSaleFiscalDocument: (sale: Sale) => void
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
 }) {
   const [requestSearch, setRequestSearch] = useState('')
@@ -244,6 +246,7 @@ export function FiscalDocumentsPage({
                     onPreviewShippingOrderFiscalDocument={
                       onPreviewShippingOrderFiscalDocument
                     }
+                    onEditSaleFiscalDocument={onEditSaleFiscalDocument}
                     onResolveFiscalPendency={onResolveFiscalPendency}
                   />
                 </div>
@@ -500,11 +503,14 @@ export function ManualFiscalDocumentPage({
   products,
   sourceDraft,
   sourceFiscalDocument,
+  sourceSale,
   onDeleteManualFiscalDocumentDraft,
   onIssueManualFiscalDocument,
+  onIssueSaleFiscalDocumentInput,
   onLookupCompany,
   onOpenManualFiscalDocumentDraft,
   onPreviewManualFiscalDocument,
+  onPreviewSaleFiscalDocumentInput,
   onSaveManualFiscalDocumentDraft,
 }: {
   clients: Client[]
@@ -514,17 +520,28 @@ export function ManualFiscalDocumentPage({
   products: Product[]
   sourceDraft?: ManualFiscalDocumentDraft
   sourceFiscalDocument?: FiscalDocument
+  sourceSale?: Sale
   onDeleteManualFiscalDocumentDraft: (draft: ManualFiscalDocumentDraft) => void
   onIssueManualFiscalDocument: (input: ManualFiscalDocumentInput) => void
+  onIssueSaleFiscalDocumentInput?: (
+    sale: Sale,
+    input: ManualFiscalDocumentInput,
+  ) => void
   onLookupCompany: (cnpj: string) => Promise<ClientCompanyLookup>
   onOpenManualFiscalDocumentDraft: (draft: ManualFiscalDocumentDraft) => void
   onPreviewManualFiscalDocument: (input: ManualFiscalDocumentInput) => void
+  onPreviewSaleFiscalDocumentInput?: (
+    sale: Sale,
+    input: ManualFiscalDocumentInput,
+  ) => void
   onSaveManualFiscalDocumentDraft: (
     input: ManualFiscalDocumentInput,
     draft?: ManualFiscalDocumentDraft,
   ) => void
 }) {
-  const sourceValues = sourceDraft
+  const sourceValues = sourceSale
+    ? manualFiscalDocumentSaleFormValues(sourceSale)
+    : sourceDraft
     ? manualFiscalDocumentDraftFormValues(sourceDraft.payload)
     : manualFiscalDocumentFormValues(sourceFiscalDocument)
   const [items, setItems] = useState<ManualFiscalItemForm[]>([
@@ -809,12 +826,26 @@ export function ManualFiscalDocumentPage({
     )
 
     if (action === 'draft') {
+      if (sourceSale) {
+        return
+      }
+
       onSaveManualFiscalDocumentDraft(input, sourceDraft)
       return
     }
 
     if (action === 'issue') {
+      if (sourceSale && onIssueSaleFiscalDocumentInput) {
+        onIssueSaleFiscalDocumentInput(sourceSale, input)
+        return
+      }
+
       onIssueManualFiscalDocument(input)
+      return
+    }
+
+    if (sourceSale && onPreviewSaleFiscalDocumentInput) {
+      onPreviewSaleFiscalDocumentInput(sourceSale, input)
       return
     }
 
@@ -825,10 +856,19 @@ export function ManualFiscalDocumentPage({
     <section className='grid min-w-0 gap-4'>
       <PagePanel className='min-w-0'>
         <PageHeader
-          description='Preenchimento manual sem venda vinculada.'
+          description={
+            sourceSale
+              ? 'Revise e ajuste os dados fiscais antes de emitir pela venda.'
+              : 'Preenchimento manual sem venda vinculada.'
+          }
           icon={<FileText size={18} />}
-          title='NF-e avulsa / devolução'
+          title={
+            sourceSale
+              ? `Editar NF-e da venda Nº ${sourceSale.saleNumber}`
+              : 'NF-e avulsa / devolução'
+          }
         />
+        {!sourceSale ? (
         <div className='grid gap-3 pb-4'>
           <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]'>
             <Autocomplete
@@ -863,6 +903,7 @@ export function ManualFiscalDocumentPage({
             ) : null}
           </div>
         </div>
+        ) : null}
         <form className='grid gap-4' onSubmit={submitManualFiscalDocument}>
           <div className='grid gap-3 md:grid-cols-4'>
             <TextField
@@ -938,6 +979,13 @@ export function ManualFiscalDocumentPage({
               required
               type='number'
               slotProps={{ htmlInput: { min: '1', step: '1' } }}
+            />
+            <TextField
+              defaultValue={sourceValues.transportedVolumesGrossWeight}
+              label='Peso bruto (kg)'
+              name='manualFiscalTransportedVolumesGrossWeight'
+              type='number'
+              slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
             />
           </div>
 
@@ -1528,14 +1576,16 @@ export function ManualFiscalDocumentPage({
             defaultValue={sourceValues.additionalInformation}
           />
           <div className='flex flex-wrap justify-end gap-2'>
-            <Button
+            {!sourceSale ? (
+              <Button
               formNoValidate
               name='manualFiscalAction'
               type='submit'
               value='draft'
               variant='outlined'>
               {sourceDraft ? 'Atualizar rascunho' : 'Salvar rascunho'}
-            </Button>
+              </Button>
+            ) : null}
             <Button
               name='manualFiscalAction'
               type='submit'
@@ -1846,6 +1896,9 @@ function manualFiscalDocumentInput(
   const transportedVolumesQuantity = Number(
     formText(form, 'manualFiscalTransportedVolumesQuantity') || 0,
   )
+  const transportedVolumesGrossWeight = Number(
+    formText(form, 'manualFiscalTransportedVolumesGrossWeight') || 0,
+  )
 
   return {
     documentType: 'NFE',
@@ -1863,6 +1916,11 @@ function manualFiscalDocumentInput(
       transportedVolumesQuantity > 0
         ? transportedVolumesQuantity
         : null,
+    transportedVolumesGrossWeight:
+      Number.isFinite(transportedVolumesGrossWeight) &&
+      transportedVolumesGrossWeight > 0
+        ? transportedVolumesGrossWeight
+        : null,
     billingEnabled: form.get('manualFiscalBillingEnabled') === 'on',
     billingIssueDate: nullableFormText(form, 'manualFiscalBillingIssueDate'),
     billingDueDate: nullableFormText(form, 'manualFiscalBillingDueDate'),
@@ -1871,11 +1929,13 @@ function manualFiscalDocumentInput(
       paymentMethods,
       totalAmount,
     ),
-    paymentInstallments: paymentInstallments.map((installment, index) => ({
-      position: index + 1,
-      dueDate: installment.dueDate,
-      amount: moneyInputValue(installment.amount),
-    })),
+    paymentInstallments: paymentInstallments
+      .filter((installment) => installment.dueDate && installment.amount)
+      .map((installment, index) => ({
+        position: index + 1,
+        dueDate: dateInputValue(installment.dueDate) ?? installment.dueDate,
+        amount: moneyInputValue(installment.amount),
+      })),
     additionalInformation: nullableFormText(
       form,
       'manualFiscalAdditionalInformation',
@@ -2050,6 +2110,58 @@ function manualFiscalItemTotal(item: ManualFiscalItemForm) {
   )
 }
 
+function applyManualFiscalSaleTotalAmount(
+  items: ManualFiscalItemForm[],
+  targetAmount: number,
+) {
+  if (!Number.isFinite(targetAmount) || targetAmount < 0) {
+    return items
+  }
+
+  const targetCents = Math.round(targetAmount * 100)
+  const grossCents = items.reduce(
+    (sum, item) =>
+      sum +
+      Math.round(Number(item.quantity || 0) * Number(item.unitPrice || 0) * 100),
+    0,
+  )
+  const currentCents = Math.round(manualFiscalItemsTotal(items) * 100)
+
+  if (Math.abs(currentCents - targetCents) <= 1 || grossCents <= targetCents) {
+    return items
+  }
+
+  const totalDiscountCents = grossCents - targetCents
+  const adjustableItems = items.filter(
+    (item) => Number(item.quantity || 0) * Number(item.unitPrice || 0) > 0,
+  )
+  let remainingDiscountCents = totalDiscountCents
+
+  return items.map((item) => {
+    const itemGrossCents = Math.round(
+      Number(item.quantity || 0) * Number(item.unitPrice || 0) * 100,
+    )
+
+    if (itemGrossCents <= 0) {
+      return item
+    }
+
+    const isLastAdjustableItem =
+      item === adjustableItems[adjustableItems.length - 1]
+    const itemDiscountCents = isLastAdjustableItem
+      ? remainingDiscountCents
+      : Math.round((totalDiscountCents * itemGrossCents) / grossCents)
+    const cappedDiscountCents = Math.min(itemDiscountCents, itemGrossCents)
+
+    remainingDiscountCents -= cappedDiscountCents
+
+    return {
+      ...item,
+      discountAmount: (cappedDiscountCents / 100).toFixed(2),
+    }
+  })
+}
+
 function applyManualFiscalTotalAmount(
   items: ManualFiscalItemForm[],
   targetAmount: number,
@@ -2119,6 +2231,11 @@ function manualFiscalDocumentFormValues(document?: FiscalDocument) {
     payload.transportedVolumesQuantity > 0
       ? String(payload.transportedVolumesQuantity)
       : '1'
+  const transportedVolumesGrossWeight =
+    typeof payload?.transportedVolumesGrossWeight === 'number' &&
+    payload.transportedVolumesGrossWeight > 0
+      ? String(payload.transportedVolumesGrossWeight)
+      : ''
   const items = Array.isArray(sale?.items)
     ? sale.items
         .map((item) =>
@@ -2147,6 +2264,7 @@ function manualFiscalDocumentFormValues(document?: FiscalDocument) {
       '5.102/6.102 - Venda mercadoria terceiros',
     referencedAccessKey,
     transportedVolumesQuantity,
+    transportedVolumesGrossWeight,
     billingEnabled: manualFiscalPayloadHasBilling(sale),
     billingIssueDate: stringPayloadValue(sale?.billingIssueDate) ?? '',
     billingDueDate: stringPayloadValue(sale?.billingDueDate) ?? '',
@@ -2211,6 +2329,11 @@ function manualFiscalDocumentDraftFormValues(
     payload.transportedVolumesQuantity > 0
       ? String(payload.transportedVolumesQuantity)
       : '1'
+  const transportedVolumesGrossWeight =
+    typeof payload?.transportedVolumesGrossWeight === 'number' &&
+    payload.transportedVolumesGrossWeight > 0
+      ? String(payload.transportedVolumesGrossWeight)
+      : ''
   const items = Array.isArray(payload?.items)
     ? payload.items
         .map((item) =>
@@ -2238,6 +2361,7 @@ function manualFiscalDocumentDraftFormValues(
       '5.102/6.102 - Venda mercadoria terceiros',
     referencedAccessKey,
     transportedVolumesQuantity,
+    transportedVolumesGrossWeight,
     billingEnabled: payload?.billingEnabled === true,
     billingIssueDate: stringPayloadValue(payload?.billingIssueDate) ?? '',
     billingDueDate: stringPayloadValue(payload?.billingDueDate) ?? '',
@@ -2276,6 +2400,87 @@ function manualFiscalDocumentDraftFormValues(
     },
     items: formItems,
     totalAmount: manualFiscalItemsTotal(formItems).toFixed(2),
+  }
+}
+
+function manualFiscalDocumentSaleFormValues(sale: Sale) {
+  const items = sale.items.length
+    ? sale.items.map((item) => ({
+        productId: item.productId,
+        productInternalCode: item.productInternalCode ?? '',
+        productName: item.productName,
+        productNcm: item.productNcm ?? '',
+        productCfop: item.productCfop ?? '',
+        productIcmsCst: item.productIcmsCst ?? '',
+        productPisCst: item.productPisCst ?? '',
+        productCofinsCst: item.productCofinsCst ?? '',
+        productOrigin: item.productOrigin ?? '0',
+        productUnit: item.productUnit || 'UN',
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discountAmount: item.discountAmount,
+      }))
+    : [emptyManualFiscalItem()]
+  const adjustedItems = applyManualFiscalSaleTotalAmount(
+    items,
+    Number(sale.totalAmount),
+  )
+
+  return {
+    operationType: 'EXIT' as const,
+    destinationOperation: 'INTERNAL' as const,
+    purpose: 'NORMAL' as const,
+    natureOperation: '5.102/6.102 - Venda mercadoria terceiros',
+    referencedAccessKey: '',
+    transportedVolumesQuantity: '1',
+    transportedVolumesGrossWeight: '',
+    billingEnabled:
+      sale.paymentMethodCode === 'BOLETO' ||
+      sale.payments.some((payment) => payment.paymentMethodCode === 'BOLETO') ||
+      sale.paymentInstallments.length > 0,
+    billingIssueDate: sale.billingIssueDate?.slice(0, 10) ?? '',
+    billingDueDate: sale.billingDueDate?.slice(0, 10) ?? '',
+    payments: sale.payments.length
+      ? sale.payments.map((payment) => ({
+          paymentMethodCode: payment.paymentMethodCode,
+          paymentMethodName: payment.paymentMethodName,
+          amount: payment.amount,
+        }))
+      : [
+          {
+            paymentMethodCode: sale.paymentMethodCode,
+            paymentMethodName: sale.paymentMethodName,
+            amount: sale.totalAmount,
+          },
+        ],
+    paymentInstallments: sale.paymentInstallments.map((installment) => ({
+      dueDate: dateInputValue(installment.dueDate) ?? installment.dueDate,
+      amount: installment.amount,
+    })),
+    additionalInformation: '',
+    clientPersonType: manualFiscalClientPersonTypeValue(
+      sale.clientPersonType ?? 'PJ',
+    ),
+    clientStateRegistrationIndicator:
+      manualFiscalClientStateRegistrationIndicatorValue(
+        sale.clientStateRegistrationIndicator ?? '9',
+      ),
+    clientValues: {
+      manualFiscalClientAddressCity: sale.clientAddressCity,
+      manualFiscalClientAddressComplement: sale.clientAddressComplement,
+      manualFiscalClientAddressDistrict: sale.clientAddressDistrict,
+      manualFiscalClientAddressNumber: sale.clientAddressNumber,
+      manualFiscalClientAddressState: sale.clientAddressState,
+      manualFiscalClientAddressStreet: sale.clientAddressStreet,
+      manualFiscalClientAddressZipCode: sale.clientAddressZipCode,
+      manualFiscalClientDocument: sale.clientDocument,
+      manualFiscalClientEmail: sale.clientEmail,
+      manualFiscalClientName: sale.clientName,
+      manualFiscalClientPhone: sale.clientPhone,
+      manualFiscalClientStateRegistration: sale.clientStateRegistration,
+    },
+    items: adjustedItems,
+    totalAmount: manualFiscalItemsTotal(adjustedItems).toFixed(2),
   }
 }
 
@@ -2587,6 +2792,10 @@ function nullableFormText(form: FormData, field: string) {
 
 function todayInputDate() {
   return new Date().toLocaleDateString('en-CA')
+}
+
+function dateInputValue(value: string | null | undefined) {
+  return value?.slice(0, 10) || null
 }
 
 function manualFiscalDueDate(
@@ -2931,6 +3140,7 @@ function FiscalRequestAction({
   onPreviewPickupReservationFiscalDocument,
   onPreviewSaleFiscalDocument,
   onPreviewShippingOrderFiscalDocument,
+  onEditSaleFiscalDocument,
   onResolveFiscalPendency,
 }: {
   request: FiscalRequest
@@ -2958,9 +3168,9 @@ function FiscalRequestAction({
     order: ShippingOrder,
     additionalInformation?: string,
   ) => void
+  onEditSaleFiscalDocument: (sale: Sale) => void
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
 }) {
-  const [additionalInformation, setAdditionalInformation] = useState('')
   const action = fiscalRequestAction(request, {
     onIssuePickupReservationFiscalDocument,
     onIssueSaleFiscalDocument,
@@ -2972,33 +3182,38 @@ function FiscalRequestAction({
     onIssueSaleFiscalDocument: onPreviewSaleFiscalDocument,
     onIssueShippingOrderFiscalDocument: onPreviewShippingOrderFiscalDocument,
   })
+  const canEditSaleFiscalDocument =
+    Boolean(request.sale) &&
+    (!request.document ||
+      request.document.status === 'PENDING' ||
+      request.document.status === 'REJECTED')
+  const menuActions: TableActionsMenuAction[] = []
+
+  if (canEditSaleFiscalDocument) {
+    menuActions.push({
+      label: 'Editar ou adicionar observação',
+      onSelect: () => onEditSaleFiscalDocument(request.sale as Sale),
+    })
+  }
+
+  if (previewAction) {
+    menuActions.push({
+      label: 'Pré-visualizar',
+      onSelect: () => previewAction(),
+    })
+  }
+
+  if (action) {
+    menuActions.push({
+      label: fiscalRequestActionText(request),
+      onSelect: () => action(),
+    })
+  }
 
   if (action && request.readinessIssues.length === 0) {
     return (
-      <div className='grid min-w-0 gap-2'>
-        <TextField
-          label='Observações no rodapé da NF-e'
-          multiline
-          maxRows={3}
-          onChange={(event) => setAdditionalInformation(event.target.value)}
-          size='small'
-          slotProps={{ htmlInput: { maxLength: 5000 } }}
-          value={additionalInformation}
-        />
-        <div className='flex flex-wrap justify-end gap-2'>
-          {previewAction ? (
-            <TableActionButton
-              type='button'
-              onClick={() => previewAction(additionalInformation)}>
-              Pré-visualizar
-            </TableActionButton>
-          ) : null}
-          <TableActionButton
-            type='button'
-            onClick={() => action(additionalInformation)}>
-            {fiscalRequestActionText(request)}
-          </TableActionButton>
-        </div>
+      <div className='inline-flex justify-end'>
+        <TableActionsMenu actions={menuActions} />
       </div>
     )
   }
@@ -3010,6 +3225,15 @@ function FiscalRequestAction({
         onClick={() => onResolveFiscalPendency(fiscalPendencyTarget(request))}>
         {fiscalRequestActionLabel(request, Boolean(action))}
       </TableActionButton>
+    )
+  }
+
+  if (canEditSaleFiscalDocument) {
+    return (
+      <div className='grid justify-items-end gap-1'>
+        <TableActionsMenu actions={menuActions} />
+        <InlineNote>{fiscalRequestActionLabel(request, Boolean(action))}</InlineNote>
+      </div>
     )
   }
 

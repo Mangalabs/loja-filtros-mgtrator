@@ -57,7 +57,9 @@ export function AuthenticatedApp({
   const [fiscalPendencyReturnView, setFiscalPendencyReturnView] =
     useState<View>();
   const [selectedQuote, setSelectedQuote] = useState<Quote>();
+  const [reusedQuote, setReusedQuote] = useState<Quote>();
   const [selectedSale, setSelectedSale] = useState<Sale>();
+  const [selectedFiscalSale, setSelectedFiscalSale] = useState<Sale>();
   const { closeConfirmation, confirmation, requestConfirmation } =
     useConfirmation();
   const {
@@ -153,6 +155,11 @@ export function AuthenticatedApp({
       if (nextView === "manual-fiscal-document") {
         setSelectedManualFiscalDocument(undefined);
         setSelectedManualFiscalDocumentDraft(undefined);
+        setSelectedFiscalSale(undefined);
+      }
+
+      if (nextView === "new-quote") {
+        setReusedQuote(undefined);
       }
 
       setView(nextView);
@@ -165,6 +172,7 @@ export function AuthenticatedApp({
       if (fiscalDocument.sourceType === "MANUAL_NFE") {
         setSelectedManualFiscalDocument(fiscalDocument);
         setSelectedManualFiscalDocumentDraft(undefined);
+        setSelectedFiscalSale(undefined);
       }
 
       setView(fiscalDocumentSourceView(fiscalDocument));
@@ -386,8 +394,10 @@ export function AuthenticatedApp({
             selectedClient={selectedClient}
             selectedManualFiscalDocument={selectedManualFiscalDocument}
             selectedManualFiscalDocumentDraft={selectedManualFiscalDocumentDraft}
+            selectedFiscalSale={selectedFiscalSale}
             selectedProduct={selectedProduct}
             selectedQuote={selectedQuote}
+            reusedQuote={reusedQuote}
             selectedSale={selectedSale}
             shippingOrders={shippingOrders}
             state={state}
@@ -429,14 +439,27 @@ export function AuthenticatedApp({
             onOpenManualFiscalDocumentDraft={(draft) => {
               setSelectedManualFiscalDocument(undefined);
               setSelectedManualFiscalDocumentDraft(draft);
+              setSelectedFiscalSale(undefined);
+              setView("manual-fiscal-document");
+            }}
+            onOpenSaleFiscalDocumentEditor={(sale) => {
+              setSelectedManualFiscalDocument(undefined);
+              setSelectedManualFiscalDocumentDraft(undefined);
+              setSelectedFiscalSale(sale);
               setView("manual-fiscal-document");
             }}
             onSelectView={selectView}
             onSearchChange={setSearch}
             onSelectClient={setSelectedClient}
             onSelectQuote={(quote) => {
+              setReusedQuote(undefined);
               setSelectedQuote(quote);
               setView("edit-quote");
+            }}
+            onReuseQuote={(quote) => {
+              setSelectedQuote(undefined);
+              setReusedQuote(quote);
+              setView("new-quote");
             }}
             onSelectSale={openSaleEditor}
             requestConfirmation={requestConfirmation}
