@@ -489,7 +489,7 @@ function SalesReportSection({
           columns={[
             {
               header: 'Produto',
-              render: (item) => item.productName,
+              render: (item) => <ReportProductName item={item} />,
             },
             {
               align: 'right',
@@ -572,7 +572,7 @@ function SalesReportSection({
           columns={[
             {
               header: 'Produto',
-              render: (item) => item.productName,
+              render: (item) => <ReportProductName item={item} />,
             },
             {
               align: 'right',
@@ -2033,6 +2033,7 @@ function exportSalesReportCsv(report: SalesReport) {
     [],
     [
       'Vendas por produto',
+      'Codigo',
       'Produto',
       'Quantidade',
       'Total',
@@ -2042,6 +2043,7 @@ function exportSalesReportCsv(report: SalesReport) {
     ],
     ...report.byProduct.map((item) => [
       'Vendas por produto',
+      item.internalCode ?? '',
       item.productName,
       item.quantity,
       item.totalAmount,
@@ -2067,6 +2069,7 @@ function exportSalesReportCsv(report: SalesReport) {
     [],
     [
       'Curva ABC',
+      'Codigo',
       'Produto',
       'Faturamento',
       'Participacao',
@@ -2075,6 +2078,7 @@ function exportSalesReportCsv(report: SalesReport) {
     ],
     ...report.abcProducts.map((item) => [
       'Curva ABC',
+      item.internalCode ?? '',
       item.productName,
       item.totalAmount,
       `${item.revenueSharePercentage}%`,
@@ -2404,6 +2408,21 @@ function ReportDetail({ label, value }: { label: string; value: string }) {
       <span className='text-sm text-[#5f665f]'>{label}</span>
       <strong className='mt-1 block text-[#2c281e]'>{value}</strong>
     </div>
+  )
+}
+
+function ReportProductName({
+  item,
+}: {
+  item: { internalCode?: string | null; productName: string }
+}) {
+  return (
+    <span className='grid gap-1'>
+      <strong>{item.productName}</strong>
+      <span className='text-xs text-[#5f665f]'>
+        {item.internalCode ?? 'Sem codigo'}
+      </span>
+    </span>
   )
 }
 

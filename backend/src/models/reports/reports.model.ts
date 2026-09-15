@@ -33,6 +33,7 @@ export type SalesReport = {
   };
   byProduct: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     quantity: string;
     costAmount: string;
@@ -53,6 +54,7 @@ export type SalesReport = {
   }>;
   abcProducts: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     totalAmount: string;
     revenueSharePercentage: string;
@@ -341,6 +343,7 @@ type SalesReportSummaryRow = {
 
 type SalesByProductRow = {
   productId: string;
+  internalCode: string | null;
   productName: string;
   quantity: string;
   costAmount: string;
@@ -625,8 +628,9 @@ export async function getSalesReport(
     salesReportBaseQuery(filters)
       .join("products", "products.id", "sale_items.product_id")
       .select<SalesByProductRow[]>([
-        "products.name as productName",
         "products.id as productId",
+        "products.internal_code as internalCode",
+        "products.name as productName",
         db.raw("sum(sale_items.quantity)::numeric(12, 3)::text as ??", [
           "quantity",
         ]),
@@ -649,7 +653,7 @@ export async function getSalesReport(
           ["grossMarginPercentage"],
         ),
       ])
-      .groupBy("products.id", "products.name")
+      .groupBy("products.id", "products.internal_code", "products.name")
       .orderByRaw("sum(sale_items.total_amount) desc")
       .limit(20),
     salesReportSalesQuery(filters)
@@ -1962,6 +1966,7 @@ function buildSalesAbcProducts(
 
     return {
       productId: product.productId,
+      internalCode: product.internalCode,
       productName: product.productName,
       totalAmount: product.totalAmount,
       revenueSharePercentage: revenueSharePercentage.toFixed(2),

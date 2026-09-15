@@ -510,6 +510,7 @@ type SalesReport = {
   };
   byProduct: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     quantity: string;
     costAmount: string;
@@ -530,6 +531,7 @@ type SalesReport = {
   }>;
   abcProducts: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     totalAmount: string;
     revenueSharePercentage: string;
@@ -6296,6 +6298,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         name: "Filtro relatorio comercial A",
+        internalCode: "REL-A",
         costPrice: 20,
         salePrice: 40,
       },
@@ -6304,6 +6307,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         name: "Filtro relatorio comercial B",
+        internalCode: "REL-B",
         costPrice: 45,
         salePrice: 75,
       },
@@ -6367,6 +6371,7 @@ describe("catalog routes", () => {
       report.body.data?.byProduct[0]?.productName,
       firstProduct.body.data?.name,
     );
+    assert.equal(report.body.data?.byProduct[0]?.internalCode, "REL-A");
     assert.equal(report.body.data?.byProduct[0]?.costAmount, "40.00");
     assert.equal(report.body.data?.byProduct[0]?.totalAmount, "80.00");
     assert.equal(
@@ -6389,6 +6394,7 @@ describe("catalog routes", () => {
       report.body.data?.abcProducts[0]?.productName,
       firstProduct.body.data?.name,
     );
+    assert.equal(report.body.data?.abcProducts[0]?.internalCode, "REL-A");
     assert.equal(report.body.data?.abcProducts[0]?.totalAmount, "80.00");
     assert.equal(
       report.body.data?.abcProducts[0]?.revenueSharePercentage,

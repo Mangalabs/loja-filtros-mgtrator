@@ -621,6 +621,7 @@ export type SalesReport = {
   };
   byProduct: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     quantity: string;
     costAmount: string;
@@ -641,6 +642,7 @@ export type SalesReport = {
   }>;
   abcProducts: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     totalAmount: string;
     revenueSharePercentage: string;

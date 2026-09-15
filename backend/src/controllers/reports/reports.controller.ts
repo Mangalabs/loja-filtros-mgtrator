@@ -141,6 +141,7 @@ function salesReportDocument(
         title: "Vendas por produto",
         emptyMessage: "Nenhuma venda por produto.",
         columns: [
+          { label: "Codigo" },
           { label: "Produto" },
           { label: "Qtde", align: "right" },
           { label: "Total", align: "right" },
@@ -149,6 +150,7 @@ function salesReportDocument(
           { label: "Margem", align: "right" },
         ],
         rows: report.byProduct.map((item) => [
+          item.internalCode ?? "",
           item.productName,
           formatQuantity(item.quantity),
           formatCurrency(item.totalAmount),
