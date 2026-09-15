@@ -187,6 +187,7 @@ export type InventoryReport = {
     lowStockProductsCount: number;
     negativeStockProductsCount: number;
   };
+  locationOptions: string[];
   items: Array<{
     productId: string;
     productName: string;
@@ -842,7 +843,7 @@ export async function getStockReport(
 export async function getInventoryReport(
   filters: InventoryReportFilters,
 ): Promise<InventoryReport> {
-  const [summary, items] = await Promise.all([
+  const [summary, locationOptions, items] = await Promise.all([
     inventoryReportProductsQuery(filters)
       .select<InventoryReportSummaryRow[]>([
         db.raw("count(products.id)::text as ??", ["productsCount"]),
@@ -880,6 +881,7 @@ export async function getInventoryReport(
         ),
       ])
       .first(),
+    inventoryReportLocationOptions(filters),
     inventoryReportProductsQuery(filters)
       .select<InventoryReportItemRow[]>([
         "products.id as productId",
@@ -947,8 +949,33 @@ export async function getInventoryReport(
         summary?.negativeStockProductsCount ?? 0,
       ),
     },
+    locationOptions,
     items,
   };
+}
+
+async function inventoryReportLocationOptions(
+  filters: InventoryReportFilters,
+): Promise<string[]> {
+  const rows = (await db("products")
+    .distinct("products.location as location")
+    .where("products.branch_id", filters.branchId)
+    .whereNotNull("products.location")
+    .whereRaw("btrim(products.location) <> ''")
+    .modify((query) => {
+      if (typeof filters.active === "boolean") {
+        query.where("products.active", filters.active);
+      }
+    })
+    .orderBy("products.location", "asc")) as Array<{ location: string }>;
+
+  const locations = rows
+    .map((row) => row.location.trim())
+    .filter((location) => location.length > 0);
+
+  return Array.from(new Set(locations)).sort((left, right) =>
+    left.localeCompare(right, "pt-BR"),
+  );
 }
 
 export async function getPurchaseReport(

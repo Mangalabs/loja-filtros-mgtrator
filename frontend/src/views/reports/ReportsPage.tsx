@@ -1905,6 +1905,10 @@ function inventoryReportColumnsByKeys(keys: InventoryReportColumnKey[]) {
 }
 
 function inventoryLocationOptions(report: InventoryReport) {
+  if (report.locationOptions?.length) {
+    return report.locationOptions
+  }
+
   return Array.from(
     new Set(
       report.items

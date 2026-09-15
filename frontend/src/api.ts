@@ -756,6 +756,7 @@ export type InventoryReport = {
     lowStockProductsCount: number;
     negativeStockProductsCount: number;
   };
+  locationOptions?: string[];
   items: Array<{
     productId: string;
     productName: string;

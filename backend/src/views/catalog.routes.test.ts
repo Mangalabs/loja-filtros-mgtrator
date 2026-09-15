@@ -617,6 +617,7 @@ type InventoryReport = {
     lowStockProductsCount: number;
     negativeStockProductsCount: number;
   };
+  locationOptions: string[];
   items: Array<{
     productId: string;
     productName: string;
@@ -6570,6 +6571,7 @@ describe("catalog routes", () => {
       body: {
         name: "Inventario produto negativo",
         internalCode: "INV-NEG",
+        location: "INV-Z-99",
         costPrice: 8,
         salePrice: 12,
         currentStock: -2,
@@ -6593,6 +6595,9 @@ describe("catalog routes", () => {
     );
     const locationReport = await request<InventoryReport>(
       "/reports/inventory?locations=INV-A-01",
+    );
+    const limitedReport = await request<InventoryReport>(
+      "/reports/inventory?active=true&limit=1",
     );
 
     assert.equal(activeReport.status, 200);
@@ -6635,6 +6640,10 @@ describe("catalog routes", () => {
     assert.equal(negativeReport.body.data?.items[0]?.productId, negativeStockProduct.body.data?.id);
     assert.equal(locationReport.body.data?.summary.productsCount, 1);
     assert.equal(locationReport.body.data?.items[0]?.productId, availableProduct.body.data?.id);
+    assert.deepEqual(limitedReport.body.data?.locationOptions, [
+      "INV-A-01",
+      "INV-Z-99",
+    ]);
   });
 
   it("returns purchase spending reports from manual entries and posted XML purchases", async () => {
