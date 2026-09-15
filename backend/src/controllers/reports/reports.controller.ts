@@ -9,6 +9,7 @@ import {
   type CashReport,
   type CashReportFilters,
   type InventoryReport,
+  type InventoryReportColumnKey,
   type InventoryReportFilters,
   type PurchaseReport,
   type PurchaseReportFilters,
@@ -311,6 +312,10 @@ function inventoryReportDocument(
   report: InventoryReport,
   filters: InventoryReportFilters,
 ): ReportPdfDocument {
+  const columns = inventoryReportColumnsByKeys(
+    filters.columns?.length ? filters.columns : defaultInventoryReportColumns,
+  );
+
   return {
     title: "Inventario",
     subtitle: "Arquivo para verificacao, contagem periodica e manutencao.",
@@ -321,23 +326,90 @@ function inventoryReportDocument(
       {
         title: "Itens do inventario",
         emptyMessage: "Nenhum produto encontrado no inventario.",
-        columns: [
-          { label: "Codigo" },
-          { label: "Nome" },
-          { label: "Unidade", align: "center" },
-          { label: "Estoque atual", align: "right" },
-          { label: "Locacao" },
-        ],
-        rows: report.items.map((item) => [
-          item.internalCode ?? "",
-          item.productName,
-          item.unit,
-          formatQuantity(item.currentStock),
-          item.location ?? "",
-        ]),
+        columns: columns.map((column) => ({
+          label: column.label,
+          align: column.align,
+        })),
+        rows: report.items.map((item) =>
+          columns.map((column) => column.value(item)),
+        ),
       },
     ],
   };
+}
+
+type InventoryReportPdfColumn = {
+  key: InventoryReportColumnKey;
+  label: string;
+  align?: "left" | "right" | "center";
+  value: (item: InventoryReport["items"][number]) => string;
+};
+
+const defaultInventoryReportColumns: InventoryReportColumnKey[] = [
+  "internalCode",
+  "productName",
+  "unit",
+  "currentStock",
+  "location",
+];
+
+const inventoryReportPdfColumns: InventoryReportPdfColumn[] = [
+  {
+    key: "internalCode",
+    label: "Codigo",
+    value: (item) => item.internalCode ?? "",
+  },
+  { key: "productName", label: "Nome", value: (item) => item.productName },
+  {
+    key: "unit",
+    label: "Unidade",
+    align: "center",
+    value: (item) => item.unit,
+  },
+  {
+    key: "currentStock",
+    label: "Estoque atual",
+    align: "right",
+    value: (item) => formatQuantity(item.currentStock),
+  },
+  { key: "location", label: "Locacao", value: (item) => item.location ?? "" },
+  { key: "ncm", label: "NCM", value: (item) => item.ncm ?? "" },
+  {
+    key: "previousStock",
+    label: "Estado anterior",
+    align: "right",
+    value: (item) => formatQuantity(item.previousStock),
+  },
+  {
+    key: "entryQuantity",
+    label: "Entrada",
+    align: "right",
+    value: (item) => formatQuantity(item.entryQuantity),
+  },
+  {
+    key: "exitQuantity",
+    label: "Saida",
+    align: "right",
+    value: (item) => formatQuantity(item.exitQuantity),
+  },
+  {
+    key: "availableStock",
+    label: "Disponivel",
+    align: "right",
+    value: (item) => formatQuantity(item.availableStock),
+  },
+  {
+    key: "costPrice",
+    label: "Custo medio",
+    align: "right",
+    value: (item) => formatCurrency(item.costPrice),
+  },
+];
+
+function inventoryReportColumnsByKeys(keys: InventoryReportColumnKey[]) {
+  return keys
+    .map((key) => inventoryReportPdfColumns.find((column) => column.key === key))
+    .filter((column): column is InventoryReportPdfColumn => Boolean(column));
 }
 
 function purchaseReportDocument(
@@ -559,6 +631,7 @@ function inventoryFilterLabel(filters: InventoryReportFilters) {
       ? `estoque ${filters.stockStatus.toLowerCase()}`
       : null,
     filters.search ? `busca: ${filters.search}` : null,
+    filters.locations?.length ? `locacoes: ${filters.locations.join(", ")}` : null,
   ].filter(Boolean);
 
   return parts.join(" | ");

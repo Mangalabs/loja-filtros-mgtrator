@@ -163,6 +163,9 @@ type AppViewRendererProps = {
   }) => Promise<boolean>;
   onLoadInventoryReport: (filters?: {
     active?: boolean;
+    columns?: string[];
+    limit?: number;
+    locations?: string[];
     search?: string;
     stockStatus?: "ALL" | "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
   }) => Promise<boolean>;

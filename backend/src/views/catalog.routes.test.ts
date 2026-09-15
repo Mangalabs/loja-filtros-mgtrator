@@ -6591,6 +6591,9 @@ describe("catalog routes", () => {
     const negativeReport = await request<InventoryReport>(
       "/reports/inventory?stockStatus=NEGATIVE",
     );
+    const locationReport = await request<InventoryReport>(
+      "/reports/inventory?locations=INV-A-01",
+    );
 
     assert.equal(activeReport.status, 200);
     assert.equal(activeReport.body.data?.summary.productsCount, 2);
@@ -6630,6 +6633,8 @@ describe("catalog routes", () => {
     assert.equal(searchReport.body.data?.items[0]?.productId, lowStockProduct.body.data?.id);
     assert.equal(negativeReport.body.data?.summary.productsCount, 1);
     assert.equal(negativeReport.body.data?.items[0]?.productId, negativeStockProduct.body.data?.id);
+    assert.equal(locationReport.body.data?.summary.productsCount, 1);
+    assert.equal(locationReport.body.data?.items[0]?.productId, availableProduct.body.data?.id);
   });
 
   it("returns purchase spending reports from manual entries and posted XML purchases", async () => {

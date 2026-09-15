@@ -114,6 +114,7 @@ export type QuoteFormDraftPayload = {
   discountPercentage: string
   discountAmount: string
   installmentCount: number
+  paymentInstallments: QuotePaymentInstallmentDraft[]
   items: QuoteDraftItem[]
   totalAmount: number
 }
@@ -178,6 +179,9 @@ export function QuotesPage({
   const [discountPercentage, setDiscountPercentage] = useState('')
   const [discountAmount, setDiscountAmount] = useState('')
   const [installmentCount, setInstallmentCount] = useState(1)
+  const [paymentInstallments, setPaymentInstallments] = useState<
+    QuotePaymentInstallmentDraft[]
+  >([])
   const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
   const [quoteSearch, setQuoteSearch] = useState('')
   const [quoteStatusFilter, setQuoteStatusFilter] =
@@ -243,13 +247,12 @@ export function QuotesPage({
   const bankSlipAmount = usesBankSlip
     ? quotePaymentMethodAmount(payments, quoteTotal, paymentMethods, 'BOLETO')
     : 0
-  const paymentInstallments = usesBankSlip
-    ? quotePaymentInstallments(
-        installmentCount,
-        billingDueDate || billingIssueDate,
-        bankSlipAmount,
-      )
-    : []
+  const installmentTotal = quotePaymentInstallmentsTotal(paymentInstallments)
+  const installmentDifference = Number(
+    (bankSlipAmount - installmentTotal).toFixed(2),
+  )
+  const hasInstallmentDifference =
+    usesBankSlip && Math.abs(installmentDifference) >= 0.01
   const paymentTotal = quotePaymentDraftTotal(payments, quoteTotal)
   const paymentDifference = Number((quoteTotal - paymentTotal).toFixed(2))
   const hasPaymentDifference = Math.abs(paymentDifference) >= 0.01
@@ -257,7 +260,9 @@ export function QuotesPage({
     clientId,
     discountExceedsTotal: generalDiscount > totalBeforeGeneralDiscount,
     hasPaymentDifference,
+    hasInstallmentDifference,
     items,
+    installmentDifference,
     paymentDifference,
     primaryPaymentMethodId,
     quoteTotal,
@@ -276,11 +281,47 @@ export function QuotesPage({
       return
     }
 
-    setBillingDueDate(quoteDueDate(billingIssueDate, commercialSettings))
+    const nextDueDate = quoteDueDate(billingIssueDate, commercialSettings)
+
+    setBillingDueDate(nextDueDate)
+    if (usesBankSlip) {
+      setPaymentInstallments(
+        quotePaymentInstallments(
+          installmentCount,
+          nextDueDate,
+          bankSlipAmount,
+        ),
+      )
+    }
   }, [
+    bankSlipAmount,
     billingDueDateTouched,
     billingIssueDate,
     commercialSettings?.defaultQuoteDueDays,
+    installmentCount,
+    usesBankSlip,
+  ])
+
+  useEffect(() => {
+    if (!usesBankSlip) {
+      setPaymentInstallments([])
+      return
+    }
+
+    setPaymentInstallments((currentInstallments) =>
+      syncQuotePaymentInstallments(
+        currentInstallments,
+        installmentCount,
+        billingDueDate || billingIssueDate,
+        bankSlipAmount,
+      ),
+    )
+  }, [
+    bankSlipAmount,
+    billingDueDate,
+    billingIssueDate,
+    installmentCount,
+    usesBankSlip,
   ])
 
   useEffect(() => {
@@ -362,6 +403,7 @@ export function QuotesPage({
     setDiscountPercentage('')
     setDiscountAmount('')
     setInstallmentCount(1)
+    setPaymentInstallments([])
     setItems([emptyQuoteItem()])
   }
 
@@ -380,6 +422,7 @@ export function QuotesPage({
       discountPercentage,
       discountAmount,
       installmentCount,
+      paymentInstallments,
       items,
       totalAmount: quoteTotal,
     }
@@ -401,6 +444,7 @@ export function QuotesPage({
     setDiscountPercentage(payload.discountPercentage)
     setDiscountAmount(payload.discountAmount)
     setInstallmentCount(payload.installmentCount)
+    setPaymentInstallments(payload.paymentInstallments)
     setItems(payload.items)
   }
 
@@ -425,6 +469,14 @@ export function QuotesPage({
     )
     setDiscountAmount(discountMode === 'AMOUNT' ? quote.discountAmount : '')
     setInstallmentCount(Math.max(quote.paymentInstallments.length, 1))
+    setPaymentInstallments(
+      quotePaymentInstallmentDrafts(
+        quote.paymentInstallments,
+        Math.max(quote.paymentInstallments.length, 1),
+        quoteDueDate(issueDate, commercialSettings),
+        Number(quote.totalAmount),
+      ),
+    )
     setItems(
       quote.items.map((item) => ({
         productId: item.productId,
@@ -466,6 +518,19 @@ export function QuotesPage({
     if (deleted) {
       setSourceDraft(null)
     }
+  }
+
+  function updatePaymentInstallment(
+    index: number,
+    changes: Partial<QuotePaymentInstallmentDraft>,
+  ) {
+    setPaymentInstallments((currentInstallments) =>
+      currentInstallments.map((installment, installmentIndex) =>
+        installmentIndex === index
+          ? { ...installment, ...changes }
+          : installment,
+      ),
+    )
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -576,7 +641,7 @@ export function QuotesPage({
         {usesBankSlip ? (
           <FormCard>
             <PageHeader
-              description='As parcelas são divididas igualmente a partir do primeiro vencimento do boleto.'
+              description='As parcelas são sugeridas pela configuração comercial e podem ser ajustadas manualmente.'
               title='Parcelamento do boleto'
             />
             <TextField
@@ -592,15 +657,10 @@ export function QuotesPage({
               slotProps={{ htmlInput: { min: '1', max: '24', step: '1' } }}
               required
             />
-            <div className='grid gap-2'>
-              {paymentInstallments.map((installment) => (
-                <InlineNote key={installment.position}>
-                  Parcela {installment.position}:{' '}
-                  {formatDate(installment.dueDate)} -{' '}
-                  {formatCurrency(installment.amount)}
-                </InlineNote>
-              ))}
-            </div>
+            <QuoteInstallmentsEditor
+              installments={paymentInstallments}
+              onChange={updatePaymentInstallment}
+            />
           </FormCard>
         ) : null}
         <FormRow>
@@ -613,13 +673,23 @@ export function QuotesPage({
             slotProps={{ inputLabel: { shrink: true } }}
           />
           <TextField
+            helperText={`Sugerido pela configuração comercial: ${quoteDueDays(commercialSettings)} dia(s). Pode ser alterado manualmente.`}
             label='Primeiro vencimento do boleto/fatura'
             size='medium'
             type='date'
             value={billingDueDate}
             onChange={(event) => {
-              setBillingDueDate(event.target.value)
+              const nextDueDate = event.target.value
+
+              setBillingDueDate(nextDueDate)
               setBillingDueDateTouched(true)
+              setPaymentInstallments(
+                quotePaymentInstallments(
+                  installmentCount,
+                  nextDueDate || billingIssueDate,
+                  bankSlipAmount,
+                ),
+              )
             }}
             slotProps={{ inputLabel: { shrink: true } }}
           />
@@ -891,14 +961,7 @@ export function QuotesPage({
             },
             {
               header: 'Itens',
-              render: (quote) => (
-                <>
-                  {quote.items.length} item(ns)
-                  <InlineNote>
-                    {quote.items.map((item) => item.description).join(', ')}
-                  </InlineNote>
-                </>
-              ),
+              render: (quote) => `${quote.items.length} item(ns)`,
             },
             {
               header: 'Fatura',
@@ -997,6 +1060,9 @@ export function QuoteEditPage({
   const [billingDueDate, setBillingDueDate] = useState(
     quote.billingDueDate?.slice(0, 10) ?? '',
   )
+  const [billingDueDateTouched, setBillingDueDateTouched] = useState(
+    Boolean(quote.billingDueDate),
+  )
   const [validUntil, setValidUntil] = useState(
     quote.validUntil?.slice(0, 10) ?? '',
   )
@@ -1010,6 +1076,17 @@ export function QuoteEditPage({
   const [discountAmount, setDiscountAmount] = useState(quote.discountAmount)
   const [installmentCount, setInstallmentCount] = useState(
     Math.max(quote.paymentInstallments.length, 1),
+  )
+  const [paymentInstallments, setPaymentInstallments] = useState<
+    QuotePaymentInstallmentDraft[]
+  >(() =>
+    quotePaymentInstallmentDrafts(
+      quote.paymentInstallments,
+      Math.max(quote.paymentInstallments.length, 1),
+      quote.billingDueDate?.slice(0, 10) ??
+        quoteDueDate(todayInputDate(), commercialSettings),
+      Number(quote.totalAmount),
+    ),
   )
   const [items, setItems] = useState<QuoteDraftItem[]>(
     quote.items.map((item) => ({
@@ -1065,13 +1142,12 @@ export function QuoteEditPage({
   const bankSlipAmount = usesBankSlip
     ? quotePaymentMethodAmount(payments, quoteTotal, paymentMethods, 'BOLETO')
     : 0
-  const paymentInstallments = usesBankSlip
-    ? quotePaymentInstallments(
-        installmentCount,
-        billingDueDate || billingIssueDate || todayInputDate(),
-        bankSlipAmount,
-      )
-    : []
+  const installmentTotal = quotePaymentInstallmentsTotal(paymentInstallments)
+  const installmentDifference = Number(
+    (bankSlipAmount - installmentTotal).toFixed(2),
+  )
+  const hasInstallmentDifference =
+    usesBankSlip && Math.abs(installmentDifference) >= 0.01
   const paymentTotal = quotePaymentDraftTotal(payments, quoteTotal)
   const paymentDifference = Number((quoteTotal - paymentTotal).toFixed(2))
   const hasPaymentDifference = Math.abs(paymentDifference) >= 0.01
@@ -1079,7 +1155,9 @@ export function QuoteEditPage({
     clientId,
     discountExceedsTotal: generalDiscount > totalBeforeGeneralDiscount,
     hasPaymentDifference,
+    hasInstallmentDifference,
     items,
+    installmentDifference,
     paymentDifference,
     primaryPaymentMethodId,
     quoteTotal,
@@ -1092,6 +1170,7 @@ export function QuoteEditPage({
     setPayments(quotePaymentDrafts(quote))
     setBillingIssueDate(quote.billingIssueDate?.slice(0, 10) ?? '')
     setBillingDueDate(quote.billingDueDate?.slice(0, 10) ?? '')
+    setBillingDueDateTouched(Boolean(quote.billingDueDate))
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
     setNotes(quote.notes ?? '')
     setShowBrand(quote.showBrand)
@@ -1099,6 +1178,15 @@ export function QuoteEditPage({
     setDiscountPercentage(quote.discountPercentage)
     setDiscountAmount(quote.discountAmount)
     setInstallmentCount(Math.max(quote.paymentInstallments.length, 1))
+    setPaymentInstallments(
+      quotePaymentInstallmentDrafts(
+        quote.paymentInstallments,
+        Math.max(quote.paymentInstallments.length, 1),
+        quote.billingDueDate?.slice(0, 10) ??
+          quoteDueDate(todayInputDate(), commercialSettings),
+        Number(quote.totalAmount),
+      ),
+    )
     setItems(
       quote.items.map((item) => ({
         productId: item.productId,
@@ -1109,6 +1197,57 @@ export function QuoteEditPage({
       })),
     )
   }, [quote])
+
+  useEffect(() => {
+    if (billingDueDateTouched) {
+      return
+    }
+
+    const nextDueDate = quoteDueDate(
+      billingIssueDate || todayInputDate(),
+      commercialSettings,
+    )
+
+    setBillingDueDate(nextDueDate)
+    if (usesBankSlip) {
+      setPaymentInstallments(
+        quotePaymentInstallments(
+          installmentCount,
+          nextDueDate,
+          bankSlipAmount,
+        ),
+      )
+    }
+  }, [
+    bankSlipAmount,
+    billingDueDateTouched,
+    billingIssueDate,
+    commercialSettings?.defaultQuoteDueDays,
+    installmentCount,
+    usesBankSlip,
+  ])
+
+  useEffect(() => {
+    if (!usesBankSlip) {
+      setPaymentInstallments([])
+      return
+    }
+
+    setPaymentInstallments((currentInstallments) =>
+      syncQuotePaymentInstallments(
+        currentInstallments,
+        installmentCount,
+        billingDueDate || billingIssueDate || todayInputDate(),
+        bankSlipAmount,
+      ),
+    )
+  }, [
+    bankSlipAmount,
+    billingDueDate,
+    billingIssueDate,
+    installmentCount,
+    usesBankSlip,
+  ])
 
   function updateItem(index: number, changes: Partial<QuoteDraftItem>) {
     setItems((currentItems) =>
@@ -1142,6 +1281,19 @@ export function QuoteEditPage({
   function removeItem(index: number) {
     setItems((currentItems) =>
       currentItems.filter((_item, itemIndex) => itemIndex !== index),
+    )
+  }
+
+  function updatePaymentInstallment(
+    index: number,
+    changes: Partial<QuotePaymentInstallmentDraft>,
+  ) {
+    setPaymentInstallments((currentInstallments) =>
+      currentInstallments.map((installment, installmentIndex) =>
+        installmentIndex === index
+          ? { ...installment, ...changes }
+          : installment,
+      ),
     )
   }
 
@@ -1218,7 +1370,7 @@ export function QuoteEditPage({
       {usesBankSlip ? (
         <FormCard>
           <PageHeader
-            description='As parcelas são divididas igualmente a partir do primeiro vencimento do boleto.'
+            description='As parcelas são sugeridas pela configuração comercial e podem ser ajustadas manualmente.'
             title='Parcelamento do boleto'
           />
           <TextField
@@ -1234,15 +1386,10 @@ export function QuoteEditPage({
             slotProps={{ htmlInput: { min: '1', max: '24', step: '1' } }}
             required
           />
-          <div className='grid gap-2'>
-            {paymentInstallments.map((installment) => (
-              <InlineNote key={installment.position}>
-                Parcela {installment.position}:{' '}
-                {formatDate(installment.dueDate)} -{' '}
-                {formatCurrency(installment.amount)}
-              </InlineNote>
-            ))}
-          </div>
+          <QuoteInstallmentsEditor
+            installments={paymentInstallments}
+            onChange={updatePaymentInstallment}
+          />
         </FormCard>
       ) : null}
       <FormRow>
@@ -1255,11 +1402,24 @@ export function QuoteEditPage({
           slotProps={{ inputLabel: { shrink: true } }}
         />
         <TextField
+          helperText={`Sugerido pela configuração comercial: ${quoteDueDays(commercialSettings)} dia(s). Pode ser alterado manualmente.`}
           label='Primeiro vencimento do boleto/fatura'
           size='medium'
           type='date'
           value={billingDueDate}
-          onChange={(event) => setBillingDueDate(event.target.value)}
+          onChange={(event) => {
+            const nextDueDate = event.target.value
+
+            setBillingDueDate(nextDueDate)
+            setBillingDueDateTouched(true)
+            setPaymentInstallments(
+              quotePaymentInstallments(
+                installmentCount,
+                nextDueDate || billingIssueDate || todayInputDate(),
+                bankSlipAmount,
+              ),
+            )
+          }}
           slotProps={{ inputLabel: { shrink: true } }}
         />
       </FormRow>
@@ -1474,6 +1634,51 @@ function QuotePaymentHighlight({
         </span>
         <strong className='block truncate text-sm'>{label}</strong>
       </span>
+    </div>
+  )
+}
+
+function QuoteInstallmentsEditor({
+  installments,
+  onChange,
+}: {
+  installments: QuotePaymentInstallmentDraft[]
+  onChange: (
+    index: number,
+    changes: Partial<QuotePaymentInstallmentDraft>,
+  ) => void
+}) {
+  return (
+    <div className='grid gap-3'>
+      {installments.map((installment, index) => (
+        <div
+          className='grid gap-3 rounded-lg border border-[#e4e9e5] bg-[#fbfcfb] p-3 md:grid-cols-[80px_minmax(0,1fr)_180px]'
+          key={installment.position}>
+          <InlineNote>Parcela {installment.position}</InlineNote>
+          <TextField
+            label='Vencimento'
+            required
+            size='small'
+            type='date'
+            value={installment.dueDate}
+            onChange={(event) =>
+              onChange(index, { dueDate: event.target.value })
+            }
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            label='Valor'
+            required
+            size='small'
+            type='number'
+            value={installment.amount}
+            onChange={(event) =>
+              onChange(index, { amount: event.target.value })
+            }
+            slotProps={{ htmlInput: { min: '0.01', step: '0.01' } }}
+          />
+        </div>
+      ))}
     </div>
   )
 }
@@ -1951,9 +2156,13 @@ function QuotePaymentFields({
 
 function quoteDueDate(issueDate: string, settings: CommercialSettings | null) {
   const date = new Date(`${issueDate}T00:00:00`)
-  date.setDate(date.getDate() + Number(settings?.defaultQuoteDueDays ?? 0))
+  date.setDate(date.getDate() + quoteDueDays(settings))
 
   return date.toLocaleDateString('en-CA')
+}
+
+function quoteDueDays(settings: CommercialSettings | null) {
+  return Number(settings?.defaultQuoteDueDays ?? 0)
 }
 
 function quoteValidityDate(
@@ -1994,6 +2203,52 @@ function quotePaymentInstallments(
     amount: String(index === installmentCount - 1 ? lastAmount : baseAmount),
     dueDate: installmentDueDate(firstDueDate, index),
     position: index + 1,
+  }))
+}
+
+function quotePaymentInstallmentsTotal(
+  installments: QuotePaymentInstallmentDraft[],
+) {
+  return Number(
+    installments
+      .reduce((sum, installment) => sum + moneyInputValue(installment.amount), 0)
+      .toFixed(2),
+  )
+}
+
+function quotePaymentInstallmentDrafts(
+  installments: Quote['paymentInstallments'],
+  count: number,
+  firstDueDate: string,
+  totalAmount: number,
+) {
+  if (installments.length > 0) {
+    return installments.map((installment, index) => ({
+      amount: installment.amount,
+      dueDate: installment.dueDate.slice(0, 10),
+      position: index + 1,
+    }))
+  }
+
+  return quotePaymentInstallments(count, firstDueDate, totalAmount)
+}
+
+function syncQuotePaymentInstallments(
+  currentInstallments: QuotePaymentInstallmentDraft[],
+  count: number,
+  firstDueDate: string,
+  totalAmount: number,
+) {
+  const nextInstallments = quotePaymentInstallments(
+    count,
+    firstDueDate,
+    totalAmount,
+  )
+
+  return nextInstallments.map((installment, index) => ({
+    ...installment,
+    dueDate: currentInstallments[index]?.dueDate || installment.dueDate,
+    amount: currentInstallments[index]?.amount || installment.amount,
   }))
 }
 
@@ -2048,7 +2303,9 @@ function quotePaymentMethodAmount(
 function quoteBlockingIssues({
   clientId,
   discountExceedsTotal,
+  hasInstallmentDifference,
   hasPaymentDifference,
+  installmentDifference,
   items,
   paymentDifference,
   primaryPaymentMethodId,
@@ -2056,7 +2313,9 @@ function quoteBlockingIssues({
 }: {
   clientId: string
   discountExceedsTotal: boolean
+  hasInstallmentDifference: boolean
   hasPaymentDifference: boolean
+  installmentDifference: number
   items: QuoteDraftItem[]
   paymentDifference: number
   primaryPaymentMethodId: string
@@ -2082,6 +2341,9 @@ function quoteBlockingIssues({
     quoteTotal > 0 ? null : 'O total do orçamento precisa ser maior que zero.',
     hasPaymentDifference
       ? `A soma dos pagamentos precisa bater com o total final. Diferença atual: ${formatCurrency(Math.abs(paymentDifference))}.`
+      : null,
+    hasInstallmentDifference
+      ? `A soma das parcelas do boleto precisa bater com o valor do boleto. Diferença atual: ${formatCurrency(Math.abs(installmentDifference))}.`
       : null,
   ].filter((issue): issue is string => Boolean(issue))
 }
@@ -2180,6 +2442,11 @@ function emptyQuotePayment(): QuotePaymentDraft {
 function normalizeQuoteFormDraftPayload(
   payload: Record<string, unknown>,
 ): QuoteFormDraftPayload {
+  const installmentCount = numberPayloadValue(payload.installmentCount, 1)
+  const paymentInstallments = quotePaymentInstallmentPayloads(
+    payload.paymentInstallments,
+  )
+
   return {
     clientId: stringPayloadValue(payload.clientId),
     clientName: nullableStringPayloadValue(payload.clientName),
@@ -2195,9 +2462,46 @@ function normalizeQuoteFormDraftPayload(
     discountMode: quoteDiscountModePayloadValue(payload.discountMode),
     discountPercentage: stringPayloadValue(payload.discountPercentage),
     discountAmount: stringPayloadValue(payload.discountAmount),
-    installmentCount: numberPayloadValue(payload.installmentCount, 1),
+    installmentCount,
+    paymentInstallments,
     items: quoteItemDraftPayloads(payload.items),
     totalAmount: numberPayloadValue(payload.totalAmount, 0),
+  }
+}
+
+function quotePaymentInstallmentPayloads(value: unknown) {
+  const installments = Array.isArray(value) ? value : []
+
+  return installments
+    .map((installment, index) =>
+      installment && typeof installment === 'object'
+        ? quotePaymentInstallmentPayload(
+            installment as Record<string, unknown>,
+            index,
+          )
+        : null,
+    )
+    .filter(
+      (installment): installment is QuotePaymentInstallmentDraft =>
+        Boolean(installment),
+    )
+}
+
+function quotePaymentInstallmentPayload(
+  installment: Record<string, unknown>,
+  index: number,
+): QuotePaymentInstallmentDraft | null {
+  const dueDate = stringPayloadValue(installment.dueDate)
+  const amount = stringPayloadValue(installment.amount)
+
+  if (!dueDate || !amount) {
+    return null
+  }
+
+  return {
+    amount,
+    dueDate,
+    position: numberPayloadValue(installment.position, index + 1),
   }
 }
 

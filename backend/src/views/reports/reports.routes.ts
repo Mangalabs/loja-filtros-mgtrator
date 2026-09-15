@@ -30,6 +30,32 @@ const inventoryReportQuerySchema = z.object({
     .enum(["true", "false"])
     .transform((value) => value === "true")
     .optional(),
+  columns: z
+    .preprocess(
+      (value) => (Array.isArray(value) ? value : value ? [value] : undefined),
+      z
+        .array(
+          z.enum([
+            "internalCode",
+            "productName",
+            "unit",
+            "currentStock",
+            "location",
+            "ncm",
+            "previousStock",
+            "entryQuantity",
+            "exitQuantity",
+            "availableStock",
+            "costPrice",
+          ]),
+        )
+        .optional(),
+    ),
+  locations: z
+    .preprocess(
+      (value) => (Array.isArray(value) ? value : value ? [value] : undefined),
+      z.array(z.string().trim().min(1).max(120)).optional(),
+    ),
   search: z.string().trim().min(1).max(120).optional(),
   limit: z.coerce.number().int().min(0).max(10000).optional(),
   stockStatus: z

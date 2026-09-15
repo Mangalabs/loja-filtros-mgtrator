@@ -70,10 +70,25 @@ export type StockReportFilters = {
 export type InventoryReportFilters = {
   branchId: string;
   active?: boolean;
+  columns?: InventoryReportColumnKey[];
+  locations?: string[];
   search?: string;
   limit?: number;
   stockStatus?: "ALL" | "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
 };
+
+export type InventoryReportColumnKey =
+  | "internalCode"
+  | "productName"
+  | "unit"
+  | "currentStock"
+  | "location"
+  | "ncm"
+  | "previousStock"
+  | "entryQuantity"
+  | "exitQuantity"
+  | "availableStock"
+  | "costPrice";
 
 export type PurchaseReportFilters = {
   branchId: string;
@@ -1296,6 +1311,10 @@ function inventoryReportProductsQuery(filters: InventoryReportFilters) {
             .orWhereILike("product_groups.name", `%${filters.search}%`)
             .orWhereILike("products.location", `%${filters.search}%`);
         });
+      }
+
+      if (filters.locations?.length) {
+        query.whereIn("products.location", filters.locations);
       }
 
       if (filters.stockStatus && filters.stockStatus !== "ALL") {

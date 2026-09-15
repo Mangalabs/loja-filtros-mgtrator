@@ -1,5 +1,9 @@
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import FormGroup from '@mui/material/FormGroup'
+import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Skeleton from '@mui/material/Skeleton'
 import TextField from '@mui/material/TextField'
@@ -1469,16 +1473,24 @@ function InventoryReportSection({
   const [activeFilter, setActiveFilter] = useState<
     'ALL' | 'ACTIVE' | 'INACTIVE'
   >('ACTIVE')
+  const [locations, setLocations] = useState<string[]>([])
+  const [selectedColumns, setSelectedColumns] = useState<
+    InventoryReportColumnKey[]
+  >(defaultInventoryReportColumnKeys)
+  const [columnMenuAnchor, setColumnMenuAnchor] =
+    useState<HTMLElement | null>(null)
   const [appliedFilters, setAppliedFilters] = useState<InventoryReportFilters>({
     active: true,
   })
   const [loading, setLoading] = useState(false)
+  const locationOptions = inventoryLocationOptions(report)
 
   async function filterInventoryReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoading(true)
     const filters = inventoryReportFiltersFromControls({
       activeFilter,
+      locations,
       search,
       stockStatus,
     })
@@ -1496,6 +1508,7 @@ function InventoryReportSection({
     setSearch('')
     setStockStatus('ALL')
     setActiveFilter('ACTIVE')
+    setLocations([])
     setLoading(true)
 
     const loaded = await onLoadInventoryReport({ active: true })
@@ -1507,12 +1520,33 @@ function InventoryReportSection({
     setLoading(false)
   }
 
+  function toggleInventoryColumn(column: InventoryReportColumnKey) {
+    setSelectedColumns((currentColumns) =>
+      currentColumns.includes(column)
+        ? currentColumns.filter((currentColumn) => currentColumn !== column)
+        : [...currentColumns, column],
+    )
+  }
+
+  function toggleInventoryLocation(location: string) {
+    setLocations((currentLocations) =>
+      currentLocations.includes(location)
+        ? currentLocations.filter((currentLocation) => currentLocation !== location)
+        : [...currentLocations, location],
+    )
+  }
+
+  const selectedExportColumns = selectedColumns.length
+    ? selectedColumns
+    : defaultInventoryReportColumnKeys
+  const columnMenuOpen = Boolean(columnMenuAnchor)
+
   return (
     <PagePanel wide>
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 md:grid-cols-[minmax(220px,1fr)_170px_170px_auto_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 lg:w-auto xl:grid-cols-[minmax(220px,1fr)_170px_170px_auto_auto_auto_auto_auto]'
             onSubmit={filterInventoryReport}>
             <TextField
               label='Buscar'
@@ -1557,7 +1591,10 @@ function InventoryReportSection({
             <Button
               disabled={
                 loading ||
-                (!search && stockStatus === 'ALL' && activeFilter === 'ACTIVE')
+                (!search &&
+                  stockStatus === 'ALL' &&
+                  activeFilter === 'ACTIVE' &&
+                  locations.length === 0)
               }
               type='button'
               variant='outlined'
@@ -1565,10 +1602,48 @@ function InventoryReportSection({
               Limpar
             </Button>
             <Button
+              startIcon={<SlidersHorizontal size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={(event) => setColumnMenuAnchor(event.currentTarget)}>
+              Colunas ({selectedExportColumns.length})
+            </Button>
+            <Menu
+              anchorEl={columnMenuAnchor}
+              open={columnMenuOpen}
+              onClose={() => setColumnMenuAnchor(null)}
+              slotProps={{ paper: { className: 'min-w-64' } }}>
+              <div className='px-4 py-2'>
+                <strong className='text-sm text-[#2c281e]'>
+                  Dados do arquivo
+                </strong>
+                <span className='block text-xs text-[#5f665f]'>
+                  PDF e CSV usam esta seleção.
+                </span>
+              </div>
+              {inventoryReportColumns.map((column) => (
+                <MenuItem
+                  key={column.key}
+                  dense
+                  onClick={() => toggleInventoryColumn(column.key)}>
+                  <Checkbox
+                    checked={selectedColumns.includes(column.key)}
+                    size='small'
+                  />
+                  {column.label}
+                </MenuItem>
+              ))}
+            </Menu>
+            <Button
               startIcon={<Download size={16} />}
               type='button'
               variant='outlined'
-              onClick={() => void exportInventoryReportCsv(appliedFilters)}>
+              onClick={() =>
+                void exportInventoryReportCsv(
+                  appliedFilters,
+                  selectedExportColumns,
+                )
+              }>
               CSV
             </Button>
             <Button
@@ -1580,6 +1655,7 @@ function InventoryReportSection({
                   '/reports/inventory/pdf',
                   {
                     ...appliedFilters,
+                    columns: selectedExportColumns,
                     limit: 0,
                   },
                   'relatorio-inventario',
@@ -1593,6 +1669,32 @@ function InventoryReportSection({
         icon={<PackageSearch size={18} />}
         title='Inventario'
       />
+      <div className='grid gap-2 rounded-lg border border-[#e4e9e5] bg-[#fbfcfb] p-4'>
+          <strong className='text-sm text-[#2c281e]'>
+            Locações para filtrar
+          </strong>
+          <FormGroup className='max-h-36 overflow-auto rounded-md border border-[#e4e9e5] bg-white p-2 sm:grid sm:grid-cols-2 lg:grid-cols-4'>
+            {locationOptions.length ? (
+              locationOptions.map((location) => (
+                <FormControlLabel
+                  key={location}
+                  control={
+                    <Checkbox
+                      checked={locations.includes(location)}
+                      size='small'
+                      onChange={() => toggleInventoryLocation(location)}
+                    />
+                  }
+                  label={location}
+                />
+              ))
+            ) : (
+              <span className='px-1 py-2 text-sm text-[#5f665f]'>
+                Nenhuma locação encontrada.
+              </span>
+            )}
+          </FormGroup>
+      </div>
       <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>
         <ReportMetric
           icon={<PackageSearch size={18} />}
@@ -1701,25 +1803,115 @@ type SalesReportFilters = {
 
 type InventoryReportFilters = {
   active?: boolean
+  columns?: InventoryReportColumnKey[]
   limit?: number
+  locations?: string[]
   search?: string
   stockStatus?: 'ALL' | 'LOW' | 'NEGATIVE' | 'AVAILABLE' | 'OUT_OF_STOCK'
 }
 
 function inventoryReportFiltersFromControls({
   activeFilter,
+  locations,
   search,
   stockStatus,
 }: {
   activeFilter: 'ALL' | 'ACTIVE' | 'INACTIVE'
+  locations: string[]
   search: string
   stockStatus: InventoryReportFilters['stockStatus']
 }): InventoryReportFilters {
   return {
     active: activeFilter === 'ALL' ? undefined : activeFilter === 'ACTIVE',
+    locations,
     search,
     stockStatus,
   }
+}
+
+type InventoryReportColumnKey =
+  | 'internalCode'
+  | 'productName'
+  | 'unit'
+  | 'currentStock'
+  | 'location'
+  | 'ncm'
+  | 'previousStock'
+  | 'entryQuantity'
+  | 'exitQuantity'
+  | 'availableStock'
+  | 'costPrice'
+
+type InventoryReportColumn = {
+  key: InventoryReportColumnKey
+  label: string
+  value: (item: InventoryReport['items'][number]) => string
+}
+
+const inventoryReportColumns: InventoryReportColumn[] = [
+  {
+    key: 'internalCode',
+    label: 'Código',
+    value: (item) => item.internalCode ?? '',
+  },
+  { key: 'productName', label: 'Nome', value: (item) => item.productName },
+  { key: 'unit', label: 'Unidade', value: (item) => item.unit },
+  {
+    key: 'currentStock',
+    label: 'Estoque atual',
+    value: (item) => item.currentStock,
+  },
+  { key: 'location', label: 'Locação', value: (item) => item.location ?? '' },
+  { key: 'ncm', label: 'NCM', value: (item) => item.ncm ?? '' },
+  {
+    key: 'previousStock',
+    label: 'Estado anterior',
+    value: (item) => item.previousStock,
+  },
+  {
+    key: 'entryQuantity',
+    label: 'Entrada',
+    value: (item) => item.entryQuantity,
+  },
+  {
+    key: 'exitQuantity',
+    label: 'Saída',
+    value: (item) => item.exitQuantity,
+  },
+  {
+    key: 'availableStock',
+    label: 'Disponível',
+    value: (item) => item.availableStock,
+  },
+  {
+    key: 'costPrice',
+    label: 'Custo médio',
+    value: (item) => item.costPrice,
+  },
+]
+
+const defaultInventoryReportColumnKeys: InventoryReportColumnKey[] = [
+  'internalCode',
+  'productName',
+  'unit',
+  'currentStock',
+  'location',
+]
+
+function inventoryReportColumnsByKeys(keys: InventoryReportColumnKey[]) {
+  return keys
+    .map((key) => inventoryReportColumns.find((column) => column.key === key))
+    .filter((column): column is InventoryReportColumn => Boolean(column))
+}
+
+function inventoryLocationOptions(report: InventoryReport) {
+  return Array.from(
+    new Set(
+      report.items
+        .map((item) => item.location?.trim())
+        .filter((location): location is string => Boolean(location)),
+    ),
+  ).sort((current, next) => current.localeCompare(next, 'pt-BR'))
 }
 
 function abcTone(abcClass: 'A' | 'B' | 'C'): StatusTone {
@@ -1805,6 +1997,15 @@ function reportDownloadPath(
 
   Object.entries(filters).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '') {
+      return
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item !== undefined && item !== null && item !== '') {
+          query.append(key, String(item))
+        }
+      })
       return
     }
 
@@ -1943,7 +2144,10 @@ function exportUserPerformanceReportCsv(report: UserPerformanceReport) {
   ])
 }
 
-async function exportInventoryReportCsv(filters: InventoryReportFilters) {
+async function exportInventoryReportCsv(
+  filters: InventoryReportFilters,
+  columnKeys: InventoryReportColumnKey[],
+) {
   const result = await apiGet<ApiResult<InventoryReport>>(
     reportDownloadPath('/reports/inventory', {
       ...filters,
@@ -1951,24 +2155,15 @@ async function exportInventoryReportCsv(filters: InventoryReportFilters) {
     }),
   )
   const generatedAt = formatDateTime(new Date().toISOString())
+  const columns = inventoryReportColumnsByKeys(columnKeys)
 
   downloadCsv('relatorio-inventario', [
     ['Gerado em', generatedAt],
     [],
-    [
-      'Codigo',
-      'Nome',
-      'Unidade',
-      'Estoque atual',
-      'Locação',
-    ],
-    ...result.data.items.map((item) => [
-      item.internalCode ?? '',
-      item.productName,
-      item.unit,
-      item.currentStock,
-      item.location ?? '',
-    ]),
+    columns.map((column) => column.label),
+    ...result.data.items.map((item) =>
+      columns.map((column) => column.value(item)),
+    ),
   ])
 }
 

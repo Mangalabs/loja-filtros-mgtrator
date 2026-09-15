@@ -757,7 +757,9 @@ type ReportPeriodFilters = {
 
 type InventoryReportFilters = {
   active?: boolean;
+  columns?: string[];
   limit?: number;
+  locations?: string[];
   search?: string;
   stockStatus?: "ALL" | "LOW" | "NEGATIVE" | "AVAILABLE" | "OUT_OF_STOCK";
 };
@@ -780,6 +782,18 @@ function inventoryReportPath(filters: InventoryReportFilters) {
   if (filters.limit !== undefined) {
     params.set("limit", String(filters.limit));
   }
+
+  filters.locations?.forEach((location) => {
+    if (location) {
+      params.append("locations", location);
+    }
+  });
+
+  filters.columns?.forEach((column) => {
+    if (column) {
+      params.append("columns", column);
+    }
+  });
 
   if (filters.stockStatus && filters.stockStatus !== "ALL") {
     params.set("stockStatus", filters.stockStatus);
