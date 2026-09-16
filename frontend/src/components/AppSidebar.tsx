@@ -9,9 +9,7 @@ import {
   List as ListIcon,
   PackagePlus,
   Percent,
-  Send,
   ShoppingCart,
-  ReceiptText,
   SlidersHorizontal,
   Tags,
   Truck,
@@ -170,34 +168,17 @@ export function AppSidebar({
           title='Vendas'
           onToggle={() => onToggleSection('sales')}>
           <NavButton
-            active={view === 'sales'}
+            active={view === 'sales-operations'}
             icon={<ShoppingCart size={18} />}
-            onClick={() => onSelectView('sales')}>
-            Venda direta
-          </NavButton>
-          <NavButton
-            active={view === 'sales-history'}
-            icon={<ReceiptText size={18} />}
-            onClick={() => onSelectView('sales-history')}>
-            Histórico de vendas
-          </NavButton>
-          <NavButton
-            active={view === 'shipping-orders'}
-            icon={<Send size={18} />}
-            onClick={() => onSelectView('shipping-orders')}>
+            onClick={() => onSelectView('sales-operations')}>
             Vendas
-          </NavButton>
-          <NavButton
-            active={view === 'pickup-reservations'}
-            icon={<PackagePlus size={18} />}
-            onClick={() => onSelectView('pickup-reservations')}>
-            Retirada
           </NavButton>
         </NavSection>
 
         {[
           'payment-methods',
           'fiscal-settings',
+          'fiscal-operations',
           'fiscal-documents',
           'fiscal-issued-documents',
           'manual-fiscal-document',
@@ -226,18 +207,10 @@ export function AppSidebar({
             ) : null}
             {canAccess('fiscal-documents') ? (
               <NavButton
-                active={view === 'fiscal-documents'}
+                active={view === 'fiscal-operations'}
                 icon={<FileText size={18} />}
-                onClick={() => onSelectView('fiscal-documents')}>
-                Notas fiscais
-              </NavButton>
-            ) : null}
-            {canAccess('fiscal-issued-documents') ? (
-              <NavButton
-                active={view === 'fiscal-issued-documents'}
-                icon={<ReceiptText size={18} />}
-                onClick={() => onSelectView('fiscal-issued-documents')}>
-                Notas emitidas
+                onClick={() => onSelectView('fiscal-operations')}>
+                NF-e
               </NavButton>
             ) : null}
             {canAccess('manual-fiscal-document') ? (

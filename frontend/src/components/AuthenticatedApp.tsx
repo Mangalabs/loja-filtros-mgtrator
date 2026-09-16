@@ -30,6 +30,8 @@ import { AppViewRenderer } from "./AppViewRenderer";
 import { AppWorkspaceHeader } from "./AppWorkspaceHeader";
 import { AppMessage, ConfirmationDialog } from "./shell";
 import type { FiscalPendencyTarget } from "../views/finance/FiscalDocumentsPage";
+import type { FiscalOperationsTab } from "../views/finance/FiscalOperationsPage";
+import type { SalesOperationsTab } from "../views/sales/SalesOperationsPage";
 
 export function AuthenticatedApp({
   user,
@@ -53,12 +55,18 @@ export function AuthenticatedApp({
     useState<FiscalDocument>();
   const [selectedManualFiscalDocumentDraft, setSelectedManualFiscalDocumentDraft] =
     useState<ManualFiscalDocumentDraft>();
+  const [fiscalOperationsInitialTab, setFiscalOperationsInitialTab] =
+    useState<FiscalOperationsTab>();
   const [fiscalQueueSearch, setFiscalQueueSearch] = useState("");
+  const [salesOperationsInitialTab, setSalesOperationsInitialTab] =
+    useState<SalesOperationsTab>();
   const [fiscalPendencyReturnView, setFiscalPendencyReturnView] =
     useState<View>();
   const [selectedQuote, setSelectedQuote] = useState<Quote>();
   const [reusedQuote, setReusedQuote] = useState<Quote>();
   const [selectedSale, setSelectedSale] = useState<Sale>();
+  const [saleEditReturnTab, setSaleEditReturnTab] =
+    useState<SalesOperationsTab>("direct");
   const [selectedFiscalSale, setSelectedFiscalSale] = useState<Sale>();
   const { closeConfirmation, confirmation, requestConfirmation } =
     useConfirmation();
@@ -144,13 +152,17 @@ export function AuthenticatedApp({
   }, [activeBranchId, branches, fallbackBranchId, user.role]);
 
   const setView = useCallback((nextView: View) => {
-    setViewState(nextView);
-    storeActiveView(nextView);
+    const normalizedView = migratedInitialView(nextView);
+
+    setViewState(normalizedView);
+    storeActiveView(normalizedView);
   }, []);
 
   const selectView = useCallback(
     (nextView: View) => {
       setFiscalPendencyReturnView(undefined);
+      setFiscalOperationsInitialTab(undefined);
+      setSalesOperationsInitialTab(undefined);
 
       if (nextView === "manual-fiscal-document") {
         setSelectedManualFiscalDocument(undefined);
@@ -173,6 +185,10 @@ export function AuthenticatedApp({
         setSelectedManualFiscalDocument(fiscalDocument);
         setSelectedManualFiscalDocumentDraft(undefined);
         setSelectedFiscalSale(undefined);
+      } else {
+        setSalesOperationsInitialTab(
+          salesOperationsTabForFiscalSource(fiscalDocument),
+        );
       }
 
       setView(fiscalDocumentSourceView(fiscalDocument));
@@ -227,14 +243,20 @@ export function AuthenticatedApp({
     refreshPaymentMethods,
     requestConfirmation,
     runAction,
-    showFiscalDocuments: () => setView("fiscal-issued-documents"),
+    showFiscalDocuments: () => {
+      setFiscalOperationsInitialTab("issued");
+      setView("fiscal-operations");
+    },
   });
 
   const quoteActions = useQuoteActions({
     refreshQuoteFlow,
     requestConfirmation,
     runAction,
-    showShippingOrders: () => setView("shipping-orders"),
+    showShippingOrders: () => {
+      setSalesOperationsInitialTab("shipping");
+      setView("sales-operations");
+    },
   });
 
   const salesActions = useSalesActions({
@@ -242,13 +264,25 @@ export function AuthenticatedApp({
     refreshSalesFlow,
     requestConfirmation,
     runAction,
-    showFiscalDocuments: () => setView("fiscal-issued-documents"),
-    showSalesHistory: () => setView("sales-history"),
+    showFiscalDocuments: () => {
+      setFiscalOperationsInitialTab("issued");
+      setView("fiscal-operations");
+    },
+    showSalesHistory: (target = "direct") => {
+      setSalesOperationsInitialTab(target);
+      setView("sales-operations");
+    },
   });
 
   const activeTitle = viewTitles[view];
 
   async function openSaleEditor(sale: Sale) {
+    const returnTab = salesOperationsTabForSale(
+      sale,
+      shippingOrders,
+      pickupReservations,
+    );
+
     if (sale.status === "COMPLETED") {
       const reopened = await salesActions.reopenSale(sale);
 
@@ -257,6 +291,7 @@ export function AuthenticatedApp({
       }
     }
 
+    setSaleEditReturnTab(returnTab);
     setSelectedSale({ ...sale, status: "OPEN" });
     setView("edit-sale");
     return true;
@@ -264,7 +299,9 @@ export function AuthenticatedApp({
 
   function resolveFiscalPendency(target: FiscalPendencyTarget) {
     setFiscalPendencyReturnView(
-      view === "fiscal-issued-documents" ? view : "fiscal-documents",
+      view === "fiscal-issued-documents" || view === "fiscal-operations"
+        ? view
+        : "fiscal-operations",
     );
 
     if (target.view === "clients" && target.clientId) {
@@ -361,8 +398,10 @@ export function AuthenticatedApp({
             commercialSettings={commercialSettings}
             financeActions={financeActions}
             fiscalDocuments={fiscalDocuments}
+            fiscalOperationsInitialTab={fiscalOperationsInitialTab}
             fiscalSettings={fiscalSettings}
             fiscalQueueSearch={fiscalQueueSearch}
+            salesOperationsInitialTab={salesOperationsInitialTab}
             inventoryReport={inventoryReport}
             lowStockProducts={lowStockProducts}
             manualFiscalDocumentDrafts={manualFiscalDocumentDrafts}
@@ -383,6 +422,7 @@ export function AuthenticatedApp({
             reportsOverview={reportsOverview}
             sales={sales}
             salesReport={salesReport}
+            saleEditReturnTab={saleEditReturnTab}
             onLoadCashReport={loadCashReport}
             onLoadInventoryReport={loadInventoryReport}
             onLoadPurchaseReport={loadPurchaseReport}
@@ -424,7 +464,8 @@ export function AuthenticatedApp({
             }}
             onCancelSaleEdit={() => {
               setSelectedSale(undefined);
-              setView("sales-history");
+              setSalesOperationsInitialTab(saleEditReturnTab);
+              setView("sales-operations");
             }}
             onOpenQuotes={() => setView("quotes")}
             onResolveFiscalPendency={resolveFiscalPendency}
@@ -434,7 +475,8 @@ export function AuthenticatedApp({
             onOpenFiscalDocumentSource={openFiscalDocumentSource}
             onOpenSaleFiscalQueue={(sale) => {
               setFiscalQueueSearch(String(sale.saleNumber));
-              setView("fiscal-documents");
+              setFiscalOperationsInitialTab("queue");
+              setView("fiscal-operations");
             }}
             onOpenManualFiscalDocumentDraft={(draft) => {
               setSelectedManualFiscalDocument(undefined);
@@ -475,12 +517,40 @@ function fiscalDocumentSourceView(
 ): View {
   const views: Record<FiscalDocument["sourceType"], View> = {
     MANUAL_NFE: "manual-fiscal-document",
-    PICKUP_RESERVATION: "pickup-reservations",
-    SALE: "sales-history",
-    SHIPPING_ORDER: "shipping-orders",
+    PICKUP_RESERVATION: "sales-operations",
+    SALE: "sales-operations",
+    SHIPPING_ORDER: "sales-operations",
   };
 
   return views[fiscalDocument.sourceType];
+}
+
+function salesOperationsTabForFiscalSource(
+  fiscalDocument: FiscalDocument,
+): SalesOperationsTab {
+  const tabs: Partial<Record<FiscalDocument["sourceType"], SalesOperationsTab>> = {
+    PICKUP_RESERVATION: "pickup",
+    SALE: "direct",
+    SHIPPING_ORDER: "shipping",
+  };
+
+  return tabs[fiscalDocument.sourceType] ?? "shipping";
+}
+
+function salesOperationsTabForSale(
+  sale: Sale,
+  shippingOrders: Array<{ saleId: string | null }>,
+  pickupReservations: Array<{ saleId: string | null }>,
+): SalesOperationsTab {
+  if (shippingOrders.some((order) => order.saleId === sale.id)) {
+    return "shipping";
+  }
+
+  if (pickupReservations.some((reservation) => reservation.saleId === sale.id)) {
+    return "pickup";
+  }
+
+  return "direct";
 }
 
 function readInitialView(user: AuthUser): View {
@@ -499,7 +569,26 @@ function readInitialView(user: AuthUser): View {
     return "products";
   }
 
-  return canAccessView(user, storedView) ? storedView : "products";
+  const migratedView = migratedInitialView(storedView);
+
+  return canAccessView(user, migratedView) ? migratedView : "products";
+}
+
+function migratedInitialView(view: View): View {
+  if (
+    view === "sales" ||
+    view === "sales-history" ||
+    view === "shipping-orders" ||
+    view === "pickup-reservations"
+  ) {
+    return "sales-operations";
+  }
+
+  if (view === "fiscal-documents" || view === "fiscal-issued-documents") {
+    return "fiscal-operations";
+  }
+
+  return view;
 }
 
 function readInitialBranchId(user: AuthUser) {

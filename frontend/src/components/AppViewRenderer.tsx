@@ -59,6 +59,10 @@ import {
   ManualFiscalDocumentPage,
   type FiscalPendencyTarget,
 } from "../views/finance/FiscalDocumentsPage";
+import {
+  FiscalOperationsPage,
+  type FiscalOperationsTab,
+} from "../views/finance/FiscalOperationsPage";
 import { FiscalSettingsPage } from "../views/finance/FiscalSettingsPage";
 import { PaymentMethodsPage } from "../views/finance/PaymentMethodsPage";
 import type { useFinanceActions } from "../views/finance/useFinanceActions";
@@ -72,6 +76,10 @@ import {
   ShippingOrdersPage,
 } from "../views/sales/SalesPages";
 import { SalesHistoryPage } from "../views/sales/SalesHistoryPage";
+import {
+  SalesOperationsPage,
+  type SalesOperationsTab,
+} from "../views/sales/SalesOperationsPage";
 import type { useSalesActions } from "../views/sales/useSalesActions";
 import {
   LowStockPage,
@@ -92,6 +100,7 @@ type AppViewRendererProps = {
   commercialSettings: CommercialSettings | null;
   financeActions: ReturnType<typeof useFinanceActions>;
   fiscalDocuments: FiscalDocument[];
+  fiscalOperationsInitialTab?: FiscalOperationsTab;
   fiscalQueueSearch: string;
   fiscalSettings: FiscalSettings | null;
   inventoryReport: InventoryReport | null;
@@ -114,6 +123,8 @@ type AppViewRendererProps = {
   reportsOverview: ReportsOverview | null;
   sales: Sale[];
   salesReport: SalesReport | null;
+  salesOperationsInitialTab?: SalesOperationsTab;
+  saleEditReturnTab?: SalesOperationsTab;
   salesActions: ReturnType<typeof useSalesActions>;
   search: string;
   selectedClient?: Client;
@@ -200,6 +211,7 @@ export function AppViewRenderer({
   commercialSettings,
   financeActions,
   fiscalDocuments,
+  fiscalOperationsInitialTab,
   fiscalQueueSearch,
   fiscalSettings,
   inventoryReport,
@@ -222,6 +234,8 @@ export function AppViewRenderer({
   reportsOverview,
   sales,
   salesReport,
+  salesOperationsInitialTab,
+  saleEditReturnTab,
   salesActions,
   search,
   selectedClient,
@@ -391,6 +405,70 @@ export function AppViewRenderer({
           onSubmit={(input) => void financeActions.saveFiscalSettings(input)}
         />
       ),
+    "fiscal-operations": (
+      <FiscalOperationsPage
+        clients={clients}
+        fiscalDocuments={fiscalDocuments}
+        fiscalSettings={fiscalSettings}
+        initialTab={fiscalOperationsInitialTab}
+        initialRequestSearch={fiscalQueueSearch}
+        pickupReservations={pickupReservations}
+        products={products}
+        sales={sales}
+        shippingOrders={shippingOrders}
+        onCancelFiscalDocument={(event, fiscalDocument) =>
+          void financeActions.cancelFiscalDocument(event, fiscalDocument)
+        }
+        onEditSaleFiscalDocument={onOpenSaleFiscalDocumentEditor}
+        onIssuePickupReservationFiscalDocument={(
+          reservation,
+          additionalInformation,
+        ) =>
+          void salesActions.issuePickupReservationFiscalDocument(
+            reservation,
+            additionalInformation,
+          )
+        }
+        onIssueSaleFiscalDocument={(sale, additionalInformation) =>
+          void salesActions.issueSaleFiscalDocument(
+            sale,
+            additionalInformation,
+          )
+        }
+        onIssueShippingOrderFiscalDocument={(order, additionalInformation) =>
+          void salesActions.issueShippingOrderFiscalDocument(
+            order,
+            additionalInformation,
+          )
+        }
+        onOpenFiscalDocumentSource={onOpenFiscalDocumentSource}
+        onPreviewPickupReservationFiscalDocument={(
+          reservation,
+          additionalInformation,
+        ) =>
+          void salesActions.previewPickupReservationFiscalDocument(
+            reservation,
+            additionalInformation,
+          )
+        }
+        onPreviewSaleFiscalDocument={(sale, additionalInformation) =>
+          void salesActions.previewSaleFiscalDocument(
+            sale,
+            additionalInformation,
+          )
+        }
+        onPreviewShippingOrderFiscalDocument={(order, additionalInformation) =>
+          void salesActions.previewShippingOrderFiscalDocument(
+            order,
+            additionalInformation,
+          )
+        }
+        onResolveFiscalPendency={onResolveFiscalPendency}
+        onSyncFiscalDocument={(fiscalDocument) =>
+          void financeActions.syncFiscalDocument(fiscalDocument)
+        }
+      />
+    ),
     "fiscal-documents": (
         <FiscalDocumentsPage
           clients={clients}
@@ -595,6 +673,51 @@ export function AppViewRenderer({
         />
       </PagePanel>
     ),
+    "sales-operations": (
+      <SalesOperationsPage
+        cashRegister={cashRegister}
+        clients={clients}
+        fiscalDocuments={fiscalDocuments}
+        initialTab={salesOperationsInitialTab}
+        paymentMethods={paymentMethods}
+        pickupReservations={pickupReservations}
+        products={products}
+        sales={sales}
+        shippingOrders={shippingOrders}
+        onApproveShippingOrder={(order) =>
+          void salesActions.approveShippingOrder(order)
+        }
+        onCancelPickupReservation={(event, reservation) =>
+          void salesActions.cancelPickupReservation(event, reservation)
+        }
+        onCancelShippingOrder={(event, order) =>
+          void salesActions.cancelShippingOrder(event, order)
+        }
+        onCompletePickupReservation={(event, reservation) =>
+          void salesActions.completePickupReservation(event, reservation)
+        }
+        onCompleteReopenedSale={(sale) =>
+          void salesActions.completeReopenedSale(sale)
+        }
+        onCompleteShippingOrder={(event, order) =>
+          void salesActions.completeShippingOrder(event, order)
+        }
+        onCreatePickupReservation={salesActions.createPickupReservation}
+        onCreateSale={salesActions.createSale}
+        onEditSale={onSelectSale}
+        onOpenQuotes={onOpenQuotes}
+        onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
+        onReturnItem={(event, sale) =>
+          void salesActions.returnSaleItem(event, sale)
+        }
+        onSeparateShippingOrder={(order) =>
+          void salesActions.separateShippingOrder(order)
+        }
+        onUpdateSaleCommercialDetails={(event, sale) =>
+          void salesActions.updateSaleCommercialDetails(event, sale)
+        }
+      />
+    ),
     sales: (
         <SalesPage
           cashRegister={cashRegister}
@@ -602,7 +725,7 @@ export function AppViewRenderer({
           paymentMethods={paymentMethods}
           products={products}
           sales={sales}
-          onOpenSalesHistory={() => onSelectView("sales-history")}
+          onOpenSalesHistory={() => onSelectView("sales-operations")}
           onSubmit={salesActions.createSale}
         />
       ),
@@ -613,7 +736,9 @@ export function AppViewRenderer({
         products={products}
         sale={selectedSale}
         onCancel={onCancelSaleEdit}
-        onSubmit={salesActions.updateOpenSale}
+        onSubmit={(sale, input) =>
+          salesActions.updateOpenSale(sale, input, saleEditReturnTab)
+        }
       />
     ) : (
       <PagePanel>

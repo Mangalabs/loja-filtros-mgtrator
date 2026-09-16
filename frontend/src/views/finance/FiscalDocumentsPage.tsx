@@ -6,12 +6,31 @@ import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Checkbox from '@mui/material/Checkbox'
+import Drawer from '@mui/material/Drawer'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
-import { ChevronDown, FileText, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import {
+  ChevronDown,
+  CreditCard,
+  FileText,
+  History,
+  Package,
+  Paperclip,
+  Plus,
+  ReceiptText,
+  Trash2,
+  User,
+  X,
+} from 'lucide-react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import type {
   Client,
   ClientCompanyLookup,
@@ -43,7 +62,6 @@ import {
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import { formatCurrency, formatDateTime } from '../../utils/format'
 import {
-  fiscalDocumentAuditDetail,
   fiscalDocumentEnvironmentLabel,
   fiscalDocumentStatusDetail,
   fiscalDocumentStatusLabel,
@@ -60,6 +78,7 @@ import {
 
 export function FiscalDocumentsPage({
   clients,
+  embedded = false,
   fiscalDocuments,
   fiscalSettings,
   initialRequestSearch = '',
@@ -77,6 +96,7 @@ export function FiscalDocumentsPage({
   onResolveFiscalPendency,
 }: {
   clients: Client[]
+  embedded?: boolean
   fiscalDocuments: FiscalDocument[]
   fiscalSettings: FiscalSettings | null
   initialRequestSearch?: string
@@ -112,6 +132,10 @@ export function FiscalDocumentsPage({
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void
 }) {
   const [requestSearch, setRequestSearch] = useState('')
+  const [selectedFiscalDetail, setSelectedFiscalDetail] =
+    useState<FiscalDetail>()
+  const [requestFiscalStatusFilter, setRequestFiscalStatusFilter] =
+    useState<FiscalRequestFiscalStatusFilter>('ALL')
   const [requestReadinessFilter, setRequestReadinessFilter] =
     useState<FiscalRequestReadinessFilter>('ALL')
 
@@ -131,26 +155,36 @@ export function FiscalDocumentsPage({
   const filteredFiscalRequests = useMemo(
     () =>
       filterFiscalRequests(fiscalRequests, {
+        fiscalStatus: requestFiscalStatusFilter,
         readiness: requestReadinessFilter,
         search: requestSearch,
       }),
-    [fiscalRequests, requestReadinessFilter, requestSearch],
+    [
+      fiscalRequests,
+      requestFiscalStatusFilter,
+      requestReadinessFilter,
+      requestSearch,
+    ],
   )
   const { pagination: requestPagination, visibleItems: visibleFiscalRequests } =
     usePaginatedRows<FiscalRequest>(
       filteredFiscalRequests,
-      [requestReadinessFilter, requestSearch].join('|'),
+      [requestFiscalStatusFilter, requestReadinessFilter, requestSearch].join(
+        '|',
+      ),
     )
 
   return (
     <section className='grid min-w-0 gap-4'>
       <PagePanel className='min-w-0'>
-        <PageHeader
-          description={`${filteredFiscalRequests.length} de ${fiscalRequests.length} registro(s) na fila.`}
-          icon={<FileText size={18} />}
-          title='Fila de emissão'
-        />
-        <div className='mb-4 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_220px]'>
+        {embedded ? null : (
+          <PageHeader
+            description={`${filteredFiscalRequests.length} de ${fiscalRequests.length} registro(s) na fila.`}
+            icon={<FileText size={18} />}
+            title='Fila de emissão'
+          />
+        )}
+        <div className='mb-4 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_200px_220px]'>
           <TextField
             label='Pesquisar na fila'
             placeholder='Cliente, nº da venda, origem, operador...'
@@ -158,6 +192,22 @@ export function FiscalDocumentsPage({
             value={requestSearch}
             onChange={(event) => setRequestSearch(event.target.value)}
           />
+          <TextField
+            label='Status fiscal'
+            select
+            size='medium'
+            value={requestFiscalStatusFilter}
+            onChange={(event) =>
+              setRequestFiscalStatusFilter(
+                event.target.value as FiscalRequestFiscalStatusFilter,
+              )
+            }>
+            {fiscalRequestStatusFilterOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             label='Prontidão'
             select
@@ -207,7 +257,10 @@ export function FiscalDocumentsPage({
               header: 'Status fiscal',
               render: (request) =>
                 request.document ? (
-                  <FiscalDocumentStatus document={request.document} />
+                  <StatusChip
+                    label={fiscalDocumentStatusLabel(request.document.status)}
+                    tone={fiscalDocumentStatusTone(request.document.status)}
+                  />
                 ) : (
                   <StatusChip label={request.pendingLabel} tone='warning' />
                 ),
@@ -215,10 +268,12 @@ export function FiscalDocumentsPage({
             {
               header: 'Prontidao',
               render: (request) => (
-                <FiscalReadinessStatus
-                  request={request}
-                  onResolveFiscalPendency={onResolveFiscalPendency}
-                />
+                <div onClick={(event) => event.stopPropagation()}>
+                  <FiscalReadinessStatus
+                    request={request}
+                    onResolveFiscalPendency={onResolveFiscalPendency}
+                  />
+                </div>
               ),
             },
             {
@@ -229,7 +284,9 @@ export function FiscalDocumentsPage({
               align: 'right',
               header: 'Ações',
               render: (request) => (
-                <div className='flex flex-wrap justify-end gap-2'>
+                <div
+                  className='flex flex-wrap justify-end gap-2'
+                  onClick={(event) => event.stopPropagation()}>
                   <FiscalRequestAction
                     request={request}
                     onIssuePickupReservationFiscalDocument={
@@ -256,15 +313,23 @@ export function FiscalDocumentsPage({
           emptyMessage='Nenhuma venda disponível para emissão.'
           getRowId={(request) => `${request.sourceType}-${request.sourceId}`}
           items={visibleFiscalRequests}
+          onRowClick={(request) =>
+            setSelectedFiscalDetail(fiscalDetailFromRequest(request))
+          }
           pagination={requestPagination}
         />
       </PagePanel>
+      <FiscalDetailDrawer
+        detail={selectedFiscalDetail}
+        onClose={() => setSelectedFiscalDetail(undefined)}
+      />
     </section>
   )
 }
 
 export function IssuedFiscalDocumentsPage({
   clients,
+  embedded = false,
   fiscalDocuments,
   pickupReservations,
   sales,
@@ -274,6 +339,7 @@ export function IssuedFiscalDocumentsPage({
   onSyncFiscalDocument,
 }: {
   clients: Client[]
+  embedded?: boolean
   fiscalDocuments: FiscalDocument[]
   pickupReservations: PickupReservation[]
   sales: Sale[]
@@ -286,6 +352,8 @@ export function IssuedFiscalDocumentsPage({
   onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void
 }) {
   const [documentSearch, setDocumentSearch] = useState('')
+  const [selectedFiscalDetail, setSelectedFiscalDetail] =
+    useState<FiscalDetail>()
   const [documentStatusFilter, setDocumentStatusFilter] =
     useState<FiscalDocumentStatusFilter>('ALL')
   const fiscalDocumentSourceNumbers = buildFiscalDocumentSourceNumbers({
@@ -326,11 +394,13 @@ export function IssuedFiscalDocumentsPage({
   return (
     <section className='grid min-w-0 gap-4'>
       <PagePanel className='min-w-0'>
-        <PageHeader
-          description={`${filteredFiscalDocuments.length} de ${fiscalDocuments.length} documento(s) encontrado(s).`}
-          icon={<FileText size={18} />}
-          title='Notas emitidas'
-        />
+        {embedded ? null : (
+          <PageHeader
+            description={`${filteredFiscalDocuments.length} de ${fiscalDocuments.length} documento(s) encontrado(s).`}
+            icon={<FileText size={18} />}
+            title='Notas emitidas'
+          />
+        )}
         <div className='mb-4 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_200px]'>
           <TextField
             label='Pesquisar NF-e'
@@ -388,41 +458,16 @@ export function IssuedFiscalDocumentsPage({
             {
               header: 'Status',
               render: (document) => (
-                <div className='min-w-[220px]'>
-                  <StatusChip
-                    label={fiscalDocumentStatusLabel(document.status)}
-                    tone={fiscalDocumentStatusTone(document.status)}
-                  />
-                  <FiscalDocumentStatusDetail document={document} />
-                </div>
+                <StatusChip
+                  label={fiscalDocumentStatusLabel(document.status)}
+                  tone={fiscalDocumentStatusTone(document.status)}
+                />
               ),
             },
             {
-              header: 'Ambiente',
-              render: (document) => (
-                <>
-                  <strong>{document.provider}</strong>
-                  <InlineNote>
-                    {fiscalDocumentEnvironmentLabel(document.environment)}
-                  </InlineNote>
-                </>
-              ),
-            },
-            {
-              header: 'Emissão',
-              render: (document) => (
-                <>
-                  <strong>
-                    {formatDateTime(document.issuedAt ?? document.createdAt)}
-                  </strong>
-                  <InlineNote>{document.issuedByUserName}</InlineNote>
-                  {fiscalDocumentAuditDetail(document) ? (
-                    <InlineNote>
-                      {fiscalDocumentAuditDetail(document)}
-                    </InlineNote>
-                  ) : null}
-                </>
-              ),
+              header: 'Data/hora',
+              render: (document) =>
+                formatDateTime(document.issuedAt ?? document.createdAt),
             },
             {
               header: 'Cliente',
@@ -436,28 +481,56 @@ export function IssuedFiscalDocumentsPage({
             },
             {
               align: 'right',
-              header: 'Arquivos',
-              render: (document) => <FiscalDocumentLinks document={document} />,
+              header: 'Total',
+              render: (document) =>
+                formatCurrency(
+                  fiscalDocumentSourceDetail(document, {
+                    pickupReservations,
+                    sales,
+                    shippingOrders,
+                  }).totalAmount,
+                ),
+            },
+            {
+              header: 'Operador',
+              render: (document) => document.issuedByUserName,
             },
             {
               align: 'right',
               header: 'Ações',
               render: (document) => (
-                <FiscalDocumentActions
-                  document={document}
-                  onCancelFiscalDocument={onCancelFiscalDocument}
-                  onOpenFiscalDocumentSource={onOpenFiscalDocumentSource}
-                  onSyncFiscalDocument={onSyncFiscalDocument}
-                />
+                <div onClick={(event) => event.stopPropagation()}>
+                  <FiscalDocumentFilesAndActions
+                    document={document}
+                    onCancelFiscalDocument={onCancelFiscalDocument}
+                    onOpenFiscalDocumentSource={onOpenFiscalDocumentSource}
+                    onSyncFiscalDocument={onSyncFiscalDocument}
+                  />
+                </div>
               ),
             },
           ]}
           emptyMessage='Nenhuma nota fiscal emitida.'
           getRowId={(document) => document.id}
           items={visibleFiscalDocuments}
+          onRowClick={(document) =>
+            setSelectedFiscalDetail(
+              fiscalDetailFromDocument(document, {
+                clients: fiscalDocumentClients,
+                pickupReservations,
+                sales,
+                shippingOrders,
+                sourceNumbers: fiscalDocumentSourceNumbers,
+              }),
+            )
+          }
           pagination={documentPagination}
         />
       </PagePanel>
+      <FiscalDetailDrawer
+        detail={selectedFiscalDetail}
+        onClose={() => setSelectedFiscalDetail(undefined)}
+      />
     </section>
   )
 }
@@ -2957,6 +3030,10 @@ function stringPayloadValue(value: unknown) {
 }
 
 type FiscalRequestReadinessFilter = 'ALL' | 'READY' | 'PENDING' | 'DOCUMENTED'
+type FiscalRequestFiscalStatusFilter =
+  | FiscalDocument['status']
+  | 'ALL'
+  | 'MISSING'
 type FiscalDocumentStatusFilter = FiscalDocument['status'] | 'ALL'
 
 const fiscalRequestReadinessFilterOptions: Array<{
@@ -2967,6 +3044,17 @@ const fiscalRequestReadinessFilterOptions: Array<{
   { label: 'Prontas', value: 'READY' },
   { label: 'Com pendências', value: 'PENDING' },
   { label: 'Com documento', value: 'DOCUMENTED' },
+]
+
+const fiscalRequestStatusFilterOptions: Array<{
+  label: string
+  value: FiscalRequestFiscalStatusFilter
+}> = [
+  { label: 'Todos', value: 'ALL' },
+  { label: 'Sem NF-e', value: 'MISSING' },
+  { label: 'Pendente', value: 'PENDING' },
+  { label: 'Processando', value: 'PROCESSING' },
+  { label: 'Rejeitada', value: 'REJECTED' },
 ]
 
 const fiscalDocumentStatusFilterOptions: Array<{
@@ -2984,6 +3072,7 @@ const fiscalDocumentStatusFilterOptions: Array<{
 function filterFiscalRequests(
   requests: FiscalRequest[],
   filters: {
+    fiscalStatus: FiscalRequestFiscalStatusFilter
     readiness: FiscalRequestReadinessFilter
     search: string
   },
@@ -3002,8 +3091,13 @@ function filterFiscalRequests(
       (filters.readiness === 'DOCUMENTED' &&
         Boolean(request.document) &&
         request.document?.status !== 'REJECTED')
+    const matchesFiscalStatus =
+      filters.fiscalStatus === 'ALL' ||
+      (filters.fiscalStatus === 'MISSING' && !request.document) ||
+      request.document?.status === filters.fiscalStatus
 
     return (
+      matchesFiscalStatus &&
       matchesReadiness &&
       (!normalizedSearch ||
         fiscalRequestSearchText(request).includes(normalizedSearch))
@@ -3113,7 +3207,7 @@ function fiscalSourceTypeLabel(sourceType: FiscalDocument['sourceType']) {
     MANUAL_NFE: 'NF-e avulsa',
     PICKUP_RESERVATION: 'Retirada',
     SALE: 'Venda direta',
-    SHIPPING_ORDER: 'Envio',
+    SHIPPING_ORDER: 'Via orçamento',
   }
 
   return labels[sourceType]
@@ -3130,6 +3224,481 @@ function FiscalDocumentClient({
       <InlineNote>{client?.document ?? 'Sem CPF/CNPJ'}</InlineNote>
     </>
   )
+}
+
+type FiscalDetail = {
+  clientDocument: string | null
+  clientName: string
+  document?: FiscalDocument
+  history: string[]
+  items: FiscalDetailItem[]
+  paymentSummary: string
+  status: ReactNode
+  subtitle: string
+  title: string
+  totalAmount: string
+}
+
+type FiscalDetailItem = {
+  id: string
+  name: string
+  quantity: string
+  totalAmount: string
+  unitPrice: string
+}
+
+function fiscalDetailFromRequest(request: FiscalRequest): FiscalDetail {
+  return {
+    clientDocument: fiscalRequestClientDocument(request),
+    clientName: request.clientName,
+    document: request.document,
+    history: fiscalRequestDetailHistory(request),
+    items: fiscalRequestDetailItems(request),
+    paymentSummary: fiscalRequestPaymentSummary(request),
+    status: request.document ? (
+      <FiscalDocumentStatus document={request.document} />
+    ) : (
+      <StatusChip label={request.pendingLabel} tone='warning' />
+    ),
+    subtitle: `${request.sourceLabel} | ${formatDateTime(request.createdAt)}`,
+    title: request.sourceNumber
+      ? `Venda #${request.sourceNumber}`
+      : fiscalSourceTypeLabel(request.sourceType),
+    totalAmount: request.totalAmount,
+  }
+}
+
+function fiscalDetailFromDocument(
+  document: FiscalDocument,
+  context: {
+    clients: Map<string, { document: string | null; name: string }>
+    pickupReservations: PickupReservation[]
+    sales: Sale[]
+    shippingOrders: ShippingOrder[]
+    sourceNumbers: Map<string, string>
+  },
+): FiscalDetail {
+  const source = fiscalDocumentSourceDetail(document, context)
+  const client = context.clients.get(
+    `${document.sourceType}-${document.sourceId}`,
+  )
+  const sourceNumber = context.sourceNumbers.get(
+    `${document.sourceType}-${document.sourceId}`,
+  )
+
+  return {
+    clientDocument: client?.document ?? source.clientDocument,
+    clientName: client?.name ?? source.clientName,
+    document,
+    history: fiscalDocumentDetailHistory(document, source),
+    items: source.items,
+    paymentSummary: source.paymentSummary,
+    status: <FiscalDocumentStatus document={document} />,
+    subtitle: `${fiscalSourceTypeLabel(document.sourceType)} | ${formatDateTime(
+      document.issuedAt ?? document.createdAt,
+    )}`,
+    title: document.number
+      ? `NF-e #${document.number}`
+      : sourceNumber
+        ? `Venda #${sourceNumber}`
+        : fiscalSourceTypeLabel(document.sourceType),
+    totalAmount: source.totalAmount,
+  }
+}
+
+function FiscalDetailDrawer({
+  detail,
+  onClose,
+}: {
+  detail?: FiscalDetail
+  onClose: () => void
+}) {
+  return (
+    <Drawer
+      anchor='right'
+      open={Boolean(detail)}
+      onClose={onClose}
+      slotProps={{
+        paper: {
+          sx: {
+            maxWidth: '100%',
+            width: { xs: '100%', sm: 480 },
+          },
+        },
+      }}>
+      {detail ? (
+        <Box className='grid min-h-full grid-rows-[auto_1fr] bg-white'>
+          <div className='sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#e4e9e5] bg-white px-5 py-4'>
+            <button
+              aria-label='Fechar detalhes'
+              className='rounded-lg border border-[#cfd8d5] p-1.5 text-[#5f665f] hover:bg-[#f3f5f4]'
+              type='button'
+              onClick={onClose}>
+              <X size={16} />
+            </button>
+            <div className='grid justify-items-end gap-1 text-right'>
+              <div className='flex flex-wrap items-center justify-end gap-2'>
+                {detail.status}
+                <strong className='text-[#203466]'>{detail.title}</strong>
+              </div>
+              <InlineNote>{detail.subtitle}</InlineNote>
+            </div>
+          </div>
+          <div className='divide-y divide-[#eef1ee] overflow-auto text-left'>
+            <FiscalDetailSection icon={<User size={15} />} title='Cliente'>
+              <strong>{detail.clientName}</strong>
+              <InlineNote>{detail.clientDocument ?? 'Sem CPF/CNPJ'}</InlineNote>
+            </FiscalDetailSection>
+            <FiscalDetailSection icon={<Package size={15} />} title='Itens'>
+              {detail.items.length > 0 ? (
+                <div className='grid gap-2'>
+                  {detail.items.map((item) => (
+                    <div
+                      className='grid gap-1 rounded-lg border border-[#e4e9e5] bg-[#fbfcfb] p-3 text-left'
+                      key={item.id}>
+                      <div className='flex w-full items-start justify-between gap-3'>
+                        <strong className='text-sm text-[#2c281e]'>
+                          {item.name}
+                        </strong>
+                        <span className='text-sm text-[#5f665f]'>
+                          {item.quantity}x
+                        </span>
+                      </div>
+                      <div className='flex w-full items-center justify-between gap-3 text-sm'>
+                        <span>Unitário {formatCurrency(item.unitPrice)}</span>
+                        <strong>{formatCurrency(item.totalAmount)}</strong>
+                      </div>
+                    </div>
+                  ))}
+                  <div className='flex items-center justify-between pt-2'>
+                    <span className='text-sm text-[#5f665f]'>Total</span>
+                    <strong>{formatCurrency(detail.totalAmount)}</strong>
+                  </div>
+                </div>
+              ) : (
+                <InlineNote>Itens não disponíveis no resumo.</InlineNote>
+              )}
+            </FiscalDetailSection>
+            <FiscalDetailSection icon={<CreditCard size={15} />} title='Pagamento'>
+              <strong>{detail.paymentSummary}</strong>
+            </FiscalDetailSection>
+            <FiscalDetailSection icon={<ReceiptText size={15} />} title='Status fiscal'>
+              {detail.document ? (
+                <>
+                  <FiscalDocumentStatus document={detail.document} />
+                  <FiscalDocumentStatusDetail document={detail.document} />
+                </>
+              ) : (
+                detail.status
+              )}
+            </FiscalDetailSection>
+            <FiscalDetailSection icon={<Paperclip size={15} />} title='Arquivos fiscais'>
+              <FiscalDetailFiles document={detail.document} />
+            </FiscalDetailSection>
+            <FiscalDetailSection icon={<History size={15} />} title='Histórico'>
+              <div className='grid gap-2'>
+                {detail.history.map((event) => (
+                  <span className='text-sm text-[#2c281e]' key={event}>
+                    {event}
+                  </span>
+                ))}
+              </div>
+            </FiscalDetailSection>
+          </div>
+        </Box>
+      ) : null}
+    </Drawer>
+  )
+}
+
+function FiscalDetailSection({
+  children,
+  icon,
+  title,
+}: {
+  children: ReactNode
+  icon: ReactNode
+  title: string
+}) {
+  return (
+    <section className='grid gap-3 px-5 py-4'>
+      <div className='flex items-center gap-2 text-xs font-bold uppercase text-[#5f665f]'>
+        {icon}
+        {title}
+      </div>
+      <div className='grid gap-1 text-left text-sm text-[#2c281e]'>
+        {children}
+      </div>
+    </section>
+  )
+}
+
+function FiscalDetailFiles({ document }: { document?: FiscalDocument }) {
+  const actions = document ? fiscalDocumentFileActions(document) : []
+
+  return actions.length > 0 ? (
+    <div className='flex flex-wrap justify-end gap-2'>
+      {actions.map((action) => (
+        <TableActionButton
+          icon={<FileText size={14} />}
+          key={action.label}
+          type='button'
+          onClick={action.onSelect}>
+          {action.label}
+        </TableActionButton>
+      ))}
+    </div>
+  ) : (
+    <InlineNote>Nenhum arquivo fiscal disponível.</InlineNote>
+  )
+}
+
+function fiscalRequestClientDocument(request: FiscalRequest) {
+  return request.sale?.clientDocument ?? null
+}
+
+function fiscalRequestDetailItems(request: FiscalRequest): FiscalDetailItem[] {
+  if (request.sale) {
+    return saleFiscalDetailItems(request.sale)
+  }
+
+  if (request.shippingOrder) {
+    return request.shippingOrder.items.map((item) => ({
+      id: item.id,
+      name: item.description ?? item.productName,
+      quantity: item.quantity,
+      totalAmount: item.totalAmount,
+      unitPrice: item.unitPrice,
+    }))
+  }
+
+  if (request.pickupReservation) {
+    return request.pickupReservation.items.map((item) => ({
+      id: item.id,
+      name: item.productName,
+      quantity: item.quantity,
+      totalAmount: item.totalAmount,
+      unitPrice: item.unitPrice,
+    }))
+  }
+
+  return []
+}
+
+function fiscalRequestPaymentSummary(request: FiscalRequest) {
+  if (request.sale) {
+    return saleFiscalPaymentSummary(request.sale)
+  }
+
+  if (request.shippingOrder) {
+    return request.shippingOrder.payments.length
+      ? request.shippingOrder.payments
+          .map((payment) => payment.paymentMethodName)
+          .filter(Boolean)
+          .join(' + ')
+      : (request.shippingOrder.paymentMethodName ?? 'Definido no orçamento')
+  }
+
+  return 'Não informado'
+}
+
+function fiscalRequestDetailHistory(request: FiscalRequest) {
+  return [
+    `${request.sourceLabel} criada em ${formatDateTime(request.createdAt)} por ${request.operatorName}`,
+    request.readinessIssues.length > 0
+      ? `${request.readinessIssues.length} pendência(s) fiscal(is)`
+      : 'Pronta para emissão',
+    ...fiscalDocumentDetailHistoryEvents(request.document),
+  ].filter((event): event is string => Boolean(event))
+}
+
+function fiscalDocumentSourceDetail(
+  document: FiscalDocument,
+  context: {
+    pickupReservations: PickupReservation[]
+    sales: Sale[]
+    shippingOrders: ShippingOrder[]
+  },
+) {
+  const salesById = new Map(context.sales.map((sale) => [sale.id, sale]))
+  const shippingOrder = context.shippingOrders.find(
+    (order) => order.id === document.sourceId,
+  )
+  const pickupReservation = context.pickupReservations.find(
+    (reservation) => reservation.id === document.sourceId,
+  )
+  const sale =
+    document.sourceType === 'SALE'
+      ? salesById.get(document.sourceId)
+      : salesById.get(shippingOrder?.saleId ?? pickupReservation?.saleId ?? '')
+
+  if (sale) {
+    return {
+      clientDocument: sale.clientDocument,
+      clientName: sale.clientName ?? 'Não identificado',
+      createdAt: sale.createdAt,
+      items: saleFiscalDetailItems(sale),
+      operatorName: sale.createdByUserName,
+      paymentSummary: saleFiscalPaymentSummary(sale),
+      totalAmount: sale.totalAmount,
+    }
+  }
+
+  if (shippingOrder) {
+    return {
+      clientDocument: null,
+      clientName: shippingOrder.clientName,
+      createdAt: shippingOrder.createdAt,
+      items: shippingOrder.items.map((item) => ({
+        id: item.id,
+        name: item.description ?? item.productName,
+        quantity: item.quantity,
+        totalAmount: item.totalAmount,
+        unitPrice: item.unitPrice,
+      })),
+      operatorName: shippingOrder.createdByUserName,
+      paymentSummary: shippingOrder.payments.length
+        ? shippingOrder.payments
+            .map((payment) => payment.paymentMethodName)
+            .filter(Boolean)
+            .join(' + ')
+        : (shippingOrder.paymentMethodName ?? 'Definido no orçamento'),
+      totalAmount: shippingOrder.totalAmount,
+    }
+  }
+
+  if (pickupReservation) {
+    return {
+      clientDocument: null,
+      clientName: pickupReservation.clientName,
+      createdAt: pickupReservation.createdAt,
+      items: pickupReservation.items.map((item) => ({
+        id: item.id,
+        name: item.productName,
+        quantity: item.quantity,
+        totalAmount: item.totalAmount,
+        unitPrice: item.unitPrice,
+      })),
+      operatorName: pickupReservation.createdByUserName,
+      paymentSummary: 'Definido ao concluir',
+      totalAmount: pickupReservation.totalAmount,
+    }
+  }
+
+  return manualFiscalDocumentSourceDetail(document)
+}
+
+function manualFiscalDocumentSourceDetail(document: FiscalDocument) {
+  const sale = manualFiscalPayloadSale(document.requestPayload)
+  const items = Array.isArray(sale?.items)
+    ? sale.items
+        .map((item, index) =>
+          typeof item === 'object' && item !== null
+            ? manualFiscalDetailItemFromPayload(
+                item as Record<string, unknown>,
+                index,
+              )
+            : null,
+        )
+        .filter((item): item is FiscalDetailItem => Boolean(item))
+    : []
+
+  return {
+    clientDocument: stringPayloadValue(sale?.clientDocument),
+    clientName: stringPayloadValue(sale?.clientName) ?? 'Não identificado',
+    createdAt: document.createdAt,
+    items,
+    operatorName: document.issuedByUserName,
+    paymentSummary: manualFiscalPaymentSummary(sale),
+    totalAmount:
+      stringPayloadValue(sale?.totalAmount) ??
+      String(
+        items.reduce(
+          (sum, item) => sum + Number(item.totalAmount || 0),
+          0,
+        ),
+      ),
+  }
+}
+
+function manualFiscalDetailItemFromPayload(
+  item: Record<string, unknown>,
+  index: number,
+): FiscalDetailItem {
+  const fiscalItem = manualFiscalItemFromPayload(item)
+  const quantity = Number(fiscalItem.quantity || 0)
+  const unitPrice = Number(fiscalItem.unitPrice || 0)
+  const discountAmount = Number(fiscalItem.discountAmount || 0)
+  const totalAmount = Math.max(quantity * unitPrice - discountAmount, 0)
+
+  return {
+    id: stringPayloadValue(item.id) ?? `manual-${index}`,
+    name: fiscalItem.productName || 'Item sem descrição',
+    quantity: fiscalItem.quantity || '0',
+    totalAmount: totalAmount.toFixed(2),
+    unitPrice: fiscalItem.unitPrice || '0',
+  }
+}
+
+function fiscalDocumentDetailHistory(
+  document: FiscalDocument,
+  source: { createdAt: string; operatorName: string },
+) {
+  return [
+    `Origem criada em ${formatDateTime(source.createdAt)} por ${source.operatorName}`,
+    ...fiscalDocumentDetailHistoryEvents(document),
+  ]
+}
+
+function fiscalDocumentDetailHistoryEvents(document?: FiscalDocument) {
+  if (!document) {
+    return []
+  }
+
+  return [
+    `NF-e adicionada em ${formatDateTime(document.createdAt)} por ${document.issuedByUserName}`,
+    document.issuedAt
+      ? `NF-e emitida em ${formatDateTime(document.issuedAt)}`
+      : null,
+    document.status === 'REJECTED' && document.rejectionReason
+      ? `NF-e rejeitada: ${document.rejectionReason}`
+      : null,
+    document.cancelledAt
+      ? `NF-e cancelada em ${formatDateTime(document.cancelledAt)} por ${
+          document.cancelledByUserName ?? 'usuário não identificado'
+        }`
+      : null,
+  ].filter((event): event is string => Boolean(event))
+}
+
+function saleFiscalDetailItems(sale: Sale): FiscalDetailItem[] {
+  return sale.items.map((item) => ({
+    id: item.id,
+    name: item.productName,
+    quantity: item.quantity,
+    totalAmount: item.totalAmount,
+    unitPrice: item.unitPrice,
+  }))
+}
+
+function saleFiscalPaymentSummary(sale: Sale) {
+  return sale.payments.length
+    ? sale.payments
+        .map((payment) => payment.paymentMethodName)
+        .filter(Boolean)
+        .join(' + ')
+    : (sale.paymentMethodName ?? 'Não informado')
+}
+
+function manualFiscalPaymentSummary(sale: Record<string, unknown> | null) {
+  const payments = manualFiscalPaymentsFromPayload(sale, [])
+
+  return payments.length
+    ? payments
+        .map((payment) => payment.paymentMethodName)
+        .filter(Boolean)
+        .join(' + ')
+    : 'Não informado'
 }
 
 function FiscalRequestAction({
@@ -3188,6 +3757,14 @@ function FiscalRequestAction({
       request.document.status === 'PENDING' ||
       request.document.status === 'REJECTED')
   const menuActions: TableActionsMenuAction[] = []
+  const hasReadinessIssues = request.readinessIssues.length > 0
+
+  if (canIssueFiscalRequest(request) && hasReadinessIssues) {
+    menuActions.push({
+      label: fiscalRequestActionLabel(request, Boolean(action)),
+      onSelect: () => onResolveFiscalPendency(fiscalPendencyTarget(request)),
+    })
+  }
 
   if (canEditSaleFiscalDocument) {
     menuActions.push({
@@ -3196,43 +3773,29 @@ function FiscalRequestAction({
     })
   }
 
-  if (previewAction) {
+  if (previewAction && !hasReadinessIssues) {
     menuActions.push({
       label: 'Pré-visualizar',
       onSelect: () => previewAction(),
     })
   }
 
-  if (action) {
+  if (action && !hasReadinessIssues) {
     menuActions.push({
       label: fiscalRequestActionText(request),
       onSelect: () => action(),
     })
   }
 
-  if (action && request.readinessIssues.length === 0) {
-    return (
-      <div className='inline-flex justify-end'>
-        <TableActionsMenu actions={menuActions} />
-      </div>
-    )
-  }
-
-  if (canIssueFiscalRequest(request) && request.readinessIssues.length > 0) {
-    return (
-      <TableActionButton
-        type='button'
-        onClick={() => onResolveFiscalPendency(fiscalPendencyTarget(request))}>
-        {fiscalRequestActionLabel(request, Boolean(action))}
-      </TableActionButton>
-    )
-  }
-
-  if (canEditSaleFiscalDocument) {
+  if (menuActions.length > 0) {
     return (
       <div className='grid justify-items-end gap-1'>
         <TableActionsMenu actions={menuActions} />
-        <InlineNote>{fiscalRequestActionLabel(request, Boolean(action))}</InlineNote>
+        {hasReadinessIssues || !action ? (
+          <InlineNote>
+            {fiscalRequestActionLabel(request, Boolean(action))}
+          </InlineNote>
+        ) : null}
       </div>
     )
   }
@@ -3252,7 +3815,7 @@ export type FiscalPendencyTarget = {
     | 'edit-product'
     | 'fiscal-settings'
     | 'products'
-    | 'sales-history'
+    | 'sales-operations'
 }
 type FiscalPendencyCategory = 'client' | 'configuration' | 'product' | 'sale'
 type FiscalPendencyItem = {
@@ -3292,7 +3855,7 @@ function fiscalPendencyTargetForIssue(
       productId: fiscalIssueProductId(request, issue),
       view: fiscalIssueProductId(request, issue) ? 'edit-product' : 'products',
     }),
-    sale: () => ({ view: 'sales-history' }),
+    sale: () => ({ view: 'sales-operations' }),
   }
   const category = fiscalReadinessIssueCategory(issue)
 
@@ -3500,55 +4063,31 @@ function fiscalDocumentDetailLabel(document: FiscalDocument) {
   return labelByStatus[document.status]
 }
 
-function FiscalDocumentLinks({ document }: { document: FiscalDocument }) {
-  const links = [
+function fiscalDocumentFileActions(document: FiscalDocument) {
+  return [
     { fileType: 'danfe', label: 'DANFE', url: document.pdfUrl },
     { fileType: 'xml', label: 'XML', url: document.xmlUrl },
-  ].filter(
-    (
-      link,
-    ): link is {
-      fileType: 'danfe' | 'xml'
-      label: 'DANFE' | 'XML'
-      url: string
-    } => Boolean(link.url),
-  )
-
-  return links.length > 0 ? (
-    <div className='flex flex-wrap justify-end gap-2'>
-      {links.map((link) => (
-        <TableActionButton
-          key={link.label}
-          type='button'
-          onClick={() =>
-            void downloadApiFile(
-              `/fiscal-documents/${document.id}/files/${link.fileType}`,
-              fiscalDocumentDownloadName(document, link.label),
-            )
-          }>
-          {link.label}
-        </TableActionButton>
-      ))}
-    </div>
-  ) : (
-    <span className='text-sm text-[#5f665f]'>Sem arquivos</span>
-  )
+  ]
+    .filter(
+      (
+        link,
+      ): link is {
+        fileType: 'danfe' | 'xml'
+        label: 'DANFE' | 'XML'
+        url: string
+      } => Boolean(link.url),
+    )
+    .map((link) => ({
+      label: `Baixar ${link.label}`,
+      onSelect: () =>
+        void downloadApiFile(
+          `/fiscal-documents/${document.id}/files/${link.fileType}`,
+          fiscalDocumentDownloadName(document, link.label),
+        ),
+    }))
 }
 
-function fiscalDocumentDownloadName(
-  document: FiscalDocument,
-  label: 'DANFE' | 'XML',
-) {
-  const extensionByLabel = {
-    DANFE: 'pdf',
-    XML: 'xml',
-  }
-  const reference = document.providerReference ?? document.id
-
-  return `${reference}.${extensionByLabel[label]}`
-}
-
-function FiscalDocumentActions({
+function FiscalDocumentFilesAndActions({
   document,
   onCancelFiscalDocument,
   onOpenFiscalDocumentSource,
@@ -3563,42 +4102,19 @@ function FiscalDocumentActions({
   onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void
 }) {
   const [showCancellationForm, setShowCancellationForm] = useState(false)
-
-  if (document.status === 'CANCELLED') {
-    return (
-      <TableActionButton
-        type='button'
-        onClick={() => onOpenFiscalDocumentSource(document)}>
-        Abrir origem
-      </TableActionButton>
-    )
-  }
-
-  if (document.status === 'REJECTED') {
-    return (
-      <div className='grid min-w-0 gap-2 justify-items-end'>
-        <span className='text-sm text-[#5f665f]'>
-          Corrija os dados fiscais e reemita pela fila.
-        </span>
-        <TableActionButton
-          type='button'
-          onClick={() => onOpenFiscalDocumentSource(document)}>
-          Abrir origem
-        </TableActionButton>
-      </div>
-    )
-  }
-
   const actions: TableActionsMenuAction[] = [
+    ...fiscalDocumentFileActions(document),
     {
       label: 'Abrir origem',
       onSelect: () => onOpenFiscalDocumentSource(document),
     },
-    {
+  ]
+
+  document.status !== 'CANCELLED' &&
+    actions.push({
       label: 'Atualizar retorno',
       onSelect: () => onSyncFiscalDocument(document),
-    },
-  ]
+    })
 
   document.status === 'AUTHORIZED' &&
     actions.push({
@@ -3607,11 +4123,13 @@ function FiscalDocumentActions({
     })
 
   return (
-    <div className='grid min-w-0 gap-2'>
-      <div className='flex justify-end'>
-        <TableActionsMenu actions={actions} />
-      </div>
-
+    <div className='grid min-w-0 gap-2 justify-items-end'>
+      <TableActionsMenu actions={actions} />
+      {document.status === 'REJECTED' ? (
+        <span className='max-w-56 text-right text-sm text-[#5f665f]'>
+          Corrija os dados fiscais e reemita pela fila.
+        </span>
+      ) : null}
       {showCancellationForm && document.status === 'AUTHORIZED' ? (
         <form
           className='grid w-full max-w-72 gap-2'
@@ -3636,4 +4154,17 @@ function FiscalDocumentActions({
       ) : null}
     </div>
   )
+}
+
+function fiscalDocumentDownloadName(
+  document: FiscalDocument,
+  label: 'DANFE' | 'XML',
+) {
+  const extensionByLabel = {
+    DANFE: 'pdf',
+    XML: 'xml',
+  }
+  const reference = document.providerReference ?? document.id
+
+  return `${reference}.${extensionByLabel[label]}`
 }

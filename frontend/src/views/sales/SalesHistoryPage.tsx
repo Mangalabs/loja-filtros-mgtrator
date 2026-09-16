@@ -87,6 +87,7 @@ export type SaleEditActionHandler = (
 ) => Promise<boolean | void> | boolean | void
 
 export function SalesHistoryPage({
+  embedded = false,
   fiscalDocuments = [],
   paymentMethods = [],
   pickupReservations = [],
@@ -98,6 +99,7 @@ export function SalesHistoryPage({
   onUpdateSaleCommercialDetails,
   onReturnItem,
 }: {
+  embedded?: boolean
   fiscalDocuments: FiscalDocument[]
   paymentMethods: PaymentMethod[]
   pickupReservations: PickupReservation[]
@@ -150,12 +152,14 @@ export function SalesHistoryPage({
   )
 
   return (
-    <PagePanel className='min-w-0' wide>
-      <PageHeader
-        description={`${rows.length} registro(s) encontrado(s).`}
-        icon={<ReceiptText size={18} />}
-        title='Histórico de vendas'
-      />
+    <PagePanel className='min-w-0' wide={!embedded}>
+      {embedded ? null : (
+        <PageHeader
+          description={`${rows.length} registro(s) encontrado(s).`}
+          icon={<ReceiptText size={18} />}
+          title='Histórico de vendas'
+        />
+      )}
       <div className='mb-4 rounded-xl border border-[#d8b769]/70 bg-[#fff8e6] p-3 text-sm text-[#2c281e]'>
         <strong className='text-[#203466]'>Comprovante de venda:</strong> use o
         botão de comprovante para baixar um resumo comercial da venda concluída.
@@ -180,7 +184,7 @@ export function SalesHistoryPage({
           }>
           <MenuItem value='ALL'>Todas</MenuItem>
           <MenuItem value='SALE'>Venda direta</MenuItem>
-          <MenuItem value='SHIPPING_ORDER'>Com envio</MenuItem>
+          <MenuItem value='SHIPPING_ORDER'>Via orçamento</MenuItem>
           <MenuItem value='PICKUP_RESERVATION'>Retirada</MenuItem>
         </TextField>
         <TextField
@@ -261,18 +265,21 @@ export function SalesHistoryPage({
           },
           {
             align: 'right',
-            header: 'Ações',
-            render: (row) => (
-              <SalesHistoryActions
-                onCompleteReopenedSale={onCompleteReopenedSale}
-                onEditSale={onEditSale}
-                onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
-                paymentMethods={paymentMethods}
-                row={row}
-                onUpdateSaleCommercialDetails={onUpdateSaleCommercialDetails}
-                onReturnItem={onReturnItem}
-              />
-            ),
+            header: embedded ? 'Arquivos' : 'Ações',
+            render: (row) =>
+              embedded ? (
+                <SalesHistoryDownloadActions row={row} />
+              ) : (
+                <SalesHistoryActions
+                  onCompleteReopenedSale={onCompleteReopenedSale}
+                  onEditSale={onEditSale}
+                  onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
+                  paymentMethods={paymentMethods}
+                  row={row}
+                  onUpdateSaleCommercialDetails={onUpdateSaleCommercialDetails}
+                  onReturnItem={onReturnItem}
+                />
+              ),
           },
         ]}
         emptyMessage='Nenhuma venda fechada encontrada.'
@@ -501,7 +508,52 @@ function SalesHistoryActions({
   )
 }
 
-function SaleCommercialDetailsForm({
+function SalesHistoryDownloadActions({ row }: { row: SalesHistoryRow }) {
+  const fiscalLinks = [
+    { fileType: 'danfe', label: 'DANFE', url: row.fiscalDocument?.pdfUrl },
+    { fileType: 'xml', label: 'XML', url: row.fiscalDocument?.xmlUrl },
+  ].filter(
+    (link): link is {
+      fileType: 'danfe' | 'xml'
+      label: 'DANFE' | 'XML'
+      url: string
+    } => Boolean(link.url),
+  )
+  const actions: TableActionsMenuAction[] = [
+    ...fiscalLinks.map((link) => ({
+      icon: <FileText size={14} />,
+      label: `Baixar ${link.label}`,
+      onSelect: () =>
+        row.fiscalDocument &&
+        void downloadApiFile(
+          `/fiscal-documents/${row.fiscalDocument.id}/files/${link.fileType}`,
+          fiscalDocumentDownloadName(row.fiscalDocument, link.label),
+        ),
+    })),
+  ]
+
+  row.saleId &&
+    row.sale?.status === 'COMPLETED' &&
+    actions.unshift({
+      icon: <ReceiptText size={14} />,
+      label: 'Baixar comprovante',
+      onSelect: () =>
+        void downloadApiFile(
+          `/sales/${row.saleId}/receipt`,
+          `comprovante-${row.saleId}.pdf`,
+        ),
+    })
+
+  return actions.length > 0 ? (
+    <div className='flex justify-end'>
+      <TableActionsMenu actions={actions} />
+    </div>
+  ) : (
+    <InlineNote>Sem arquivos</InlineNote>
+  )
+}
+
+export function SaleCommercialDetailsForm({
   paymentMethods,
   sale,
   onCancel,
@@ -776,7 +828,7 @@ function buildSalesHistoryRows({
         id: `SHIPPING_ORDER-${order.id}`,
         netAmount: saleNetAmount(sale, order.totalAmount),
         operatorName: order.completedByUserName ?? order.createdByUserName,
-        originLabel: 'Com envio',
+        originLabel: 'Via orçamento',
         refundAmount: saleRefundAmount(sale),
         sale,
         saleId: order.saleId,

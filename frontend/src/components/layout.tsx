@@ -74,6 +74,7 @@ type ResponsiveTableProps<T> = {
   emptyMessage: ReactNode
   getRowId: (item: T) => string
   items: T[]
+  onRowClick?: (item: T) => void
   pagination?: ResponsiveTablePagination
 }
 
@@ -188,6 +189,7 @@ export function ResponsiveTable<T>({
   emptyMessage,
   getRowId,
   items,
+  onRowClick,
   pagination,
 }: ResponsiveTableProps<T>) {
   return (
@@ -250,7 +252,25 @@ export function ResponsiveTable<T>({
           </TableHead>
           <TableBody>
             {items.map((item) => (
-              <TableRow hover key={getRowId(item)}>
+              <TableRow
+                hover
+                key={getRowId(item)}
+                onClick={() => onRowClick?.(item)}
+                onKeyDown={(event) => {
+                  if (!onRowClick) {
+                    return
+                  }
+
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onRowClick(item)
+                  }
+                }}
+                role={onRowClick ? 'button' : undefined}
+                sx={{
+                  cursor: onRowClick ? 'pointer' : undefined,
+                }}
+                tabIndex={onRowClick ? 0 : undefined}>
                 {columns.map((column, index) => (
                   <TableCell
                     align={column.align}

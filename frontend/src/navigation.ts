@@ -14,6 +14,7 @@ export type View =
   | 'low-stock'
   | 'payment-methods'
   | 'fiscal-settings'
+  | 'fiscal-operations'
   | 'fiscal-documents'
   | 'fiscal-issued-documents'
   | 'manual-fiscal-document'
@@ -22,6 +23,7 @@ export type View =
   | 'new-quote'
   | 'quotes'
   | 'edit-quote'
+  | 'sales-operations'
   | 'sales'
   | 'edit-sale'
   | 'sales-history'
@@ -57,6 +59,7 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
   finance: [
     'payment-methods',
     'fiscal-settings',
+    'fiscal-operations',
     'fiscal-documents',
     'fiscal-issued-documents',
     'manual-fiscal-document',
@@ -65,6 +68,7 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
   reports: ['reports'],
   quotes: ['new-quote', 'quotes', 'edit-quote'],
   sales: [
+    'sales-operations',
     'sales',
     'edit-sale',
     'sales-history',
@@ -101,6 +105,7 @@ const viewValues: View[] = [
   'low-stock',
   'payment-methods',
   'fiscal-settings',
+  'fiscal-operations',
   'fiscal-documents',
   'fiscal-issued-documents',
   'manual-fiscal-document',
@@ -109,6 +114,7 @@ const viewValues: View[] = [
   'new-quote',
   'quotes',
   'edit-quote',
+  'sales-operations',
   'sales',
   'edit-sale',
   'sales-history',
@@ -129,6 +135,7 @@ export const viewPermissionRequirements: Partial<
   'stock-adjustments': 'MANAGE_STOCK_ADJUSTMENTS',
   'payment-methods': 'MANAGE_PAYMENT_METHODS',
   'fiscal-settings': 'MANAGE_FISCAL_SETTINGS',
+  'fiscal-operations': 'MANAGE_FISCAL_DOCUMENTS',
   'fiscal-documents': 'MANAGE_FISCAL_DOCUMENTS',
   'fiscal-issued-documents': 'MANAGE_FISCAL_DOCUMENTS',
   'manual-fiscal-document': 'MANAGE_FISCAL_DOCUMENTS',
@@ -245,6 +252,11 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       description:
         'Defina provedor, ambiente e CNPJ usados na emissão de NF-e.',
     },
+    'fiscal-operations': {
+      title: 'NF-e',
+      description:
+        'Gerencie fila de emissão, pendências, notas emitidas e arquivos fiscais.',
+    },
     'fiscal-documents': {
       title: 'Notas fiscais',
       description:
@@ -282,6 +294,11 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       title: 'Editar orçamento',
       description: 'Corrija um orçamento em rascunho antes de criar a venda.',
     },
+    'sales-operations': {
+      title: 'Vendas',
+      description:
+        'Acompanhe vendas diretas, vendas via orçamento, retiradas, devoluções e emissão fiscal.',
+    },
     sales: {
       title: 'Venda direta',
       description: 'Registre vendas imediatas com baixa de estoque.',
@@ -296,9 +313,9 @@ export const viewTitles: Record<View, { title: string; description: string }> =
         'Consulte vendas fechadas, comprovantes e documentos fiscais.',
     },
     'shipping-orders': {
-      title: 'Pedidos a partir de orçamentos',
+      title: 'Vendas via orçamento',
       description:
-        'Conclua pedidos originados de orçamentos aprovados para envio.',
+        'Conclua vendas originadas de orçamentos aprovados.',
     },
     'pickup-reservations': {
       title: 'Reservas para retirada',

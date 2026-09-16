@@ -235,7 +235,7 @@ const fiscalRequestFactories: Array<
           sourceType: 'SHIPPING_ORDER',
           sourceId: order.id,
           sourceNumber: sale?.saleNumber ?? null,
-          sourceLabel: '',
+          sourceLabel: 'Via orçamento',
           pendingLabel: 'Pendente',
           clientId: order.clientId,
           clientName: order.clientName,

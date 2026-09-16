@@ -13,6 +13,8 @@ import {
 import { formatQuantity } from "../../utils/format";
 import type { PickupReservationDraftInput, SaleDraftInput } from "./SalesPages";
 
+type SalesOperationsTarget = "direct" | "shipping" | "pickup" | "history";
+
 type SalesActionsOptions = {
   refreshSalesFlow: () => Promise<void>;
   requestConfirmation: (
@@ -23,7 +25,7 @@ type SalesActionsOptions = {
   products: Product[];
   runAction: (action: () => Promise<void>) => Promise<boolean>;
   showFiscalDocuments: () => void;
-  showSalesHistory: () => void;
+  showSalesHistory: (target?: SalesOperationsTarget) => void;
 };
 
 export function useSalesActions({
@@ -50,7 +52,7 @@ export function useSalesActions({
         ...input,
         allowInsufficientStock,
       });
-      showSalesHistory();
+      showSalesHistory("direct");
       await refreshSalesFlow();
     });
   }
@@ -233,7 +235,11 @@ export function useSalesActions({
     });
   }
 
-  async function updateOpenSale(sale: Sale, input: SaleDraftInput) {
+  async function updateOpenSale(
+    sale: Sale,
+    input: SaleDraftInput,
+    returnTarget: SalesOperationsTarget = "direct",
+  ) {
     const allowInsufficientStock = await confirmSaleEditInsufficientStockIfNeeded(
       sale,
       input,
@@ -258,7 +264,7 @@ export function useSalesActions({
         ...input,
         allowInsufficientStock,
       });
-      showSalesHistory();
+      showSalesHistory(returnTarget);
       await refreshSalesFlow();
     });
   }
@@ -268,7 +274,7 @@ export function useSalesActions({
     additionalInformation?: string,
   ) {
     const confirmed = await requestConfirmation(
-      `Emitir NF-e para o pedido com envio de ${order.clientName} no valor de ${order.totalAmount}?`,
+      `Emitir NF-e para a venda via orçamento de ${order.clientName} no valor de ${order.totalAmount}?`,
       "Emitir NF-e?",
       "Emitir NF-e",
     );
@@ -451,7 +457,7 @@ export function useSalesActions({
         billingDueDate: formDateValue(form, "shippingBillingDueDate"),
         allowInsufficientStock,
       });
-      showSalesHistory();
+      showSalesHistory("shipping");
       await refreshSalesFlow();
     });
   }
@@ -543,7 +549,7 @@ export function useSalesActions({
         billingDueDate: formDateValue(form, "pickupBillingDueDate"),
         allowInsufficientStock,
       });
-      showSalesHistory();
+      showSalesHistory("pickup");
       await refreshSalesFlow();
     });
   }

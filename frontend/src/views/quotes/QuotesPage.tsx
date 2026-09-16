@@ -1852,7 +1852,7 @@ const quoteShippingStatusLabels: Record<
   CANCELLED: 'Pedido cancelado',
   COMPLETED: 'Venda concluída',
   QUOTED: 'Pedido criado',
-  SEPARATED: 'Separado para envio',
+  SEPARATED: 'Separado',
 }
 
 const quoteListStatusFilterOptions: Array<{
@@ -1863,7 +1863,7 @@ const quoteListStatusFilterOptions: Array<{
   { label: 'Rascunhos', value: 'DRAFT' },
   { label: 'Com pedido criado', value: 'SHIPPING_ORDER' },
   { label: 'Pedidos aprovados', value: 'SHIPPING_ORDER_APPROVED' },
-  { label: 'Separados para envio', value: 'SHIPPING_ORDER_SEPARATED' },
+  { label: 'Separados', value: 'SHIPPING_ORDER_SEPARATED' },
   { label: 'Vendas concluídas', value: 'SHIPPING_ORDER_COMPLETED' },
   { label: 'Pedidos cancelados', value: 'SHIPPING_ORDER_CANCELLED' },
   { label: 'Cancelados', value: 'CANCELLED' },
