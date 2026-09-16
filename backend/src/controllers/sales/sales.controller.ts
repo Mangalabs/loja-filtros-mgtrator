@@ -74,6 +74,7 @@ export async function storeSale(
 
     const saleItems: Array<{
       productId: string;
+      description?: string | null;
       quantity: number;
       unitPrice: number;
       totalAmount: number;
@@ -94,6 +95,7 @@ export async function storeSale(
 
       saleItems.push({
         productId: item.productId,
+        description: null,
         quantity: item.quantity,
         unitPrice: Number(product.salePrice),
         totalAmount: Number(
@@ -289,6 +291,7 @@ export async function updateOpenSale(
 
     const saleItems: Array<{
       productId: string;
+      description?: string | null;
       quantity: number;
       unitPrice: number;
       totalAmount: number;
@@ -316,12 +319,27 @@ export async function updateOpenSale(
       const unitPrice = Number(
         item.unitPrice ?? currentItem?.unitPrice ?? product.salePrice,
       );
+      const itemSubtotalAmount = Number((unitPrice * item.quantity).toFixed(2));
+      const itemDiscountAmount = Number(
+        (
+          item.discountAmount ??
+          (currentItem ? Number(currentItem.discountAmount) : 0)
+        ).toFixed(2),
+      );
+
+      if (itemDiscountAmount > itemSubtotalAmount) {
+        throw new AppError(
+          "Desconto do item nao pode ser maior que o subtotal do item.",
+          422,
+        );
+      }
 
       saleItems.push({
         productId: item.productId,
+        description: currentItem?.description ?? null,
         quantity: item.quantity,
         unitPrice,
-        totalAmount: Number((unitPrice * item.quantity).toFixed(2)),
+        totalAmount: Number((itemSubtotalAmount - itemDiscountAmount).toFixed(2)),
         position,
         availableStock:
           Number(product.currentStock) - Number(product.reservedStock),

@@ -209,6 +209,7 @@ type Sale = {
     id: string;
     productId: string;
     productName: string;
+    description: string | null;
     quantity: string;
     unitPrice: string;
     discountAmount: string;
@@ -2595,6 +2596,107 @@ describe("catalog routes", () => {
     assert.equal(updated.body.data?.payments[0]?.amount, "712.00");
   });
 
+  it("preserves quoted item discounts when editing a reopened sale", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro venda desconto item reaberta",
+        salePrice: 100,
+      },
+    });
+    const firstClient = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente original desconto item",
+        document: "12345678901",
+      },
+    });
+    const secondClient = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente novo desconto item",
+        document: "10987654321",
+      },
+    });
+    const paymentMethod = await activePaymentMethod();
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 1,
+        reason: "Saldo inicial para preservar desconto do item",
+      },
+    });
+
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: firstClient.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        items: [
+          {
+            productId: product.body.data?.id,
+            quantity: 1,
+            discountPercentage: 10,
+          },
+        ],
+      },
+    });
+    const shippingOrder = await request<ShippingOrder>(
+      `/quotes/${quote.body.data?.id}/shipping-order`,
+      {
+        method: "POST",
+        body: {},
+      },
+    );
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const completed = await request<ShippingOrder>(
+      `/shipping-orders/${shippingOrder.body.data?.id}/complete`,
+      {
+        method: "PATCH",
+        body: {},
+      },
+    );
+    const reopened = await request<Sale>(
+      `/sales/${completed.body.data?.saleId}/reopen`,
+      {
+        method: "PATCH",
+      },
+    );
+    const updated = await request<Sale>(
+      `/sales/${completed.body.data?.saleId}`,
+      {
+        method: "PUT",
+        body: {
+          clientId: secondClient.body.data?.id,
+          discountAmount: 0,
+          items: [{ productId: product.body.data?.id, quantity: 1 }],
+          payments: [{ paymentMethodId: paymentMethod.id, amount: 90 }],
+        },
+      },
+    );
+
+    assert.equal(completed.status, 200);
+    assert.equal(reopened.status, 200);
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data?.clientId, secondClient.body.data?.id);
+    assert.equal(updated.body.data?.subtotalAmount, "90.00");
+    assert.equal(updated.body.data?.discountAmount, "0.00");
+    assert.equal(updated.body.data?.totalAmount, "90.00");
+    assert.equal(updated.body.data?.items[0]?.unitPrice, "100.00");
+    assert.equal(updated.body.data?.items[0]?.discountAmount, "10.00");
+    assert.equal(updated.body.data?.items[0]?.totalAmount, "90.00");
+    assert.equal(updated.body.data?.payments[0]?.amount, "90.00");
+  });
+
   it("updates open sale item unit prices", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
@@ -3061,6 +3163,7 @@ describe("catalog routes", () => {
           productId: "product-1",
           productInternalCode: "FILTRO-1",
           productName: "Filtro teste",
+          description: "Descricao comercial do comprovante",
           productCfop: null,
           productIcmsCst: null,
           productNcm: null,
@@ -3121,6 +3224,8 @@ describe("catalog routes", () => {
     );
 
     assert.match(html, /Devolucoes e estornos/);
+    assert.match(html, /Descricao comercial do comprovante/);
+    assert.doesNotMatch(html, />Filtro teste</);
     assert.match(html, /Forma de pagamento/);
     assert.match(html, /Cartao de credito/);
     assert.match(html, /Parcelas \/ vencimentos/);
@@ -7369,6 +7474,7 @@ describe("catalog routes", () => {
           {
             productId: firstProduct.body.data?.id,
             quantity: 2,
+            description: "Filtro envio multi A comercial",
             discountPercentage: 10,
           },
           { productId: secondProduct.body.data?.id, quantity: 1 },
@@ -7431,6 +7537,10 @@ describe("catalog routes", () => {
     assert.equal(
       sales.body.data?.[0]?.items[0]?.productName,
       "Filtro envio multi A",
+    );
+    assert.equal(
+      sales.body.data?.[0]?.items[0]?.description,
+      "Filtro envio multi A comercial",
     );
     assert.equal(sales.body.data?.[0]?.items[0]?.quantity, "2.000");
     assert.equal(sales.body.data?.[0]?.items[0]?.discountAmount, "8.00");
