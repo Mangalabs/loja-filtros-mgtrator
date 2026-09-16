@@ -112,6 +112,7 @@ type ShippingOrderItemRow = ShippingOrderItem & {
 
 type LockedShippingOrderItem = {
   productId: string;
+  description: string | null;
   quantity: string;
   unitPrice: string;
   totalAmount: string;
@@ -299,6 +300,7 @@ export async function lockShippingOrder(
   const items = await transaction("shipping_order_items")
     .select([
       "product_id as productId",
+      "description",
       "quantity",
       "unit_price as unitPrice",
       "total_amount as totalAmount",

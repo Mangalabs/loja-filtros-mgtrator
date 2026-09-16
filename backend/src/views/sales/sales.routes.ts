@@ -149,6 +149,7 @@ const updateSaleSchema = z
             productId: z.uuid(),
             quantity: z.coerce.number().positive(),
             unitPrice: z.coerce.number().positive().optional(),
+            discountAmount: z.coerce.number().min(0).optional(),
           })
           .strict(),
       )

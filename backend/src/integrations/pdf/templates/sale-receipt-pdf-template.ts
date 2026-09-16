@@ -190,11 +190,13 @@ function saleRefundAmount(sale: Sale) {
 }
 
 function saleItemRow(item: SaleItem) {
+  const itemDescription = item.description ?? item.productName;
+
   return `
     <tr>
       <td>${item.position}</td>
       <td>
-        ${escapeHtml(item.productName)}
+        ${escapeHtml(itemDescription)}
         ${item.productInternalCode ? `<small>Codigo: ${escapeHtml(item.productInternalCode)}</small>` : ""}
       </td>
       <td class="text-right">${formatQuantity(item.quantity)}</td>
@@ -206,6 +208,7 @@ function saleItemRow(item: SaleItem) {
 }
 
 function saleReturnRow(item: SaleItem, itemReturn: SaleItemReturn) {
+  const itemDescription = item.description ?? item.productName;
   const reference = itemReturn.refundReference
     ? `<small>Ref.: ${escapeHtml(itemReturn.refundReference)}</small>`
     : "";
@@ -216,7 +219,7 @@ function saleReturnRow(item: SaleItem, itemReturn: SaleItemReturn) {
   return `
     <tr>
       <td>
-        ${escapeHtml(item.productName)}
+        ${escapeHtml(itemDescription)}
         ${reason}
         ${reference}
       </td>

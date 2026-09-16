@@ -21,6 +21,7 @@ export type SaleUpdateInput = Omit<SaleInput, "items"> & {
     productId: string;
     quantity: number;
     unitPrice?: number;
+    discountAmount?: number;
   }>;
 };
 
@@ -98,6 +99,7 @@ export type SaleItem = {
   productId: string;
   productInternalCode: string | null;
   productName: string;
+  description: string | null;
   productCfop: string | null;
   productIcmsCst: string | null;
   productNcm: string | null;
@@ -197,6 +199,7 @@ const saleItemColumns = [
   "sale_items.product_id as productId",
   "products.internal_code as productInternalCode",
   "products.name as productName",
+  "sale_items.description",
   "products.cfop as productCfop",
   "products.icms_cst as productIcmsCst",
   "products.ncm as productNcm",
@@ -238,8 +241,10 @@ const billablePaymentMethodCodes = new Set(["BOLETO", "CREDIT"]);
 
 type SaleItemStockRow = {
   productId: string;
+  description: string | null;
   quantity: string;
   unitPrice: string;
+  discountAmount: string;
   position: number;
 };
 
@@ -305,8 +310,10 @@ export async function listSaleItemsForStockCorrection(
   return transaction("sale_items")
     .select([
       "product_id as productId",
+      "description",
       "quantity",
       "unit_price as unitPrice",
+      "discount_amount as discountAmount",
       "position",
     ])
     .where("sale_id", saleId)
@@ -669,6 +676,7 @@ export async function updateOpenSaleDetails(
   createdByUserId: string,
   items: Array<{
     productId: string;
+    description?: string | null;
     quantity: number;
     unitPrice: number;
     totalAmount: number;
@@ -709,6 +717,7 @@ export async function updateOpenSaleDetails(
     items.map((item) => ({
       sale_id: saleId,
       product_id: item.productId,
+      description: item.description ?? null,
       quantity: item.quantity,
       unit_price: item.unitPrice,
       discount_amount: saleItemDiscountAmount(item),
@@ -784,6 +793,7 @@ export async function insertSale(
   branchId: string,
   items: Array<{
     productId: string;
+    description?: string | null;
     quantity: number;
     unitPrice: number;
     totalAmount: number;
@@ -827,6 +837,7 @@ export async function insertSale(
     items.map((item) => ({
       sale_id: created.id,
       product_id: item.productId,
+      description: item.description ?? null,
       quantity: item.quantity,
       unit_price: item.unitPrice,
       discount_amount: saleItemDiscountAmount(item),

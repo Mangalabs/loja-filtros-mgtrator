@@ -76,6 +76,7 @@ export type SaleDraftInput = {
     productId: string
     quantity: number
     unitPrice?: number
+    discountAmount?: number
   }>
 }
 
