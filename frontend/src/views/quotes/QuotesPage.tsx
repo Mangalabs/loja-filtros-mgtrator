@@ -45,7 +45,9 @@ type QuoteDraftItem = {
   description: string
   quantity: string
   unitPrice: string
+  discountMode: QuoteDiscountMode
   discountPercentage: string
+  discountAmount: string
 }
 
 type QuotePaymentInstallmentDraft = {
@@ -483,7 +485,9 @@ export function QuotesPage({
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        discountMode: 'PERCENTAGE',
         discountPercentage: item.discountPercentage,
+        discountAmount: '',
       })),
     )
   }
@@ -560,7 +564,7 @@ export function QuotesPage({
         description: item.description.trim() || null,
         quantity: Number(item.quantity),
         unitPrice: item.unitPrice === '' ? null : Number(item.unitPrice),
-        discountPercentage: Number(item.discountPercentage || 0),
+        discountPercentage: quoteItemDiscountPercentage(item),
       })),
     }
     const saved = await onSubmit(input)
@@ -845,18 +849,54 @@ export function QuotesPage({
                 />
               </FormRow>
               <TextField
-                label='Desconto do item (%)'
-                value={item.discountPercentage}
+                label={
+                  item.discountMode === 'PERCENTAGE'
+                    ? 'Desconto do item (%)'
+                    : 'Desconto do item (R$)'
+                }
+                value={
+                  item.discountMode === 'PERCENTAGE'
+                    ? item.discountPercentage
+                    : item.discountAmount
+                }
                 type='number'
                 size='medium'
-                onChange={(event) =>
-                  updateItem(index, { discountPercentage: event.target.value })
-                }
+                onChange={(event) => {
+                  if (item.discountMode === 'PERCENTAGE') {
+                    updateItem(index, { discountPercentage: event.target.value })
+                  } else {
+                    updateItem(index, { discountAmount: event.target.value })
+                  }
+                }}
                 helperText={`Valor: ${formatCurrency(quoteItemDiscountAmount(item))}`}
                 slotProps={{
-                  htmlInput: { min: '0', max: '100', step: '0.01' },
+                  htmlInput:
+                    item.discountMode === 'PERCENTAGE'
+                      ? { min: '0', max: '100', step: '0.01' }
+                      : { min: '0', step: '0.01' },
                 }}
               />
+              <ToggleButtonGroup
+                exclusive
+                size='small'
+                value={item.discountMode}
+                onChange={(_event, value: QuoteDiscountMode | null) => {
+                  if (!value) {
+                    return
+                  }
+
+                  updateItem(
+                    index,
+                    quoteItemDiscountModeInput(
+                      value,
+                      Number(item.quantity || 0) * Number(item.unitPrice || 0),
+                      quoteItemDiscountAmount(item),
+                    ),
+                  )
+                }}>
+                <ToggleButton value='PERCENTAGE'>%</ToggleButton>
+                <ToggleButton value='AMOUNT'>R$</ToggleButton>
+              </ToggleButtonGroup>
             </FormCard>
           ))}
         </div>
@@ -1094,7 +1134,9 @@ export function QuoteEditPage({
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      discountMode: 'PERCENTAGE' as QuoteDiscountMode,
       discountPercentage: item.discountPercentage,
+      discountAmount: '',
     })),
   )
   const activeClients = clients.filter(
@@ -1193,7 +1235,9 @@ export function QuoteEditPage({
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        discountMode: 'PERCENTAGE' as QuoteDiscountMode,
         discountPercentage: item.discountPercentage,
+        discountAmount: '',
       })),
     )
   }, [quote])
@@ -1324,7 +1368,7 @@ export function QuoteEditPage({
         description: item.description.trim() || null,
         quantity: Number(item.quantity),
         unitPrice: item.unitPrice === '' ? null : Number(item.unitPrice),
-        discountPercentage: Number(item.discountPercentage || 0),
+        discountPercentage: quoteItemDiscountPercentage(item),
       })),
     })
 
@@ -1571,18 +1615,54 @@ export function QuoteEditPage({
               />
             </FormRow>
             <TextField
-              label='Desconto do item (%)'
-              value={item.discountPercentage}
+              label={
+                item.discountMode === 'PERCENTAGE'
+                  ? 'Desconto do item (%)'
+                  : 'Desconto do item (R$)'
+              }
+              value={
+                item.discountMode === 'PERCENTAGE'
+                  ? item.discountPercentage
+                  : item.discountAmount
+              }
               type='number'
               size='medium'
-              onChange={(event) =>
-                updateItem(index, { discountPercentage: event.target.value })
-              }
+              onChange={(event) => {
+                if (item.discountMode === 'PERCENTAGE') {
+                  updateItem(index, { discountPercentage: event.target.value })
+                } else {
+                  updateItem(index, { discountAmount: event.target.value })
+                }
+              }}
               helperText={`Valor: ${formatCurrency(quoteItemDiscountAmount(item))}`}
               slotProps={{
-                htmlInput: { min: '0', max: '100', step: '0.01' },
+                htmlInput:
+                  item.discountMode === 'PERCENTAGE'
+                    ? { min: '0', max: '100', step: '0.01' }
+                    : { min: '0', step: '0.01' },
               }}
             />
+            <ToggleButtonGroup
+              exclusive
+              size='small'
+              value={item.discountMode}
+              onChange={(_event, value: QuoteDiscountMode | null) => {
+                if (!value) {
+                  return
+                }
+
+                updateItem(
+                  index,
+                  quoteItemDiscountModeInput(
+                    value,
+                    Number(item.quantity || 0) * Number(item.unitPrice || 0),
+                    quoteItemDiscountAmount(item),
+                  ),
+                )
+              }}>
+              <ToggleButton value='PERCENTAGE'>%</ToggleButton>
+              <ToggleButton value='AMOUNT'>R$</ToggleButton>
+            </ToggleButtonGroup>
           </FormCard>
         ))}
       </div>
@@ -2041,7 +2121,9 @@ function emptyQuoteItem(): QuoteDraftItem {
     description: '',
     quantity: '1',
     unitPrice: '',
+    discountMode: 'PERCENTAGE',
     discountPercentage: '',
+    discountAmount: '',
   }
 }
 
@@ -2325,6 +2407,7 @@ function quoteBlockingIssues({
   const zeroPriceItem = selectedItems.find(
     (item) => Number(item.unitPrice || 0) <= 0,
   )
+  const invalidItemDiscount = selectedItems.find(quoteItemDiscountExceedsSubtotal)
 
   return [
     clientId ? null : 'Selecione o cliente do orçamento.',
@@ -2334,6 +2417,9 @@ function quoteBlockingIssues({
       : 'Selecione o produto de todos os itens.',
     zeroPriceItem
       ? 'Existe item com valor unitario zerado. Preencha o valor de venda antes de salvar.'
+      : null,
+    invalidItemDiscount
+      ? 'Desconto do item nao pode ser maior que o subtotal do item.'
       : null,
     discountExceedsTotal
       ? 'Desconto geral nao pode ser maior que o total dos itens.'
@@ -2388,10 +2474,62 @@ function installmentDueDate(firstDueDate: string, index: number) {
 }
 
 function quoteItemDiscountAmount(item: QuoteDraftItem) {
+  const baseAmount = Number(item.quantity || 0) * Number(item.unitPrice || 0)
+
+  if (item.discountMode === 'AMOUNT') {
+    return moneyInputValue(item.discountAmount)
+  }
+
   return percentageAmount(
-    Number(item.quantity || 0) * Number(item.unitPrice || 0),
+    baseAmount,
     Number(item.discountPercentage || 0),
   )
+}
+
+function quoteItemDiscountExceedsSubtotal(item: QuoteDraftItem) {
+  const baseAmount = Number(item.quantity || 0) * Number(item.unitPrice || 0)
+
+  return quoteItemDiscountAmount(item) > baseAmount
+}
+
+function quoteItemDiscountPercentage(item: QuoteDraftItem) {
+  const baseAmount = Number(item.quantity || 0) * Number(item.unitPrice || 0)
+
+  if (item.discountMode === 'PERCENTAGE') {
+    return Number(item.discountPercentage || 0)
+  }
+
+  if (baseAmount <= 0) {
+    return 0
+  }
+
+  return Number(((quoteItemDiscountAmount(item) / baseAmount) * 100).toFixed(2))
+}
+
+function quoteItemDiscountModeInput(
+  mode: QuoteDiscountMode,
+  baseAmount: number,
+  currentDiscount: number,
+): Pick<
+  QuoteDraftItem,
+  'discountMode' | 'discountPercentage' | 'discountAmount'
+> {
+  if (mode === 'AMOUNT') {
+    return {
+      discountMode: mode,
+      discountPercentage: '',
+      discountAmount: currentDiscount > 0 ? currentDiscount.toFixed(2) : '',
+    }
+  }
+
+  return {
+    discountMode: mode,
+    discountPercentage:
+      baseAmount > 0 && currentDiscount > 0
+        ? Number(((currentDiscount / baseAmount) * 100).toFixed(2)).toString()
+        : '',
+    discountAmount: '',
+  }
 }
 
 function quoteGeneralDiscountAmount(
@@ -2545,7 +2683,9 @@ function quoteItemDraftPayloads(value: unknown): QuoteDraftItem[] {
       description: stringPayloadValue(item.description),
       quantity: stringPayloadValue(item.quantity) || '1',
       unitPrice: stringPayloadValue(item.unitPrice),
+      discountMode: quoteDiscountModePayloadValue(item.discountMode),
       discountPercentage: stringPayloadValue(item.discountPercentage),
+      discountAmount: stringPayloadValue(item.discountAmount),
     }))
 
   return items.length > 0 ? items : [emptyQuoteItem()]

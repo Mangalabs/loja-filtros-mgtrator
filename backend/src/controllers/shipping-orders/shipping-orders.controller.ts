@@ -354,6 +354,7 @@ export async function completeSeparatedShippingOrder(
 
     const saleItems = currentOrder.items.map((item) => ({
       productId: item.productId,
+      description: item.description,
       quantity: Number(item.quantity),
       unitPrice: Number(item.unitPrice),
       totalAmount: Number(item.totalAmount),

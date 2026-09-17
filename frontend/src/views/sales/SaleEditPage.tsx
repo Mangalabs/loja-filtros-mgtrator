@@ -28,6 +28,9 @@ type SaleEditItemDraft = {
   productId: string
   quantity: string
   unitPrice: string
+  discountMode: SaleDiscountMode
+  discountPercentage: string
+  discountAmount: string
 }
 
 type SaleDiscountMode = 'PERCENTAGE' | 'AMOUNT'
@@ -70,6 +73,9 @@ export function SaleEditPage({
       productId: item.productId,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      discountMode: 'AMOUNT' as SaleDiscountMode,
+      discountPercentage: '',
+      discountAmount: item.discountAmount,
     })),
   )
   const activeClients = clients.filter((client) => client.active)
@@ -81,8 +87,10 @@ export function SaleEditPage({
   )
   const saleSubtotal = items.reduce((sum, item) => {
     const unitPrice = Number(item.unitPrice || 0)
+    const itemGrossAmount = Number(item.quantity || 0) * unitPrice
+    const itemDiscountAmount = saleItemDiscountAmount(item)
 
-    return sum + Number(item.quantity || 0) * unitPrice
+    return sum + Math.max(itemGrossAmount - itemDiscountAmount, 0)
   }, 0)
   const saleDiscount = saleDiscountAmount(
     saleSubtotal,
@@ -96,6 +104,11 @@ export function SaleEditPage({
   const hasEmptyItem = items.some((item) => !item.productId)
   const hasInvalidUnitPrice = items.some(
     (item) => moneyInputValue(item.unitPrice) <= 0,
+  )
+  const hasInvalidItemDiscount = items.some(
+    (item) =>
+      saleItemDiscountAmount(item) >
+      Number(item.quantity || 0) * moneyInputValue(item.unitPrice),
   )
   const saleAllowsBilling = salePaymentsAllowBilling(paymentMethods, payments)
 
@@ -119,6 +132,9 @@ export function SaleEditPage({
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        discountMode: 'AMOUNT' as SaleDiscountMode,
+        discountPercentage: '',
+        discountAmount: item.discountAmount,
       })),
     )
     previousSaleTotalRef.current = Number(sale.totalAmount)
@@ -197,6 +213,7 @@ export function SaleEditPage({
         productId: item.productId,
         quantity: Number(item.quantity),
         unitPrice: moneyInputValue(item.unitPrice),
+        discountAmount: saleItemDiscountAmount(item),
       })),
     })
 
@@ -283,6 +300,59 @@ export function SaleEditPage({
                 updateItem(index, { unitPrice: event.target.value })
               }
             />
+            <TextField
+              error={
+                saleItemDiscountAmount(item) >
+                Number(item.quantity || 0) * moneyInputValue(item.unitPrice)
+              }
+              helperText={`Valor: ${formatCurrency(saleItemDiscountAmount(item))}`}
+              label={
+                item.discountMode === 'PERCENTAGE'
+                  ? 'Desconto do item (%)'
+                  : 'Desconto do item (R$)'
+              }
+              size='medium'
+              slotProps={{
+                htmlInput:
+                  item.discountMode === 'PERCENTAGE'
+                    ? { min: '0', max: '100', step: '0.01' }
+                    : { min: '0', step: '0.01' },
+              }}
+              type='number'
+              value={
+                item.discountMode === 'PERCENTAGE'
+                  ? item.discountPercentage
+                  : item.discountAmount
+              }
+              onChange={(event) => {
+                if (item.discountMode === 'PERCENTAGE') {
+                  updateItem(index, { discountPercentage: event.target.value })
+                } else {
+                  updateItem(index, { discountAmount: event.target.value })
+                }
+              }}
+            />
+            <ToggleButtonGroup
+              exclusive
+              size='small'
+              value={item.discountMode}
+              onChange={(_event, value: SaleDiscountMode | null) => {
+                if (!value) {
+                  return
+                }
+
+                const itemSubtotal =
+                  Number(item.quantity || 0) * moneyInputValue(item.unitPrice)
+                const currentDiscount = saleItemDiscountAmount(item)
+
+                updateItem(
+                  index,
+                  saleItemDiscountModeInput(value, itemSubtotal, currentDiscount),
+                )
+              }}>
+              <ToggleButton value='PERCENTAGE'>%</ToggleButton>
+              <ToggleButton value='AMOUNT'>R$</ToggleButton>
+            </ToggleButtonGroup>
           </FormCard>
         ))}
       </div>
@@ -292,7 +362,14 @@ export function SaleEditPage({
           onClick={() =>
             setItems((currentItems) => [
               ...currentItems,
-              { productId: '', quantity: '', unitPrice: '' },
+              {
+                productId: '',
+                quantity: '',
+                unitPrice: '',
+                discountMode: 'AMOUNT',
+                discountPercentage: '',
+                discountAmount: '0',
+              },
             ])
           }>
           Adicionar item
@@ -404,6 +481,9 @@ export function SaleEditPage({
         {hasInvalidUnitPrice ? (
           <InlineNote>Informe o valor unitário de todos os itens.</InlineNote>
         ) : null}
+        {hasInvalidItemDiscount ? (
+          <InlineNote>O desconto de um item não pode ser maior que seu subtotal.</InlineNote>
+        ) : null}
         <SecondaryButton type='button' onClick={onCancel}>
           Cancelar
         </SecondaryButton>
@@ -412,7 +492,8 @@ export function SaleEditPage({
             sale.status !== 'OPEN' ||
             discountExceedsSubtotal ||
             hasEmptyItem ||
-            hasInvalidUnitPrice
+            hasInvalidUnitPrice ||
+            hasInvalidItemDiscount
           }
           icon={<Plus size={17} />}
           type='submit'>
@@ -450,6 +531,42 @@ function saleDiscountAmount(
   }
 
   return percentageAmount(baseAmount, Number(percentage || 0))
+}
+
+function saleItemDiscountAmount(item: SaleEditItemDraft) {
+  const baseAmount = Number(item.quantity || 0) * moneyInputValue(item.unitPrice)
+
+  if (item.discountMode === 'PERCENTAGE') {
+    return percentageAmount(baseAmount, Number(item.discountPercentage || 0))
+  }
+
+  return moneyInputValue(item.discountAmount)
+}
+
+function saleItemDiscountModeInput(
+  mode: SaleDiscountMode,
+  baseAmount: number,
+  currentDiscount: number,
+): Pick<
+  SaleEditItemDraft,
+  'discountMode' | 'discountPercentage' | 'discountAmount'
+> {
+  if (mode === 'PERCENTAGE') {
+    return {
+      discountMode: mode,
+      discountPercentage:
+        baseAmount > 0 && currentDiscount > 0
+          ? Number(((currentDiscount / baseAmount) * 100).toFixed(2)).toString()
+          : '',
+      discountAmount: '',
+    }
+  }
+
+  return {
+    discountMode: mode,
+    discountPercentage: '',
+    discountAmount: currentDiscount > 0 ? currentDiscount.toFixed(2) : '0',
+  }
 }
 
 function percentageAmount(baseAmount: number, percentage: number) {
