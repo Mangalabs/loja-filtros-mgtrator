@@ -54,8 +54,6 @@ import {
 import { CommercialSettingsPage } from "../views/catalog/CommercialSettingsPage";
 import { CashRegisterPage } from "../views/finance/CashRegisterPage";
 import {
-  FiscalDocumentsPage,
-  IssuedFiscalDocumentsPage,
   ManualFiscalDocumentPage,
   type FiscalPendencyTarget,
 } from "../views/finance/FiscalDocumentsPage";
@@ -70,11 +68,6 @@ import { QuoteEditPage, QuotesPage } from "../views/quotes/QuotesPage";
 import type { useQuoteActions } from "../views/quotes/useQuoteActions";
 import { ReportsPage } from "../views/reports/ReportsPage";
 import { SaleEditPage } from "../views/sales/SaleEditPage";
-import {
-  PickupReservationsPage,
-  SalesPage,
-  ShippingOrdersPage,
-} from "../views/sales/SalesPages";
 import { SalesHistoryPage } from "../views/sales/SalesHistoryPage";
 import {
   SalesOperationsPage,
@@ -298,6 +291,128 @@ export function AppViewRenderer({
     );
   }
 
+  function renderFiscalOperations(initialTab = fiscalOperationsInitialTab) {
+    return (
+      <FiscalOperationsPage
+        clients={clients}
+        fiscalDocuments={fiscalDocuments}
+        fiscalSettings={fiscalSettings}
+        initialTab={initialTab}
+        initialRequestSearch={fiscalQueueSearch}
+        pickupReservations={pickupReservations}
+        products={products}
+        sales={sales}
+        shippingOrders={shippingOrders}
+        onCancelFiscalDocument={(event, fiscalDocument) =>
+          void financeActions.cancelFiscalDocument(event, fiscalDocument)
+        }
+        onIssueFiscalDocumentCorrectionLetter={(event, fiscalDocument) =>
+          financeActions.issueFiscalDocumentCorrectionLetter(
+            event,
+            fiscalDocument,
+          )
+        }
+        onEditSaleFiscalDocument={onOpenSaleFiscalDocumentEditor}
+        onIssuePickupReservationFiscalDocument={(
+          reservation,
+          additionalInformation,
+        ) =>
+          void salesActions.issuePickupReservationFiscalDocument(
+            reservation,
+            additionalInformation,
+          )
+        }
+        onIssueSaleFiscalDocument={(sale, additionalInformation) =>
+          void salesActions.issueSaleFiscalDocument(
+            sale,
+            additionalInformation,
+          )
+        }
+        onIssueShippingOrderFiscalDocument={(order, additionalInformation) =>
+          void salesActions.issueShippingOrderFiscalDocument(
+            order,
+            additionalInformation,
+          )
+        }
+        onOpenFiscalDocumentSource={onOpenFiscalDocumentSource}
+        onPreviewPickupReservationFiscalDocument={(
+          reservation,
+          additionalInformation,
+        ) =>
+          void salesActions.previewPickupReservationFiscalDocument(
+            reservation,
+            additionalInformation,
+          )
+        }
+        onPreviewSaleFiscalDocument={(sale, additionalInformation) =>
+          void salesActions.previewSaleFiscalDocument(
+            sale,
+            additionalInformation,
+          )
+        }
+        onPreviewShippingOrderFiscalDocument={(order, additionalInformation) =>
+          void salesActions.previewShippingOrderFiscalDocument(
+            order,
+            additionalInformation,
+          )
+        }
+        onResolveFiscalPendency={onResolveFiscalPendency}
+        onSyncFiscalDocument={(fiscalDocument) =>
+          void financeActions.syncFiscalDocument(fiscalDocument)
+        }
+      />
+    );
+  }
+
+  function renderSalesOperations(initialTab = salesOperationsInitialTab) {
+    return (
+      <SalesOperationsPage
+        cashRegister={cashRegister}
+        clients={clients}
+        fiscalDocuments={fiscalDocuments}
+        initialTab={initialTab}
+        paymentMethods={paymentMethods}
+        pickupReservations={pickupReservations}
+        products={products}
+        sales={sales}
+        shippingOrders={shippingOrders}
+        onApproveShippingOrder={(order) =>
+          void salesActions.approveShippingOrder(order)
+        }
+        onCancelPickupReservation={(event, reservation) =>
+          void salesActions.cancelPickupReservation(event, reservation)
+        }
+        onCancelShippingOrder={(event, order) =>
+          void salesActions.cancelShippingOrder(event, order)
+        }
+        onCompletePickupReservation={(event, reservation) =>
+          void salesActions.completePickupReservation(event, reservation)
+        }
+        onCompleteReopenedSale={(sale) =>
+          void salesActions.completeReopenedSale(sale)
+        }
+        onCompleteShippingOrder={(event, order) =>
+          void salesActions.completeShippingOrder(event, order)
+        }
+        onCreatePickupReservation={salesActions.createPickupReservation}
+        onCreateSale={salesActions.createSale}
+        onEditSale={onSelectSale}
+        onOpenQuotes={onOpenQuotes}
+        onOpenSalesHistory={() => onSelectView("sales-history")}
+        onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
+        onReturnItem={(event, sale) =>
+          void salesActions.returnSaleItem(event, sale)
+        }
+        onSeparateShippingOrder={(order) =>
+          void salesActions.separateShippingOrder(order)
+        }
+        onUpdateSaleCommercialDetails={(event, sale) =>
+          void salesActions.updateSaleCommercialDetails(event, sale)
+        }
+      />
+    );
+  }
+
   const viewRenderers: Record<View, ReactNode> = {
     products: (
         <ProductsPage
@@ -405,142 +520,9 @@ export function AppViewRenderer({
           onSubmit={(input) => void financeActions.saveFiscalSettings(input)}
         />
       ),
-    "fiscal-operations": (
-      <FiscalOperationsPage
-        clients={clients}
-        fiscalDocuments={fiscalDocuments}
-        fiscalSettings={fiscalSettings}
-        initialTab={fiscalOperationsInitialTab}
-        initialRequestSearch={fiscalQueueSearch}
-        pickupReservations={pickupReservations}
-        products={products}
-        sales={sales}
-        shippingOrders={shippingOrders}
-        onCancelFiscalDocument={(event, fiscalDocument) =>
-          void financeActions.cancelFiscalDocument(event, fiscalDocument)
-        }
-        onEditSaleFiscalDocument={onOpenSaleFiscalDocumentEditor}
-        onIssuePickupReservationFiscalDocument={(
-          reservation,
-          additionalInformation,
-        ) =>
-          void salesActions.issuePickupReservationFiscalDocument(
-            reservation,
-            additionalInformation,
-          )
-        }
-        onIssueSaleFiscalDocument={(sale, additionalInformation) =>
-          void salesActions.issueSaleFiscalDocument(
-            sale,
-            additionalInformation,
-          )
-        }
-        onIssueShippingOrderFiscalDocument={(order, additionalInformation) =>
-          void salesActions.issueShippingOrderFiscalDocument(
-            order,
-            additionalInformation,
-          )
-        }
-        onOpenFiscalDocumentSource={onOpenFiscalDocumentSource}
-        onPreviewPickupReservationFiscalDocument={(
-          reservation,
-          additionalInformation,
-        ) =>
-          void salesActions.previewPickupReservationFiscalDocument(
-            reservation,
-            additionalInformation,
-          )
-        }
-        onPreviewSaleFiscalDocument={(sale, additionalInformation) =>
-          void salesActions.previewSaleFiscalDocument(
-            sale,
-            additionalInformation,
-          )
-        }
-        onPreviewShippingOrderFiscalDocument={(order, additionalInformation) =>
-          void salesActions.previewShippingOrderFiscalDocument(
-            order,
-            additionalInformation,
-          )
-        }
-        onResolveFiscalPendency={onResolveFiscalPendency}
-        onSyncFiscalDocument={(fiscalDocument) =>
-          void financeActions.syncFiscalDocument(fiscalDocument)
-        }
-      />
-    ),
-    "fiscal-documents": (
-        <FiscalDocumentsPage
-          clients={clients}
-          fiscalDocuments={fiscalDocuments}
-          fiscalSettings={fiscalSettings}
-          initialRequestSearch={fiscalQueueSearch}
-          pickupReservations={pickupReservations}
-          products={products}
-          sales={sales}
-          shippingOrders={shippingOrders}
-          onIssueSaleFiscalDocument={(sale, additionalInformation) =>
-            void salesActions.issueSaleFiscalDocument(
-              sale,
-              additionalInformation,
-            )
-          }
-          onPreviewSaleFiscalDocument={(sale, additionalInformation) =>
-            void salesActions.previewSaleFiscalDocument(
-              sale,
-              additionalInformation,
-            )
-          }
-          onIssueShippingOrderFiscalDocument={(order, additionalInformation) =>
-            void salesActions.issueShippingOrderFiscalDocument(
-              order,
-              additionalInformation,
-            )
-          }
-          onPreviewShippingOrderFiscalDocument={(order, additionalInformation) =>
-            void salesActions.previewShippingOrderFiscalDocument(
-              order,
-              additionalInformation,
-            )
-          }
-          onIssuePickupReservationFiscalDocument={(
-            reservation,
-            additionalInformation,
-          ) =>
-            void salesActions.issuePickupReservationFiscalDocument(
-              reservation,
-              additionalInformation,
-            )
-          }
-          onPreviewPickupReservationFiscalDocument={(
-            reservation,
-            additionalInformation,
-          ) =>
-            void salesActions.previewPickupReservationFiscalDocument(
-              reservation,
-              additionalInformation,
-            )
-          }
-          onEditSaleFiscalDocument={onOpenSaleFiscalDocumentEditor}
-          onResolveFiscalPendency={onResolveFiscalPendency}
-        />
-      ),
-    "fiscal-issued-documents": (
-      <IssuedFiscalDocumentsPage
-        clients={clients}
-        fiscalDocuments={fiscalDocuments}
-        pickupReservations={pickupReservations}
-        sales={sales}
-        shippingOrders={shippingOrders}
-        onSyncFiscalDocument={(fiscalDocument) =>
-          void financeActions.syncFiscalDocument(fiscalDocument)
-        }
-        onCancelFiscalDocument={(event, fiscalDocument) =>
-          void financeActions.cancelFiscalDocument(event, fiscalDocument)
-        }
-        onOpenFiscalDocumentSource={onOpenFiscalDocumentSource}
-      />
-    ),
+    "fiscal-operations": renderFiscalOperations(),
+    "fiscal-documents": renderFiscalOperations("queue"),
+    "fiscal-issued-documents": renderFiscalOperations("issued"),
     "manual-fiscal-document": (
       <ManualFiscalDocumentPage
         key={
@@ -673,62 +655,8 @@ export function AppViewRenderer({
         />
       </PagePanel>
     ),
-    "sales-operations": (
-      <SalesOperationsPage
-        cashRegister={cashRegister}
-        clients={clients}
-        fiscalDocuments={fiscalDocuments}
-        initialTab={salesOperationsInitialTab}
-        paymentMethods={paymentMethods}
-        pickupReservations={pickupReservations}
-        products={products}
-        sales={sales}
-        shippingOrders={shippingOrders}
-        onApproveShippingOrder={(order) =>
-          void salesActions.approveShippingOrder(order)
-        }
-        onCancelPickupReservation={(event, reservation) =>
-          void salesActions.cancelPickupReservation(event, reservation)
-        }
-        onCancelShippingOrder={(event, order) =>
-          void salesActions.cancelShippingOrder(event, order)
-        }
-        onCompletePickupReservation={(event, reservation) =>
-          void salesActions.completePickupReservation(event, reservation)
-        }
-        onCompleteReopenedSale={(sale) =>
-          void salesActions.completeReopenedSale(sale)
-        }
-        onCompleteShippingOrder={(event, order) =>
-          void salesActions.completeShippingOrder(event, order)
-        }
-        onCreatePickupReservation={salesActions.createPickupReservation}
-        onCreateSale={salesActions.createSale}
-        onEditSale={onSelectSale}
-        onOpenQuotes={onOpenQuotes}
-        onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
-        onReturnItem={(event, sale) =>
-          void salesActions.returnSaleItem(event, sale)
-        }
-        onSeparateShippingOrder={(order) =>
-          void salesActions.separateShippingOrder(order)
-        }
-        onUpdateSaleCommercialDetails={(event, sale) =>
-          void salesActions.updateSaleCommercialDetails(event, sale)
-        }
-      />
-    ),
-    sales: (
-        <SalesPage
-          cashRegister={cashRegister}
-          clients={clients}
-          paymentMethods={paymentMethods}
-          products={products}
-          sales={sales}
-          onOpenSalesHistory={() => onSelectView("sales-operations")}
-          onSubmit={salesActions.createSale}
-        />
-      ),
+    "sales-operations": renderSalesOperations(),
+    sales: renderSalesOperations("direct"),
     "edit-sale": selectedSale ? (
       <SaleEditPage
         clients={clients}
@@ -749,57 +677,27 @@ export function AppViewRenderer({
       </PagePanel>
     ),
     "sales-history": (
-        <SalesHistoryPage
-          fiscalDocuments={fiscalDocuments}
-          paymentMethods={paymentMethods}
-          pickupReservations={pickupReservations}
-          sales={sales}
-          shippingOrders={shippingOrders}
-          onUpdateSaleCommercialDetails={(event, sale) =>
-            void salesActions.updateSaleCommercialDetails(event, sale)
-          }
-          onCompleteReopenedSale={(sale) =>
-            void salesActions.completeReopenedSale(sale)
-          }
-          onEditSale={onSelectSale}
-          onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
-          onReturnItem={(event, sale) =>
-            void salesActions.returnSaleItem(event, sale)
-          }
-        />
-      ),
-    "shipping-orders": (
-        <ShippingOrdersPage
-          cashRegister={cashRegister}
-          paymentMethods={paymentMethods}
-          orders={shippingOrders}
-          onOpenQuotes={onOpenQuotes}
-          onApprove={(order) => void salesActions.approveShippingOrder(order)}
-          onSeparate={(order) => void salesActions.separateShippingOrder(order)}
-          onComplete={(event, order) =>
-            void salesActions.completeShippingOrder(event, order)
-          }
-          onCancel={(event, order) =>
-            void salesActions.cancelShippingOrder(event, order)
-          }
-        />
-      ),
-    "pickup-reservations": (
-        <PickupReservationsPage
-          cashRegister={cashRegister}
-          clients={clients}
-          paymentMethods={paymentMethods}
-          products={products}
-          reservations={pickupReservations}
-          onSubmit={salesActions.createPickupReservation}
-          onComplete={(event, reservation) =>
-            void salesActions.completePickupReservation(event, reservation)
-          }
-          onCancel={(event, reservation) =>
-            void salesActions.cancelPickupReservation(event, reservation)
-          }
-        />
-      ),
+      <SalesHistoryPage
+        fiscalDocuments={fiscalDocuments}
+        paymentMethods={paymentMethods}
+        pickupReservations={pickupReservations}
+        sales={sales}
+        shippingOrders={shippingOrders}
+        onCompleteReopenedSale={(sale) =>
+          void salesActions.completeReopenedSale(sale)
+        }
+        onEditSale={onSelectSale}
+        onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
+        onReturnItem={(event, sale) =>
+          void salesActions.returnSaleItem(event, sale)
+        }
+        onUpdateSaleCommercialDetails={(event, sale) =>
+          void salesActions.updateSaleCommercialDetails(event, sale)
+        }
+      />
+    ),
+    "shipping-orders": renderSalesOperations("shipping"),
+    "pickup-reservations": renderSalesOperations("pickup"),
     brands: (
         <NamedEntityPage
           title="Fabricantes"

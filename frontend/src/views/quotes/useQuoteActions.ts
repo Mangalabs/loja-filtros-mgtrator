@@ -17,6 +17,7 @@ type QuoteActionsOptions = {
     confirmLabel?: string,
   ) => Promise<boolean>
   runAction: (action: () => Promise<void>) => Promise<boolean>
+  showQuotes: () => void
   showShippingOrders: () => void
 }
 
@@ -24,12 +25,14 @@ export function useQuoteActions({
   refreshQuoteFlow,
   requestConfirmation,
   runAction,
+  showQuotes,
   showShippingOrders,
 }: QuoteActionsOptions) {
   async function createQuote(input: QuoteDraftInput) {
     return runAction(async () => {
       await apiPost('/quotes', input)
       await refreshQuoteFlow()
+      showQuotes()
     })
   }
 

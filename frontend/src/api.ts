@@ -504,6 +504,15 @@ export type FiscalDocument = {
   cancelledByUserName: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
+  correctionLetters: Array<{
+    id: string;
+    fiscalDocumentId: string;
+    correctionText: string;
+    responsePayload: Record<string, unknown>;
+    createdByUserId: string;
+    createdByUserName: string;
+    createdAt: string;
+  }>;
   createdAt: string;
 };
 
@@ -680,6 +689,7 @@ export type StockReport = {
   }>;
   movedProducts: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     location: string | null;
     movementsCount: number;
@@ -694,6 +704,7 @@ export type StockReport = {
   }>;
   lowStockProducts: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     location: string | null;
     currentStock: string;
@@ -703,6 +714,7 @@ export type StockReport = {
   }>;
   productsWithoutMovement: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     location: string | null;
     currentStock: string;
@@ -710,6 +722,7 @@ export type StockReport = {
   }>;
   turnoverProducts: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     location: string | null;
     soldQuantity: string;

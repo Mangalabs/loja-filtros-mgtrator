@@ -569,6 +569,7 @@ type StockReport = {
   }>;
   movedProducts: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     location: string | null;
     movementsCount: number;
@@ -583,6 +584,7 @@ type StockReport = {
   }>;
   lowStockProducts: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     location: string | null;
     currentStock: string;
@@ -592,6 +594,7 @@ type StockReport = {
   }>;
   productsWithoutMovement: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     location: string | null;
     currentStock: string;
@@ -599,6 +602,7 @@ type StockReport = {
   }>;
   turnoverProducts: Array<{
     productId: string;
+    internalCode: string | null;
     productName: string;
     location: string | null;
     soldQuantity: string;
@@ -773,6 +777,15 @@ type FiscalDocument = {
   cancelledByUserName: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
+  correctionLetters: Array<{
+    id: string;
+    fiscalDocumentId: string;
+    correctionText: string;
+    responsePayload: Record<string, unknown>;
+    createdByUserId: string;
+    createdByUserName: string;
+    createdAt: string;
+  }>;
 };
 
 type ManualFiscalDocumentDraft = {
@@ -3298,6 +3311,30 @@ describe("catalog routes", () => {
         body: {},
       },
     );
+    const correctionLetter = await request<FiscalDocument>(
+      `/fiscal-documents/${issued.body.data?.id}/correction-letter`,
+      {
+        method: "POST",
+        body: {
+          correctionText:
+            "Corrige informacoes complementares da nota fiscal de teste.",
+        },
+      },
+    );
+    const listedAfterCorrection = await request<FiscalDocument[]>(
+      "/fiscal-documents",
+    );
+    const shownAfterCorrection = await request<FiscalDocument>(
+      `/fiscal-documents/${issued.body.data?.id}`,
+    );
+    const correctionLetterId =
+      correctionLetter.body.data?.correctionLetters[0]?.id ?? "";
+    const correctionLetterXml = await requestRaw(
+      `/fiscal-documents/${issued.body.data?.id}/correction-letters/${correctionLetterId}/files/xml`,
+    );
+    const correctionLetterPdf = await requestRaw(
+      `/fiscal-documents/${issued.body.data?.id}/correction-letters/${correctionLetterId}/files/pdf`,
+    );
     const isolatedBranch = await request<Branch>("/branches", {
       method: "POST",
       body: {
@@ -3392,6 +3429,30 @@ describe("catalog routes", () => {
     assert.equal(synced.status, 200);
     assert.equal(synced.body.data?.status, "AUTHORIZED");
     assert.equal(synced.body.data?.pdfUrl, issued.body.data?.pdfUrl);
+    assert.equal(correctionLetter.status, 200);
+    assert.equal(correctionLetter.body.data?.status, "AUTHORIZED");
+    assert.equal(correctionLetter.body.data?.correctionLetters.length, 1);
+    assert.equal(
+      correctionLetter.body.data?.correctionLetters[0]?.correctionText,
+      "Corrige informacoes complementares da nota fiscal de teste.",
+    );
+    assert.equal(
+      correctionLetter.body.data?.correctionLetters[0]?.createdByUserName,
+      "Administrador de teste",
+    );
+    assert.equal(
+      listedAfterCorrection.body.data?.[0]?.correctionLetters.length,
+      1,
+    );
+    assert.equal(shownAfterCorrection.body.data?.correctionLetters.length, 1);
+    assert.equal(correctionLetterXml.status, 200);
+    assert.equal(
+      correctionLetterXml.contentType,
+      "application/xml; charset=utf-8",
+    );
+    assert.match(correctionLetterXml.body.toString("utf8"), /<cceMock>/);
+    assert.equal(correctionLetterPdf.status, 200);
+    assert.equal(correctionLetterPdf.contentType, "application/pdf");
     assert.equal(mockXml.status, 200);
     assert.equal(
       mockXml.headers.get("content-type"),
@@ -6412,6 +6473,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         name: "Filtro relatorio estoque baixo",
+        internalCode: "STK-LOW",
         costPrice: 8,
         location: "A-01",
         minimumStock: 5,
@@ -6422,6 +6484,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         name: "Filtro relatorio giro",
+        internalCode: "STK-SOLD",
         costPrice: 20,
         location: "B-02",
         minimumStock: 1,
@@ -6432,6 +6495,7 @@ describe("catalog routes", () => {
       method: "POST",
       body: {
         name: "Filtro sem movimentacao",
+        internalCode: "STK-NOMOV",
         location: "C-03",
         minimumStock: 0,
         salePrice: 15,
@@ -6492,9 +6556,14 @@ describe("catalog routes", () => {
       lowStockProduct.body.data?.name,
     );
     assert.equal(report.body.data?.lowStockProducts[0]?.location, "A-01");
+    assert.equal(report.body.data?.lowStockProducts[0]?.internalCode, "STK-LOW");
     assert.equal(
       report.body.data?.productsWithoutMovement[0]?.productId,
       withoutMovementProduct.body.data?.id,
+    );
+    assert.equal(
+      report.body.data?.productsWithoutMovement[0]?.internalCode,
+      "STK-NOMOV",
     );
     assert.equal(
       report.body.data?.productsWithoutMovement[0]?.location,
@@ -6505,6 +6574,7 @@ describe("catalog routes", () => {
       soldProduct.body.data?.id,
     );
     assert.equal(report.body.data?.turnoverProducts[0]?.location, "B-02");
+    assert.equal(report.body.data?.turnoverProducts[0]?.internalCode, "STK-SOLD");
     assert.equal(report.body.data?.turnoverProducts[0]?.soldQuantity, "3.000");
     assert.equal(report.body.data?.movedProducts.length, 2);
     const movedSoldProduct = report.body.data?.movedProducts.find(
@@ -6513,6 +6583,7 @@ describe("catalog routes", () => {
 
     assert.equal(movedSoldProduct?.exitCostAmount, "60.00");
     assert.equal(movedSoldProduct?.location, "B-02");
+    assert.equal(movedSoldProduct?.internalCode, "STK-SOLD");
     assert.deepEqual(
       report.body.data?.byMovementType.map((item) => ({
         type: item.type,

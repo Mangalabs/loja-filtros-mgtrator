@@ -230,14 +230,11 @@ export function FiscalDocumentsPage({
             {
               header: 'Nº da venda',
               render: (request) => (
-                <>
-                  <strong>
-                    {request.sourceNumber
-                      ? String(request.sourceNumber)
-                      : shortFiscalSourceId(request.sourceId)}
-                  </strong>
-                  <InlineNote>{request.sourceLabel}</InlineNote>
-                </>
+                <strong>
+                  {request.sourceNumber
+                    ? String(request.sourceNumber)
+                    : shortFiscalSourceId(request.sourceId)}
+                </strong>
               ),
             },
             {
@@ -257,10 +254,7 @@ export function FiscalDocumentsPage({
               header: 'Status fiscal',
               render: (request) =>
                 request.document ? (
-                  <StatusChip
-                    label={fiscalDocumentStatusLabel(request.document.status)}
-                    tone={fiscalDocumentStatusTone(request.document.status)}
-                  />
+                  <FiscalDocumentTableStatus document={request.document} />
                 ) : (
                   <StatusChip label={request.pendingLabel} tone='warning' />
                 ),
@@ -335,6 +329,7 @@ export function IssuedFiscalDocumentsPage({
   sales,
   shippingOrders,
   onCancelFiscalDocument,
+  onIssueFiscalDocumentCorrectionLetter,
   onOpenFiscalDocumentSource,
   onSyncFiscalDocument,
 }: {
@@ -348,6 +343,10 @@ export function IssuedFiscalDocumentsPage({
     event: FormEvent<HTMLFormElement>,
     fiscalDocument: FiscalDocument,
   ) => void
+  onIssueFiscalDocumentCorrectionLetter: (
+    event: FormEvent<HTMLFormElement>,
+    fiscalDocument: FiscalDocument,
+  ) => Promise<boolean>
   onOpenFiscalDocumentSource: (fiscalDocument: FiscalDocument) => void
   onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void
 }) {
@@ -458,10 +457,7 @@ export function IssuedFiscalDocumentsPage({
             {
               header: 'Status',
               render: (document) => (
-                <StatusChip
-                  label={fiscalDocumentStatusLabel(document.status)}
-                  tone={fiscalDocumentStatusTone(document.status)}
-                />
+                <FiscalDocumentTableStatus document={document} />
               ),
             },
             {
@@ -503,6 +499,9 @@ export function IssuedFiscalDocumentsPage({
                   <FiscalDocumentFilesAndActions
                     document={document}
                     onCancelFiscalDocument={onCancelFiscalDocument}
+                    onIssueFiscalDocumentCorrectionLetter={
+                      onIssueFiscalDocumentCorrectionLetter
+                    }
                     onOpenFiscalDocumentSource={onOpenFiscalDocumentSource}
                     onSyncFiscalDocument={onSyncFiscalDocument}
                   />
@@ -3054,7 +3053,9 @@ const fiscalRequestStatusFilterOptions: Array<{
   { label: 'Sem NF-e', value: 'MISSING' },
   { label: 'Pendente', value: 'PENDING' },
   { label: 'Processando', value: 'PROCESSING' },
+  { label: 'Autorizada', value: 'AUTHORIZED' },
   { label: 'Rejeitada', value: 'REJECTED' },
+  { label: 'Cancelada', value: 'CANCELLED' },
 ]
 
 const fiscalDocumentStatusFilterOptions: Array<{
@@ -3083,10 +3084,8 @@ function filterFiscalRequests(
     const matchesReadiness =
       filters.readiness === 'ALL' ||
       (filters.readiness === 'READY' &&
-        canIssueFiscalRequest(request) &&
         request.readinessIssues.length === 0) ||
       (filters.readiness === 'PENDING' &&
-        canIssueFiscalRequest(request) &&
         request.readinessIssues.length > 0) ||
       (filters.readiness === 'DOCUMENTED' &&
         Boolean(request.document) &&
@@ -3116,21 +3115,37 @@ function filterFiscalDocuments(
 ) {
   const normalizedSearch = normalizeSearchText(filters.search)
 
-  return documents.filter((document) => {
-    const matchesStatus =
-      filters.status === 'ALL' || document.status === filters.status
+  return documents
+    .filter((document) => {
+      const matchesStatus =
+        filters.status === 'ALL' || document.status === filters.status
 
-    return (
-      matchesStatus &&
-      (!normalizedSearch ||
-        fiscalDocumentSearchText(document, sourceNumbers).includes(
-          normalizedSearch,
-        ) ||
-        fiscalDocumentClientSearchText(document, filters.clients).includes(
-          normalizedSearch,
-        ))
-    )
-  })
+      return (
+        matchesStatus &&
+        (!normalizedSearch ||
+          fiscalDocumentSearchText(document, sourceNumbers).includes(
+            normalizedSearch,
+          ) ||
+          fiscalDocumentClientSearchText(document, filters.clients).includes(
+            normalizedSearch,
+          ))
+      )
+    })
+    .sort(fiscalDocumentNumberSort)
+}
+
+function fiscalDocumentNumberSort(
+  current: FiscalDocument,
+  next: FiscalDocument,
+) {
+  const currentNumber = Number(current.number ?? 0)
+  const nextNumber = Number(next.number ?? 0)
+
+  return (
+    nextNumber - currentNumber ||
+    new Date(next.issuedAt ?? next.createdAt).getTime() -
+      new Date(current.issuedAt ?? current.createdAt).getTime()
+  )
 }
 
 function fiscalRequestSearchText(request: FiscalRequest) {
@@ -3207,7 +3222,7 @@ function fiscalSourceTypeLabel(sourceType: FiscalDocument['sourceType']) {
     MANUAL_NFE: 'NF-e avulsa',
     PICKUP_RESERVATION: 'Retirada',
     SALE: 'Venda direta',
-    SHIPPING_ORDER: 'Via orçamento',
+    SHIPPING_ORDER: 'Pedidos',
   }
 
   return labels[sourceType]
@@ -3395,6 +3410,11 @@ function FiscalDetailDrawer({
             <FiscalDetailSection icon={<Paperclip size={15} />} title='Arquivos fiscais'>
               <FiscalDetailFiles document={detail.document} />
             </FiscalDetailSection>
+            {detail.document?.correctionLetters.length ? (
+              <FiscalDetailSection icon={<FileText size={15} />} title='Cartas de correção'>
+                <FiscalCorrectionLetters document={detail.document} />
+              </FiscalDetailSection>
+            ) : null}
             <FiscalDetailSection icon={<History size={15} />} title='Histórico'>
               <div className='grid gap-2'>
                 {detail.history.map((event) => (
@@ -3450,6 +3470,54 @@ function FiscalDetailFiles({ document }: { document?: FiscalDocument }) {
     </div>
   ) : (
     <InlineNote>Nenhum arquivo fiscal disponível.</InlineNote>
+  )
+}
+
+function FiscalCorrectionLetters({ document }: { document: FiscalDocument }) {
+  return (
+    <div className='grid gap-3'>
+      {document.correctionLetters.map((letter) => {
+        const actions = fiscalCorrectionLetterFileActions(document, letter)
+
+        return (
+          <div
+            className='grid gap-2 rounded-lg border border-[#e4e9e5] bg-[#fbfcfb] p-3'
+            key={letter.id}>
+            <div className='flex flex-wrap items-start justify-between gap-2'>
+              <div className='grid gap-1'>
+                <strong>{fiscalCorrectionLetterTitle(letter)}</strong>
+                <InlineNote>
+                  Emitida em {formatDateTime(letter.createdAt)} por{' '}
+                  {letter.createdByUserName}
+                </InlineNote>
+              </div>
+              <StatusChip
+                label={fiscalCorrectionLetterStatus(letter)}
+                tone='success'
+              />
+            </div>
+            <span className='text-sm text-[#2c281e]'>
+              {letter.correctionText}
+            </span>
+            {actions.length > 0 ? (
+              <div className='flex flex-wrap justify-end gap-2'>
+                {actions.map((action) => (
+                  <TableActionButton
+                    icon={<FileText size={14} />}
+                    key={action.label}
+                    type='button'
+                    onClick={action.onSelect}>
+                    {action.label}
+                  </TableActionButton>
+                ))}
+              </div>
+            ) : (
+              <InlineNote>Arquivos da CC-e ainda não disponíveis.</InlineNote>
+            )}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -3668,6 +3736,12 @@ function fiscalDocumentDetailHistoryEvents(document?: FiscalDocument) {
           document.cancelledByUserName ?? 'usuário não identificado'
         }`
       : null,
+    ...document.correctionLetters.map(
+      (correctionLetter) =>
+        `CC-e emitida em ${formatDateTime(correctionLetter.createdAt)} por ${
+          correctionLetter.createdByUserName
+        }: ${correctionLetter.correctionText}`,
+    ),
   ].filter((event): event is string => Boolean(event))
 }
 
@@ -4018,6 +4092,27 @@ function FiscalDocumentStatus({ document }: { document: FiscalDocument }) {
   )
 }
 
+function FiscalDocumentTableStatus({ document }: { document: FiscalDocument }) {
+  const detail = fiscalDocumentStatusDetail(document)
+
+  return (
+    <Stack spacing={0.5}>
+      <StatusChip
+        label={fiscalDocumentStatusLabel(document.status)}
+        tone={fiscalDocumentStatusTone(document.status)}
+      />
+      {document.correctionLetters.length > 0 ? (
+        <StatusChip label='Com CC-e' tone='success' />
+      ) : null}
+      {detail ? (
+        <InlineNote className='max-w-64 text-xs leading-4'>
+          {fiscalDocumentDetailLabel(document)}: {detail}
+        </InlineNote>
+      ) : null}
+    </Stack>
+  )
+}
+
 function FiscalDocumentStatusDetail({
   document,
 }: {
@@ -4087,9 +4182,105 @@ function fiscalDocumentFileActions(document: FiscalDocument) {
     }))
 }
 
+function fiscalCorrectionLetterFileActions(
+  document: FiscalDocument,
+  letter: FiscalDocument['correctionLetters'][number],
+) {
+  const hasMockFiles = document.provider === 'MOCK'
+
+  return [
+    {
+      fileType: 'pdf',
+      label: 'PDF CC-e',
+      url: fiscalCorrectionLetterPayloadString(
+        letter,
+        'caminho_pdf_carta_correcao',
+        'caminho_pdf_cce',
+        'caminho_pdf',
+      ),
+    },
+    {
+      fileType: 'xml',
+      label: 'XML CC-e',
+      url: fiscalCorrectionLetterPayloadString(
+        letter,
+        'caminho_xml_carta_correcao',
+        'caminho_xml_cce',
+        'caminho_xml',
+      ),
+    },
+  ]
+    .filter((link) => hasMockFiles || Boolean(link.url))
+    .map((link) => ({
+      label: `Baixar ${link.label}`,
+      onSelect: () =>
+        void downloadApiFile(
+          `/fiscal-documents/${document.id}/correction-letters/${letter.id}/files/${link.fileType}`,
+          fiscalCorrectionLetterDownloadName(document, letter, link.fileType),
+        ),
+    }))
+}
+
+function fiscalCorrectionLetterTitle(
+  letter: FiscalDocument['correctionLetters'][number],
+) {
+  const number = fiscalCorrectionLetterPayloadString(
+    letter,
+    'numero_carta_correcao',
+    'numero_cce',
+    'sequencia',
+  )
+
+  return number ? `CC-e ${number}` : 'CC-e'
+}
+
+function fiscalCorrectionLetterStatus(
+  letter: FiscalDocument['correctionLetters'][number],
+) {
+  return (
+    fiscalCorrectionLetterPayloadString(
+      letter,
+      'status',
+      'status_sefaz',
+      'mensagem',
+    ) ?? 'Autorizada'
+  )
+}
+
+function fiscalCorrectionLetterDownloadName(
+  document: FiscalDocument,
+  letter: FiscalDocument['correctionLetters'][number],
+  fileType: string,
+) {
+  const reference =
+    document.providerReference ?? document.accessKey ?? document.id
+
+  return `${reference.replace(/[^a-zA-Z0-9_-]/g, '')}-cce-${letter.id.replace(/[^a-zA-Z0-9_-]/g, '')}.${fileType}`
+}
+
+function fiscalCorrectionLetterPayloadString(
+  letter: FiscalDocument['correctionLetters'][number],
+  ...keys: string[]
+) {
+  for (const key of keys) {
+    const value = letter.responsePayload[key]
+
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value)
+    }
+  }
+
+  return null
+}
+
 function FiscalDocumentFilesAndActions({
   document,
   onCancelFiscalDocument,
+  onIssueFiscalDocumentCorrectionLetter,
   onOpenFiscalDocumentSource,
   onSyncFiscalDocument,
 }: {
@@ -4098,10 +4289,30 @@ function FiscalDocumentFilesAndActions({
     event: FormEvent<HTMLFormElement>,
     fiscalDocument: FiscalDocument,
   ) => void
+  onIssueFiscalDocumentCorrectionLetter: (
+    event: FormEvent<HTMLFormElement>,
+    fiscalDocument: FiscalDocument,
+  ) => Promise<boolean>
   onOpenFiscalDocumentSource: (fiscalDocument: FiscalDocument) => void
   onSyncFiscalDocument: (fiscalDocument: FiscalDocument) => void
 }) {
   const [showCancellationForm, setShowCancellationForm] = useState(false)
+  const [showCorrectionLetterForm, setShowCorrectionLetterForm] = useState(false)
+  const [showCorrectionLetters, setShowCorrectionLetters] = useState(false)
+  async function handleCorrectionLetterSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    const submitted = await onIssueFiscalDocumentCorrectionLetter(
+      event,
+      document,
+    )
+
+    if (submitted) {
+      setShowCorrectionLetterForm(false)
+      setShowCorrectionLetters(true)
+    }
+  }
+
   const actions: TableActionsMenuAction[] = [
     ...fiscalDocumentFileActions(document),
     {
@@ -4114,6 +4325,18 @@ function FiscalDocumentFilesAndActions({
     actions.push({
       label: 'Atualizar retorno',
       onSelect: () => onSyncFiscalDocument(document),
+    })
+
+  document.correctionLetters.length > 0 &&
+    actions.push({
+      label: 'Ver CC-e',
+      onSelect: () => setShowCorrectionLetters((visible) => !visible),
+    })
+
+  document.status === 'AUTHORIZED' &&
+    actions.push({
+      label: 'Emitir CC-e',
+      onSelect: () => setShowCorrectionLetterForm(true),
     })
 
   document.status === 'AUTHORIZED' &&
@@ -4129,6 +4352,39 @@ function FiscalDocumentFilesAndActions({
         <span className='max-w-56 text-right text-sm text-[#5f665f]'>
           Corrija os dados fiscais e reemita pela fila.
         </span>
+      ) : null}
+      {showCorrectionLetters && document.correctionLetters.length > 0 ? (
+        <div className='w-full max-w-96'>
+          <FiscalCorrectionLetters document={document} />
+        </div>
+      ) : null}
+      {showCorrectionLetterForm && document.status === 'AUTHORIZED' ? (
+        <form
+          className='grid w-full max-w-80 gap-2'
+          onSubmit={(event) => void handleCorrectionLetterSubmit(event)}>
+          <InlineNote>
+            A CC-e fica vinculada à NF-e original. Ela não corrige valores,
+            impostos, quantidade, destinatário/remetente ou datas.
+          </InlineNote>
+          <TextField
+            name='fiscalCorrectionText'
+            label='Texto da carta de correção'
+            helperText='Informe entre 15 e 1000 caracteres. Não use para corrigir valores, impostos, quantidade, destinatário/remetente ou datas.'
+            minRows={4}
+            multiline
+            required
+            slotProps={{ htmlInput: { maxLength: 1000, minLength: 15 } }}
+            size='small'
+          />
+          <div className='flex flex-wrap gap-2'>
+            <TableActionButton type='submit'>Emitir CC-e</TableActionButton>
+            <TableActionButton
+              type='button'
+              onClick={() => setShowCorrectionLetterForm(false)}>
+              Fechar
+            </TableActionButton>
+          </div>
+        </form>
       ) : null}
       {showCancellationForm && document.status === 'AUTHORIZED' ? (
         <form

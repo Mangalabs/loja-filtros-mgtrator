@@ -13,7 +13,7 @@ import {
 import { formatQuantity } from "../../utils/format";
 import type { PickupReservationDraftInput, SaleDraftInput } from "./SalesPages";
 
-type SalesOperationsTarget = "direct" | "shipping" | "pickup" | "history";
+type SalesOperationsTarget = "direct" | "shipping" | "pickup";
 
 type SalesActionsOptions = {
   refreshSalesFlow: () => Promise<void>;

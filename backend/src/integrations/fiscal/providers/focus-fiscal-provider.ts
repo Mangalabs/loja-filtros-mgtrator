@@ -150,6 +150,50 @@ export class FocusFiscalProvider implements FiscalProvider {
     });
   }
 
+  async correctionLetter(request: {
+    documentType: FiscalCheckRequest["documentType"];
+    environment: FiscalCheckRequest["environment"];
+    companyCnpj?: string | null;
+    providerReference: string;
+    correctionText: string;
+  }) {
+    ensureFocusConfiguration(request.environment, request.companyCnpj, {
+      requireCompanyCnpj: false,
+    });
+
+    const response = await focusFetch(
+      `${focusNfeReferenceUrl(
+        request.environment,
+        request.providerReference,
+      )}/carta_correcao`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: focusAuthorizationHeader(
+            focusToken(request.environment, request.companyCnpj),
+          ),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ correcao: request.correctionText }),
+      },
+    );
+    const responsePayload = await readFocusResponse(response);
+
+    if (!response.ok) {
+      throw focusHttpError(response, responsePayload);
+    }
+
+    return {
+      provider: "FOCUS" as const,
+      providerReference:
+        focusString(responsePayload.ref) ??
+        focusString(responsePayload.referencia) ??
+        request.providerReference,
+      responsePayload,
+    };
+  }
+
   async issue(request: FiscalIssueRequest): Promise<FiscalIssueResult> {
     ensureFocusConfiguration(request.environment, request.companyCnpj);
 

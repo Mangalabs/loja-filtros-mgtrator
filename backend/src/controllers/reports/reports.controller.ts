@@ -232,6 +232,7 @@ function stockReportDocument(
         title: "Produtos movimentados",
         emptyMessage: "Nenhum produto movimentado no periodo.",
         columns: [
+          { label: "Codigo" },
           { label: "Produto" },
           { label: "Locacao" },
           { label: "Mov.", align: "right" },
@@ -243,6 +244,7 @@ function stockReportDocument(
           { label: "Ult. mov." },
         ],
         rows: report.movedProducts.map((item) => [
+          item.internalCode ?? "",
           item.productName,
           item.location ?? "",
           item.movementsCount,
@@ -274,6 +276,7 @@ function stockReportDocument(
         title: "Estoque baixo",
         emptyMessage: "Nenhum produto em estoque baixo.",
         columns: [
+          { label: "Codigo" },
           { label: "Produto" },
           { label: "Locacao" },
           { label: "Fisico", align: "right" },
@@ -282,6 +285,7 @@ function stockReportDocument(
           { label: "Minimo", align: "right" },
         ],
         rows: report.lowStockProducts.map((item) => [
+          item.internalCode ?? "",
           item.productName,
           item.location ?? "",
           formatQuantity(item.currentStock),
@@ -294,12 +298,14 @@ function stockReportDocument(
         title: "Produtos sem movimentacao",
         emptyMessage: "Nenhum produto sem movimentacao.",
         columns: [
+          { label: "Codigo" },
           { label: "Produto" },
           { label: "Locacao" },
           { label: "Fisico", align: "right" },
           { label: "Minimo", align: "right" },
         ],
         rows: report.productsWithoutMovement.map((item) => [
+          item.internalCode ?? "",
           item.productName,
           item.location ?? "",
           formatQuantity(item.currentStock),

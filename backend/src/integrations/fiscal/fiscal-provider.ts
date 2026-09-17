@@ -120,6 +120,20 @@ export type FiscalCancelRequest = {
 
 export type FiscalCancelResult = FiscalIssueResult;
 
+export type FiscalCorrectionLetterRequest = {
+  documentType: FiscalDocumentType;
+  environment: FiscalEnvironment;
+  companyCnpj?: string | null;
+  providerReference: string;
+  correctionText: string;
+};
+
+export type FiscalCorrectionLetterResult = {
+  provider: FiscalProviderName;
+  providerReference: string;
+  responsePayload: Record<string, unknown>;
+};
+
 export type FiscalPreviewResult = {
   content: Buffer;
   contentType: string;
@@ -129,6 +143,9 @@ export type FiscalPreviewResult = {
 export type FiscalProvider = {
   cancel(request: FiscalCancelRequest): Promise<FiscalCancelResult>;
   check(request: FiscalCheckRequest): Promise<FiscalCheckResult>;
+  correctionLetter(
+    request: FiscalCorrectionLetterRequest,
+  ): Promise<FiscalCorrectionLetterResult>;
   issue(request: FiscalIssueRequest): Promise<FiscalIssueResult>;
   preview(request: FiscalIssueRequest): Promise<FiscalPreviewResult>;
 };

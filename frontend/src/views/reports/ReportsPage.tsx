@@ -1332,6 +1332,7 @@ function StockReportSection({
                 <div className='grid gap-1'>
                   <strong>{item.productName}</strong>
                   <span className='text-xs text-[#5f665f]'>
+                    {item.internalCode ?? 'Sem codigo'} ·{' '}
                     {item.movementsCount} mov. ·{' '}
                     {item.lastMovementAt
                       ? formatDateTime(item.lastMovementAt)
@@ -1394,7 +1395,14 @@ function StockReportSection({
           columns={[
             {
               header: 'Estoque baixo',
-              render: (item) => item.productName,
+              render: (item) => (
+                <ReportProductName
+                  item={{
+                    internalCode: item.internalCode,
+                    productName: item.productName,
+                  }}
+                />
+              ),
             },
             {
               align: 'right',
@@ -1416,7 +1424,14 @@ function StockReportSection({
           columns={[
             {
               header: 'Sem movimentacao',
-              render: (item) => item.productName,
+              render: (item) => (
+                <ReportProductName
+                  item={{
+                    internalCode: item.internalCode,
+                    productName: item.productName,
+                  }}
+                />
+              ),
             },
             {
               align: 'right',
@@ -1438,7 +1453,14 @@ function StockReportSection({
           columns={[
             {
               header: 'Giro por venda',
-              render: (item) => item.productName,
+              render: (item) => (
+                <ReportProductName
+                  item={{
+                    internalCode: item.internalCode,
+                    productName: item.productName,
+                  }}
+                />
+              ),
             },
             {
               align: 'right',
@@ -2293,6 +2315,7 @@ function exportStockReportCsv(report: StockReport) {
     [],
     [
       'Produtos movimentados',
+      'Código',
       'Produto',
       'Locação',
       'Movimentacoes',
@@ -2307,6 +2330,7 @@ function exportStockReportCsv(report: StockReport) {
     ],
     ...report.movedProducts.map((item) => [
       'Produtos movimentados',
+      item.internalCode ?? '',
       item.productName,
       item.location ?? '',
       item.movementsCount,
@@ -2331,6 +2355,7 @@ function exportStockReportCsv(report: StockReport) {
     [],
     [
       'Estoque baixo',
+      'Código',
       'Produto',
       'Locação',
       'Fisico',
@@ -2340,6 +2365,7 @@ function exportStockReportCsv(report: StockReport) {
     ],
     ...report.lowStockProducts.map((item) => [
       'Estoque baixo',
+      item.internalCode ?? '',
       item.productName,
       item.location ?? '',
       item.currentStock,
@@ -2348,9 +2374,10 @@ function exportStockReportCsv(report: StockReport) {
       item.minimumStock,
     ]),
     [],
-    ['Sem movimentacao', 'Produto', 'Locação', 'Fisico', 'Minimo'],
+    ['Sem movimentacao', 'Código', 'Produto', 'Locação', 'Fisico', 'Minimo'],
     ...report.productsWithoutMovement.map((item) => [
       'Sem movimentacao',
+      item.internalCode ?? '',
       item.productName,
       item.location ?? '',
       item.currentStock,
@@ -2359,6 +2386,7 @@ function exportStockReportCsv(report: StockReport) {
     [],
     [
       'Giro por venda',
+      'Código',
       'Produto',
       'Locação',
       'Quantidade vendida',
@@ -2366,6 +2394,7 @@ function exportStockReportCsv(report: StockReport) {
     ],
     ...report.turnoverProducts.map((item) => [
       'Giro por venda',
+      item.internalCode ?? '',
       item.productName,
       item.location ?? '',
       item.soldQuantity,

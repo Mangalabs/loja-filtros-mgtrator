@@ -31,6 +31,7 @@ export function FiscalOperationsPage({
   sales,
   shippingOrders,
   onCancelFiscalDocument,
+  onIssueFiscalDocumentCorrectionLetter,
   onEditSaleFiscalDocument,
   onIssuePickupReservationFiscalDocument,
   onIssueSaleFiscalDocument,
@@ -55,6 +56,10 @@ export function FiscalOperationsPage({
     event: FormEvent<HTMLFormElement>,
     fiscalDocument: FiscalDocument,
   ) => void
+  onIssueFiscalDocumentCorrectionLetter: (
+    event: FormEvent<HTMLFormElement>,
+    fiscalDocument: FiscalDocument,
+  ) => Promise<boolean>
   onEditSaleFiscalDocument: (sale: Sale) => void
   onIssuePickupReservationFiscalDocument: (
     reservation: PickupReservation,
@@ -185,6 +190,9 @@ export function FiscalOperationsPage({
           sales={sales}
           shippingOrders={shippingOrders}
           onCancelFiscalDocument={onCancelFiscalDocument}
+          onIssueFiscalDocumentCorrectionLetter={
+            onIssueFiscalDocumentCorrectionLetter
+          }
           onOpenFiscalDocumentSource={onOpenFiscalDocumentSource}
           onSyncFiscalDocument={onSyncFiscalDocument}
         />

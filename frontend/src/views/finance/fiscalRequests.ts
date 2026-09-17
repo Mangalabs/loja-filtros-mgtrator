@@ -139,10 +139,15 @@ export function canIssueFiscalRequest(request: FiscalRequest) {
 
 function fiscalRequestSort(current: FiscalRequest, next: FiscalRequest) {
   return (
+    fiscalRequestNumberSortValue(next) - fiscalRequestNumberSortValue(current) ||
     fiscalRequestPriority(current) - fiscalRequestPriority(next) ||
     current.sourceLabel.localeCompare(next.sourceLabel) ||
     current.clientName.localeCompare(next.clientName)
   )
+}
+
+function fiscalRequestNumberSortValue(request: FiscalRequest) {
+  return Number(request.sourceNumber ?? request.document?.number ?? 0)
 }
 
 function fiscalRequestPriority(request: FiscalRequest) {
@@ -235,7 +240,7 @@ const fiscalRequestFactories: Array<
           sourceType: 'SHIPPING_ORDER',
           sourceId: order.id,
           sourceNumber: sale?.saleNumber ?? null,
-          sourceLabel: 'Via orçamento',
+          sourceLabel: 'Pedidos',
           pendingLabel: 'Pendente',
           clientId: order.clientId,
           clientName: order.clientName,

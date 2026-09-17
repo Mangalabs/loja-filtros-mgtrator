@@ -3,6 +3,8 @@ import type {
   FiscalCancelResult,
   FiscalCheckRequest,
   FiscalCheckResult,
+  FiscalCorrectionLetterRequest,
+  FiscalCorrectionLetterResult,
   FiscalIssueRequest,
   FiscalIssueResult,
   FiscalProvider,
@@ -48,6 +50,21 @@ export class MockFiscalProvider implements FiscalProvider {
         documento: request.documentType,
         referencia: request.providerReference,
         status: "autorizado_mock",
+      },
+    };
+  }
+
+  async correctionLetter(
+    request: FiscalCorrectionLetterRequest,
+  ): Promise<FiscalCorrectionLetterResult> {
+    return {
+      provider: "MOCK",
+      providerReference: request.providerReference,
+      responsePayload: {
+        correcao: request.correctionText,
+        documento: request.documentType,
+        referencia: request.providerReference,
+        status: "carta_correcao_autorizada_mock",
       },
     };
   }

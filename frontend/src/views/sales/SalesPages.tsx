@@ -661,7 +661,7 @@ function saleDetailFromShippingOrder(
   fiscalDocument: FiscalDocument | undefined,
 ): SaleDetail {
   if (sale) {
-    return saleDetailFromSale(sale, fiscalDocument, 'Via orçamento')
+    return saleDetailFromSale(sale, fiscalDocument, 'Pedidos')
   }
 
   return {
@@ -675,7 +675,7 @@ function saleDetailFromShippingOrder(
       unitPrice: item.unitPrice,
     })),
     clientName: order.clientName,
-    originLabel: 'Via orçamento',
+    originLabel: 'Pedidos',
     paymentSummary: shippingOrderPaymentSummary(order),
     status: <ShippingOrderStatusSummary order={order} />,
     subtitle: formatDateTime(order.completedAt ?? order.createdAt),
@@ -1639,7 +1639,7 @@ export function ShippingOrdersPage({
                 </PrimaryButton>
               </div>
             }
-            description='Vendas via orçamento nascem de orçamentos salvos e viram venda quando o cliente confirmar.'
+            description='Pedidos confirmados reúnem separação, pagamento, baixa de estoque e emissão fiscal.'
             icon={<Send size={18} />}
             title='Vendas'
           />

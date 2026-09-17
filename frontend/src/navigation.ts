@@ -313,9 +313,9 @@ export const viewTitles: Record<View, { title: string; description: string }> =
         'Consulte vendas fechadas, comprovantes e documentos fiscais.',
     },
     'shipping-orders': {
-      title: 'Vendas via orçamento',
+      title: 'Pedidos',
       description:
-        'Conclua vendas originadas de orçamentos aprovados.',
+        'Conclua pedidos confirmados e acompanhe separação, pagamento e baixa.',
     },
     'pickup-reservations': {
       title: 'Reservas para retirada',

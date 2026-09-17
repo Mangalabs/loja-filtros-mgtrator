@@ -255,9 +255,29 @@ export function ResponsiveTable<T>({
               <TableRow
                 hover
                 key={getRowId(item)}
-                onClick={() => onRowClick?.(item)}
+                onClick={(event) => {
+                  if (
+                    eventTargetHandlesOwnInteraction(
+                      event.target,
+                      event.currentTarget,
+                    )
+                  ) {
+                    return
+                  }
+
+                  onRowClick?.(item)
+                }}
                 onKeyDown={(event) => {
                   if (!onRowClick) {
+                    return
+                  }
+
+                  if (
+                    eventTargetHandlesOwnInteraction(
+                      event.target,
+                      event.currentTarget,
+                    )
+                  ) {
                     return
                   }
 
@@ -376,4 +396,19 @@ function responsiveTableColumnLabel<T>(column: ResponsiveTableColumn<T>) {
     column.mobileLabel ??
     (typeof column.header === 'string' ? column.header : undefined)
   )
+}
+
+function eventTargetHandlesOwnInteraction(
+  target: EventTarget | null,
+  row: EventTarget,
+) {
+  if (!(target instanceof Element)) {
+    return false
+  }
+
+  const interactiveElement = target.closest(
+    'a, button, input, select, textarea, [role="button"], [role="menuitem"]',
+  )
+
+  return Boolean(interactiveElement && interactiveElement !== row)
 }

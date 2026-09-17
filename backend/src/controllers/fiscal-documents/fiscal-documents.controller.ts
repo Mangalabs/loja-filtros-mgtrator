@@ -8,6 +8,7 @@ import {
   findBlockingFiscalDocumentBySale,
   findFiscalDocumentBySource,
   getFiscalDocumentById,
+  insertFiscalDocumentCorrectionLetter,
   insertFiscalDocument,
   listFiscalDocuments,
   replaceFiscalDocumentIssue,
@@ -174,6 +175,66 @@ export async function downloadFiscalDocumentFile(
   };
 }
 
+export async function downloadFiscalDocumentCorrectionLetterFile(
+  id: string,
+  correctionLetterId: string,
+  branchId: string,
+  fileType: "pdf" | "xml",
+) {
+  const fiscalDocument = await getFiscalDocumentById(id, { branchId });
+
+  if (!fiscalDocument) {
+    throw new AppError("Documento fiscal nao encontrado.", 404);
+  }
+
+  const correctionLetter = fiscalDocument.correctionLetters.find(
+    (letter) => letter.id === correctionLetterId,
+  );
+
+  if (!correctionLetter) {
+    throw new AppError("Carta de correcao nao encontrada.", 404);
+  }
+
+  if (fiscalDocument.provider === "MOCK") {
+    return mockFiscalDocumentCorrectionLetterFile(
+      fiscalDocument.providerReference ?? fiscalDocument.id,
+      correctionLetter.id,
+      fileType,
+    );
+  }
+
+  const fileUrl = fiscalCorrectionLetterFileUrl(
+    fiscalDocument.environment,
+    correctionLetter.responsePayload,
+    fileType,
+  );
+
+  if (!fileUrl) {
+    throw new AppError("Arquivo da carta de correcao ainda nao disponivel.", 404);
+  }
+
+  const response = await fetch(validatedFiscalFileUrl(fileUrl));
+
+  if (!response.ok) {
+    throw new AppError(
+      "Nao foi possivel baixar a carta de correcao agora.",
+      502,
+    );
+  }
+
+  return {
+    content: Buffer.from(await response.arrayBuffer()),
+    contentType:
+      response.headers.get("content-type") ??
+      (fileType === "xml" ? "application/xml" : "application/pdf"),
+    fileName: fiscalCorrectionLetterFileName(
+      fiscalDocument,
+      correctionLetterId,
+      fileType,
+    ),
+  };
+}
+
 export function mockFiscalDocumentFile(
   reference: string,
   extension: "pdf" | "xml",
@@ -193,6 +254,30 @@ export function mockFiscalDocumentFile(
   };
 
   return files[extension];
+}
+
+function mockFiscalDocumentCorrectionLetterFile(
+  reference: string,
+  correctionLetterId: string,
+  extension: "pdf" | "xml",
+) {
+  const normalizedReference = reference.replace(/[^a-zA-Z0-9_-]/g, "");
+  const normalizedLetter = correctionLetterId.replace(/[^a-zA-Z0-9_-]/g, "");
+  const fileName = `${normalizedReference}-cce-${normalizedLetter}.${extension}`;
+
+  return extension === "xml"
+    ? {
+        content: Buffer.from(
+          `<cceMock><referencia>${normalizedReference}</referencia><id>${normalizedLetter}</id></cceMock>`,
+        ),
+        contentType: "application/xml; charset=utf-8",
+        fileName,
+      }
+    : {
+        content: Buffer.from(`PDF mock CC-e ${normalizedReference}`),
+        contentType: "application/pdf",
+        fileName,
+      };
 }
 
 function validatedFiscalFileUrl(fileUrl: string) {
@@ -245,6 +330,56 @@ function fiscalDocumentFileName(
     "documento-fiscal";
 
   return `${reference.replace(/[^a-zA-Z0-9_-]/g, "")}.${extension}`;
+}
+
+function fiscalCorrectionLetterFileName(
+  fiscalDocument: Awaited<ReturnType<typeof getFiscalDocumentById>>,
+  correctionLetterId: string,
+  fileType: "pdf" | "xml",
+) {
+  const reference =
+    fiscalDocument?.providerReference ??
+    fiscalDocument?.accessKey ??
+    fiscalDocument?.id ??
+    "documento-fiscal";
+
+  return `${reference.replace(/[^a-zA-Z0-9_-]/g, "")}-cce-${correctionLetterId.replace(/[^a-zA-Z0-9_-]/g, "")}.${fileType}`;
+}
+
+function fiscalCorrectionLetterFileUrl(
+  environment: FiscalIssueRequest["environment"],
+  responsePayload: Record<string, unknown>,
+  fileType: "pdf" | "xml",
+) {
+  const path = fiscalResponseString(
+    fileType === "xml"
+      ? responsePayload.caminho_xml_carta_correcao ??
+          responsePayload.caminho_xml_cce ??
+          responsePayload.caminho_xml
+      : responsePayload.caminho_pdf_carta_correcao ??
+          responsePayload.caminho_pdf_cce ??
+          responsePayload.caminho_pdf,
+  );
+
+  if (!path) {
+    return null;
+  }
+
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+
+  const baseUrl = env.fiscal.focus.baseUrls[environment]
+    .replace(/\/$/, "")
+    .replace(/\/v2\/nfe$/, "")
+    .replace(/\/v2$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+  return `${baseUrl}${normalizedPath}`;
+}
+
+function fiscalResponseString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 export async function syncFiscalDocument(id: string, branchId: string) {
@@ -436,6 +571,57 @@ export async function cancelFiscalDocument(
     code: 200,
     status: "success",
     data: updated,
+  };
+}
+
+export async function issueFiscalDocumentCorrectionLetter(
+  id: string,
+  correctionText: string,
+  createdByUserId: string,
+  branchId: string,
+) {
+  const fiscalDocument = await getFiscalDocumentById(id, { branchId });
+
+  if (!fiscalDocument) {
+    throw new AppError("Documento fiscal nao encontrado.", 404);
+  }
+
+  if (fiscalDocument.documentType !== "NFE") {
+    throw new AppError("Carta de correcao disponivel apenas para NF-e.", 422);
+  }
+
+  if (!fiscalDocument.providerReference) {
+    throw new AppError("Documento fiscal sem referencia do provedor.", 422);
+  }
+
+  if (fiscalDocument.status !== "AUTHORIZED") {
+    throw new AppError(
+      "Carta de correcao exige NF-e autorizada pela SEFAZ.",
+      422,
+    );
+  }
+
+  const fiscalSettings = await currentFiscalSettings(branchId);
+  const provider = makeFiscalProviderByName(fiscalDocument.provider);
+  const result = await provider.correctionLetter({
+    companyCnpj: fiscalSettings.companyCnpj,
+    correctionText,
+    documentType: fiscalDocument.documentType,
+    environment: fiscalDocument.environment,
+    providerReference: fiscalDocument.providerReference,
+  });
+
+  await insertFiscalDocumentCorrectionLetter({
+    correctionText,
+    createdByUserId,
+    fiscalDocumentId: fiscalDocument.id,
+    responsePayload: result.responsePayload,
+  });
+
+  return {
+    code: 200,
+    status: "success",
+    data: await getFiscalDocumentById(id, { branchId }),
   };
 }
 

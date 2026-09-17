@@ -257,6 +257,9 @@ export function AuthenticatedApp({
       setSalesOperationsInitialTab("shipping");
       setView("sales-operations");
     },
+    showQuotes: () => {
+      setView("quotes");
+    },
   });
 
   const salesActions = useSalesActions({
@@ -577,7 +580,6 @@ function readInitialView(user: AuthUser): View {
 function migratedInitialView(view: View): View {
   if (
     view === "sales" ||
-    view === "sales-history" ||
     view === "shipping-orders" ||
     view === "pickup-reservations"
   ) {

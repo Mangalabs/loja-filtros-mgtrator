@@ -262,12 +262,44 @@ export function useFinanceActions({
     });
   }
 
+  async function issueFiscalDocumentCorrectionLetter(
+    event: FormEvent<HTMLFormElement>,
+    fiscalDocument: FiscalDocument,
+  ) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const correctionText = String(
+      form.get("fiscalCorrectionText") ?? "",
+    ).trim();
+    const confirmed = await requestConfirmation(
+      "A carta de correcao sera enviada a SEFAZ e ficara vinculada a NF-e autorizada.",
+      "Emitir carta de correcao?",
+      "Emitir CC-e",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiPost(
+        `/fiscal-documents/${fiscalDocument.id}/correction-letter`,
+        { correctionText },
+      );
+
+      formElement.reset();
+      await refreshFiscalFlow();
+    });
+  }
+
   return {
     cancelFiscalDocument,
     changePaymentMethodStatus,
     closeCashRegister,
     createCashRegisterMovement,
     issueManualFiscalDocument,
+    issueFiscalDocumentCorrectionLetter,
     openCashRegister,
     previewManualFiscalDocument,
     saveManualFiscalDocumentDraft,

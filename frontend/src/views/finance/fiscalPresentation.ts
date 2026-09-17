@@ -65,7 +65,7 @@ const fiscalDocumentSourceLabels: Record<FiscalDocument['sourceType'], string> =
     MANUAL_NFE: 'NF-e avulsa',
     PICKUP_RESERVATION: 'Reserva',
     SALE: 'Venda direta',
-    SHIPPING_ORDER: 'Via orçamento',
+    SHIPPING_ORDER: 'Pedidos',
   }
 
 const fiscalDocumentEnvironmentLabels: Record<

@@ -45,8 +45,26 @@ export type FiscalDocument = {
   cancelledByUserName: string | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
+  correctionLetters: FiscalDocumentCorrectionLetter[];
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type FiscalDocumentCorrectionLetter = {
+  id: string;
+  fiscalDocumentId: string;
+  correctionText: string;
+  responsePayload: Record<string, unknown>;
+  createdByUserId: string;
+  createdByUserName: string;
+  createdAt: Date;
+};
+
+export type FiscalDocumentCorrectionLetterInput = {
+  fiscalDocumentId: string;
+  correctionText: string;
+  responsePayload: Record<string, unknown>;
+  createdByUserId: string;
 };
 
 export type FiscalDocumentInput = {
@@ -116,16 +134,18 @@ const fiscalDocumentColumns = [
 export async function listFiscalDocuments(filters: {
   branchId: string;
 }): Promise<FiscalDocument[]> {
-  return fiscalDocumentQuery(db)
+  const documents = await fiscalDocumentQuery(db)
     .where("fiscal_documents.branch_id", filters.branchId)
     .orderBy("fiscal_documents.created_at", "desc");
+
+  return withFiscalDocumentCorrectionLetters(db, documents);
 }
 
 export async function getFiscalDocumentById(
   id: string,
   filters?: { branchId?: string | null },
 ): Promise<FiscalDocument | undefined> {
-  return fiscalDocumentQuery(db)
+  const fiscalDocument = await fiscalDocumentQuery(db)
     .where("fiscal_documents.id", id)
     .modify((query) => {
       if (filters?.branchId) {
@@ -133,6 +153,10 @@ export async function getFiscalDocumentById(
       }
     })
     .first();
+
+  return fiscalDocument
+    ? (await withFiscalDocumentCorrectionLetters(db, [fiscalDocument]))[0]
+    : undefined;
 }
 
 export async function findFiscalDocumentBySource(
@@ -141,13 +165,17 @@ export async function findFiscalDocumentBySource(
   sourceId: string,
   documentType: FiscalDocumentType,
 ): Promise<FiscalDocument | undefined> {
-  return fiscalDocumentQuery(transaction)
+  const fiscalDocument = await fiscalDocumentQuery(transaction)
     .where({
       "fiscal_documents.source_type": sourceType,
       "fiscal_documents.source_id": sourceId,
       "fiscal_documents.document_type": documentType,
     })
     .first();
+
+  return fiscalDocument
+    ? (await withFiscalDocumentCorrectionLetters(transaction, [fiscalDocument]))[0]
+    : undefined;
 }
 
 export async function findBlockingFiscalDocumentBySale(
@@ -155,7 +183,7 @@ export async function findBlockingFiscalDocumentBySale(
   saleId: string,
   documentType: FiscalDocumentType,
 ): Promise<FiscalDocument | undefined> {
-  return fiscalDocumentQuery(transaction)
+  const fiscalDocument = await fiscalDocumentQuery(transaction)
     .where("fiscal_documents.document_type", documentType)
     .whereNot("fiscal_documents.status", "REJECTED")
     .where((query) => {
@@ -180,6 +208,10 @@ export async function findBlockingFiscalDocumentBySale(
         });
     })
     .first();
+
+  return fiscalDocument
+    ? (await withFiscalDocumentCorrectionLetters(transaction, [fiscalDocument]))[0]
+    : undefined;
 }
 
 export async function insertFiscalDocument(
@@ -217,7 +249,7 @@ export async function insertFiscalDocument(
     throw new Error("Fiscal document was not found after creation");
   }
 
-  return fiscalDocument;
+  return (await withFiscalDocumentCorrectionLetters(transaction, [fiscalDocument]))[0];
 }
 
 export async function replaceFiscalDocumentIssue(
@@ -255,7 +287,7 @@ export async function replaceFiscalDocumentIssue(
     throw new Error("Fiscal document was not found after replacement");
   }
 
-  return fiscalDocument;
+  return (await withFiscalDocumentCorrectionLetters(transaction, [fiscalDocument]))[0];
 }
 
 export async function updateFiscalDocumentStatus(
@@ -292,7 +324,30 @@ export async function updateFiscalDocumentStatus(
     throw new Error("Fiscal document was not found after update");
   }
 
-  return fiscalDocument;
+  return (await withFiscalDocumentCorrectionLetters(db, [fiscalDocument]))[0];
+}
+
+export async function insertFiscalDocumentCorrectionLetter(
+  input: FiscalDocumentCorrectionLetterInput,
+): Promise<FiscalDocumentCorrectionLetter> {
+  const [created] = await db("fiscal_document_correction_letters")
+    .insert({
+      fiscal_document_id: input.fiscalDocumentId,
+      correction_text: input.correctionText,
+      response_payload: input.responsePayload,
+      created_by_user_id: input.createdByUserId,
+    })
+    .returning("id");
+
+  const correctionLetter = await fiscalDocumentCorrectionLetterQuery(db)
+    .where("fiscal_document_correction_letters.id", created.id)
+    .first();
+
+  if (!correctionLetter) {
+    throw new Error("Fiscal correction letter was not found after creation");
+  }
+
+  return correctionLetter;
 }
 
 function fiscalDocumentQuery(database: Knex | Knex.Transaction) {
@@ -309,4 +364,46 @@ function fiscalDocumentQuery(database: Knex | Knex.Transaction) {
       "fiscal_documents.cancelled_by_user_id",
     )
     .select<FiscalDocument[]>(fiscalDocumentColumns);
+}
+
+function fiscalDocumentCorrectionLetterQuery(
+  database: Knex | Knex.Transaction,
+) {
+  return database("fiscal_document_correction_letters")
+    .join(
+      "users",
+      "users.id",
+      "fiscal_document_correction_letters.created_by_user_id",
+    )
+    .select<FiscalDocumentCorrectionLetter[]>([
+      "fiscal_document_correction_letters.id",
+      "fiscal_document_correction_letters.fiscal_document_id as fiscalDocumentId",
+      "fiscal_document_correction_letters.correction_text as correctionText",
+      "fiscal_document_correction_letters.response_payload as responsePayload",
+      "fiscal_document_correction_letters.created_by_user_id as createdByUserId",
+      "users.name as createdByUserName",
+      "fiscal_document_correction_letters.created_at as createdAt",
+    ]);
+}
+
+async function withFiscalDocumentCorrectionLetters(
+  database: Knex | Knex.Transaction,
+  fiscalDocuments: FiscalDocument[],
+) {
+  if (fiscalDocuments.length === 0) {
+    return [];
+  }
+
+  const documentIds = fiscalDocuments.map((fiscalDocument) => fiscalDocument.id);
+  const correctionLetters = await fiscalDocumentCorrectionLetterQuery(database)
+    .whereIn("fiscal_document_correction_letters.fiscal_document_id", documentIds)
+    .orderBy("fiscal_document_correction_letters.created_at", "desc");
+
+  return fiscalDocuments.map((fiscalDocument) => ({
+    ...fiscalDocument,
+    correctionLetters: correctionLetters.filter(
+      (correctionLetter) =>
+        correctionLetter.fiscalDocumentId === fiscalDocument.id,
+    ),
+  }));
 }

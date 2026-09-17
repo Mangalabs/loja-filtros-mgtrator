@@ -3,11 +3,13 @@ import type { Response } from "express";
 import { z } from "zod";
 import {
   cancelFiscalDocument,
+  downloadFiscalDocumentCorrectionLetterFile,
   destroyManualFiscalDocumentDraft,
   downloadFiscalDocumentFile,
   indexFiscalDocuments,
   indexManualFiscalDocumentDrafts,
   issueEditedSaleFiscalDocument,
+  issueFiscalDocumentCorrectionLetter,
   issueManualFiscalDocument,
   issuePickupReservationFiscalDocument,
   issueSaleFiscalDocument,
@@ -41,6 +43,12 @@ const manualFiscalDocumentDraftParamsSchema = z.object({
 const fiscalDocumentFileParamsSchema = fiscalDocumentParamsSchema.extend({
   fileType: z.enum(["danfe", "xml"]),
 });
+
+const fiscalDocumentCorrectionLetterFileParamsSchema =
+  fiscalDocumentParamsSchema.extend({
+    correctionLetterId: z.uuid(),
+    fileType: z.enum(["pdf", "xml"]),
+  });
 
 const saleParamsSchema = z.object({
   id: z.uuid(),
@@ -233,6 +241,12 @@ const cancelFiscalDocumentSchema = z
   })
   .strict();
 
+const fiscalDocumentCorrectionLetterSchema = z
+  .object({
+    correctionText: z.string().trim().min(15).max(1000),
+  })
+  .strict();
+
 const mockFiscalDocumentFileParamsSchema = z.object({
   extension: z.enum(["pdf", "xml"]),
   reference: z.string().trim().min(1).max(160),
@@ -383,6 +397,30 @@ fiscalDocumentsRoutes.get(
   },
 );
 
+fiscalDocumentsRoutes.get(
+  "/fiscal-documents/:id/correction-letters/:correctionLetterId/files/:fileType",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { correctionLetterId, fileType, id } =
+      fiscalDocumentCorrectionLetterFileParamsSchema.parse(request.params);
+    const file = await downloadFiscalDocumentCorrectionLetterFile(
+      id,
+      correctionLetterId,
+      requireActiveBranchId(response.locals),
+      fileType,
+    );
+
+    response
+      .status(200)
+      .setHeader("Content-Type", file.contentType)
+      .setHeader(
+        "Content-Disposition",
+        `attachment; filename="${file.fileName}"`,
+      )
+      .send(file.content);
+  },
+);
+
 fiscalDocumentsRoutes.patch(
   "/fiscal-documents/:id/sync",
   requirePermission("MANAGE_FISCAL_DOCUMENTS"),
@@ -409,6 +447,27 @@ fiscalDocumentsRoutes.patch(
         await cancelFiscalDocument(
           id,
           body.reason,
+          userId,
+          requireActiveBranchId(response.locals),
+        ),
+      );
+  },
+);
+
+fiscalDocumentsRoutes.post(
+  "/fiscal-documents/:id/correction-letter",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { id } = fiscalDocumentParamsSchema.parse(request.params);
+    const body = validateBody(request, fiscalDocumentCorrectionLetterSchema);
+    const userId = response.locals.authenticatedUser.id as string;
+
+    response
+      .status(200)
+      .json(
+        await issueFiscalDocumentCorrectionLetter(
+          id,
+          body.correctionText,
           userId,
           requireActiveBranchId(response.locals),
         ),

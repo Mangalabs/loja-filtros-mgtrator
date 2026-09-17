@@ -173,6 +173,12 @@ export function AppSidebar({
             onClick={() => onSelectView('sales-operations')}>
             Vendas
           </NavButton>
+          <NavButton
+            active={view === 'sales-history'}
+            icon={<ListIcon size={18} />}
+            onClick={() => onSelectView('sales-history')}>
+            Histórico de vendas
+          </NavButton>
         </NavSection>
 
         {[
@@ -205,7 +211,7 @@ export function AppSidebar({
                 Configuração fiscal
               </NavButton>
             ) : null}
-            {canAccess('fiscal-documents') ? (
+            {canAccess('fiscal-operations') ? (
               <NavButton
                 active={view === 'fiscal-operations'}
                 icon={<FileText size={18} />}

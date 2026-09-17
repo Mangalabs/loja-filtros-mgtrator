@@ -184,7 +184,7 @@ export function SalesHistoryPage({
           }>
           <MenuItem value='ALL'>Todas</MenuItem>
           <MenuItem value='SALE'>Venda direta</MenuItem>
-          <MenuItem value='SHIPPING_ORDER'>Via orçamento</MenuItem>
+          <MenuItem value='SHIPPING_ORDER'>Pedidos</MenuItem>
           <MenuItem value='PICKUP_RESERVATION'>Retirada</MenuItem>
         </TextField>
         <TextField
@@ -828,7 +828,7 @@ function buildSalesHistoryRows({
         id: `SHIPPING_ORDER-${order.id}`,
         netAmount: saleNetAmount(sale, order.totalAmount),
         operatorName: order.completedByUserName ?? order.createdByUserName,
-        originLabel: 'Via orçamento',
+        originLabel: 'Pedidos',
         refundAmount: saleRefundAmount(sale),
         sale,
         saleId: order.saleId,

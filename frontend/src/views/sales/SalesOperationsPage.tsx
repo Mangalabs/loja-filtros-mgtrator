@@ -1,6 +1,6 @@
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
-import { PackagePlus, ReceiptText, Send, ShoppingCart } from 'lucide-react'
+import { PackagePlus, Send, ShoppingCart } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import type {
   CashRegisterSession,
@@ -28,7 +28,7 @@ import {
 } from './SalesHistoryPage'
 import type { SaleReturnHandler } from './SaleReturnForm'
 
-export type SalesOperationsTab = 'history' | 'shipping' | 'direct' | 'pickup'
+export type SalesOperationsTab = 'shipping' | 'direct' | 'pickup'
 
 export function SalesOperationsPage({
   cashRegister,
@@ -49,6 +49,7 @@ export function SalesOperationsPage({
   onCreatePickupReservation,
   onCreateSale,
   onEditSale,
+  onOpenSalesHistory,
   onOpenQuotes,
   onOpenSaleFiscalQueue,
   onReturnItem,
@@ -87,6 +88,7 @@ export function SalesOperationsPage({
   ) => Promise<boolean>
   onCreateSale: (input: SaleDraftInput) => Promise<boolean>
   onEditSale: SaleEditActionHandler
+  onOpenSalesHistory: () => void
   onOpenQuotes: () => void
   onOpenSaleFiscalQueue: (sale: Sale) => void
   onReturnItem: SaleReturnHandler
@@ -124,7 +126,7 @@ export function SalesOperationsPage({
       <div className='min-w-0 overflow-hidden rounded-xl border border-[#dfe5e1] bg-white'>
         <div className='px-4 pt-4 sm:px-5 sm:pt-5'>
           <PageHeader
-            description='Acompanhe vendas diretas, vendas via orçamento, retiradas, correções, devoluções e emissão fiscal.'
+            description='Acompanhe pedidos, vendas diretas, retiradas, correções, devoluções e emissão fiscal.'
             icon={<ShoppingCart size={18} />}
             title='Vendas'
           />
@@ -143,7 +145,7 @@ export function SalesOperationsPage({
             label={
               <SalesOperationsTabLabel
                 count={activeShippingOrders}
-                label='Via orçamento'
+                label='Pedidos'
               />
             }
             value='shipping'
@@ -169,17 +171,6 @@ export function SalesOperationsPage({
               />
             }
             value='pickup'
-          />
-          <Tab
-            icon={<ReceiptText size={16} />}
-            iconPosition='start'
-            label={
-              <SalesOperationsTabLabel
-                count={sales.length}
-                label='Histórico geral'
-              />
-            }
-            value='history'
           />
         </Tabs>
       </div>
@@ -217,7 +208,7 @@ export function SalesOperationsPage({
           sales={sales}
           onCompleteReopenedSale={onCompleteReopenedSale}
           onEditSale={onEditSale}
-          onOpenSalesHistory={() => setActiveTab('history')}
+          onOpenSalesHistory={onOpenSalesHistory}
           onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
           onReturnItem={onReturnItem}
           onSubmit={onCreateSale}
@@ -246,21 +237,6 @@ export function SalesOperationsPage({
         />
       ) : null}
 
-      {activeTab === 'history' ? (
-        <SalesHistoryPage
-          embedded
-          fiscalDocuments={fiscalDocuments}
-          paymentMethods={paymentMethods}
-          pickupReservations={pickupReservations}
-          sales={sales}
-          shippingOrders={shippingOrders}
-          onCompleteReopenedSale={onCompleteReopenedSale}
-          onEditSale={onEditSale}
-          onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
-          onReturnItem={onReturnItem}
-          onUpdateSaleCommercialDetails={onUpdateSaleCommercialDetails}
-        />
-      ) : null}
     </section>
   )
 }

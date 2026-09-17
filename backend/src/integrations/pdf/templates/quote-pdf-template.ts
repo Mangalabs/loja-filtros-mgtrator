@@ -66,7 +66,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
           </section>
 
           <section class="buyer-box">
-            <h2>Informacoes do comprador</h2>
+            <h2>Informações do comprador</h2>
             <table class="buyer-details-table">
               <tbody>
                 <tr>
@@ -118,8 +118,6 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
                 <th class="text-center">NCM</th>
                 <th class="text-right">Preco unit.</th>
                 <th class="text-right">Desc.</th>
-                <th class="text-right">IPI</th>
-                <th class="text-right">ST</th>
                 <th class="text-right">Total unit.</th>
               </tr>
             </thead>
@@ -247,8 +245,6 @@ function quoteItemRow(item: QuoteItem, index: number, showBrand: boolean) {
       <td class="text-center">${escapeHtml(item.productNcm ?? '-')}</td>
       <td class="text-right">${formatCurrency(item.unitPrice)}</td>
       <td class="text-right">${formatPercentage(item.discountPercentage)} (${formatCurrency(item.discountAmount)})</td>
-      <td class="text-right">-</td>
-      <td class="text-right">-</td>
       <td class="text-right">${formatCurrency(item.totalAmount)}</td>
     </tr>
   `
@@ -472,14 +468,14 @@ function quotePdfCss() {
     .items-table th:nth-child(1) { width: 5%; }
     .items-table th:nth-child(2) { width: 6%; }
     .items-table th:nth-child(3) { width: 14%; }
-    .items-table th:nth-child(4) { width: 22%; }
-    .items-table th:nth-child(5) { width: 9%; }
-    .items-table th:nth-child(6) { width: 8%; }
-    .items-table th:nth-child(7) { width: 9%; }
-    .items-table th:nth-child(8) { width: 9%; }
-    .items-table th:nth-child(9) { width: 5%; }
-    .items-table th:nth-child(10) { width: 5%; }
-    .items-table th:nth-child(11) { width: 8%; }
+    .items-table th:nth-child(4) { width: 25%; }
+    .items-table th:nth-child(5) { width: 10%; }
+    .items-table th:nth-child(6) { width: 10%; }
+    .items-table th:nth-child(7) { width: 10%; }
+    .items-table th:nth-child(8) { width: 10%; }
+    .items-table .text-right {
+      white-space: nowrap;
+    }
     .items-table tr:nth-child(even) td {
       background-color: #f8fafc;
     }
