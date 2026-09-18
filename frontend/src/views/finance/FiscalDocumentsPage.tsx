@@ -547,8 +547,12 @@ type ManualFiscalItemForm = {
   productUnit: string
   quantity: string
   unitPrice: string
+  discountType: ManualFiscalDiscountType
+  discountValue: string
   discountAmount: string
 }
+
+type ManualFiscalDiscountType = 'AMOUNT' | 'PERCENTAGE'
 
 type ManualFiscalOperationOption = {
   codes: string
@@ -623,6 +627,10 @@ export function ManualFiscalDocumentPage({
     sourceValues.totalAmount,
   )
   const [manualTotalEdited, setManualTotalEdited] = useState(false)
+  const [manualGeneralDiscountType, setManualGeneralDiscountType] =
+    useState<ManualFiscalDiscountType>('AMOUNT')
+  const [manualGeneralDiscountValue, setManualGeneralDiscountValue] =
+    useState('0')
   const [manualBillingEnabled, setManualBillingEnabled] = useState(
     sourceValues.billingEnabled,
   )
@@ -773,9 +781,28 @@ export function ManualFiscalDocumentPage({
     )
   }
 
-  function syncManualFiscalTotalAmount(nextItems: ManualFiscalItemForm[]) {
-    setManualTotalAmount(manualFiscalItemsTotal(nextItems).toFixed(2))
+  function syncManualFiscalTotalAmount(
+    nextItems: ManualFiscalItemForm[],
+    generalDiscountType = manualGeneralDiscountType,
+    generalDiscountValue = manualGeneralDiscountValue,
+  ) {
+    setManualTotalAmount(
+      manualFiscalGrandTotal(
+        nextItems,
+        generalDiscountType,
+        generalDiscountValue,
+      ).toFixed(2),
+    )
     return nextItems
+  }
+
+  function updateGeneralDiscount(
+    discountType: ManualFiscalDiscountType,
+    discountValue: string,
+  ) {
+    setManualGeneralDiscountType(discountType)
+    setManualGeneralDiscountValue(discountValue)
+    syncManualFiscalTotalAmount(items, discountType, discountValue)
   }
 
   function selectProduct(index: number, product: Product | null) {
@@ -894,7 +921,6 @@ export function ManualFiscalDocumentPage({
       manualPayments,
       manualPaymentInstallments,
       activePaymentMethods,
-      Number(manualTotalAmount || 0),
     )
 
     if (action === 'draft') {
@@ -1401,17 +1427,91 @@ export function ManualFiscalDocumentPage({
                     slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
                   />
                   <TextField
+                    label='Tipo desconto'
+                    select
+                    value={item.discountType}
+                    onChange={(event) =>
+                      updateItem(index, {
+                        discountType: event.target
+                          .value as ManualFiscalDiscountType,
+                      })
+                    }>
+                    {manualFiscalDiscountTypeOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    helperText={`Desconto aplicado: ${formatCurrency(
+                      manualFiscalItemDiscountAmount(item),
+                    )}`}
                     label='Desconto'
                     type='number'
-                    value={item.discountAmount}
+                    value={item.discountValue}
                     onChange={(event) =>
-                      updateItem(index, { discountAmount: event.target.value })
+                      updateItem(index, { discountValue: event.target.value })
                     }
-                    slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+                    slotProps={{
+                      htmlInput: {
+                        max: item.discountType === 'PERCENTAGE' ? '100' : undefined,
+                        min: '0',
+                        step: '0.01',
+                      },
+                    }}
                   />
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className='grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]'>
+            <TextField
+              label='Tipo desconto geral'
+              name='manualFiscalGeneralDiscountType'
+              select
+              value={manualGeneralDiscountType}
+              onChange={(event) =>
+                updateGeneralDiscount(
+                  event.target.value as ManualFiscalDiscountType,
+                  manualGeneralDiscountValue,
+                )
+              }>
+              {manualFiscalDiscountTypeOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              helperText={`Desconto geral aplicado: ${formatCurrency(
+                manualFiscalGeneralDiscountAmount(
+                  items,
+                  manualGeneralDiscountType,
+                  manualGeneralDiscountValue,
+                ),
+              )}`}
+              label='Desconto geral da nota'
+              name='manualFiscalGeneralDiscountValue'
+              type='number'
+              value={manualGeneralDiscountValue}
+              onChange={(event) =>
+                updateGeneralDiscount(
+                  manualGeneralDiscountType,
+                  event.target.value,
+                )
+              }
+              slotProps={{
+                htmlInput: {
+                  max:
+                    manualGeneralDiscountType === 'PERCENTAGE'
+                      ? '100'
+                      : undefined,
+                  min: '0',
+                  step: '0.01',
+                },
+              }}
+            />
           </div>
 
           <TextField
@@ -1423,12 +1523,16 @@ export function ManualFiscalDocumentPage({
               const value = event.target.value
 
               setManualTotalEdited(true)
+              setManualGeneralDiscountType('AMOUNT')
+              setManualGeneralDiscountValue('0')
               setItems((currentItems) =>
                 syncManualFiscalTotalAmount(
                   applyManualFiscalTotalAmount(
                     currentItems,
                     Number(value || 0),
                   ),
+                  'AMOUNT',
+                  '0',
                 ),
               )
             }}
@@ -1693,6 +1797,8 @@ function emptyManualFiscalItem(): ManualFiscalItemForm {
     productUnit: 'UN',
     quantity: '1',
     unitPrice: '',
+    discountType: 'AMOUNT',
+    discountValue: '0',
     discountAmount: '0',
   }
 }
@@ -1960,7 +2066,6 @@ function manualFiscalDocumentInput(
   payments: ManualFiscalPaymentForm[],
   paymentInstallments: ManualFiscalPaymentInstallmentForm[],
   paymentMethods: PaymentMethod[],
-  totalAmount: number,
 ): ManualFiscalDocumentInput {
   const referencedAccessKey = onlyDigits(
     formText(form, 'manualFiscalReferencedAccessKey'),
@@ -1971,6 +2076,14 @@ function manualFiscalDocumentInput(
   const transportedVolumesGrossWeight = Number(
     formText(form, 'manualFiscalTransportedVolumesGrossWeight') || 0,
   )
+  const fiscalItems = manualFiscalItemsForPayload(
+    items,
+    manualFiscalDiscountTypeValue(
+      formText(form, 'manualFiscalGeneralDiscountType'),
+    ),
+    formText(form, 'manualFiscalGeneralDiscountValue'),
+  )
+  const fiscalTotalAmount = manualFiscalPayloadItemsTotal(fiscalItems)
 
   return {
     documentType: 'NFE',
@@ -1999,7 +2112,7 @@ function manualFiscalDocumentInput(
     payments: manualFiscalPaymentPayloads(
       payments,
       paymentMethods,
-      totalAmount,
+      fiscalTotalAmount,
     ),
     paymentInstallments: paymentInstallments
       .filter((installment) => installment.dueDate && installment.amount)
@@ -2043,7 +2156,7 @@ function manualFiscalDocumentInput(
       ).toUpperCase(),
       addressZipCode: formText(form, 'manualFiscalClientAddressZipCode'),
     },
-    items: items.map((item) => ({
+    items: fiscalItems.map((item) => ({
       productId: item.productId || null,
       productInternalCode: item.productInternalCode.trim() || null,
       productName: item.productName.trim(),
@@ -2170,22 +2283,151 @@ function manualFiscalPaymentName(code: string) {
   return names[code] ?? code
 }
 
+const manualFiscalDiscountTypeOptions: Array<{
+  label: string
+  value: ManualFiscalDiscountType
+}> = [
+  { label: 'Valor (R$)', value: 'AMOUNT' },
+  { label: 'Porcentagem (%)', value: 'PERCENTAGE' },
+]
+
+function manualFiscalDiscountTypeValue(value: string): ManualFiscalDiscountType {
+  return value === 'PERCENTAGE' ? 'PERCENTAGE' : 'AMOUNT'
+}
+
 function manualFiscalItemsTotal(items: ManualFiscalItemForm[]) {
   return items.reduce((sum, item) => sum + manualFiscalItemTotal(item), 0)
+}
+
+function manualFiscalPayloadItemsTotal(items: ManualFiscalItemForm[]) {
+  return Number(
+    items
+      .reduce(
+        (sum, item) =>
+          sum +
+          Math.max(
+            0,
+            Number(item.quantity || 0) * Number(item.unitPrice || 0) -
+              Number(item.discountAmount || 0),
+          ),
+        0,
+      )
+      .toFixed(2),
+  )
+}
+
+function manualFiscalGrandTotal(
+  items: ManualFiscalItemForm[],
+  generalDiscountType: ManualFiscalDiscountType,
+  generalDiscountValue: string,
+) {
+  return Math.max(
+    0,
+    manualFiscalItemsTotal(items) -
+      manualFiscalGeneralDiscountAmount(
+        items,
+        generalDiscountType,
+        generalDiscountValue,
+      ),
+  )
 }
 
 function manualFiscalItemTotal(item: ManualFiscalItemForm) {
   return Math.max(
     0,
     Number(item.quantity || 0) * Number(item.unitPrice || 0) -
-      Number(item.discountAmount || 0),
+      manualFiscalItemDiscountAmount(item),
   )
+}
+
+function manualFiscalItemDiscountAmount(item: ManualFiscalItemForm) {
+  const grossAmount = Number(item.quantity || 0) * Number(item.unitPrice || 0)
+  const discountValue = Number(item.discountValue || 0)
+  const discountAmount =
+    item.discountType === 'PERCENTAGE'
+      ? (grossAmount * discountValue) / 100
+      : discountValue
+
+  return Math.min(Math.max(discountAmount, 0), Math.max(grossAmount, 0))
+}
+
+function manualFiscalGeneralDiscountAmount(
+  items: ManualFiscalItemForm[],
+  discountType: ManualFiscalDiscountType,
+  discountValue: string,
+) {
+  const subtotalAmount = manualFiscalItemsTotal(items)
+  const parsedDiscountValue = Number(discountValue || 0)
+  const discountAmount =
+    discountType === 'PERCENTAGE'
+      ? (subtotalAmount * parsedDiscountValue) / 100
+      : parsedDiscountValue
+
+  return Math.min(Math.max(discountAmount, 0), Math.max(subtotalAmount, 0))
+}
+
+function manualFiscalItemsForPayload(
+  items: ManualFiscalItemForm[],
+  generalDiscountType: ManualFiscalDiscountType,
+  generalDiscountValue: string,
+) {
+  const generalDiscountCents = Math.round(
+    manualFiscalGeneralDiscountAmount(
+      items,
+      generalDiscountType,
+      generalDiscountValue,
+    ) * 100,
+  )
+  const subtotalCents = items.reduce(
+    (sum, item) => sum + Math.round(manualFiscalItemTotal(item) * 100),
+    0,
+  )
+  const adjustableItems = items.filter(
+    (item) => Math.round(manualFiscalItemTotal(item) * 100) > 0,
+  )
+  let remainingGeneralDiscountCents = generalDiscountCents
+
+  return items.map((item) => {
+    const itemTotalCents = Math.round(manualFiscalItemTotal(item) * 100)
+    const baseDiscountCents = Math.round(
+      manualFiscalItemDiscountAmount(item) * 100,
+    )
+
+    if (itemTotalCents <= 0 || generalDiscountCents <= 0) {
+      return {
+        ...item,
+        discountAmount: (baseDiscountCents / 100).toFixed(2),
+      }
+    }
+
+    const isLastAdjustableItem =
+      item === adjustableItems[adjustableItems.length - 1]
+    const itemGeneralDiscountCents = isLastAdjustableItem
+      ? remainingGeneralDiscountCents
+      : subtotalCents > 0
+        ? Math.round((generalDiscountCents * itemTotalCents) / subtotalCents)
+        : 0
+    const cappedGeneralDiscountCents = Math.min(
+      itemGeneralDiscountCents,
+      itemTotalCents,
+    )
+
+    remainingGeneralDiscountCents -= cappedGeneralDiscountCents
+
+    return {
+      ...item,
+      discountAmount: (
+        (baseDiscountCents + cappedGeneralDiscountCents) /
+        100
+      ).toFixed(2),
+    }
+  })
 }
 
 function applyManualFiscalSaleTotalAmount(
   items: ManualFiscalItemForm[],
   targetAmount: number,
-) {
+): ManualFiscalItemForm[] {
   if (!Number.isFinite(targetAmount) || targetAmount < 0) {
     return items
   }
@@ -2229,6 +2471,8 @@ function applyManualFiscalSaleTotalAmount(
 
     return {
       ...item,
+      discountType: 'AMOUNT' as const,
+      discountValue: (cappedDiscountCents / 100).toFixed(2),
       discountAmount: (cappedDiscountCents / 100).toFixed(2),
     }
   })
@@ -2270,7 +2514,7 @@ function applyManualFiscalTotalAmount(
       : currentCents > 0
         ? Math.round((targetCents * itemCents) / currentCents)
         : 0
-    const discountAmount = Number(item.discountAmount || 0)
+    const discountAmount = manualFiscalItemDiscountAmount(item)
     const unitPrice = Math.max(
       0,
       (nextItemCents / 100 + discountAmount) / quantity,
@@ -2476,7 +2720,7 @@ function manualFiscalDocumentDraftFormValues(
 }
 
 function manualFiscalDocumentSaleFormValues(sale: Sale) {
-  const items = sale.items.length
+  const items: ManualFiscalItemForm[] = sale.items.length
     ? sale.items.map((item) => ({
         productId: item.productId,
         productInternalCode: item.productInternalCode ?? '',
@@ -2490,6 +2734,8 @@ function manualFiscalDocumentSaleFormValues(sale: Sale) {
         productUnit: item.productUnit || 'UN',
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        discountType: 'AMOUNT' as const,
+        discountValue: item.discountAmount,
         discountAmount: item.discountAmount,
       }))
     : [emptyManualFiscalItem()]
@@ -2732,6 +2978,14 @@ function manualFiscalItemFromDraftPayload(
     productUnit: stringPayloadValue(item.productUnit) ?? 'UN',
     quantity: stringPayloadValue(item.quantity) ?? '1',
     unitPrice: stringPayloadValue(item.unitPrice) ?? '0',
+    discountType:
+      stringPayloadValue(item.discountType) === 'PERCENTAGE'
+        ? 'PERCENTAGE'
+        : 'AMOUNT',
+    discountValue:
+      stringPayloadValue(item.discountValue) ??
+      stringPayloadValue(item.discountAmount) ??
+      '0',
     discountAmount: stringPayloadValue(item.discountAmount) ?? '0',
   }
 }
@@ -2754,6 +3008,14 @@ function manualFiscalItemFromPayload(
     productUnit: stringPayloadValue(item.productUnit) ?? 'UN',
     quantity: stringPayloadValue(item.quantity) ?? '1',
     unitPrice: stringPayloadValue(item.unitPrice) ?? '0',
+    discountType:
+      stringPayloadValue(item.discountType) === 'PERCENTAGE'
+        ? 'PERCENTAGE'
+        : 'AMOUNT',
+    discountValue:
+      stringPayloadValue(item.discountValue) ??
+      stringPayloadValue(item.discountAmount) ??
+      '0',
     discountAmount: stringPayloadValue(item.discountAmount) ?? '0',
   }
 }
