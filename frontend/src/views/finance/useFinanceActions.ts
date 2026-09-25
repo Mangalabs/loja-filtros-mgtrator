@@ -161,11 +161,22 @@ export function useFinanceActions({
     });
   }
 
-  async function syncFiscalDocument(fiscalDocument: FiscalDocument) {
-    await runAction(async () => {
-      await apiPatch(`/fiscal-documents/${fiscalDocument.id}/sync`, {});
-      await refreshFiscalFlow();
-    });
+  async function syncFiscalDocuments(fiscalDocuments: FiscalDocument[]) {
+    let firstError: unknown;
+
+    for (const fiscalDocument of fiscalDocuments) {
+      try {
+        await apiPatch(`/fiscal-documents/${fiscalDocument.id}/sync`, {});
+      } catch (error) {
+        firstError ??= error;
+      }
+    }
+
+    await refreshFiscalFlow();
+
+    if (firstError) {
+      throw firstError;
+    }
   }
 
   async function issueManualFiscalDocument(
@@ -249,10 +260,10 @@ export function useFinanceActions({
     );
 
     if (!confirmed) {
-      return;
+      return false;
     }
 
-    await runAction(async () => {
+    return runAction(async () => {
       await apiPatch(`/fiscal-documents/${fiscalDocument.id}/cancel`, {
         reason,
       });
@@ -305,7 +316,7 @@ export function useFinanceActions({
     saveManualFiscalDocumentDraft,
     deleteManualFiscalDocumentDraft,
     saveFiscalSettings,
-    syncFiscalDocument,
+    syncFiscalDocuments,
   };
 }
 

@@ -87,7 +87,7 @@ export function useStockActions({
     input: PurchaseInvoiceDraft,
     invoiceId?: string,
   ) {
-    await runAction(async () => {
+    return runAction(async () => {
       try {
         const result = invoiceId
           ? await apiPut<ApiResult<PurchaseInvoice>>(

@@ -58,7 +58,7 @@ export function LoginPage({
     <main className='flex min-h-screen items-center justify-center bg-[#f7f7f4] px-4 py-8'>
       <section className='w-full max-w-[420px] rounded-xl border border-[#dfe5e1] bg-white p-7'>
         <div className='mb-7 flex items-center gap-3 text-[#203466]'>
-          <Filter size={32} />
+          <Filter aria-hidden='true' size={32} />
           <div>
             <strong className='block'>MG TRATOR PEÇAS</strong>
             <span className='block text-sm text-[#5f665f]'>
@@ -90,13 +90,30 @@ export function LoginPage({
         ) : null}
         <form className='mt-5 grid gap-3' onSubmit={submit}>
           {requiresSetup ? (
-            <TextField name='name' label='Nome do administrador' required />
+            <TextField
+              autoComplete='name'
+              name='name'
+              label='Nome do administrador'
+              required
+            />
           ) : null}
           {requiresSetup ? (
-            <TextField name='phone' label='Telefone/WhatsApp comercial' />
+            <TextField
+              autoComplete='tel'
+              name='phone'
+              label='Telefone/WhatsApp comercial'
+              type='tel'
+            />
           ) : null}
-          <TextField name='email' type='email' label='Email' required />
           <TextField
+            autoComplete='email'
+            name='email'
+            type='email'
+            label='Email'
+            required
+          />
+          <TextField
+            autoComplete={requiresSetup ? 'new-password' : 'current-password'}
             name='password'
             type='password'
             label='Senha'
@@ -104,11 +121,12 @@ export function LoginPage({
             required
           />
           <PrimaryButton
-            icon={<ShieldCheck size={17} />}
+            icon={<ShieldCheck aria-hidden='true' size={17} />}
+            loading={submitting}
             type='submit'
-            disabled={submitting}>
+          >
             {submitting
-              ? 'Aguarde...'
+              ? 'Aguarde…'
               : requiresSetup
                 ? 'Criar administrador'
                 : 'Entrar'}

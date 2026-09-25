@@ -1,7 +1,7 @@
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import { Banknote, Plus, ReceiptText } from 'lucide-react'
-import type { FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import type { AuthUser, CashRegisterSession } from '../../api'
 import {
   ActionGroup,
@@ -26,10 +26,37 @@ export function CashRegisterPage({
 }: {
   session: CashRegisterSession | null
   user: AuthUser
-  onOpen: (event: FormEvent<HTMLFormElement>) => void
-  onClose: (event: FormEvent<HTMLFormElement>) => void
-  onCreateMovement: (event: FormEvent<HTMLFormElement>) => void
+  onOpen: (event: FormEvent<HTMLFormElement>) => Promise<unknown>
+  onClose: (event: FormEvent<HTMLFormElement>) => Promise<unknown>
+  onCreateMovement: (event: FormEvent<HTMLFormElement>) => Promise<unknown>
 }) {
+  const [pendingAction, setPendingAction] = useState<
+    'close' | 'movement' | 'open'
+  >()
+  const pendingActionRef = useRef(false)
+
+  async function runCashAction(
+    action: 'close' | 'movement' | 'open',
+    event: FormEvent<HTMLFormElement>,
+    handler: (event: FormEvent<HTMLFormElement>) => Promise<unknown>,
+  ) {
+    event.preventDefault()
+
+    if (pendingActionRef.current) {
+      return
+    }
+
+    pendingActionRef.current = true
+    setPendingAction(action)
+
+    try {
+      await handler(event)
+    } finally {
+      pendingActionRef.current = false
+      setPendingAction(undefined)
+    }
+  }
+
   if (session) {
     return (
       <section className='grid items-start gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]'>
@@ -95,7 +122,10 @@ export function CashRegisterPage({
         </PagePanel>
 
         <div className='grid gap-4'>
-          <FormGrid onSubmit={onCreateMovement}>
+          <FormGrid
+            onSubmit={(event) =>
+              void runCashAction('movement', event, onCreateMovement)
+            }>
             <PageHeader
               description='Registre entradas ou retiradas manuais do caixa.'
               icon={<Plus size={18} />}
@@ -129,13 +159,18 @@ export function CashRegisterPage({
               slotProps={{ htmlInput: { maxLength: 500 } }}
             />
             <ActionGroup>
-              <PrimaryButton icon={<Plus size={17} />} type='submit'>
-                Registrar
+              <PrimaryButton
+                disabled={Boolean(pendingAction)}
+                icon={<Plus size={17} />}
+                loading={pendingAction === 'movement'}
+                type='submit'>
+                {pendingAction === 'movement' ? 'Registrando…' : 'Registrar'}
               </PrimaryButton>
             </ActionGroup>
           </FormGrid>
 
-          <FormGrid onSubmit={onClose}>
+          <FormGrid
+            onSubmit={(event) => void runCashAction('close', event, onClose)}>
             <PageHeader
               description='Informe o total conferido. Devolucoes ja reduzem o esperado por forma de pagamento.'
               icon={<Banknote size={18} />}
@@ -170,8 +205,12 @@ export function CashRegisterPage({
               type='number'
               slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
             />
-            <PrimaryButton icon={<Plus size={17} />} type='submit'>
-              Fechar caixa
+            <PrimaryButton
+              disabled={Boolean(pendingAction)}
+              icon={<Plus size={17} />}
+              loading={pendingAction === 'close'}
+              type='submit'>
+              {pendingAction === 'close' ? 'Fechando caixa…' : 'Fechar caixa'}
             </PrimaryButton>
           </FormGrid>
         </div>
@@ -180,7 +219,9 @@ export function CashRegisterPage({
   }
 
   return (
-    <FormGrid className='max-w-xl' onSubmit={onOpen}>
+    <FormGrid
+      className='max-w-xl'
+      onSubmit={(event) => void runCashAction('open', event, onOpen)}>
       <PageHeader
         description='A abertura ficara registrada no usuario autenticado.'
         icon={<Banknote size={18} />}
@@ -195,8 +236,12 @@ export function CashRegisterPage({
         type='number'
         slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
       />
-      <PrimaryButton icon={<Plus size={17} />} type='submit'>
-        Abrir caixa
+      <PrimaryButton
+        disabled={Boolean(pendingAction)}
+        icon={<Plus size={17} />}
+        loading={pendingAction === 'open'}
+        type='submit'>
+        {pendingAction === 'open' ? 'Abrindo caixa…' : 'Abrir caixa'}
       </PrimaryButton>
     </FormGrid>
   )

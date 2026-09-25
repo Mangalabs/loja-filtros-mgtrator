@@ -50,6 +50,8 @@ export function SaleEditPage({
   onCancel: () => void
   onSubmit: (sale: Sale, input: SaleDraftInput) => Promise<boolean>
 }) {
+  const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const [clientId, setClientId] = useState(sale.clientId ?? '')
   const [billingIssueDate, setBillingIssueDate] = useState(
     sale.billingIssueDate?.slice(0, 10) ?? '',
@@ -202,23 +204,35 @@ export function SaleEditPage({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const saved = await onSubmit(sale, {
-      clientId: clientId || null,
-      billingIssueDate: saleAllowsBilling ? billingIssueDate || null : null,
-      billingDueDate: saleAllowsBilling ? billingDueDate || null : null,
-      discountAmount: saleDiscount,
-      paymentMethodId: payments[0]?.paymentMethodId,
-      payments: salePaymentPayloads(payments, saleTotal),
-      items: items.map((item) => ({
-        productId: item.productId,
-        quantity: Number(item.quantity),
-        unitPrice: moneyInputValue(item.unitPrice),
-        discountAmount: saleItemDiscountAmount(item),
-      })),
-    })
+    if (submittingRef.current) {
+      return
+    }
 
-    if (saved) {
-      onCancel()
+    submittingRef.current = true
+    setSubmitting(true)
+
+    try {
+      const saved = await onSubmit(sale, {
+        clientId: clientId || null,
+        billingIssueDate: saleAllowsBilling ? billingIssueDate || null : null,
+        billingDueDate: saleAllowsBilling ? billingDueDate || null : null,
+        discountAmount: saleDiscount,
+        paymentMethodId: payments[0]?.paymentMethodId,
+        payments: salePaymentPayloads(payments, saleTotal),
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: Number(item.quantity),
+          unitPrice: moneyInputValue(item.unitPrice),
+          discountAmount: saleItemDiscountAmount(item),
+        })),
+      })
+
+      if (saved) {
+        onCancel()
+      }
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
     }
   }
 
@@ -484,11 +498,12 @@ export function SaleEditPage({
         {hasInvalidItemDiscount ? (
           <InlineNote>O desconto de um item não pode ser maior que seu subtotal.</InlineNote>
         ) : null}
-        <SecondaryButton type='button' onClick={onCancel}>
+        <SecondaryButton disabled={submitting} type='button' onClick={onCancel}>
           Cancelar
         </SecondaryButton>
         <PrimaryButton
           disabled={
+            submitting ||
             sale.status !== 'OPEN' ||
             discountExceedsSubtotal ||
             hasEmptyItem ||
@@ -497,7 +512,7 @@ export function SaleEditPage({
           }
           icon={<Plus size={17} />}
           type='submit'>
-          Salvar correção
+          {submitting ? 'Salvando correção…' : 'Salvar correção'}
         </PrimaryButton>
       </ActionGroup>
     </FormGrid>

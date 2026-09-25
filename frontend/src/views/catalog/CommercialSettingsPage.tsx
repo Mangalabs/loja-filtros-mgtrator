@@ -1,6 +1,6 @@
 import TextField from "@mui/material/TextField";
 import { Percent, Save } from "lucide-react";
-import type { FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import type { CommercialSettings } from "../../api";
 import { FormCard, FormGrid, PageHeader } from "../../components/layout";
 import { PrimaryButton } from "../../components/ui";
@@ -10,14 +10,37 @@ export function CommercialSettingsPage({
   onSubmit,
 }: {
   settings: CommercialSettings | null;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (
+    event: FormEvent<HTMLFormElement>,
+  ) => Promise<unknown> | unknown;
 }) {
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (submittingRef.current) {
+      return;
+    }
+
+    submittingRef.current = true;
+    setSubmitting(true);
+
+    try {
+      await onSubmit(event);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  }
+
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(320px,0.7fr)_minmax(0,1.3fr)]">
       <FormGrid
         key={settings?.id ?? "commercial-settings"}
         className="max-w-2xl"
-        onSubmit={onSubmit}
+        onSubmit={submit}
       >
         <PageHeader
           description="Defina a margem de venda e os prazos sugeridos ao montar orçamentos."
@@ -53,8 +76,8 @@ export function CommercialSettingsPage({
             slotProps={{ htmlInput: { min: 0, max: 365, step: 1 } }}
           />
         </div>
-        <PrimaryButton icon={<Save size={17} />} type="submit">
-          Salvar configuracao
+        <PrimaryButton loading={submitting} icon={<Save size={17} />} type="submit">
+          {submitting ? "Salvando configuração…" : "Salvar configuracao"}
         </PrimaryButton>
       </FormGrid>
 

@@ -16,9 +16,25 @@ export type ReportsOverview = {
 
 export type SalesReportFilters = {
   branchId: string;
+  columns?: SalesReportColumnKey[];
   dateFrom?: string;
   dateTo?: string;
 };
+
+export type SalesReportColumnKey =
+  | "code"
+  | "product"
+  | "quantity"
+  | "total"
+  | "cost"
+  | "profit"
+  | "margin"
+  | "client"
+  | "sales"
+  | "paymentMethod"
+  | "participation"
+  | "cumulative"
+  | "class";
 
 export type SalesReport = {
   summary: {
@@ -65,9 +81,33 @@ export type SalesReport = {
 
 export type StockReportFilters = {
   branchId: string;
+  columns?: StockReportColumnKey[];
   dateFrom?: string;
   dateTo?: string;
 };
+
+export type StockReportColumnKey =
+  | "code"
+  | "product"
+  | "location"
+  | "movements"
+  | "entryQuantity"
+  | "entryAmount"
+  | "exitQuantity"
+  | "exitCost"
+  | "adjustmentQuantity"
+  | "adjustmentCost"
+  | "balance"
+  | "lastMovement"
+  | "movementType"
+  | "movementQuantity"
+  | "value"
+  | "currentStock"
+  | "reservedStock"
+  | "availableStock"
+  | "minimumStock"
+  | "soldQuantity"
+  | "lastSale";
 
 export type InventoryReportFilters = {
   branchId: string;
@@ -94,21 +134,67 @@ export type InventoryReportColumnKey =
 
 export type PurchaseReportFilters = {
   branchId: string;
+  columns?: PurchaseReportColumnKey[];
   dateFrom?: string;
   dateTo?: string;
 };
+
+export type PurchaseReportColumnKey =
+  | "source"
+  | "entries"
+  | "quantity"
+  | "total"
+  | "supplier"
+  | "product";
 
 export type CashReportFilters = {
   branchId: string;
+  columns?: CashReportColumnKey[];
   dateFrom?: string;
   dateTo?: string;
 };
 
+export type CashReportColumnKey =
+  | "paymentMethod"
+  | "gross"
+  | "refunds"
+  | "net"
+  | "openedBy"
+  | "closedBy"
+  | "status"
+  | "openedAt"
+  | "closedAt"
+  | "openingBalance"
+  | "sales"
+  | "supplies"
+  | "withdrawals"
+  | "expected"
+  | "reported"
+  | "difference";
+
 export type UserPerformanceReportFilters = {
   branchId: string;
+  columns?: UserPerformanceReportColumnKey[];
   dateFrom?: string;
   dateTo?: string;
 };
+
+export type UserPerformanceReportColumnKey =
+  | "user"
+  | "completedSales"
+  | "cancelledSales"
+  | "openSales"
+  | "gross"
+  | "refunds"
+  | "net"
+  | "quotes"
+  | "stockMovements"
+  | "fiscalDocuments"
+  | "saleNumber"
+  | "date"
+  | "client"
+  | "status"
+  | "total";
 
 export type StockReport = {
   summary: {

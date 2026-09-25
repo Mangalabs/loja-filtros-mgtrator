@@ -114,8 +114,12 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     PickupReservation[]
   >([]);
   const [state, setState] = useState<LoadState>("idle");
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [message, setMessage] = useState("");
+  const [pendingActionCount, setPendingActionCount] = useState(0);
+  const [productQueryLoading, setProductQueryLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const productQueryRequestRef = useRef(0);
   const searchRefreshReadyRef = useRef(false);
 
   async function loadCatalog() {
@@ -259,6 +263,8 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Erro inesperado");
+    } finally {
+      setInitialLoadComplete(true);
     }
   }
 
@@ -593,7 +599,10 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   }
 
   useEffect(() => {
+    productQueryRequestRef.current += 1;
     searchRefreshReadyRef.current = false;
+    setInitialLoadComplete(false);
+    setProductQueryLoading(false);
     setActiveBranchHeader(activeBranchId);
     void loadCatalog();
   }, [activeBranchId, user.id]);
@@ -623,38 +632,57 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
 
   async function runAction(action: () => Promise<void>) {
     setMessage("");
+    setPendingActionCount((currentCount) => currentCount + 1);
 
     try {
       await action();
       setState("ready");
-      setMessage("Registro salvo com sucesso.");
+      setMessage("Operação concluída com sucesso.");
       return true;
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Erro inesperado");
       return false;
+    } finally {
+      setPendingActionCount((currentCount) => Math.max(0, currentCount - 1));
     }
   }
 
   async function changeProductPage(pageIndex: number, rowsPerPage?: number) {
     const nextRowsPerPage = rowsPerPage ?? productRowsPerPage;
+    const requestId = ++productQueryRequestRef.current;
 
     setProductPageIndex(pageIndex);
     setProductRowsPerPage(nextRowsPerPage);
+    setProductQueryLoading(true);
+    setMessage("");
 
     try {
-      setProductPage(
-        await fetchProductPage({
-          limit: nextRowsPerPage,
-          page: pageIndex + 1,
-          search,
-          statusFilter: productStatusFilter,
-          stockStatus: productStockStatusFilter,
-        }),
-      );
+      const nextPage = await fetchProductPage({
+        limit: nextRowsPerPage,
+        page: pageIndex + 1,
+        search,
+        statusFilter: productStatusFilter,
+        stockStatus: productStockStatusFilter,
+      });
+
+      if (requestId !== productQueryRequestRef.current) {
+        return;
+      }
+
+      setProductPage(nextPage);
+      setState("ready");
     } catch (error) {
+      if (requestId !== productQueryRequestRef.current) {
+        return;
+      }
+
       setState("error");
       setMessage(error instanceof Error ? error.message : "Erro inesperado");
+    } finally {
+      if (requestId === productQueryRequestRef.current) {
+        setProductQueryLoading(false);
+      }
     }
   }
 
@@ -664,24 +692,40 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   }) {
     const nextStatus = filters.status ?? productStatusFilter;
     const nextStockStatus = filters.stockStatus ?? productStockStatusFilter;
+    const requestId = ++productQueryRequestRef.current;
 
     setProductStatusFilter(nextStatus);
     setProductStockStatusFilter(nextStockStatus);
     setProductPageIndex(0);
+    setProductQueryLoading(true);
+    setMessage("");
 
     try {
-      setProductPage(
-        await fetchProductPage({
-          limit: productRowsPerPage,
-          page: 1,
-          search,
-          statusFilter: nextStatus,
-          stockStatus: nextStockStatus,
-        }),
-      );
+      const nextPage = await fetchProductPage({
+        limit: productRowsPerPage,
+        page: 1,
+        search,
+        statusFilter: nextStatus,
+        stockStatus: nextStockStatus,
+      });
+
+      if (requestId !== productQueryRequestRef.current) {
+        return;
+      }
+
+      setProductPage(nextPage);
+      setState("ready");
     } catch (error) {
+      if (requestId !== productQueryRequestRef.current) {
+        return;
+      }
+
       setState("error");
       setMessage(error instanceof Error ? error.message : "Erro inesperado");
+    } finally {
+      if (requestId === productQueryRequestRef.current) {
+        setProductQueryLoading(false);
+      }
     }
   }
 
@@ -696,6 +740,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     fiscalDocuments,
     fiscalSettings,
     inventoryReport,
+    initialLoadComplete,
     loadCatalog,
     loadCashReport,
     loadInventoryReport,
@@ -706,10 +751,12 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     loadStockReport,
     message,
     ncmOptions,
+    pendingActionCount,
     paymentMethods,
     pickupReservations,
     productPage,
     productPageIndex,
+    productQueryLoading,
     productRowsPerPage,
     productStatusFilter,
     productStockStatusFilter,

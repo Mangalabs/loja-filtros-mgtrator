@@ -17,7 +17,14 @@ import {
   User,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import type {
   CashRegisterSession,
   Client,
@@ -62,11 +69,39 @@ import { salePaymentsAllowBilling } from './saleBilling'
 import {
   SaleCommercialDetailsForm,
   type SaleCommercialDetailsHandler,
+  type SaleEditActionHandler,
+  type SaleStatusActionHandler,
 } from './SalesHistoryPage'
 
 type SaleDraftItem = {
   productId: string
   quantity: string
+}
+
+function usePendingSaleAction() {
+  const [pendingAction, setPendingAction] = useState<'complete' | 'edit'>()
+  const pendingActionRef = useRef(false)
+
+  async function runPendingAction(
+    action: 'complete' | 'edit',
+    handler: () => Promise<boolean | void> | boolean | void,
+  ) {
+    if (pendingActionRef.current) {
+      return
+    }
+
+    pendingActionRef.current = true
+    setPendingAction(action)
+
+    try {
+      await handler()
+    } finally {
+      pendingActionRef.current = false
+      setPendingAction(undefined)
+    }
+  }
+
+  return { pendingAction, runPendingAction }
 }
 
 type ShippingOrderStatusFilter = ShippingOrder['status'] | 'ALL'
@@ -135,8 +170,8 @@ export function SalesPage({
   paymentMethods: PaymentMethod[]
   products: Product[]
   sales: Sale[]
-  onCompleteReopenedSale?: (sale: Sale) => void
-  onEditSale?: (sale: Sale) => void
+  onCompleteReopenedSale?: SaleStatusActionHandler
+  onEditSale?: SaleEditActionHandler
   onOpenSalesHistory: () => void
   onOpenSaleFiscalQueue?: (sale: Sale) => void
   onReturnItem?: SaleReturnHandler
@@ -147,6 +182,8 @@ export function SalesPage({
   const [billingIssueDate, setBillingIssueDate] = useState('')
   const [billingDueDate, setBillingDueDate] = useState('')
   const [discountAmount, setDiscountAmount] = useState('')
+  const [submittingSale, setSubmittingSale] = useState(false)
+  const submittingSaleRef = useRef(false)
   const [showSaleForm, setShowSaleForm] = useState(!embedded)
   const [selectedSaleDetail, setSelectedSaleDetail] = useState<SaleDetail>()
   const [directSaleFiscalFilter, setDirectSaleFiscalFilter] =
@@ -250,21 +287,33 @@ export function SalesPage({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const saved = await onSubmit({
-      clientId: clientId || null,
-      billingIssueDate: saleAllowsBilling ? billingIssueDate || null : null,
-      billingDueDate: saleAllowsBilling ? billingDueDate || null : null,
-      discountAmount: saleDiscount,
-      paymentMethodId: payments[0]?.paymentMethodId,
-      payments: salePaymentPayloads(payments, saleTotal),
-      items: items.map((item) => ({
-        productId: item.productId,
-        quantity: Number(item.quantity),
-      })),
-    })
+    if (submittingSaleRef.current) {
+      return
+    }
 
-    saved && resetForm()
-    embedded && saved && setShowSaleForm(false)
+    submittingSaleRef.current = true
+    setSubmittingSale(true)
+
+    try {
+      const saved = await onSubmit({
+        clientId: clientId || null,
+        billingIssueDate: saleAllowsBilling ? billingIssueDate || null : null,
+        billingDueDate: saleAllowsBilling ? billingDueDate || null : null,
+        discountAmount: saleDiscount,
+        paymentMethodId: payments[0]?.paymentMethodId,
+        payments: salePaymentPayloads(payments, saleTotal),
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: Number(item.quantity),
+        })),
+      })
+
+      saved && resetForm()
+      embedded && saved && setShowSaleForm(false)
+    } finally {
+      submittingSaleRef.current = false
+      setSubmittingSale(false)
+    }
   }
 
   return (
@@ -417,9 +466,12 @@ export function SalesPage({
         <ActionGroup>
           <PrimaryButton
             icon={<Plus size={17} />}
+            loading={submittingSale}
             type='submit'
-            disabled={!cashRegister || discountExceedsSubtotal}>
-            Concluir venda
+            disabled={
+              submittingSale || !cashRegister || discountExceedsSubtotal
+            }>
+            {submittingSale ? 'Concluindo venda…' : 'Concluir venda'}
           </PrimaryButton>
           {embedded ? (
             <SecondaryButton
@@ -455,7 +507,7 @@ export function SalesPage({
         <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_180px_180px]'>
           <TextField
             label='Buscar venda direta'
-            placeholder='Nº, cliente, produto, pagamento...'
+            placeholder='Nº, cliente, produto, pagamento…'
             size='small'
             value={directSaleSearch}
             onChange={(event) => setDirectSaleSearch(event.target.value)}
@@ -1206,8 +1258,8 @@ function DirectSaleActions({
   fiscalDocument?: FiscalDocument
   paymentMethods: PaymentMethod[]
   sale: Sale
-  onCompleteReopenedSale?: (sale: Sale) => void
-  onEditSale?: (sale: Sale) => void
+  onCompleteReopenedSale?: SaleStatusActionHandler
+  onEditSale?: SaleEditActionHandler
   onOpenDetails?: () => void
   onOpenSaleFiscalQueue?: (sale: Sale) => void
   onReturnItem?: SaleReturnHandler
@@ -1216,6 +1268,7 @@ function DirectSaleActions({
   const [showReturnForm, setShowReturnForm] = useState(false)
   const [showCommercialDetailsForm, setShowCommercialDetailsForm] =
     useState(false)
+  const { pendingAction, runPendingAction } = usePendingSaleAction()
   const fiscalDocumentBlocksCommercialChanges = Boolean(
     fiscalDocument &&
       ['AUTHORIZED', 'PENDING', 'PROCESSING'].includes(fiscalDocument.status),
@@ -1274,16 +1327,24 @@ function DirectSaleActions({
 
   if (sale.status === 'OPEN' && onCompleteReopenedSale) {
     actions.push({
-      label: 'Concluir venda',
-      onSelect: () => onCompleteReopenedSale(sale),
+      disabled: Boolean(pendingAction),
+      label:
+        pendingAction === 'complete' ? 'Concluindo venda…' : 'Concluir venda',
+      onSelect: () =>
+        void runPendingAction('complete', () => onCompleteReopenedSale(sale)),
     })
   }
 
   if ((sale.status === 'OPEN' || sale.status === 'COMPLETED') && onEditSale) {
     actions.push({
-      disabled: fiscalDocumentBlocksCommercialChanges,
-      label: 'Editar venda',
-      onSelect: () => onEditSale(sale),
+      disabled: fiscalDocumentBlocksCommercialChanges || Boolean(pendingAction),
+      label:
+        pendingAction === 'edit'
+          ? sale.status === 'COMPLETED'
+            ? 'Reabrindo venda…'
+            : 'Abrindo venda…'
+          : 'Editar venda',
+      onSelect: () => void runPendingAction('edit', () => onEditSale(sale)),
     })
   }
 
@@ -1312,6 +1373,13 @@ function DirectSaleActions({
       <div className='flex justify-end'>
         <TableActionsMenu actions={actions} />
       </div>
+      {pendingAction ? (
+        <InlineNote>
+          {pendingAction === 'edit'
+            ? 'Preparando a venda para edição…'
+            : 'Concluindo a venda…'}
+        </InlineNote>
+      ) : null}
       {fiscalDocumentBlocksCommercialChanges ? (
         <InlineNote>Cancele a NF-e antes de editar a venda.</InlineNote>
       ) : null}
@@ -1567,15 +1635,21 @@ export function ShippingOrdersPage({
   paymentMethods: PaymentMethod[]
   orders: ShippingOrder[]
   sales?: Sale[]
-  onCompleteReopenedSale?: (sale: Sale) => void
-  onEditSale?: (sale: Sale) => void
+  onCompleteReopenedSale?: SaleStatusActionHandler
+  onEditSale?: SaleEditActionHandler
   onOpenQuotes: () => void
   onOpenSaleFiscalQueue?: (sale: Sale) => void
   onReturnItem?: SaleReturnHandler
-  onApprove: (order: ShippingOrder) => void
-  onSeparate: (order: ShippingOrder) => void
-  onComplete: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
-  onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
+  onApprove: (order: ShippingOrder) => Promise<unknown>
+  onSeparate: (order: ShippingOrder) => Promise<unknown>
+  onComplete: (
+    event: FormEvent<HTMLFormElement>,
+    order: ShippingOrder,
+  ) => Promise<unknown>
+  onCancel: (
+    event: FormEvent<HTMLFormElement>,
+    order: ShippingOrder,
+  ) => Promise<unknown>
   onUpdateSaleCommercialDetails?: SaleCommercialDetailsHandler
 }) {
   const [search, setSearch] = useState('')
@@ -1648,7 +1722,7 @@ export function ShippingOrdersPage({
         <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_190px_190px_200px]'>
           <TextField
             label='Buscar pedido'
-            placeholder='Cliente, produto, operador, orçamento...'
+            placeholder='Cliente, produto, operador, orçamento…'
             size='small'
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -1810,12 +1884,18 @@ type ShippingOrderActionRendererProps = {
   order: ShippingOrder
   paymentMethods: PaymentMethod[]
   sale?: Sale
-  onCompleteReopenedSale?: (sale: Sale) => void
-  onEditSale?: (sale: Sale) => void
-  onApprove: (order: ShippingOrder) => void
-  onSeparate: (order: ShippingOrder) => void
-  onComplete: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
-  onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
+  onCompleteReopenedSale?: SaleStatusActionHandler
+  onEditSale?: SaleEditActionHandler
+  onApprove: (order: ShippingOrder) => Promise<unknown>
+  onSeparate: (order: ShippingOrder) => Promise<unknown>
+  onComplete: (
+    event: FormEvent<HTMLFormElement>,
+    order: ShippingOrder,
+  ) => Promise<unknown>
+  onCancel: (
+    event: FormEvent<HTMLFormElement>,
+    order: ShippingOrder,
+  ) => Promise<unknown>
   onOpenSaleFiscalQueue?: (sale: Sale) => void
   onReturnItem?: SaleReturnHandler
   onUpdateSaleCommercialDetails?: SaleCommercialDetailsHandler
@@ -1846,6 +1926,7 @@ function CompletedShippingOrderActions({
   const [showCommercialDetailsForm, setShowCommercialDetailsForm] =
     useState(false)
   const [showReturnForm, setShowReturnForm] = useState(false)
+  const { pendingAction, runPendingAction } = usePendingSaleAction()
 
   if (!sale) {
     return <InlineNote>Venda concluída</InlineNote>
@@ -1890,16 +1971,22 @@ function CompletedShippingOrderActions({
 
   onEditSale &&
     actions.push({
-      disabled: fiscalDocumentBlocksCommercialChanges,
-      label: 'Reabrir / editar venda',
-      onSelect: () => onEditSale(sale),
+      disabled: fiscalDocumentBlocksCommercialChanges || Boolean(pendingAction),
+      label:
+        pendingAction === 'edit'
+          ? 'Reabrindo venda…'
+          : 'Reabrir / editar venda',
+      onSelect: () => void runPendingAction('edit', () => onEditSale(sale)),
     })
 
   sale.status === 'OPEN' &&
     onCompleteReopenedSale &&
     actions.push({
-      label: 'Concluir venda',
-      onSelect: () => onCompleteReopenedSale(sale),
+      disabled: Boolean(pendingAction),
+      label:
+        pendingAction === 'complete' ? 'Concluindo venda…' : 'Concluir venda',
+      onSelect: () =>
+        void runPendingAction('complete', () => onCompleteReopenedSale(sale)),
     })
 
   onUpdateSaleCommercialDetails &&
@@ -1921,6 +2008,13 @@ function CompletedShippingOrderActions({
       <div className='flex justify-end'>
         <TableActionsMenu actions={actions} />
       </div>
+      {pendingAction ? (
+        <InlineNote>
+          {pendingAction === 'edit'
+            ? 'Preparando a venda para edição…'
+            : 'Concluindo a venda…'}
+        </InlineNote>
+      ) : null}
       <InlineNote>
         Venda Nº {sale.saleNumber} gerada via orçamento.
       </InlineNote>
@@ -1960,6 +2054,10 @@ function ShippingOrderActions({
   const [openAction, setOpenAction] = useState<'cancel' | 'complete' | null>(
     null,
   )
+  const [pendingAction, setPendingAction] = useState<
+    'approve' | 'cancel' | 'complete' | 'separate'
+  >()
+  const pendingActionRef = useRef(false)
   const [payments, setPayments] = useState<SalePaymentDraft[]>([
     emptySalePayment(),
   ])
@@ -1982,24 +2080,83 @@ function ShippingOrderActions({
   const actions = shippingOrderActionsForStatus({
     cashRegister,
     order,
-    onApprove,
+    onApprove: () => void runOrderAction('approve', () => onApprove(order)),
     onCancel: () => setOpenAction('cancel'),
     onComplete: () => setOpenAction('complete'),
-    onSeparate,
+    onSeparate: () =>
+      void runOrderAction('separate', () => onSeparate(order)),
   })
+
+  async function runOrderAction(
+    action: 'approve' | 'separate',
+    handler: () => Promise<unknown>,
+  ) {
+    if (pendingActionRef.current) {
+      return
+    }
+
+    pendingActionRef.current = true
+    setPendingAction(action)
+
+    try {
+      await handler()
+    } finally {
+      pendingActionRef.current = false
+      setPendingAction(undefined)
+    }
+  }
+
+  async function runOrderFormAction(
+    action: 'cancel' | 'complete',
+    event: FormEvent<HTMLFormElement>,
+    handler: () => Promise<unknown>,
+  ) {
+    event.preventDefault()
+
+    if (pendingActionRef.current) {
+      return
+    }
+
+    pendingActionRef.current = true
+    setPendingAction(action)
+
+    try {
+      await handler()
+    } finally {
+      pendingActionRef.current = false
+      setPendingAction(undefined)
+    }
+  }
+
+  const pendingLabel = {
+    approve: 'Aprovando e reservando…',
+    cancel: 'Cancelando pedido…',
+    complete: 'Concluindo venda…',
+    separate: 'Confirmando separação…',
+  }[pendingAction ?? 'approve']
 
   return (
     <ActionStack>
       <div className='flex justify-end'>
-        <TableActionsMenu actions={actions} />
+        <TableActionsMenu
+          actions={actions.map((action) => ({
+            ...action,
+            disabled: action.disabled || Boolean(pendingAction),
+          }))}
+        />
       </div>
+      {pendingAction ? <InlineNote>{pendingLabel}</InlineNote> : null}
       {!cashRegister && shippingOrderCanComplete(order) ? (
         <InlineNote>Abra o caixa para concluir.</InlineNote>
       ) : null}
       {openAction === 'complete' ? (
         <form
           className='grid w-full max-w-72 gap-2'
-          onSubmit={(event) => onComplete(event, order)}>
+          onSubmit={(event) =>
+            void runOrderFormAction('complete', event, () =>
+              onComplete(event, order),
+            )
+          }>
           {usesQuoteBillingData ? (
             <Alert severity='info' variant='outlined'>
               Pagamento: {shippingOrderPaymentSummary(order)}
@@ -2047,10 +2204,16 @@ function ShippingOrderActions({
             </>
           )}
           <div className='flex flex-wrap gap-2'>
-            <TableActionButton type='submit' disabled={!cashRegister}>
-              Concluir venda
+            <TableActionButton
+              disabled={!cashRegister || Boolean(pendingAction)}
+              loading={pendingAction === 'complete'}
+              type='submit'>
+              {pendingAction === 'complete'
+                ? 'Concluindo venda…'
+                : 'Concluir venda'}
             </TableActionButton>
             <TableActionButton
+              disabled={Boolean(pendingAction)}
               type='button'
               onClick={() => setOpenAction(null)}>
               Fechar
@@ -2060,8 +2223,12 @@ function ShippingOrderActions({
       ) : null}
       {openAction === 'cancel' ? (
         <ShippingOrderCancelForm
-          order={order}
-          onCancel={onCancel}
+          pending={pendingAction === 'cancel'}
+          onCancel={(event) =>
+            void runOrderFormAction('cancel', event, () =>
+              onCancel(event, order),
+            )
+          }
           onClose={() => setOpenAction(null)}
         />
       ) : null}
@@ -2177,15 +2344,15 @@ function shippingOrderFiscalDocumentDownloadName(
 
 function ShippingOrderCancelForm({
   onClose,
-  order,
+  pending,
   onCancel,
 }: {
   onClose: () => void
-  order: ShippingOrder
-  onCancel: (event: FormEvent<HTMLFormElement>, order: ShippingOrder) => void
+  pending: boolean
+  onCancel: (event: FormEvent<HTMLFormElement>) => void
 }) {
   return (
-    <form className='grid gap-2' onSubmit={(event) => onCancel(event, order)}>
+    <form className='grid gap-2' onSubmit={onCancel}>
       <TextField
         label='Motivo do cancelamento'
         name='shippingCancellationReason'
@@ -2194,8 +2361,10 @@ function ShippingOrderCancelForm({
         required
       />
       <div className='flex flex-wrap gap-2'>
-        <TableActionButton type='submit'>Cancelar</TableActionButton>
-        <TableActionButton type='button' onClick={onClose}>
+        <TableActionButton loading={pending} type='submit'>
+          {pending ? 'Cancelando…' : 'Cancelar'}
+        </TableActionButton>
+        <TableActionButton disabled={pending} type='button' onClick={onClose}>
           Fechar
         </TableActionButton>
       </div>
@@ -2229,22 +2398,24 @@ export function PickupReservationsPage({
   products: Product[]
   reservations: PickupReservation[]
   sales?: Sale[]
-  onCompleteReopenedSale?: (sale: Sale) => void
-  onEditSale?: (sale: Sale) => void
+  onCompleteReopenedSale?: SaleStatusActionHandler
+  onEditSale?: SaleEditActionHandler
   onOpenSaleFiscalQueue?: (sale: Sale) => void
   onReturnItem?: SaleReturnHandler
   onSubmit: (input: PickupReservationDraftInput) => Promise<boolean>
   onComplete: (
     event: FormEvent<HTMLFormElement>,
     reservation: PickupReservation,
-  ) => void
+  ) => Promise<unknown>
   onCancel: (
     event: FormEvent<HTMLFormElement>,
     reservation: PickupReservation,
-  ) => void
+  ) => Promise<unknown>
   onUpdateSaleCommercialDetails?: SaleCommercialDetailsHandler
 }) {
   const [clientId, setClientId] = useState('')
+  const [submittingReservation, setSubmittingReservation] = useState(false)
+  const submittingReservationRef = useRef(false)
   const [showReservationForm, setShowReservationForm] = useState(!embedded)
   const [items, setItems] = useState<PickupReservationDraftItem[]>([
     emptyPickupReservationItem(),
@@ -2312,16 +2483,28 @@ export function PickupReservationsPage({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const saved = await onSubmit({
-      clientId,
-      items: items.map((item) => ({
-        productId: item.productId,
-        quantity: Number(item.quantity),
-      })),
-    })
+    if (submittingReservationRef.current) {
+      return
+    }
 
-    saved && resetForm()
-    embedded && saved && setShowReservationForm(false)
+    submittingReservationRef.current = true
+    setSubmittingReservation(true)
+
+    try {
+      const saved = await onSubmit({
+        clientId,
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: Number(item.quantity),
+        })),
+      })
+
+      saved && resetForm()
+      embedded && saved && setShowReservationForm(false)
+    } finally {
+      submittingReservationRef.current = false
+      setSubmittingReservation(false)
+    }
   }
 
   return (
@@ -2418,8 +2601,14 @@ export function PickupReservationsPage({
             value={formatCurrency(reservationTotal)}
           />
           <ActionGroup>
-            <PrimaryButton icon={<Plus size={17} />} type='submit'>
-              Registrar reserva
+            <PrimaryButton
+              disabled={submittingReservation}
+              icon={<Plus size={17} />}
+              loading={submittingReservation}
+              type='submit'>
+              {submittingReservation
+                ? 'Registrando reserva…'
+                : 'Registrar reserva'}
             </PrimaryButton>
             {embedded ? (
               <SecondaryButton
@@ -2456,7 +2645,7 @@ export function PickupReservationsPage({
         <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_190px_190px]'>
           <TextField
             label='Buscar reserva'
-            placeholder='Cliente, produto, operador...'
+            placeholder='Cliente, produto, operador…'
             size='small'
             value={reservationSearch}
             onChange={(event) => setReservationSearch(event.target.value)}
@@ -2658,13 +2847,13 @@ function PickupReservationActions({
   onComplete: (
     event: FormEvent<HTMLFormElement>,
     reservation: PickupReservation,
-  ) => void
+  ) => Promise<unknown>
   onCancel: (
     event: FormEvent<HTMLFormElement>,
     reservation: PickupReservation,
-  ) => void
-  onCompleteReopenedSale?: (sale: Sale) => void
-  onEditSale?: (sale: Sale) => void
+  ) => Promise<unknown>
+  onCompleteReopenedSale?: SaleStatusActionHandler
+  onEditSale?: SaleEditActionHandler
   onOpenSaleFiscalQueue?: (sale: Sale) => void
   onReturnItem?: SaleReturnHandler
   onUpdateSaleCommercialDetails?: SaleCommercialDetailsHandler
@@ -2672,6 +2861,8 @@ function PickupReservationActions({
   const [openAction, setOpenAction] = useState<'cancel' | 'complete' | null>(
     null,
   )
+  const [pendingAction, setPendingAction] = useState<'cancel' | 'complete'>()
+  const pendingActionRef = useRef(false)
   const [showCommercialDetailsForm, setShowCommercialDetailsForm] =
     useState(false)
   const [showReturnForm, setShowReturnForm] = useState(false)
@@ -2719,18 +2910,56 @@ function PickupReservationActions({
     },
   ]
 
+  async function runReservationAction(
+    action: 'cancel' | 'complete',
+    event: FormEvent<HTMLFormElement>,
+    handler: () => Promise<unknown>,
+  ) {
+    event.preventDefault()
+
+    if (pendingActionRef.current) {
+      return
+    }
+
+    pendingActionRef.current = true
+    setPendingAction(action)
+
+    try {
+      await handler()
+    } finally {
+      pendingActionRef.current = false
+      setPendingAction(undefined)
+    }
+  }
+
   return (
     <ActionStack>
       <div className='flex justify-end'>
-        <TableActionsMenu actions={actions} />
+        <TableActionsMenu
+          actions={actions.map((action) => ({
+            ...action,
+            disabled: action.disabled || Boolean(pendingAction),
+          }))}
+        />
       </div>
+      {pendingAction ? (
+        <InlineNote>
+          {pendingAction === 'complete'
+            ? 'Concluindo venda…'
+            : 'Cancelando reserva…'}
+        </InlineNote>
+      ) : null}
       {!cashRegister ? (
         <InlineNote>Abra o caixa para concluir.</InlineNote>
       ) : null}
       {openAction === 'complete' ? (
         <form
           className='grid w-full max-w-72 gap-2'
-          onSubmit={(event) => onComplete(event, reservation)}>
+          onSubmit={(event) =>
+            void runReservationAction('complete', event, () =>
+              onComplete(event, reservation),
+            )
+          }>
           <PaymentSplitFields
             disabled={!cashRegister}
             fieldPrefix='pickup'
@@ -2760,10 +2989,16 @@ function PickupReservationActions({
             </>
           ) : null}
           <div className='flex flex-wrap gap-2'>
-            <TableActionButton type='submit' disabled={!cashRegister}>
-              Concluir venda
+            <TableActionButton
+              disabled={!cashRegister || Boolean(pendingAction)}
+              loading={pendingAction === 'complete'}
+              type='submit'>
+              {pendingAction === 'complete'
+                ? 'Concluindo venda…'
+                : 'Concluir venda'}
             </TableActionButton>
             <TableActionButton
+              disabled={Boolean(pendingAction)}
               type='button'
               onClick={() => setOpenAction(null)}>
               Fechar
@@ -2774,7 +3009,11 @@ function PickupReservationActions({
       {openAction === 'cancel' ? (
         <form
           className='grid w-full max-w-72 gap-2'
-          onSubmit={(event) => onCancel(event, reservation)}>
+          onSubmit={(event) =>
+            void runReservationAction('cancel', event, () =>
+              onCancel(event, reservation),
+            )
+          }>
           <TextField
             label='Motivo do cancelamento'
             name='pickupCancellationReason'
@@ -2783,8 +3022,13 @@ function PickupReservationActions({
             required
           />
           <div className='flex flex-wrap gap-2'>
-            <TableActionButton type='submit'>Cancelar</TableActionButton>
             <TableActionButton
+              loading={pendingAction === 'cancel'}
+              type='submit'>
+              {pendingAction === 'cancel' ? 'Cancelando…' : 'Cancelar'}
+            </TableActionButton>
+            <TableActionButton
+              disabled={Boolean(pendingAction)}
               type='button'
               onClick={() => setOpenAction(null)}>
               Fechar
@@ -2817,14 +3061,16 @@ function CompletedPickupReservationActions({
   sale?: Sale
   showCommercialDetailsForm: boolean
   showReturnForm: boolean
-  onCompleteReopenedSale?: (sale: Sale) => void
-  onEditSale?: (sale: Sale) => void
+  onCompleteReopenedSale?: SaleStatusActionHandler
+  onEditSale?: SaleEditActionHandler
   onOpenSaleFiscalQueue?: (sale: Sale) => void
   onReturnItem?: SaleReturnHandler
   onShowCommercialDetailsForm: (show: boolean) => void
   onShowReturnForm: (show: boolean) => void
   onUpdateSaleCommercialDetails?: SaleCommercialDetailsHandler
 }) {
+  const { pendingAction, runPendingAction } = usePendingSaleAction()
+
   if (!sale) {
     return <InlineNote>Venda concluída</InlineNote>
   }
@@ -2871,16 +3117,22 @@ function CompletedPickupReservationActions({
 
   onEditSale &&
     actions.push({
-      disabled: fiscalDocumentBlocksCommercialChanges,
-      label: 'Reabrir / editar venda',
-      onSelect: () => onEditSale(sale),
+      disabled: fiscalDocumentBlocksCommercialChanges || Boolean(pendingAction),
+      label:
+        pendingAction === 'edit'
+          ? 'Reabrindo venda…'
+          : 'Reabrir / editar venda',
+      onSelect: () => void runPendingAction('edit', () => onEditSale(sale)),
     })
 
   sale.status === 'OPEN' &&
     onCompleteReopenedSale &&
     actions.push({
-      label: 'Concluir venda',
-      onSelect: () => onCompleteReopenedSale(sale),
+      disabled: Boolean(pendingAction),
+      label:
+        pendingAction === 'complete' ? 'Concluindo venda…' : 'Concluir venda',
+      onSelect: () =>
+        void runPendingAction('complete', () => onCompleteReopenedSale(sale)),
     })
 
   onUpdateSaleCommercialDetails &&
@@ -2902,6 +3154,13 @@ function CompletedPickupReservationActions({
       <div className='flex justify-end'>
         <TableActionsMenu actions={actions} />
       </div>
+      {pendingAction ? (
+        <InlineNote>
+          {pendingAction === 'edit'
+            ? 'Preparando a venda para edição…'
+            : 'Concluindo a venda…'}
+        </InlineNote>
+      ) : null}
       <InlineNote>
         Venda Nº {sale.saleNumber} gerada pela retirada.
       </InlineNote>

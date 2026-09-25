@@ -6,7 +6,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import { Settings2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { FiscalSettings } from '../../api'
 import { FormCard, FormGrid, FormRow, PageHeader } from '../../components/layout'
 import { PrimaryButton, StatusChip } from '../../components/ui'
@@ -64,7 +64,7 @@ export function FiscalSettingsPage({
   onSubmit,
 }: {
   settings: FiscalSettings | null
-  onSubmit: (input: FiscalSettingsInput) => void
+  onSubmit: (input: FiscalSettingsInput) => Promise<unknown> | unknown
 }) {
   const [draft, setDraft] = useState<FiscalSettingsInput>(
     fiscalSettingsInput(settings),
@@ -72,6 +72,8 @@ export function FiscalSettingsPage({
   const [productionChecklist, setProductionChecklist] = useState<
     Record<string, boolean>
   >({})
+  const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
 
   useEffect(() => {
     setDraft(fiscalSettingsInput(settings))
@@ -103,18 +105,32 @@ export function FiscalSettingsPage({
     productionPhraseError ||
     productionChecklistBlocked
 
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (submittingRef.current || submitBlocked) {
+      return
+    }
+
+    submittingRef.current = true
+    setSubmitting(true)
+
+    try {
+      await onSubmit({
+        ...draft,
+        companyCnpj: draft.companyCnpj?.trim() || null,
+        productionConfirmation: draft.productionConfirmation?.trim() || null,
+      })
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
+    }
+  }
+
   return (
     <FormGrid
       className='max-w-4xl'
-      onSubmit={(event) => {
-        event.preventDefault()
-        onSubmit({
-          ...draft,
-          companyCnpj: draft.companyCnpj?.trim() || null,
-          productionConfirmation:
-            draft.productionConfirmation?.trim() || null,
-        })
-      }}>
+      onSubmit={submit}>
       <PageHeader
         description='Defina o provedor fiscal, ambiente e CNPJ usados na emissao de NF-e.'
         icon={<Settings2 size={18} />}
@@ -304,8 +320,13 @@ export function FiscalSettingsPage({
       </FormCard>
 
       <div className='flex justify-end'>
-        <PrimaryButton disabled={submitBlocked} type='submit'>
-          Salvar configuracao fiscal
+        <PrimaryButton
+          disabled={submitBlocked || submitting}
+          loading={submitting}
+          type='submit'>
+          {submitting
+            ? 'Salvando configuração fiscal…'
+            : 'Salvar configuracao fiscal'}
         </PrimaryButton>
       </div>
     </FormGrid>

@@ -7,17 +7,22 @@ import {
   getStockReport,
   getUserPerformanceReport,
   type CashReport,
+  type CashReportColumnKey,
   type CashReportFilters,
   type InventoryReport,
   type InventoryReportColumnKey,
   type InventoryReportFilters,
   type PurchaseReport,
+  type PurchaseReportColumnKey,
   type PurchaseReportFilters,
   type SalesReport,
+  type SalesReportColumnKey,
   type SalesReportFilters,
   type StockReport,
+  type StockReportColumnKey,
   type StockReportFilters,
   type UserPerformanceReport,
+  type UserPerformanceReportColumnKey,
   type UserPerformanceReportFilters,
 } from "../../models/reports/reports.model.js";
 import { generateReportPdf } from "../../integrations/pdf/report-pdf.js";
@@ -82,11 +87,19 @@ export async function showUserPerformanceReport(
 }
 
 export async function generateSalesReportPdf(filters: SalesReportFilters) {
-  return generateReportPdf(salesReportDocument(await getSalesReport(filters), filters));
+  return generateReportPdf(filterReportDocumentColumns(
+    salesReportDocument(await getSalesReport(filters), filters),
+    filters.columns,
+    salesReportPdfColumnLabels,
+  ));
 }
 
 export async function generateStockReportPdf(filters: StockReportFilters) {
-  return generateReportPdf(stockReportDocument(await getStockReport(filters), filters));
+  return generateReportPdf(filterReportDocumentColumns(
+    stockReportDocument(await getStockReport(filters), filters),
+    filters.columns,
+    stockReportPdfColumnLabels,
+  ));
 }
 
 export async function generateInventoryReportPdf(
@@ -101,21 +114,110 @@ export async function generatePurchaseReportPdf(
   filters: PurchaseReportFilters,
 ) {
   return generateReportPdf(
-    purchaseReportDocument(await getPurchaseReport(filters), filters),
+    filterReportDocumentColumns(
+      purchaseReportDocument(await getPurchaseReport(filters), filters),
+      filters.columns,
+      purchaseReportPdfColumnLabels,
+    ),
   );
 }
 
 export async function generateCashReportPdf(filters: CashReportFilters) {
-  return generateReportPdf(cashReportDocument(await getCashReport(filters), filters));
+  return generateReportPdf(filterReportDocumentColumns(
+    cashReportDocument(await getCashReport(filters), filters),
+    filters.columns,
+    cashReportPdfColumnLabels,
+  ));
 }
 
 export async function generateUserPerformanceReportPdf(
   filters: UserPerformanceReportFilters,
 ) {
   return generateReportPdf(
-    userPerformanceReportDocument(await getUserPerformanceReport(filters), filters),
+    filterReportDocumentColumns(
+      userPerformanceReportDocument(await getUserPerformanceReport(filters), filters),
+      filters.columns,
+      userReportPdfColumnLabels,
+    ),
   );
 }
+
+function filterReportDocumentColumns<Key extends string>(
+  document: ReportPdfDocument,
+  selectedColumns: Key[] | undefined,
+  labelsByKey: Record<Key, readonly string[]>,
+): ReportPdfDocument {
+  if (!selectedColumns?.length) {
+    return document;
+  }
+
+  const selectedLabels = new Set(
+    selectedColumns.flatMap((key) => labelsByKey[key]),
+  );
+
+  return {
+    ...document,
+    sections: document.sections.flatMap((section) => {
+      const selectedIndexes = section.columns
+        .map((column, index) => ({ index, label: column.label }))
+        .filter(({ label }) => selectedLabels.has(label))
+        .map(({ index }) => index);
+
+      if (selectedIndexes.length === 0) {
+        return [];
+      }
+
+      return [{
+        ...section,
+        columns: selectedIndexes.map((index) => section.columns[index]),
+        rows: section.rows.map((row) =>
+          selectedIndexes.map((index) => row[index]),
+        ),
+      }];
+    }),
+  };
+}
+
+const salesReportPdfColumnLabels: Record<SalesReportColumnKey, readonly string[]> = {
+  code: ["Codigo"], product: ["Produto"], quantity: ["Qtde"],
+  total: ["Total", "Faturamento"], cost: ["Custo"], profit: ["Lucro"],
+  margin: ["Margem"], client: ["Cliente"], sales: ["Vendas"],
+  paymentMethod: ["Forma de pagamento"], participation: ["Part."],
+  cumulative: ["Acum."], class: ["Classe"],
+};
+
+const stockReportPdfColumnLabels: Record<StockReportColumnKey, readonly string[]> = {
+  code: ["Codigo"], product: ["Produto"], location: ["Locacao"], movements: ["Mov."],
+  entryQuantity: ["Entrada"], entryAmount: ["Valor entrada"], exitQuantity: ["Saida"],
+  exitCost: ["Custo saida"], adjustmentQuantity: ["Qtde ajustes"],
+  adjustmentCost: ["Valor ajustes"], balance: ["Saldo"], lastMovement: ["Ult. mov."],
+  movementType: ["Tipo"], movementQuantity: ["Quantidade"], value: ["Valor base"],
+  currentStock: ["Fisico"],
+  reservedStock: ["Reservado"], availableStock: ["Disponivel"], minimumStock: ["Minimo"],
+  soldQuantity: ["Qtde vendida"], lastSale: ["Ult. venda"],
+};
+
+const purchaseReportPdfColumnLabels: Record<PurchaseReportColumnKey, readonly string[]> = {
+  source: ["Origem"], entries: ["Entradas"], quantity: ["Quantidade"],
+  total: ["Total"], supplier: ["Fornecedor"], product: ["Produto"],
+};
+
+const cashReportPdfColumnLabels: Record<CashReportColumnKey, readonly string[]> = {
+  paymentMethod: ["Forma de pagamento"], gross: ["Bruto"], refunds: ["Devolucoes"],
+  net: ["Liquido"], openedBy: ["Operador abertura"], closedBy: ["Operador fechamento"],
+  status: ["Status"], openedAt: ["Abertura"], closedAt: ["Fechamento"],
+  openingBalance: ["Saldo inicial"], sales: ["Vendas"], supplies: ["Suprimentos"],
+  withdrawals: ["Sangrias"], expected: ["Esperado"], reported: ["Informado"],
+  difference: ["Divergencia"],
+};
+
+const userReportPdfColumnLabels: Record<UserPerformanceReportColumnKey, readonly string[]> = {
+  user: ["Usuario"], completedSales: ["Vendas"], cancelledSales: ["Cancel."],
+  openSales: ["Abertas"], gross: ["Bruto"], refunds: ["Devolucoes"], net: ["Liquido"],
+  quotes: ["Orc."], stockMovements: ["Estoque"], fiscalDocuments: ["NF-e"],
+  saleNumber: ["Venda"], date: ["Data"], client: ["Cliente"], status: ["Status"],
+  total: ["Total"],
+};
 
 function salesReportDocument(
   report: SalesReport,
@@ -189,6 +291,7 @@ function salesReportDocument(
         title: "Curva ABC",
         emptyMessage: "Nenhum produto para curva ABC.",
         columns: [
+          { label: "Codigo" },
           { label: "Produto" },
           { label: "Faturamento", align: "right" },
           { label: "Part.", align: "right" },
@@ -196,6 +299,7 @@ function salesReportDocument(
           { label: "Classe", align: "center" },
         ],
         rows: report.abcProducts.map((item) => [
+          item.internalCode ?? "",
           item.productName,
           formatCurrency(item.totalAmount),
           `${item.revenueSharePercentage}%`,
@@ -240,6 +344,8 @@ function stockReportDocument(
           { label: "Valor entrada", align: "right" },
           { label: "Saida", align: "right" },
           { label: "Custo saida", align: "right" },
+          { label: "Qtde ajustes", align: "right" },
+          { label: "Valor ajustes", align: "right" },
           { label: "Saldo", align: "right" },
           { label: "Ult. mov." },
         ],
@@ -252,6 +358,8 @@ function stockReportDocument(
           formatCurrency(item.entryAmount),
           formatQuantity(item.exitQuantity),
           formatCurrency(item.exitCostAmount),
+          formatQuantity(item.adjustmentQuantity),
+          formatCurrency(item.adjustmentCostAmount),
           formatQuantity(item.netQuantity),
           item.lastMovementAt ? formatDateTime(item.lastMovementAt) : "",
         ]),
@@ -310,6 +418,24 @@ function stockReportDocument(
           item.location ?? "",
           formatQuantity(item.currentStock),
           formatQuantity(item.minimumStock),
+        ]),
+      },
+      {
+        title: "Giro por venda",
+        emptyMessage: "Nenhum produto vendido no periodo.",
+        columns: [
+          { label: "Codigo" },
+          { label: "Produto" },
+          { label: "Locacao" },
+          { label: "Qtde vendida", align: "right" },
+          { label: "Ult. venda" },
+        ],
+        rows: report.turnoverProducts.map((item) => [
+          item.internalCode ?? "",
+          item.productName,
+          item.location ?? "",
+          formatQuantity(item.soldQuantity),
+          item.lastSaleAt ? formatDateTime(item.lastSaleAt) : "",
         ]),
       },
     ],
@@ -523,19 +649,31 @@ function cashReportDocument(
         title: "Caixas",
         emptyMessage: "Nenhum caixa no periodo.",
         columns: [
-          { label: "Operador" },
+          { label: "Operador abertura" },
+          { label: "Operador fechamento" },
           { label: "Status" },
           { label: "Abertura" },
+          { label: "Fechamento" },
+          { label: "Saldo inicial", align: "right" },
           { label: "Vendas", align: "right" },
+          { label: "Suprimentos", align: "right" },
+          { label: "Sangrias", align: "right" },
           { label: "Esperado", align: "right" },
-          { label: "Diverg.", align: "right" },
+          { label: "Informado", align: "right" },
+          { label: "Divergencia", align: "right" },
         ],
         rows: report.sessions.map((item) => [
           item.openedByUserName,
+          item.closedByUserName ?? "",
           item.status === "OPEN" ? "Aberto" : "Fechado",
           formatDateTime(item.openedAt),
+          item.closedAt ? formatDateTime(item.closedAt) : "",
+          formatCurrency(item.openingBalance),
           formatCurrency(item.salesAmount),
+          formatCurrency(item.supplyAmount),
+          formatCurrency(item.withdrawalAmount),
           formatCurrency(item.expectedClosingBalance),
+          item.closingBalance ? formatCurrency(item.closingBalance) : "",
           item.difference ? formatCurrency(item.difference) : "",
         ]),
       },
@@ -569,6 +707,8 @@ function userPerformanceReportDocument(
           { label: "Vendas", align: "right" },
           { label: "Cancel.", align: "right" },
           { label: "Abertas", align: "right" },
+          { label: "Bruto", align: "right" },
+          { label: "Devolucoes", align: "right" },
           { label: "Liquido", align: "right" },
           { label: "Orc.", align: "right" },
           { label: "Estoque", align: "right" },
@@ -579,6 +719,8 @@ function userPerformanceReportDocument(
           item.salesCount,
           item.cancelledSalesCount,
           item.openSalesCount,
+          formatCurrency(item.grossAmount),
+          formatCurrency(item.refundAmount),
           formatCurrency(item.netAmount),
           item.quotesCreatedCount,
           item.stockMovementsCount,
@@ -594,6 +736,8 @@ function userPerformanceReportDocument(
           { label: "Usuario" },
           { label: "Cliente" },
           { label: "Status" },
+          { label: "Total", align: "right" },
+          { label: "Devolucoes", align: "right" },
           { label: "Liquido", align: "right" },
         ],
         rows: report.sales.map((item) => [
@@ -602,6 +746,8 @@ function userPerformanceReportDocument(
           item.userName,
           item.clientName,
           saleStatusLabel(item.status),
+          formatCurrency(item.totalAmount),
+          formatCurrency(item.refundAmount),
           formatCurrency(item.netAmount),
         ]),
       },

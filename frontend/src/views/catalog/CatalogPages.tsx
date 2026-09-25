@@ -54,6 +54,37 @@ type ProductStockStatusFilter =
   | 'AVAILABLE'
   | 'OUT_OF_STOCK'
 
+type AsyncFormSubmitHandler = (
+  event: FormEvent<HTMLFormElement>,
+) => Promise<unknown> | unknown
+type AsyncEntityAction<Entity> = (entity: Entity) => Promise<unknown> | unknown
+type PendingEntityAction = { id: string; type: 'delete' | 'status' }
+
+function usePendingFormSubmit(onSubmit: AsyncFormSubmitHandler) {
+  const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (submittingRef.current) {
+      return
+    }
+
+    submittingRef.current = true
+    setSubmitting(true)
+
+    try {
+      await onSubmit(event)
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
+    }
+  }
+
+  return { submit, submitting }
+}
+
 export function ProductsPage({
   products,
   pageIndex,
@@ -87,9 +118,32 @@ export function ProductsPage({
   onSearchChange: (value: string) => void
   onEdit: (product: Product) => void
   onClone: (product: Product) => void
-  onChangeStatus: (product: Product) => void
-  onDelete: (product: Product) => void
+  onChangeStatus: AsyncEntityAction<Product>
+  onDelete: AsyncEntityAction<Product>
 }) {
+  const [pendingAction, setPendingAction] = useState<PendingEntityAction>()
+  const pendingActionRef = useRef(false)
+
+  async function runProductAction(
+    product: Product,
+    type: PendingEntityAction['type'],
+    handler: AsyncEntityAction<Product>,
+  ) {
+    if (pendingActionRef.current) {
+      return
+    }
+
+    pendingActionRef.current = true
+    setPendingAction({ id: product.id, type })
+
+    try {
+      await handler(product)
+    } finally {
+      pendingActionRef.current = false
+      setPendingAction(undefined)
+    }
+  }
+
   return (
     <PagePanel wide>
       <PageHeader
@@ -132,12 +186,13 @@ export function ProductsPage({
           </div>
         }
         description={
-          state === 'loading' ? 'Carregando...' : 'Produtos cadastrados'
+          state === 'loading' ? 'Carregando…' : 'Produtos cadastrados'
         }
         title='Lista de produtos'
       />
 
       <ProductTable
+        loading={state === 'loading'}
         pageIndex={pageIndex}
         products={products}
         rowsPerPage={rowsPerPage}
@@ -145,14 +200,18 @@ export function ProductsPage({
         onPageChange={onPageChange}
         onEdit={onEdit}
         onClone={onClone}
-        onChangeStatus={onChangeStatus}
-        onDelete={onDelete}
+        pendingAction={pendingAction}
+        onChangeStatus={(product) =>
+          runProductAction(product, 'status', onChangeStatus)
+        }
+        onDelete={(product) => runProductAction(product, 'delete', onDelete)}
       />
     </PagePanel>
   )
 }
 
 function ProductTable({
+  loading,
   products,
   pageIndex,
   rowsPerPage,
@@ -162,7 +221,9 @@ function ProductTable({
   onClone,
   onChangeStatus,
   onDelete,
+  pendingAction,
 }: {
+  loading: boolean
   products: Product[]
   pageIndex: number
   rowsPerPage: number
@@ -170,8 +231,9 @@ function ProductTable({
   onPageChange: (pageIndex: number, rowsPerPage?: number) => void
   onEdit: (product: Product) => void
   onClone: (product: Product) => void
-  onChangeStatus: (product: Product) => void
-  onDelete: (product: Product) => void
+  onChangeStatus: AsyncEntityAction<Product>
+  onDelete: AsyncEntityAction<Product>
+  pendingAction?: PendingEntityAction
 }) {
   return (
     <ResponsiveTable
@@ -233,28 +295,44 @@ function ProductTable({
               <TableActionsMenu
                 actions={[
                   {
+                    disabled: Boolean(pendingAction),
                     icon: <Pencil size={15} />,
                     label: 'Editar',
                     onSelect: () => onEdit(product),
                   },
                   {
+                    disabled: Boolean(pendingAction),
                     icon: <Plus size={15} />,
                     label: 'Clonar',
                     onSelect: () => onClone(product),
                   },
                   {
+                    disabled: Boolean(pendingAction),
                     icon: product.active ? (
                       <PowerOff size={15} />
                     ) : (
                       <Power size={15} />
                     ),
-                    label: product.active ? 'Inativar' : 'Ativar',
-                    onSelect: () => onChangeStatus(product),
+                    label:
+                      pendingAction?.id === product.id &&
+                      pendingAction.type === 'status'
+                        ? product.active
+                          ? 'Inativando…'
+                          : 'Ativando…'
+                        : product.active
+                          ? 'Inativar'
+                          : 'Ativar',
+                    onSelect: () => void onChangeStatus(product),
                   },
                   {
+                    disabled: Boolean(pendingAction),
                     icon: <Trash2 size={15} />,
-                    label: 'Excluir',
-                    onSelect: () => onDelete(product),
+                    label:
+                      pendingAction?.id === product.id &&
+                      pendingAction.type === 'delete'
+                        ? 'Excluindo…'
+                        : 'Excluir',
+                    onSelect: () => void onDelete(product),
                   },
                 ]}
               />
@@ -265,6 +343,8 @@ function ProductTable({
       emptyMessage='Nenhum produto encontrado.'
       getRowId={(product) => product.id}
       items={products}
+      loading={loading}
+      loadingLabel='Atualizando lista de produtos'
       pagination={{
         count: totalProducts,
         page: pageIndex,
@@ -294,10 +374,11 @@ export function ProductForm({
   ncmOptions: NcmOption[]
   product?: Product
   mode?: 'create' | 'edit' | 'clone'
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onSubmit: AsyncFormSubmitHandler
   onCancel?: () => void
   submitLabel: string
 }) {
+  const { submit, submitting } = usePendingFormSubmit(onSubmit)
   const defaultProfitMarginPercentage = Number(
     commercialSettings?.defaultProfitMarginPercentage ?? 0,
   )
@@ -357,7 +438,7 @@ export function ProductForm({
   ])
 
   return (
-    <FormGrid className='max-w-5xl gap-5' onSubmit={onSubmit}>
+    <FormGrid className='max-w-5xl gap-5' onSubmit={submit}>
       <PageHeader
         icon={mode === 'edit' ? <Pencil size={18} /> : <PackagePlus size={18} />}
         title={
@@ -609,6 +690,7 @@ export function ProductForm({
       <ActionGroup className='mt-1'>
         {onCancel ? (
           <SecondaryButton
+            disabled={submitting}
             icon={<X size={17} />}
             type='button'
             onClick={onCancel}>
@@ -616,9 +698,10 @@ export function ProductForm({
           </SecondaryButton>
         ) : null}
         <PrimaryButton
+          loading={submitting}
           icon={product ? <Pencil size={17} /> : <Plus size={17} />}
           type='submit'>
-          {submitLabel}
+          {submitting ? 'Salvando produto…' : submitLabel}
         </PrimaryButton>
       </ActionGroup>
     </FormGrid>
@@ -765,15 +848,17 @@ export function NamedEntityPage({
   title: string
   fieldName: string
   items: NamedEntity[]
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onSubmit: AsyncFormSubmitHandler
 }) {
+  const { submit, submitting } = usePendingFormSubmit(onSubmit)
+
   return (
     <section className='grid gap-4 xl:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)]'>
-      <FormGrid onSubmit={onSubmit}>
+      <FormGrid onSubmit={submit}>
         <PageHeader icon={<Tags size={18} />} title='Novo registro' />
         <TextField label='Nome' name={fieldName} required />
-        <PrimaryButton icon={<Plus size={17} />} type='submit'>
-          Cadastrar
+        <PrimaryButton loading={submitting} icon={<Plus size={17} />} type='submit'>
+          {submitting ? 'Cadastrando…' : 'Cadastrar'}
         </PrimaryButton>
       </FormGrid>
 
@@ -820,13 +905,14 @@ export function SuppliersPage({
   onSubmit,
 }: {
   suppliers: Supplier[]
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onSubmit: AsyncFormSubmitHandler
 }) {
   const { pagination, visibleItems } = usePaginatedRows<Supplier>(suppliers)
+  const { submit, submitting } = usePendingFormSubmit(onSubmit)
 
   return (
     <section className='grid gap-4 xl:grid-cols-[minmax(300px,0.7fr)_minmax(0,1.3fr)]'>
-      <FormGrid onSubmit={onSubmit}>
+      <FormGrid onSubmit={submit}>
         <PageHeader icon={<Truck size={18} />} title='Novo fornecedor' />
         <TextField label='Nome' name='supplierName' required />
         <TextField label='CPF/CNPJ' name='supplierDocument' />
@@ -834,8 +920,8 @@ export function SuppliersPage({
           <TextField label='Telefone' name='supplierPhone' />
           <TextField label='Email' name='supplierEmail' type='email' />
         </FormRow>
-        <PrimaryButton icon={<Plus size={17} />} type='submit'>
-          Cadastrar fornecedor
+        <PrimaryButton loading={submitting} icon={<Plus size={17} />} type='submit'>
+          {submitting ? 'Cadastrando fornecedor…' : 'Cadastrar fornecedor'}
         </PrimaryButton>
       </FormGrid>
 
@@ -889,13 +975,16 @@ export function ClientsPage({
 }: {
   clients: Client[]
   selectedClient?: Client
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  onSubmit: AsyncFormSubmitHandler
   onLookupCompany: (cnpj: string) => Promise<ClientCompanyLookup>
   onEdit: (client: Client) => void
   onCancel: () => void
-  onChangeStatus: (client: Client) => void
-  onDelete: (client: Client) => void
+  onChangeStatus: AsyncEntityAction<Client>
+  onDelete: AsyncEntityAction<Client>
 }) {
+  const { submit, submitting } = usePendingFormSubmit(onSubmit)
+  const [pendingAction, setPendingAction] = useState<PendingEntityAction>()
+  const pendingActionRef = useRef(false)
   const [clientSearch, setClientSearch] = useState('')
   const [clientStatusFilter, setClientStatusFilter] =
     useState<ClientStatusFilter>('ALL')
@@ -928,6 +1017,26 @@ export function ClientsPage({
     clientStateRegistrationIndicator,
     setClientStateRegistrationIndicator,
   ] = useState(selectedClient?.stateRegistrationIndicator ?? '9')
+
+  async function runClientAction(
+    client: Client,
+    type: PendingEntityAction['type'],
+    handler: AsyncEntityAction<Client>,
+  ) {
+    if (pendingActionRef.current) {
+      return
+    }
+
+    pendingActionRef.current = true
+    setPendingAction({ id: client.id, type })
+
+    try {
+      await handler(client)
+    } finally {
+      pendingActionRef.current = false
+      setPendingAction(undefined)
+    }
+  }
 
   useEffect(() => {
     setClientPersonType(selectedClient?.personType ?? 'PF')
@@ -983,7 +1092,7 @@ export function ClientsPage({
       <FormGrid
         key={selectedClient?.id ?? 'new'}
         ref={formRef}
-        onSubmit={onSubmit}>
+        onSubmit={submit}>
         <PageHeader
           icon={<UserRound size={18} />}
           title={selectedClient ? 'Editar cliente' : 'Novo cliente'}
@@ -1019,12 +1128,16 @@ export function ClientsPage({
           }
         />
         <div className='flex flex-wrap items-center justify-between gap-2'>
-          <span className='text-sm text-[#5f665f]'>
+          <span
+            aria-live='polite'
+            className='text-sm text-[#5f665f]'
+            role='status'>
             {clientLookupStatusLabel[lookupState]}
           </span>
           <SecondaryButton
             type='button'
             disabled={lookupState === 'loading'}
+            loading={lookupState === 'loading'}
             onClick={() => void lookupCompany()}>
             Buscar CNPJ
           </SecondaryButton>
@@ -1182,12 +1295,18 @@ export function ClientsPage({
         </div>
         <div className='mt-1 flex flex-wrap justify-end gap-2'>
           {selectedClient ? (
-            <SecondaryButton type='button' onClick={onCancel}>
+            <SecondaryButton disabled={submitting} type='button' onClick={onCancel}>
               Cancelar
             </SecondaryButton>
           ) : null}
-          <PrimaryButton icon={<Plus size={17} />} type='submit'>
-            {selectedClient ? 'Salvar alteracoes' : 'Cadastrar cliente'}
+          <PrimaryButton loading={submitting} icon={<Plus size={17} />} type='submit'>
+            {submitting
+              ? selectedClient
+                ? 'Salvando alterações…'
+                : 'Cadastrando cliente…'
+              : selectedClient
+                ? 'Salvar alteracoes'
+                : 'Cadastrar cliente'}
           </PrimaryButton>
         </div>
       </FormGrid>
@@ -1204,7 +1323,7 @@ export function ClientsPage({
         <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_170px_170px]'>
           <TextField
             label='Buscar cliente'
-            placeholder='Nome, CPF/CNPJ, telefone, email...'
+            placeholder='Nome, CPF/CNPJ, telefone, email…'
             size='small'
             value={clientSearch}
             onChange={(event) => setClientSearch(event.target.value)}
@@ -1292,8 +1411,13 @@ export function ClientsPage({
                 <div className='hidden justify-end lg:flex'>
                   <ClientActionsMenu
                     client={client}
-                    onChangeStatus={onChangeStatus}
-                    onDelete={onDelete}
+                    pendingAction={pendingAction}
+                    onChangeStatus={(targetClient) =>
+                      runClientAction(targetClient, 'status', onChangeStatus)
+                    }
+                    onDelete={(targetClient) =>
+                      runClientAction(targetClient, 'delete', onDelete)
+                    }
                     onEdit={onEdit}
                   />
                 </div>
@@ -1315,29 +1439,44 @@ function ClientActionsMenu({
   onEdit,
   onChangeStatus,
   onDelete,
+  pendingAction,
 }: {
   client: Client
   onEdit: (client: Client) => void
-  onChangeStatus: (client: Client) => void
-  onDelete: (client: Client) => void
+  onChangeStatus: AsyncEntityAction<Client>
+  onDelete: AsyncEntityAction<Client>
+  pendingAction?: PendingEntityAction
 }) {
   return (
     <TableActionsMenu
       actions={[
         {
+          disabled: Boolean(pendingAction),
           icon: <Pencil size={14} />,
           label: 'Editar',
           onSelect: () => onEdit(client),
         },
         {
+          disabled: Boolean(pendingAction),
           icon: client.active ? <PowerOff size={14} /> : <Power size={14} />,
-          label: client.active ? 'Inativar' : 'Ativar',
-          onSelect: () => onChangeStatus(client),
+          label:
+            pendingAction?.id === client.id && pendingAction.type === 'status'
+              ? client.active
+                ? 'Inativando…'
+                : 'Ativando…'
+              : client.active
+                ? 'Inativar'
+                : 'Ativar',
+          onSelect: () => void onChangeStatus(client),
         },
         {
+          disabled: Boolean(pendingAction),
           icon: <Trash2 size={14} />,
-          label: 'Excluir',
-          onSelect: () => onDelete(client),
+          label:
+            pendingAction?.id === client.id && pendingAction.type === 'delete'
+              ? 'Excluindo…'
+              : 'Excluir',
+          onSelect: () => void onDelete(client),
         },
       ]}
     />
@@ -1402,7 +1541,7 @@ const clientLookupStatusLabel: Record<
 > = {
   error: 'Informe um CNPJ valido ou tente novamente.',
   idle: 'Preencha o CNPJ e busque os dados fiscais.',
-  loading: 'Consultando CNPJ...',
+  loading: 'Consultando CNPJ…',
   success: 'Dados encontrados. Revise antes de salvar.',
 }
 

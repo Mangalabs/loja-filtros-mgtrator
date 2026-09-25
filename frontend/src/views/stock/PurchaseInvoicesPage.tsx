@@ -15,7 +15,7 @@ import {
   Save,
   Upload,
 } from "lucide-react";
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import type {
   Product,
   PurchaseInvoice,
@@ -48,13 +48,13 @@ type PurchaseInvoicesPageProps = {
   onCreateProductFromItem: (
     item: PurchaseInvoiceDraft["items"][number],
   ) => Promise<Product | null>;
-  onCancelInvoice: (invoice: PurchaseInvoice) => void;
+  onCancelInvoice: (invoice: PurchaseInvoice) => Promise<unknown> | unknown;
   onParseXml: (xmlContent: string) => Promise<PurchaseInvoiceDraft | null>;
-  onPostInvoice: (invoice: PurchaseInvoice) => void;
+  onPostInvoice: (invoice: PurchaseInvoice) => Promise<unknown> | unknown;
   onSaveReview: (
     input: PurchaseInvoiceDraft,
     invoiceId?: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 };
 
 export function PurchaseInvoicesPage({
@@ -72,6 +72,17 @@ export function PurchaseInvoicesPage({
   const [xmlContent, setXmlContent] = useState("");
   const [xmlFileName, setXmlFileName] = useState("");
   const [xmlFileError, setXmlFileError] = useState("");
+  const [parsingXml, setParsingXml] = useState(false);
+  const [savingReview, setSavingReview] = useState(false);
+  const [creatingProductIndex, setCreatingProductIndex] = useState<number>();
+  const [pendingInvoiceAction, setPendingInvoiceAction] = useState<{
+    id: string;
+    type: "cancel" | "post";
+  }>();
+  const parsingXmlRef = useRef(false);
+  const savingReviewRef = useRef(false);
+  const creatingProductRef = useRef(false);
+  const pendingInvoiceActionRef = useRef(false);
   const [statusFilter, setStatusFilter] =
     useState<PurchaseInvoiceStatusFilter>("ALL");
   const filteredInvoices = filterPurchaseInvoices(invoices, statusFilter);
@@ -83,11 +94,23 @@ export function PurchaseInvoicesPage({
   async function parseXml(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const parsedInvoice = await onParseXml(xmlContent);
+    if (parsingXmlRef.current) {
+      return;
+    }
 
-    if (parsedInvoice) {
-      setDraft(parsedInvoice);
-      setReviewInvoiceId(undefined);
+    parsingXmlRef.current = true;
+    setParsingXml(true);
+
+    try {
+      const parsedInvoice = await onParseXml(xmlContent);
+
+      if (parsedInvoice) {
+        setDraft(parsedInvoice);
+        setReviewInvoiceId(undefined);
+      }
+    } finally {
+      parsingXmlRef.current = false;
+      setParsingXml(false);
     }
   }
 
@@ -112,15 +135,26 @@ export function PurchaseInvoicesPage({
   async function saveReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!draft) {
+    if (!draft || savingReviewRef.current) {
       return;
     }
 
-    await onSaveReview(
-      reviewInputFromForm(new FormData(event.currentTarget), draft),
-      reviewInvoiceId,
-    );
-    clearReview();
+    savingReviewRef.current = true;
+    setSavingReview(true);
+
+    try {
+      const saved = await onSaveReview(
+        reviewInputFromForm(new FormData(event.currentTarget), draft),
+        reviewInvoiceId,
+      );
+
+      if (saved) {
+        clearReview();
+      }
+    } finally {
+      savingReviewRef.current = false;
+      setSavingReview(false);
+    }
   }
 
   function reviewInvoice(invoice: PurchaseInvoice) {
@@ -138,22 +172,51 @@ export function PurchaseInvoicesPage({
   }
 
   async function createProductFromItem(index: number) {
-    if (!draft) {
+    if (!draft || creatingProductRef.current) {
       return;
     }
 
-    const product = await onCreateProductFromItem(draft.items[index]);
+    creatingProductRef.current = true;
+    setCreatingProductIndex(index);
 
-    if (!product) {
+    try {
+      const product = await onCreateProductFromItem(draft.items[index]);
+
+      if (!product) {
+        return;
+      }
+
+      setDraft({
+        ...draft,
+        items: draft.items.map((item, itemIndex) =>
+          itemIndex === index ? { ...item, productId: product.id } : item,
+        ),
+      });
+    } finally {
+      creatingProductRef.current = false;
+      setCreatingProductIndex(undefined);
+    }
+  }
+
+  async function runInvoiceAction(
+    invoice: PurchaseInvoice,
+    type: "cancel" | "post",
+  ) {
+    if (pendingInvoiceActionRef.current) {
       return;
     }
 
-    setDraft({
-      ...draft,
-      items: draft.items.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, productId: product.id } : item,
-      ),
-    });
+    pendingInvoiceActionRef.current = true;
+    setPendingInvoiceAction({ id: invoice.id, type });
+
+    try {
+      await (type === "post"
+        ? onPostInvoice(invoice)
+        : onCancelInvoice(invoice));
+    } finally {
+      pendingInvoiceActionRef.current = false;
+      setPendingInvoiceAction(undefined);
+    }
   }
 
   return (
@@ -196,11 +259,12 @@ export function PurchaseInvoicesPage({
             editaveis de conferencia da compra.
           </Alert>
           <PrimaryButton
-            disabled={!xmlContent.trim()}
+            disabled={!xmlContent.trim() || parsingXml}
             icon={<FileText size={17} />}
+            loading={parsingXml}
             type="submit"
           >
-            Ler XML para revisar
+            {parsingXml ? "Lendo XML…" : "Ler XML para revisar"}
           </PrimaryButton>
         </FormGrid>
 
@@ -209,6 +273,7 @@ export function PurchaseInvoicesPage({
             <PageHeader
               actions={
                 <SecondaryButton
+                  disabled={savingReview}
                   icon={<RotateCcw size={16} />}
                   type="button"
                   onClick={clearReview}
@@ -308,6 +373,8 @@ export function PurchaseInvoicesPage({
                     item={item}
                     key={`${reviewKey}-${item.position}-${index}`}
                     products={products}
+                    creating={creatingProductIndex === index}
+                    disabled={creatingProductIndex !== undefined}
                     onCreateProduct={() => void createProductFromItem(index)}
                   />
                 ))}
@@ -362,8 +429,8 @@ export function PurchaseInvoicesPage({
               </FormRow>
             </FormSection>
 
-            <PrimaryButton icon={<Save size={17} />} type="submit">
-              Salvar revisão da compra
+            <PrimaryButton loading={savingReview} icon={<Save size={17} />} type="submit">
+              {savingReview ? "Salvando revisão…" : "Salvar revisão da compra"}
             </PrimaryButton>
           </FormGrid>
         ) : null}
@@ -463,16 +530,28 @@ export function PurchaseInvoicesPage({
                       onSelect: () => reviewInvoice(invoice),
                     },
                     {
-                      disabled: invoice.status !== "IMPORTED",
+                      disabled:
+                        invoice.status !== "IMPORTED" ||
+                        Boolean(pendingInvoiceAction),
                       icon: <PackageCheck size={16} />,
-                      label: "Lancar no estoque",
-                      onSelect: () => onPostInvoice(invoice),
+                      label:
+                        pendingInvoiceAction?.id === invoice.id &&
+                        pendingInvoiceAction.type === "post"
+                          ? "Lançando no estoque…"
+                          : "Lancar no estoque",
+                      onSelect: () => void runInvoiceAction(invoice, "post"),
                     },
                     {
-                      disabled: invoice.status !== "IMPORTED",
+                      disabled:
+                        invoice.status !== "IMPORTED" ||
+                        Boolean(pendingInvoiceAction),
                       icon: <RotateCcw size={16} />,
-                      label: "Cancelar importacao",
-                      onSelect: () => onCancelInvoice(invoice),
+                      label:
+                        pendingInvoiceAction?.id === invoice.id &&
+                        pendingInvoiceAction.type === "cancel"
+                          ? "Cancelando importação…"
+                          : "Cancelar importacao",
+                      onSelect: () => void runInvoiceAction(invoice, "cancel"),
                     },
                   ]}
                 />
@@ -562,11 +641,15 @@ function PurchaseInvoiceInstallments({
 }
 
 function PurchaseInvoiceItemReview({
+  creating,
+  disabled,
   index,
   item,
   onCreateProduct,
   products,
 }: {
+  creating: boolean;
+  disabled: boolean;
   index: number;
   item: PurchaseInvoiceDraft["items"][number];
   onCreateProduct: () => void;
@@ -620,11 +703,13 @@ function PurchaseInvoiceItemReview({
       ) : null}
       <div className="flex justify-end">
         <SecondaryButton
+          disabled={disabled}
           icon={<PackagePlus size={16} />}
+          loading={creating}
           type="button"
           onClick={onCreateProduct}
         >
-          Criar produto deste item
+          {creating ? "Criando produto…" : "Criar produto deste item"}
         </SecondaryButton>
       </div>
       <TextField

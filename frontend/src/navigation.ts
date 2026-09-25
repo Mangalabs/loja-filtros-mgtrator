@@ -258,12 +258,12 @@ export const viewTitles: Record<View, { title: string; description: string }> =
         'Gerencie fila de emissão, pendências, notas emitidas e arquivos fiscais.',
     },
     'fiscal-documents': {
-      title: 'Notas fiscais',
+      title: 'Fila de emissão',
       description:
         'Acompanhe a fila de emissão fiscal das vendas.',
     },
     'fiscal-issued-documents': {
-      title: 'Notas emitidas',
+      title: 'Histórico de notas emitidas',
       description:
         'Consulte status, arquivos e ações das notas fiscais emitidas.',
     },

@@ -2,7 +2,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import { FileText, ReceiptText } from 'lucide-react'
-import { type FormEvent, useMemo, useState } from 'react'
+import { type FormEvent, useMemo, useRef, useState } from 'react'
 import type {
   FiscalDocument,
   PaymentMethod,
@@ -169,7 +169,7 @@ export function SalesHistoryPage({
       <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_170px_170px_170px_190px]'>
         <TextField
           label='Buscar'
-          placeholder='Cliente, nº da venda, produto, NF-e...'
+          placeholder='Cliente, nº da venda, produto, NF-e…'
           size='small'
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -387,6 +387,27 @@ function SalesHistoryActions({
   const [showReturnForm, setShowReturnForm] = useState(false)
   const [showCommercialDetailsForm, setShowCommercialDetailsForm] =
     useState(false)
+  const [pendingAction, setPendingAction] = useState<'complete' | 'edit'>()
+  const pendingActionRef = useRef(false)
+
+  async function runSaleAction(
+    action: 'complete' | 'edit',
+    handler: () => Promise<boolean | void> | boolean | void,
+  ) {
+    if (pendingActionRef.current) {
+      return
+    }
+
+    pendingActionRef.current = true
+    setPendingAction(action)
+
+    try {
+      await handler()
+    } finally {
+      pendingActionRef.current = false
+      setPendingAction(undefined)
+    }
+  }
   const fiscalDocumentBlocksReturn = Boolean(
     row.fiscalDocument &&
     returnBlockingFiscalStatuses.includes(row.fiscalDocument.status),
@@ -436,21 +457,29 @@ function SalesHistoryActions({
 
   row.sale?.status === 'COMPLETED' &&
     actions.push({
-      disabled: fiscalDocumentBlocksReturn,
-      label: 'Editar venda',
-      onSelect: () => void onEditSale(row.sale as Sale),
+      disabled: fiscalDocumentBlocksReturn || Boolean(pendingAction),
+      label: pendingAction === 'edit' ? 'Reabrindo venda…' : 'Editar venda',
+      onSelect: () =>
+        void runSaleAction('edit', () => onEditSale(row.sale as Sale)),
     })
 
   row.sale?.status === 'OPEN' &&
     actions.push({
-      label: 'Editar venda',
-      onSelect: () => void onEditSale(row.sale as Sale),
+      disabled: Boolean(pendingAction),
+      label: pendingAction === 'edit' ? 'Abrindo venda…' : 'Editar venda',
+      onSelect: () =>
+        void runSaleAction('edit', () => onEditSale(row.sale as Sale)),
     })
 
   row.sale?.status === 'OPEN' &&
     actions.push({
-      label: 'Concluir venda',
-      onSelect: () => void onCompleteReopenedSale(row.sale as Sale),
+      disabled: Boolean(pendingAction),
+      label:
+        pendingAction === 'complete' ? 'Concluindo venda…' : 'Concluir venda',
+      onSelect: () =>
+        void runSaleAction('complete', () =>
+          onCompleteReopenedSale(row.sale as Sale),
+        ),
     })
 
   row.sale?.status === 'COMPLETED' &&
@@ -472,6 +501,13 @@ function SalesHistoryActions({
       <div className='flex justify-end'>
         <TableActionsMenu actions={actions} />
       </div>
+      {pendingAction ? (
+        <InlineNote>
+          {pendingAction === 'edit'
+            ? 'Preparando a venda para edição…'
+            : 'Concluindo a venda…'}
+        </InlineNote>
+      ) : null}
       {showCommercialDetailsForm && row.sale && !fiscalDocumentBlocksReturn ? (
         <SaleCommercialDetailsForm
           onCancel={() => setShowCommercialDetailsForm(false)}
@@ -564,6 +600,8 @@ export function SaleCommercialDetailsForm({
   onCancel: () => void
   onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
 }) {
+  const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const [payments, setPayments] = useState(() => saleCommercialPaymentDrafts(sale))
   const availablePaymentMethods = paymentMethods.filter(
     (method) =>
@@ -576,10 +614,24 @@ export function SaleCommercialDetailsForm({
   const saleAllowsBilling = salePaymentsAllowBilling(paymentMethods, payments)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    const saved = await onUpdateSaleCommercialDetails(event, sale)
+    event.preventDefault()
 
-    if (saved !== false) {
-      onCancel()
+    if (submittingRef.current) {
+      return
+    }
+
+    submittingRef.current = true
+    setSubmitting(true)
+
+    try {
+      const saved = await onUpdateSaleCommercialDetails(event, sale)
+
+      if (saved !== false) {
+        onCancel()
+      }
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
     }
   }
 
@@ -689,15 +741,21 @@ export function SaleCommercialDetailsForm({
         </>
       ) : null}
       <div className='flex flex-wrap justify-end gap-2'>
-        <Button color='inherit' size='small' type='button' onClick={onCancel}>
+        <Button
+          color='inherit'
+          disabled={submitting}
+          size='small'
+          type='button'
+          onClick={onCancel}>
           Cancelar
         </Button>
         <Button
-          disabled={hasPaymentDifference}
+          disabled={hasPaymentDifference || submitting}
+          loading={submitting}
           size='small'
           type='submit'
           variant='contained'>
-          Salvar
+          {submitting ? 'Salvando…' : 'Salvar'}
         </Button>
       </div>
     </form>

@@ -1,9 +1,10 @@
 import Alert from "@mui/material/Alert";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
+import Skeleton from "@mui/material/Skeleton";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Activity,
   Building2,
@@ -46,6 +47,10 @@ export function BranchesPage() {
   const { pagination, visibleItems } = usePaginatedRows(
     administration.branches,
   );
+
+  if (!administration.initialized) {
+    return <AdministrationLoading label="Carregando filiais" />;
+  }
 
   return (
     <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(300px,0.7fr)_minmax(0,1.3fr)]">
@@ -127,6 +132,8 @@ function BranchForm({
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [values, setValues] = useState(branchFormValues(selectedBranch));
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     setValues(branchFormValues(selectedBranch));
@@ -163,8 +170,26 @@ function BranchForm({
     }));
   }
 
+  async function saveBranch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (submittingRef.current) {
+      return;
+    }
+
+    submittingRef.current = true;
+    setSubmitting(true);
+
+    try {
+      await administration.saveBranch(event);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <FormGrid onSubmit={administration.saveBranch}>
+    <FormGrid onSubmit={saveBranch}>
       <PageHeader
         description="Esses dados identificam a unidade nos documentos comerciais e preparam a filial para a NF-e."
         icon={selectedBranch ? <Pencil size={18} /> : <Building2 size={18} />}
@@ -215,11 +240,16 @@ function BranchForm({
         />
       </FormRow>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm text-[#5f665f]">
+        <span
+          aria-live="polite"
+          className="text-sm text-[#5f665f]"
+          role="status"
+        >
           {branchLookupStatusLabel[lookupState]}
         </span>
         <SecondaryButton
           disabled={lookupState === "loading"}
+          loading={lookupState === "loading"}
           type="button"
           onClick={() => void lookupCompany()}
         >
@@ -290,14 +320,22 @@ function BranchForm({
       />
       <ActionGroup>
         <PrimaryButton
-          disabled={administration.state === "loading"}
+          disabled={submitting}
+          loading={submitting}
           icon={selectedBranch ? <Pencil size={17} /> : <Plus size={17} />}
           type="submit"
         >
-          {selectedBranch ? "Atualizar filial" : "Cadastrar filial"}
+          {submitting
+            ? selectedBranch
+              ? "Atualizando filial…"
+              : "Cadastrando filial…"
+            : selectedBranch
+              ? "Atualizar filial"
+              : "Cadastrar filial"}
         </PrimaryButton>
         {selectedBranch ? (
           <SecondaryButton
+            disabled={submitting}
             icon={<X size={17} />}
             type="button"
             onClick={administration.clearSelectedBranch}
@@ -362,7 +400,7 @@ const branchLookupStatusLabel: Record<
 > = {
   error: "Informe um CNPJ valido ou tente novamente.",
   idle: "Preencha o CNPJ e busque os dados fiscais da filial.",
-  loading: "Consultando CNPJ...",
+  loading: "Consultando CNPJ…",
   success: "Dados encontrados. Revise antes de salvar.",
 };
 
@@ -424,14 +462,80 @@ export function EmployeesPage({
   const employees = administration.users.filter(
     (user) => user.role === "EMPLOYEE",
   );
+  const [savingEmployee, setSavingEmployee] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [statusEmployeeId, setStatusEmployeeId] = useState<string>();
+  const savingEmployeeRef = useRef(false);
+  const resettingPasswordRef = useRef(false);
+  const changingStatusRef = useRef(false);
   const { pagination, visibleItems } = usePaginatedRows(employees);
+
+  async function saveEmployee(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (savingEmployeeRef.current) {
+      return;
+    }
+
+    savingEmployeeRef.current = true;
+    setSavingEmployee(true);
+
+    try {
+      await administration.saveEmployee(event);
+    } finally {
+      savingEmployeeRef.current = false;
+      setSavingEmployee(false);
+    }
+  }
+
+  async function resetEmployeePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (resettingPasswordRef.current) {
+      return;
+    }
+
+    resettingPasswordRef.current = true;
+    setResettingPassword(true);
+
+    try {
+      await administration.resetEmployeePassword(event);
+    } finally {
+      resettingPasswordRef.current = false;
+      setResettingPassword(false);
+    }
+  }
+
+  async function changeEmployeeStatus(employee: AuthUser) {
+    if (changingStatusRef.current) {
+      return;
+    }
+
+    changingStatusRef.current = true;
+    setStatusEmployeeId(employee.id);
+
+    try {
+      await confirmEmployeeStatus(
+        employee,
+        requestConfirmation,
+        administration.changeEmployeeStatus,
+      );
+    } finally {
+      changingStatusRef.current = false;
+      setStatusEmployeeId(undefined);
+    }
+  }
+
+  if (!administration.initialized) {
+    return <AdministrationLoading label="Carregando funcionários" />;
+  }
 
   return (
     <div className="grid min-w-0 gap-5">
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.2fr)]">
         <FormGrid
           key={selectedEmployee?.id ?? "new-employee"}
-          onSubmit={administration.saveEmployee}
+          onSubmit={saveEmployee}
         >
           <PageHeader
             description={
@@ -557,10 +661,8 @@ export function EmployeesPage({
           </section>
           <ActionGroup align="start">
             <PrimaryButton
-              disabled={
-                administration.state === "loading" ||
-                administration.branches.length === 0
-              }
+              disabled={administration.branches.length === 0 || savingEmployee}
+              loading={savingEmployee}
               icon={
                 selectedEmployee ? (
                   <Pencil size={17} />
@@ -570,10 +672,17 @@ export function EmployeesPage({
               }
               type="submit"
             >
-              {selectedEmployee ? "Salvar alteracoes" : "Criar acesso"}
+              {savingEmployee
+                ? selectedEmployee
+                  ? "Salvando alterações…"
+                  : "Criando acesso…"
+                : selectedEmployee
+                  ? "Salvar alteracoes"
+                  : "Criar acesso"}
             </PrimaryButton>
             {selectedEmployee ? (
               <SecondaryButton
+                disabled={savingEmployee}
                 icon={<X size={17} />}
                 type="button"
                 onClick={administration.clearSelectedEmployee}
@@ -656,6 +765,7 @@ export function EmployeesPage({
                     <TableActionsMenu
                       actions={[
                         {
+                          disabled: Boolean(statusEmployeeId),
                           icon: <Pencil size={15} />,
                           label: "Editar",
                           onSelect: () =>
@@ -675,13 +785,16 @@ export function EmployeesPage({
                           ) : (
                             <Power size={15} />
                           ),
-                          label: employee.active ? "Inativar" : "Ativar",
+                          label:
+                            statusEmployeeId === employee.id
+                              ? employee.active
+                                ? "Inativando…"
+                                : "Ativando…"
+                              : employee.active
+                                ? "Inativar"
+                                : "Ativar",
                           onSelect: () =>
-                            void confirmEmployeeStatus(
-                              employee,
-                              requestConfirmation,
-                              administration.changeEmployeeStatus,
-                            ),
+                            void changeEmployeeStatus(employee),
                         },
                       ]}
                     />
@@ -697,7 +810,7 @@ export function EmployeesPage({
           {selectedPasswordResetEmployee ? (
             <form
               className="mt-5 grid gap-4 rounded-2xl border border-[#dfe5e1] bg-[#fbfcfb] p-4"
-              onSubmit={administration.resetEmployeePassword}
+              onSubmit={resetEmployeePassword}
             >
               <PageHeader
                 description={`Defina uma senha temporaria para ${selectedPasswordResetEmployee.name}. O funcionario sera obrigado a trocar no proximo acesso.`}
@@ -714,10 +827,15 @@ export function EmployeesPage({
                 type="password"
               />
               <ActionGroup align="start">
-                <PrimaryButton icon={<KeyRound size={17} />} type="submit">
-                  Redefinir senha
+                <PrimaryButton
+                  loading={resettingPassword}
+                  icon={<KeyRound size={17} />}
+                  type="submit"
+                >
+                  {resettingPassword ? "Redefinindo senha…" : "Redefinir senha"}
                 </PrimaryButton>
                 <SecondaryButton
+                  disabled={resettingPassword}
                   icon={<X size={17} />}
                   type="button"
                   onClick={administration.clearSelectedPasswordResetEmployee}
@@ -734,6 +852,28 @@ export function EmployeesPage({
         administration={administration}
       />
     </div>
+  );
+}
+
+function AdministrationLoading({ label }: { label: string }) {
+  return (
+    <section
+      aria-busy="true"
+      aria-label={label}
+      className="grid gap-5 xl:grid-cols-2"
+    >
+      {[0, 1].map((item) => (
+        <PagePanel key={item} wide>
+          <Skeleton height={32} width={210} />
+          <Skeleton height={20} width="80%" />
+          <div className="mt-5 grid gap-3">
+            <Skeleton height={56} variant="rounded" />
+            <Skeleton height={56} variant="rounded" />
+            <Skeleton height={180} variant="rounded" />
+          </div>
+        </PagePanel>
+      ))}
+    </section>
   );
 }
 
@@ -986,6 +1126,8 @@ function AdministrationMessage({
 }) {
   return administration.message ? (
     <Alert
+      aria-live={administration.state === "error" ? "assertive" : "polite"}
+      role={administration.state === "error" ? "alert" : "status"}
       severity={administration.state === "error" ? "error" : "success"}
       variant="outlined"
       onClose={() => administration.setMessage("")}

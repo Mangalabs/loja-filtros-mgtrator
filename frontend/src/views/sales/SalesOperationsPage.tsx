@@ -65,24 +65,24 @@ export function SalesOperationsPage({
   products: Product[]
   sales: Sale[]
   shippingOrders: ShippingOrder[]
-  onApproveShippingOrder: (order: ShippingOrder) => void
+  onApproveShippingOrder: (order: ShippingOrder) => Promise<unknown>
   onCancelPickupReservation: (
     event: FormEvent<HTMLFormElement>,
     reservation: PickupReservation,
-  ) => void
+  ) => Promise<unknown>
   onCancelShippingOrder: (
     event: FormEvent<HTMLFormElement>,
     order: ShippingOrder,
-  ) => void
+  ) => Promise<unknown>
   onCompletePickupReservation: (
     event: FormEvent<HTMLFormElement>,
     reservation: PickupReservation,
-  ) => void
+  ) => Promise<unknown>
   onCompleteReopenedSale: SaleStatusActionHandler
   onCompleteShippingOrder: (
     event: FormEvent<HTMLFormElement>,
     order: ShippingOrder,
-  ) => void
+  ) => Promise<unknown>
   onCreatePickupReservation: (
     input: PickupReservationDraftInput,
   ) => Promise<boolean>
@@ -92,7 +92,7 @@ export function SalesOperationsPage({
   onOpenQuotes: () => void
   onOpenSaleFiscalQueue: (sale: Sale) => void
   onReturnItem: SaleReturnHandler
-  onSeparateShippingOrder: (order: ShippingOrder) => void
+  onSeparateShippingOrder: (order: ShippingOrder) => Promise<unknown>
   onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
 }) {
   const [activeTab, setActiveTab] = useState<SalesOperationsTab>(

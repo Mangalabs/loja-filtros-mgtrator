@@ -1,10 +1,12 @@
 import Paper from '@mui/material/Paper'
+import Skeleton from '@mui/material/Skeleton'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableHead from '@mui/material/TableHead'
 import TablePagination from '@mui/material/TablePagination'
 import TableRow from '@mui/material/TableRow'
+import { Inbox } from 'lucide-react'
 import { forwardRef, type FormEvent, type ReactNode } from 'react'
 
 type PagePanelProps = {
@@ -74,6 +76,8 @@ type ResponsiveTableProps<T> = {
   emptyMessage: ReactNode
   getRowId: (item: T) => string
   items: T[]
+  loading?: boolean
+  loadingLabel?: string
   onRowClick?: (item: T) => void
   pagination?: ResponsiveTablePagination
 }
@@ -153,8 +157,8 @@ export function PageHeader({
   title,
 }: PageHeaderProps) {
   return (
-    <div className='mb-4 flex items-start justify-between gap-4'>
-      <div>
+    <div className='mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4'>
+      <div className='min-w-0'>
         <h2 className='m-0 text-xl font-bold text-[#2c281e]'>{title}</h2>
         {description ? (
           <span className='mt-1 block text-sm text-[#5f665f]'>
@@ -163,7 +167,7 @@ export function PageHeader({
         ) : null}
       </div>
       {actions ?? icon ? (
-        <div className='flex shrink-0 items-center gap-2 text-[#203466]'>
+        <div className='flex w-full flex-wrap items-center gap-2 text-[#203466] sm:w-auto sm:shrink-0 sm:justify-end'>
           {actions}
           {icon}
         </div>
@@ -189,13 +193,17 @@ export function ResponsiveTable<T>({
   emptyMessage,
   getRowId,
   items,
+  loading = false,
+  loadingLabel = 'Carregando dados',
   onRowClick,
   pagination,
 }: ResponsiveTableProps<T>) {
   return (
     <>
-      <TableShell>
+      <TableShell className={loading ? 'pointer-events-none' : undefined}>
         <Table
+          aria-busy={loading}
+          aria-label={loading ? loadingLabel : undefined}
           size='small'
           sx={{
             minWidth: 760,
@@ -251,57 +259,82 @@ export function ResponsiveTable<T>({
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map((item) => (
-              <TableRow
-                hover
-                key={getRowId(item)}
-                onClick={(event) => {
-                  if (
-                    eventTargetHandlesOwnInteraction(
-                      event.target,
-                      event.currentTarget,
-                    )
-                  ) {
-                    return
-                  }
+            {loading
+              ? Array.from({ length: 5 }, (_, rowIndex) => (
+                  <TableRow key={`loading-row-${rowIndex}`}>
+                    {columns.map((_column, columnIndex) => (
+                      <TableCell key={`loading-cell-${columnIndex}`}>
+                        <Skeleton
+                          aria-hidden='true'
+                          height={24}
+                          variant='rounded'
+                          width={columnIndex === 0 ? '72%' : '88%'}
+                        />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              : items.map((item) => (
+                  <TableRow
+                    hover
+                    key={getRowId(item)}
+                    onClick={(event) => {
+                      if (
+                        eventTargetHandlesOwnInteraction(
+                          event.target,
+                          event.currentTarget,
+                        )
+                      ) {
+                        return
+                      }
 
-                  onRowClick?.(item)
-                }}
-                onKeyDown={(event) => {
-                  if (!onRowClick) {
-                    return
-                  }
+                      onRowClick?.(item)
+                    }}
+                    onKeyDown={(event) => {
+                      if (!onRowClick) {
+                        return
+                      }
 
-                  if (
-                    eventTargetHandlesOwnInteraction(
-                      event.target,
-                      event.currentTarget,
-                    )
-                  ) {
-                    return
-                  }
+                      if (
+                        eventTargetHandlesOwnInteraction(
+                          event.target,
+                          event.currentTarget,
+                        )
+                      ) {
+                        return
+                      }
 
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    onRowClick(item)
-                  }
-                }}
-                role={onRowClick ? 'button' : undefined}
-                sx={{
-                  cursor: onRowClick ? 'pointer' : undefined,
-                }}
-                tabIndex={onRowClick ? 0 : undefined}>
-                {columns.map((column, index) => (
-                  <TableCell
-                    align={column.align}
-                    data-label={responsiveTableColumnLabel(column)}
-                    key={index}>
-                    {column.render(item)}
-                  </TableCell>
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        onRowClick(item)
+                      }
+                    }}
+                    role={onRowClick ? 'button' : undefined}
+                    sx={{
+                      cursor: onRowClick ? 'pointer' : undefined,
+                      transition: onRowClick
+                        ? 'background-color 140ms ease'
+                        : undefined,
+                      '&:focus-visible': onRowClick
+                        ? {
+                            backgroundColor: '#f3f5f4',
+                            outline: '2px solid #203466',
+                            outlineOffset: -2,
+                          }
+                        : undefined,
+                    }}
+                    tabIndex={onRowClick ? 0 : undefined}>
+                    {columns.map((column, index) => (
+                      <TableCell
+                        align={column.align}
+                        data-label={responsiveTableColumnLabel(column)}
+                        key={index}>
+                        {column.render(item)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
                 ))}
-              </TableRow>
-            ))}
-            {items.length === 0 ? (
+            {!loading && items.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length}>
                   <EmptyState message={emptyMessage} />
@@ -313,6 +346,7 @@ export function ResponsiveTable<T>({
       </TableShell>
       {pagination ? (
         <TablePagination
+          aria-busy={loading}
           component='div'
           count={pagination.count}
           labelDisplayedRows={({ count, from, to }) =>
@@ -322,6 +356,7 @@ export function ResponsiveTable<T>({
           page={pagination.page}
           rowsPerPage={pagination.rowsPerPage}
           rowsPerPageOptions={pagination.rowsPerPageOptions ?? [10, 15, 25, 50]}
+          sx={loading ? { opacity: 0.55, pointerEvents: 'none' } : undefined}
           onPageChange={(_event, page) => pagination.onPageChange(page)}
           onRowsPerPageChange={(event) =>
             pagination.onRowsPerPageChange(Number(event.target.value))
@@ -384,7 +419,12 @@ export function InfoTile({ label, value }: InfoTileProps) {
 }
 
 export function EmptyState({ message }: EmptyStateProps) {
-  return <span className='block py-3 text-sm text-[#5f665f]'>{message}</span>
+  return (
+    <div className='flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[#dfe5e1] bg-[#fbfcfb] px-4 py-5 text-center text-sm text-[#5f665f]'>
+      <Inbox aria-hidden='true' className='text-[#8a9f9d]' size={22} />
+      <span>{message}</span>
+    </div>
+  )
 }
 
 function classNames(...classes: Array<string | undefined>) {

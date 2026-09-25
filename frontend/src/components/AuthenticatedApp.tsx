@@ -28,9 +28,12 @@ import { useStockActions } from "../views/stock/useStockActions";
 import { AppSidebar } from "./AppSidebar";
 import { AppViewRenderer } from "./AppViewRenderer";
 import { AppWorkspaceHeader } from "./AppWorkspaceHeader";
-import { AppMessage, ConfirmationDialog } from "./shell";
+import {
+  AppActionProgress,
+  AppFeedbackSnackbar,
+  ConfirmationDialog,
+} from "./shell";
 import type { FiscalPendencyTarget } from "../views/finance/FiscalDocumentsPage";
-import type { FiscalOperationsTab } from "../views/finance/FiscalOperationsPage";
 import type { SalesOperationsTab } from "../views/sales/SalesOperationsPage";
 
 export function AuthenticatedApp({
@@ -55,8 +58,6 @@ export function AuthenticatedApp({
     useState<FiscalDocument>();
   const [selectedManualFiscalDocumentDraft, setSelectedManualFiscalDocumentDraft] =
     useState<ManualFiscalDocumentDraft>();
-  const [fiscalOperationsInitialTab, setFiscalOperationsInitialTab] =
-    useState<FiscalOperationsTab>();
   const [fiscalQueueSearch, setFiscalQueueSearch] = useState("");
   const [salesOperationsInitialTab, setSalesOperationsInitialTab] =
     useState<SalesOperationsTab>();
@@ -80,6 +81,7 @@ export function AuthenticatedApp({
     commercialSettings,
     fiscalDocuments,
     fiscalSettings,
+    initialLoadComplete,
     inventoryReport,
     loadCatalog,
     loadCashReport,
@@ -92,10 +94,12 @@ export function AuthenticatedApp({
     manualFiscalDocumentDrafts,
     message,
     ncmOptions,
+    pendingActionCount,
     paymentMethods,
     pickupReservations,
     productPage,
     productPageIndex,
+    productQueryLoading,
     productRowsPerPage,
     productStatusFilter,
     productStockStatusFilter,
@@ -161,7 +165,6 @@ export function AuthenticatedApp({
   const selectView = useCallback(
     (nextView: View) => {
       setFiscalPendencyReturnView(undefined);
-      setFiscalOperationsInitialTab(undefined);
       setSalesOperationsInitialTab(undefined);
 
       if (nextView === "manual-fiscal-document") {
@@ -244,8 +247,7 @@ export function AuthenticatedApp({
     requestConfirmation,
     runAction,
     showFiscalDocuments: () => {
-      setFiscalOperationsInitialTab("issued");
-      setView("fiscal-operations");
+      setView("fiscal-issued-documents");
     },
   });
 
@@ -268,8 +270,7 @@ export function AuthenticatedApp({
     requestConfirmation,
     runAction,
     showFiscalDocuments: () => {
-      setFiscalOperationsInitialTab("issued");
-      setView("fiscal-operations");
+      setView("fiscal-issued-documents");
     },
     showSalesHistory: (target = "direct") => {
       setSalesOperationsInitialTab(target);
@@ -302,9 +303,9 @@ export function AuthenticatedApp({
 
   function resolveFiscalPendency(target: FiscalPendencyTarget) {
     setFiscalPendencyReturnView(
-      view === "fiscal-issued-documents" || view === "fiscal-operations"
+      view === "fiscal-issued-documents" || view === "fiscal-documents"
         ? view
-        : "fiscal-operations",
+        : "fiscal-documents",
     );
 
     if (target.view === "clients" && target.clientId) {
@@ -356,12 +357,12 @@ export function AuthenticatedApp({
 
       <section className="min-w-0 px-4 py-5 sm:px-6 lg:px-7">
         <AppWorkspaceHeader
-          activeDescription={activeTitle.description}
-          activeTitle={activeTitle.title}
           activeBranchId={activeBranchId}
           activeBranchName={activeBranch?.name ?? null}
+          activeDescription={activeTitle.description}
+          activeTitle={activeTitle.title}
           branches={branches}
-          cashRegister={cashRegister}
+          loading={state === "loading"}
           user={user}
           onChangePassword={onChangePassword}
           onLogout={onLogout}
@@ -370,16 +371,15 @@ export function AuthenticatedApp({
             storeActiveBranchId(branchId);
             setActiveBranchId(branchId);
           }}
-          onSelectView={selectView}
         />
 
-        {message ? (
-          <AppMessage
-            kind={state === "error" ? "error" : "success"}
-            message={message}
-            onClose={() => setMessage("")}
-          />
-        ) : null}
+        <AppFeedbackSnackbar
+          kind={state === "error" ? "error" : "success"}
+          message={message}
+          onClose={() => setMessage("")}
+        />
+
+        <AppActionProgress active={pendingActionCount > 0} />
 
         <ConfirmationDialog
           confirmLabel={confirmation?.confirmLabel ?? "Confirmar"}
@@ -401,9 +401,9 @@ export function AuthenticatedApp({
             commercialSettings={commercialSettings}
             financeActions={financeActions}
             fiscalDocuments={fiscalDocuments}
-            fiscalOperationsInitialTab={fiscalOperationsInitialTab}
             fiscalSettings={fiscalSettings}
             fiscalQueueSearch={fiscalQueueSearch}
+            initialLoadComplete={initialLoadComplete}
             salesOperationsInitialTab={salesOperationsInitialTab}
             inventoryReport={inventoryReport}
             lowStockProducts={lowStockProducts}
@@ -413,6 +413,7 @@ export function AuthenticatedApp({
             pickupReservations={pickupReservations}
             productPage={productPage}
             productPageIndex={productPageIndex}
+            productQueryLoading={productQueryLoading}
             productRowsPerPage={productRowsPerPage}
             productStatusFilter={productStatusFilter}
             productStockStatusFilter={productStockStatusFilter}
@@ -478,8 +479,7 @@ export function AuthenticatedApp({
             onOpenFiscalDocumentSource={openFiscalDocumentSource}
             onOpenSaleFiscalQueue={(sale) => {
               setFiscalQueueSearch(String(sale.saleNumber));
-              setFiscalOperationsInitialTab("queue");
-              setView("fiscal-operations");
+              setView("fiscal-documents");
             }}
             onOpenManualFiscalDocumentDraft={(draft) => {
               setSelectedManualFiscalDocument(undefined);
@@ -586,8 +586,8 @@ function migratedInitialView(view: View): View {
     return "sales-operations";
   }
 
-  if (view === "fiscal-documents" || view === "fiscal-issued-documents") {
-    return "fiscal-operations";
+  if (view === "fiscal-operations") {
+    return "fiscal-documents";
   }
 
   return view;

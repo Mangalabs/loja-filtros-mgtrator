@@ -1,4 +1,5 @@
 import Alert from "@mui/material/Alert";
+import Skeleton from "@mui/material/Skeleton";
 import type {
   CashRegisterSession,
   CashReport,
@@ -93,9 +94,9 @@ type AppViewRendererProps = {
   commercialSettings: CommercialSettings | null;
   financeActions: ReturnType<typeof useFinanceActions>;
   fiscalDocuments: FiscalDocument[];
-  fiscalOperationsInitialTab?: FiscalOperationsTab;
   fiscalQueueSearch: string;
   fiscalSettings: FiscalSettings | null;
+  initialLoadComplete: boolean;
   inventoryReport: InventoryReport | null;
   lowStockProducts: Product[];
   manualFiscalDocumentDrafts: ManualFiscalDocumentDraft[];
@@ -104,6 +105,7 @@ type AppViewRendererProps = {
   pickupReservations: PickupReservation[];
   productPage: ProductPage;
   productPageIndex: number;
+  productQueryLoading: boolean;
   productRowsPerPage: number;
   productStatusFilter: ProductStatusFilter;
   productStockStatusFilter: ProductStockStatusFilter;
@@ -204,9 +206,9 @@ export function AppViewRenderer({
   commercialSettings,
   financeActions,
   fiscalDocuments,
-  fiscalOperationsInitialTab,
   fiscalQueueSearch,
   fiscalSettings,
+  initialLoadComplete,
   inventoryReport,
   lowStockProducts,
   manualFiscalDocumentDrafts,
@@ -215,6 +217,7 @@ export function AppViewRenderer({
   pickupReservations,
   productPage,
   productPageIndex,
+  productQueryLoading,
   productRowsPerPage,
   productStatusFilter,
   productStockStatusFilter,
@@ -291,7 +294,14 @@ export function AppViewRenderer({
     );
   }
 
-  function renderFiscalOperations(initialTab = fiscalOperationsInitialTab) {
+  if (
+    !initialLoadComplete &&
+    !isFiscalOperationsView(view)
+  ) {
+    return <AppViewLoading />;
+  }
+
+  function renderFiscalOperations(initialTab?: FiscalOperationsTab) {
     return (
       <FiscalOperationsPage
         clients={clients}
@@ -299,13 +309,12 @@ export function AppViewRenderer({
         fiscalSettings={fiscalSettings}
         initialTab={initialTab}
         initialRequestSearch={fiscalQueueSearch}
+        loading={!initialLoadComplete}
         pickupReservations={pickupReservations}
         products={products}
         sales={sales}
         shippingOrders={shippingOrders}
-        onCancelFiscalDocument={(event, fiscalDocument) =>
-          void financeActions.cancelFiscalDocument(event, fiscalDocument)
-        }
+        onCancelFiscalDocument={financeActions.cancelFiscalDocument}
         onIssueFiscalDocumentCorrectionLetter={(event, fiscalDocument) =>
           financeActions.issueFiscalDocumentCorrectionLetter(
             event,
@@ -317,19 +326,19 @@ export function AppViewRenderer({
           reservation,
           additionalInformation,
         ) =>
-          void salesActions.issuePickupReservationFiscalDocument(
+          salesActions.issuePickupReservationFiscalDocument(
             reservation,
             additionalInformation,
           )
         }
         onIssueSaleFiscalDocument={(sale, additionalInformation) =>
-          void salesActions.issueSaleFiscalDocument(
+          salesActions.issueSaleFiscalDocument(
             sale,
             additionalInformation,
           )
         }
         onIssueShippingOrderFiscalDocument={(order, additionalInformation) =>
-          void salesActions.issueShippingOrderFiscalDocument(
+          salesActions.issueShippingOrderFiscalDocument(
             order,
             additionalInformation,
           )
@@ -339,27 +348,25 @@ export function AppViewRenderer({
           reservation,
           additionalInformation,
         ) =>
-          void salesActions.previewPickupReservationFiscalDocument(
+          salesActions.previewPickupReservationFiscalDocument(
             reservation,
             additionalInformation,
           )
         }
         onPreviewSaleFiscalDocument={(sale, additionalInformation) =>
-          void salesActions.previewSaleFiscalDocument(
+          salesActions.previewSaleFiscalDocument(
             sale,
             additionalInformation,
           )
         }
         onPreviewShippingOrderFiscalDocument={(order, additionalInformation) =>
-          void salesActions.previewShippingOrderFiscalDocument(
+          salesActions.previewShippingOrderFiscalDocument(
             order,
             additionalInformation,
           )
         }
         onResolveFiscalPendency={onResolveFiscalPendency}
-        onSyncFiscalDocument={(fiscalDocument) =>
-          void financeActions.syncFiscalDocument(fiscalDocument)
-        }
+        onSyncFiscalDocuments={financeActions.syncFiscalDocuments}
       />
     );
   }
@@ -377,22 +384,22 @@ export function AppViewRenderer({
         sales={sales}
         shippingOrders={shippingOrders}
         onApproveShippingOrder={(order) =>
-          void salesActions.approveShippingOrder(order)
+          salesActions.approveShippingOrder(order)
         }
         onCancelPickupReservation={(event, reservation) =>
-          void salesActions.cancelPickupReservation(event, reservation)
+          salesActions.cancelPickupReservation(event, reservation)
         }
         onCancelShippingOrder={(event, order) =>
-          void salesActions.cancelShippingOrder(event, order)
+          salesActions.cancelShippingOrder(event, order)
         }
         onCompletePickupReservation={(event, reservation) =>
-          void salesActions.completePickupReservation(event, reservation)
+          salesActions.completePickupReservation(event, reservation)
         }
         onCompleteReopenedSale={(sale) =>
-          void salesActions.completeReopenedSale(sale)
+          salesActions.completeReopenedSale(sale)
         }
         onCompleteShippingOrder={(event, order) =>
-          void salesActions.completeShippingOrder(event, order)
+          salesActions.completeShippingOrder(event, order)
         }
         onCreatePickupReservation={salesActions.createPickupReservation}
         onCreateSale={salesActions.createSale}
@@ -401,13 +408,13 @@ export function AppViewRenderer({
         onOpenSalesHistory={() => onSelectView("sales-history")}
         onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
         onReturnItem={(event, sale) =>
-          void salesActions.returnSaleItem(event, sale)
+          salesActions.returnSaleItem(event, sale)
         }
         onSeparateShippingOrder={(order) =>
-          void salesActions.separateShippingOrder(order)
+          salesActions.separateShippingOrder(order)
         }
         onUpdateSaleCommercialDetails={(event, sale) =>
-          void salesActions.updateSaleCommercialDetails(event, sale)
+          salesActions.updateSaleCommercialDetails(event, sale)
         }
       />
     );
@@ -420,7 +427,7 @@ export function AppViewRenderer({
           products={productPage.items}
           rowsPerPage={productRowsPerPage}
           search={search}
-          state={state}
+          state={productQueryLoading ? "loading" : state}
           statusFilter={productStatusFilter}
           stockStatusFilter={productStockStatusFilter}
           totalProducts={productPage.total}
@@ -430,9 +437,9 @@ export function AppViewRenderer({
           onEdit={catalogActions.editProduct}
           onClone={catalogActions.cloneProduct}
           onChangeStatus={(product) =>
-            void catalogActions.changeProductStatus(product)
+            catalogActions.changeProductStatus(product)
           }
-          onDelete={(product) => void catalogActions.deleteProduct(product)}
+          onDelete={(product) => catalogActions.deleteProduct(product)}
         />
       ),
     "new-product": (
@@ -481,12 +488,12 @@ export function AppViewRenderer({
           products={products}
           suppliers={suppliers}
           onCancelInvoice={(invoice) =>
-            void stockActions.cancelPurchaseInvoice(invoice)
+            stockActions.cancelPurchaseInvoice(invoice)
           }
           onCreateProductFromItem={stockActions.createProductFromPurchaseItem}
           onParseXml={stockActions.parsePurchaseInvoiceXml}
           onPostInvoice={(invoice) =>
-            void stockActions.postPurchaseInvoice(invoice)
+            stockActions.postPurchaseInvoice(invoice)
           }
           onSaveReview={stockActions.savePurchaseInvoiceReview}
         />
@@ -510,14 +517,14 @@ export function AppViewRenderer({
         <PaymentMethodsPage
           paymentMethods={paymentMethods}
           onChangeStatus={(paymentMethod) =>
-            void financeActions.changePaymentMethodStatus(paymentMethod)
+            financeActions.changePaymentMethodStatus(paymentMethod)
           }
         />
       ),
     "fiscal-settings": (
         <FiscalSettingsPage
           settings={fiscalSettings}
-          onSubmit={(input) => void financeActions.saveFiscalSettings(input)}
+          onSubmit={(input) => financeActions.saveFiscalSettings(input)}
         />
       ),
     "fiscal-operations": renderFiscalOperations(),
@@ -540,27 +547,27 @@ export function AppViewRenderer({
         sourceFiscalDocument={selectedManualFiscalDocument}
         sourceSale={selectedFiscalSale}
         onDeleteManualFiscalDocumentDraft={(draft) =>
-          void financeActions.deleteManualFiscalDocumentDraft(draft)
+          financeActions.deleteManualFiscalDocumentDraft(draft)
         }
         onIssueManualFiscalDocument={(input) =>
-          void financeActions.issueManualFiscalDocument(
+          financeActions.issueManualFiscalDocument(
             input,
             selectedManualFiscalDocumentDraft,
           )
         }
         onIssueSaleFiscalDocumentInput={(sale, input) =>
-          void salesActions.issueEditedSaleFiscalDocument(sale, input)
+          salesActions.issueEditedSaleFiscalDocument(sale, input)
         }
         onLookupCompany={catalogActions.lookupClientCompany}
         onOpenManualFiscalDocumentDraft={onOpenManualFiscalDocumentDraft}
         onPreviewManualFiscalDocument={(input) =>
-          void financeActions.previewManualFiscalDocument(input)
+          financeActions.previewManualFiscalDocument(input)
         }
         onPreviewSaleFiscalDocumentInput={(sale, input) =>
-          void salesActions.previewEditedSaleFiscalDocument(sale, input)
+          salesActions.previewEditedSaleFiscalDocument(sale, input)
         }
         onSaveManualFiscalDocumentDraft={(input, draft) =>
-          void financeActions.saveManualFiscalDocumentDraft(input, draft)
+          financeActions.saveManualFiscalDocumentDraft(input, draft)
         }
       />
     ),
@@ -607,10 +614,10 @@ export function AppViewRenderer({
           onEditQuote={onSelectQuote}
           onReuseQuote={onReuseQuote}
           onCancelQuote={(event, quote) =>
-            void quoteActions.cancelQuote(event, quote)
+            quoteActions.cancelQuote(event, quote)
           }
           onCreateShippingOrder={(quote) =>
-            void quoteActions.createShippingOrderFromQuote(quote)
+            quoteActions.createShippingOrderFromQuote(quote)
           }
         />
       ),
@@ -630,10 +637,10 @@ export function AppViewRenderer({
           onEditQuote={onSelectQuote}
           onReuseQuote={onReuseQuote}
           onCancelQuote={(event, quote) =>
-            void quoteActions.cancelQuote(event, quote)
+            quoteActions.cancelQuote(event, quote)
           }
           onCreateShippingOrder={(quote) =>
-            void quoteActions.createShippingOrderFromQuote(quote)
+            quoteActions.createShippingOrderFromQuote(quote)
           }
         />
       ),
@@ -684,15 +691,15 @@ export function AppViewRenderer({
         sales={sales}
         shippingOrders={shippingOrders}
         onCompleteReopenedSale={(sale) =>
-          void salesActions.completeReopenedSale(sale)
+          salesActions.completeReopenedSale(sale)
         }
         onEditSale={onSelectSale}
         onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
         onReturnItem={(event, sale) =>
-          void salesActions.returnSaleItem(event, sale)
+          salesActions.returnSaleItem(event, sale)
         }
         onUpdateSaleCommercialDetails={(event, sale) =>
-          void salesActions.updateSaleCommercialDetails(event, sale)
+          salesActions.updateSaleCommercialDetails(event, sale)
         }
       />
     ),
@@ -704,7 +711,7 @@ export function AppViewRenderer({
           fieldName="brandName"
           items={brands}
           onSubmit={(event) =>
-            void catalogActions.createNamedEntity(event, "/brands", "brandName")
+            catalogActions.createNamedEntity(event, "/brands", "brandName")
           }
         />
       ),
@@ -717,9 +724,9 @@ export function AppViewRenderer({
           onEdit={onSelectClient}
           onCancel={onCancelClient}
           onChangeStatus={(client) =>
-            void catalogActions.changeClientStatus(client)
+            catalogActions.changeClientStatus(client)
           }
-          onDelete={(client) => void catalogActions.deleteClient(client)}
+          onDelete={(client) => catalogActions.deleteClient(client)}
         />
       ),
     suppliers: (
@@ -733,4 +740,33 @@ export function AppViewRenderer({
   };
 
   return <>{viewRenderers[view]}</>;
+}
+
+function AppViewLoading() {
+  return (
+    <section
+      aria-busy="true"
+      aria-label="Carregando conteúdo"
+      className="grid gap-4"
+    >
+      <PagePanel>
+        <Skeleton height={32} width={220} />
+        <Skeleton height={20} width="min(100%, 520px)" />
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <Skeleton height={92} variant="rounded" />
+          <Skeleton height={92} variant="rounded" />
+          <Skeleton height={92} variant="rounded" />
+        </div>
+        <Skeleton className="mt-4" height={260} variant="rounded" />
+      </PagePanel>
+    </section>
+  );
+}
+
+function isFiscalOperationsView(view: View) {
+  return (
+    view === "fiscal-operations" ||
+    view === "fiscal-documents" ||
+    view === "fiscal-issued-documents"
+  );
 }

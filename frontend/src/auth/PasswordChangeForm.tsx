@@ -57,6 +57,8 @@ export function PasswordChangeForm({
     <>
       {message ? (
         <Alert
+          aria-live={messageKind === "error" ? "assertive" : "polite"}
+          role={messageKind === "error" ? "alert" : "status"}
           severity={messageKind}
           variant="outlined"
           onClose={() => setMessage("")}
@@ -66,6 +68,7 @@ export function PasswordChangeForm({
       ) : null}
       <form className="mt-5 grid gap-4" onSubmit={submit}>
         <TextField
+          autoComplete="current-password"
           label="Senha atual"
           name="currentPassword"
           required
@@ -73,6 +76,7 @@ export function PasswordChangeForm({
           type="password"
         />
         <TextField
+          autoComplete="new-password"
           helperText="Use pelo menos 12 caracteres."
           label="Nova senha"
           name="newPassword"
@@ -81,6 +85,7 @@ export function PasswordChangeForm({
           type="password"
         />
         <TextField
+          autoComplete="new-password"
           label="Confirmar nova senha"
           name="confirmation"
           required
@@ -89,11 +94,11 @@ export function PasswordChangeForm({
         />
         <div className="flex flex-wrap gap-3">
           <PrimaryButton
-            disabled={submitting}
-            icon={<KeyRound size={17} />}
+            icon={<KeyRound aria-hidden="true" size={17} />}
+            loading={submitting}
             type="submit"
           >
-            {submitting ? "Atualizando..." : submitLabel}
+            {submitting ? "Atualizando…" : submitLabel}
           </PrimaryButton>
           {onCancel ? (
             <SecondaryButton type="button" onClick={onCancel}>

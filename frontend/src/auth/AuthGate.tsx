@@ -1,3 +1,4 @@
+import Skeleton from "@mui/material/Skeleton";
 import type { ReactNode } from "react";
 import type { AuthUser } from "../api";
 import { AuthenticatedApp } from "../components/AuthenticatedApp";
@@ -92,9 +93,21 @@ const authStateRenderers: Record<
     />
   ),
   loading: () => (
-    <div className="flex min-h-screen items-center justify-center text-[#5f665f]">
-      Validando sessão...
-    </div>
+    <main
+      aria-busy="true"
+      aria-label="Validando sessão"
+      className="flex min-h-screen items-center justify-center bg-[#f7f7f4] px-4"
+    >
+      <section className="grid w-full max-w-[420px] gap-3 rounded-xl border border-[#dfe5e1] bg-white p-7">
+        <Skeleton height={36} width={190} />
+        <Skeleton height={24} width={130} />
+        <Skeleton height={20} width="85%" />
+        <Skeleton className="mt-3" height={56} variant="rounded" />
+        <Skeleton height={56} variant="rounded" />
+        <Skeleton height={44} variant="rounded" />
+        <span className="text-sm text-[#5f665f]">Validando sessão…</span>
+      </section>
+    </main>
   ),
 };
 

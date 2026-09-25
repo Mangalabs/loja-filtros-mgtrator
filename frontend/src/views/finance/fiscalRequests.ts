@@ -47,12 +47,15 @@ export type FiscalRequestActionHandlers = {
   onIssuePickupReservationFiscalDocument: (
     reservation: PickupReservation,
     additionalInformation?: string,
-  ) => void
-  onIssueSaleFiscalDocument: (sale: Sale, additionalInformation?: string) => void
+  ) => Promise<unknown>
+  onIssueSaleFiscalDocument: (
+    sale: Sale,
+    additionalInformation?: string,
+  ) => Promise<unknown>
   onIssueShippingOrderFiscalDocument: (
     order: ShippingOrder,
     additionalInformation?: string,
-  ) => void
+  ) => Promise<unknown>
 }
 
 export function buildFiscalRequests(input: FiscalRequestFactoryInput) {
@@ -66,7 +69,10 @@ export function fiscalRequestAction(
   handlers: FiscalRequestActionHandlers,
 ) {
   const actions: Partial<
-    Record<FiscalDocument['sourceType'], ((additionalInformation?: string) => void) | undefined>
+    Record<
+      FiscalDocument['sourceType'],
+      ((additionalInformation?: string) => Promise<unknown>) | undefined
+    >
   > = {
     PICKUP_RESERVATION:
       request.pickupReservation && canIssueFiscalRequest(request)

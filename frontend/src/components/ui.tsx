@@ -5,12 +5,20 @@ import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
+import Tooltip from '@mui/material/Tooltip'
 import { MoreVertical } from 'lucide-react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { frontendPalette } from '../theme'
 
 export type StatusTone = 'success' | 'neutral' | 'warning' | 'error'
+
+const statusChipBackground: Record<StatusTone, string> = {
+  error: '#fff0f0',
+  neutral: '#f3f5f4',
+  success: '#edf7ed',
+  warning: '#fff7e6',
+}
 
 export function StatusChip({
   label,
@@ -19,23 +27,18 @@ export function StatusChip({
   label: string
   tone: StatusTone
 }) {
-  if (tone === 'success') {
-    return (
-      <Chip color='success' label={label} size='small' variant='outlined' />
-    )
-  }
-
-  if (tone === 'warning') {
-    return (
-      <Chip color='warning' label={label} size='small' variant='outlined' />
-    )
-  }
-
-  if (tone === 'error') {
-    return <Chip color='error' label={label} size='small' variant='outlined' />
-  }
-
-  return <Chip label={label} size='small' variant='outlined' />
+  return (
+    <Chip
+      color={tone === 'neutral' ? 'default' : tone}
+      label={label}
+      size='small'
+      variant='outlined'
+      sx={{
+        backgroundColor: statusChipBackground[tone],
+        fontWeight: 700,
+      }}
+    />
+  )
 }
 
 type AppButtonProps = Omit<
@@ -121,6 +124,7 @@ export function TableActionsMenu({
   actions: TableActionsMenuAction[]
   label?: string
 }) {
+  const menuId = useId()
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null)
   const availableActions = actions.filter(
     (action) => action.href || action.onSelect || action.disabled,
@@ -138,31 +142,35 @@ export function TableActionsMenu({
 
   return (
     <>
-      <IconButton
-        aria-controls={open ? 'table-actions-menu' : undefined}
-        aria-expanded={open ? 'true' : undefined}
-        aria-haspopup='menu'
-        aria-label={label}
-        disabled={availableActions.length === 0}
-        size='small'
-        onClick={(event) => setAnchorElement(event.currentTarget)}
-        sx={{
-          border: '1px solid #cfd8d5',
-          borderRadius: 2,
-          color: frontendPalette.primaryNavy,
-          height: 30,
-          p: 0,
-          width: 30,
-          '&:hover': {
-            bgcolor: '#f3f5f4',
-            borderColor: frontendPalette.mutedGreenGray,
-          },
-        }}>
-        <MoreVertical size={16} />
-      </IconButton>
+      <Tooltip title={label}>
+        <span>
+          <IconButton
+            aria-controls={open ? menuId : undefined}
+            aria-expanded={open ? 'true' : undefined}
+            aria-haspopup='menu'
+            aria-label={label}
+            disabled={availableActions.length === 0}
+            size='small'
+            onClick={(event) => setAnchorElement(event.currentTarget)}
+            sx={{
+              border: '1px solid #cfd8d5',
+              borderRadius: 2,
+              color: frontendPalette.primaryNavy,
+              height: 30,
+              p: 0,
+              width: 30,
+              '&:hover': {
+                bgcolor: '#f3f5f4',
+                borderColor: frontendPalette.mutedGreenGray,
+              },
+            }}>
+            <MoreVertical aria-hidden='true' size={16} />
+          </IconButton>
+        </span>
+      </Tooltip>
       <Menu
         anchorEl={anchorElement}
-        id='table-actions-menu'
+        id={menuId}
         open={open}
         onClose={closeMenu}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
@@ -192,7 +200,9 @@ export function TableActionsMenu({
               width: '100%',
             }}>
             {action.icon ? (
-              <ListItemIcon sx={{ color: frontendPalette.primaryNavy }}>
+              <ListItemIcon
+                aria-hidden='true'
+                sx={{ color: frontendPalette.primaryNavy }}>
                 {action.icon}
               </ListItemIcon>
             ) : null}

@@ -1,11 +1,8 @@
 import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import Tooltip from "@mui/material/Tooltip";
 import { useState } from "react";
 import {
-  Banknote,
   Building2,
   ChevronDown,
   KeyRound,
@@ -13,63 +10,55 @@ import {
   RefreshCcw,
   ShieldCheck,
 } from "lucide-react";
-import type { AuthUser, Branch, CashRegisterSession } from "../api";
+import type { AuthUser, Branch } from "../api";
 import { PasswordChangeForm } from "../auth/PasswordChangeForm";
-import type { View } from "../navigation";
 import { frontendPalette } from "../theme";
 import { SecondaryButton } from "./ui";
 
 export function AppWorkspaceHeader({
-  activeDescription,
   activeBranchId,
   activeBranchName,
+  activeDescription,
   activeTitle,
   branches,
-  cashRegister,
+  loading,
   user,
   onChangePassword,
-  onSelectBranch,
   onLogout,
   onRefresh,
-  onSelectView,
+  onSelectBranch,
 }: {
-  activeDescription: string;
   activeBranchId: string;
   activeBranchName: string | null;
+  activeDescription: string;
   activeTitle: string;
   branches: Branch[];
-  cashRegister: CashRegisterSession | null;
+  loading: boolean;
   user: AuthUser;
   onChangePassword: (input: {
     currentPassword: string;
     newPassword: string;
   }) => Promise<void>;
-  onSelectBranch: (branchId: string) => void;
   onLogout: () => void;
   onRefresh: () => void;
-  onSelectView: (view: View) => void;
+  onSelectBranch: (branchId: string) => void;
 }) {
-  const cashStatus = cashRegister ? "Aberto" : "Fechado";
   const [profileOpen, setProfileOpen] = useState(false);
   const [branchMenuAnchor, setBranchMenuAnchor] =
     useState<HTMLElement | null>(null);
   const branchLabel = activeBranchName ?? "Selecione uma filial";
   const canSwitchBranch = branches.length > 1;
 
-  function closeBranchMenu() {
-    setBranchMenuAnchor(null);
-  }
-
   function selectBranch(branchId: string) {
     onSelectBranch(branchId);
-    closeBranchMenu();
+    setBranchMenuAnchor(null);
   }
 
   return (
     <>
       <header className="flex flex-col gap-4 rounded-3xl border border-[#dfe5e1] bg-white/80 p-4 shadow-sm backdrop-blur sm:p-5 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
-          <h1 className="m-0 truncate text-2xl font-bold text-[#2c281e] sm:text-3xl">
+          <h1 className="m-0 text-2xl font-bold text-[#2c281e] sm:text-3xl">
             {activeTitle}
           </h1>
           <p className="mt-1 max-w-3xl text-sm text-[#5f665f]">
@@ -78,42 +67,29 @@ export function AppWorkspaceHeader({
         </div>
 
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:justify-end">
-          <Button
-            color={cashRegister ? "success" : "warning"}
-            startIcon={<Banknote size={17} />}
-            variant="outlined"
-            title="Ir para caixa"
-            type="button"
-            onClick={() => onSelectView("cash-register")}
-          >
-            Caixa {cashStatus}
-          </Button>
-
           {canSwitchBranch ? (
             <>
               <Button
                 className="justify-start rounded-2xl border-[#dfe5e1] bg-white px-3 py-2 normal-case"
                 color="inherit"
-                endIcon={<ChevronDown size={16} />}
+                endIcon={<ChevronDown aria-hidden="true" size={16} />}
                 startIcon={
-                  <Building2 color={frontendPalette.primaryNavy} size={17} />
+                  <Building2
+                    aria-hidden="true"
+                    color={frontendPalette.primaryNavy}
+                    size={17}
+                  />
                 }
+                type="button"
                 variant="outlined"
                 onClick={(event) => setBranchMenuAnchor(event.currentTarget)}
               >
-                <span className="flex min-w-0 flex-col items-start leading-tight">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#5f665f]">
-                    Filial ativa
-                  </span>
-                  <span className="max-w-[180px] truncate text-sm font-semibold text-[#2c281e]">
-                    {branchLabel}
-                  </span>
-                </span>
+                <BranchSummary name={branchLabel} />
               </Button>
               <Menu
                 anchorEl={branchMenuAnchor}
                 open={Boolean(branchMenuAnchor)}
-                onClose={closeBranchMenu}
+                onClose={() => setBranchMenuAnchor(null)}
               >
                 {branches.map((branch) => (
                   <MenuItem
@@ -124,12 +100,29 @@ export function AppWorkspaceHeader({
                     {branch.name}
                   </MenuItem>
                 ))}
-                {branches.length === 0 ? (
-                  <MenuItem disabled>Nenhuma filial cadastrada</MenuItem>
-                ) : null}
               </Menu>
             </>
-          ) : null}
+          ) : (
+            <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-[#dfe5e1] bg-white px-3 py-2">
+              <Building2
+                aria-hidden="true"
+                className="shrink-0"
+                color={frontendPalette.primaryNavy}
+                size={17}
+              />
+              <BranchSummary name={branchLabel} />
+            </div>
+          )}
+
+          <Button
+            loading={loading}
+            startIcon={<RefreshCcw aria-hidden="true" size={17} />}
+            type="button"
+            variant="outlined"
+            onClick={onRefresh}
+          >
+            {loading ? "Atualizando…" : "Atualizar dados"}
+          </Button>
 
           <button
             className="flex min-w-0 cursor-pointer items-center gap-2 rounded-2xl border border-[#dfe5e1] bg-[#f7f7f4] px-3 py-2 text-left hover:border-[#8a9f9d]"
@@ -146,12 +139,6 @@ export function AppWorkspaceHeader({
               </span>
             </div>
           </button>
-
-          <Tooltip title="Atualizar dados">
-            <IconButton color="primary" onClick={onRefresh}>
-              <RefreshCcw size={18} />
-            </IconButton>
-          </Tooltip>
 
           <SecondaryButton
             icon={<LogOut size={17} />}
@@ -214,8 +201,20 @@ export function AppWorkspaceHeader({
           </div>
         </section>
       ) : null}
-
     </>
+  );
+}
+
+function BranchSummary({ name }: { name: string }) {
+  return (
+    <span className="flex min-w-0 flex-col items-start leading-tight">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-[#5f665f]">
+        Filial ativa
+      </span>
+      <span className="max-w-[180px] truncate text-sm font-semibold text-[#2c281e]">
+        {name}
+      </span>
+    </span>
   );
 }
 

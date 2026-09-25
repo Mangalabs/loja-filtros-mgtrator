@@ -20,10 +20,45 @@ import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 
 export const reportsRoutes = Router();
 
-const salesReportQuerySchema = z.object({
+const dateRangeQuerySchema = z.object({
   dateFrom: z.iso.date().optional(),
   dateTo: z.iso.date().optional(),
 });
+
+function reportQuerySchema<
+  const Columns extends readonly [string, ...string[]],
+>(columns: Columns) {
+  return dateRangeQuerySchema.extend({
+    columns: z.preprocess(
+      (value) => (Array.isArray(value) ? value : value ? [value] : undefined),
+      z.array(z.enum(columns)).min(1).optional(),
+    ),
+  });
+}
+
+const salesReportQuerySchema = reportQuerySchema([
+  "code", "product", "quantity", "total", "cost", "profit", "margin",
+  "client", "sales", "paymentMethod", "participation", "cumulative", "class",
+]);
+const stockReportQuerySchema = reportQuerySchema([
+  "code", "product", "location", "movements", "entryQuantity", "entryAmount",
+  "exitQuantity", "exitCost", "adjustmentQuantity", "adjustmentCost", "balance",
+  "lastMovement", "movementType", "movementQuantity", "value", "currentStock", "reservedStock",
+  "availableStock", "minimumStock", "soldQuantity", "lastSale",
+]);
+const purchaseReportQuerySchema = reportQuerySchema([
+  "source", "entries", "quantity", "total", "supplier", "product",
+]);
+const cashReportQuerySchema = reportQuerySchema([
+  "paymentMethod", "gross", "refunds", "net", "openedBy", "closedBy", "status",
+  "openedAt", "closedAt", "openingBalance", "sales", "supplies", "withdrawals",
+  "expected", "reported", "difference",
+]);
+const userReportQuerySchema = reportQuerySchema([
+  "user", "completedSales", "cancelledSales", "openSales", "gross", "refunds",
+  "net", "quotes", "stockMovements", "fiscalDocuments", "saleNumber", "date",
+  "client", "status", "total",
+]);
 
 const inventoryReportQuerySchema = z.object({
   active: z
@@ -108,7 +143,7 @@ reportsRoutes.get(
   "/reports/stock",
   requirePermission("VIEW_REPORTS"),
   async (request, response) => {
-    const query = salesReportQuerySchema.parse(request.query);
+    const query = stockReportQuerySchema.parse(request.query);
 
     response
       .status(200)
@@ -125,7 +160,7 @@ reportsRoutes.get(
   "/reports/stock/pdf",
   requirePermission("VIEW_REPORTS"),
   async (request, response) => {
-    const query = salesReportQuerySchema.parse(request.query);
+    const query = stockReportQuerySchema.parse(request.query);
     const pdf = await generateStockReportPdf({
       ...query,
       branchId: requireActiveBranchId(response.locals),
@@ -170,7 +205,7 @@ reportsRoutes.get(
   "/reports/purchases",
   requirePermission("VIEW_REPORTS"),
   async (request, response) => {
-    const query = salesReportQuerySchema.parse(request.query);
+    const query = purchaseReportQuerySchema.parse(request.query);
 
     response
       .status(200)
@@ -187,7 +222,7 @@ reportsRoutes.get(
   "/reports/purchases/pdf",
   requirePermission("VIEW_REPORTS"),
   async (request, response) => {
-    const query = salesReportQuerySchema.parse(request.query);
+    const query = purchaseReportQuerySchema.parse(request.query);
     const pdf = await generatePurchaseReportPdf({
       ...query,
       branchId: requireActiveBranchId(response.locals),
@@ -201,7 +236,7 @@ reportsRoutes.get(
   "/reports/cash",
   requirePermission("VIEW_REPORTS"),
   async (request, response) => {
-    const query = salesReportQuerySchema.parse(request.query);
+    const query = cashReportQuerySchema.parse(request.query);
 
     response
       .status(200)
@@ -218,7 +253,7 @@ reportsRoutes.get(
   "/reports/cash/pdf",
   requirePermission("VIEW_REPORTS"),
   async (request, response) => {
-    const query = salesReportQuerySchema.parse(request.query);
+    const query = cashReportQuerySchema.parse(request.query);
     const pdf = await generateCashReportPdf({
       ...query,
       branchId: requireActiveBranchId(response.locals),
@@ -232,7 +267,7 @@ reportsRoutes.get(
   "/reports/users",
   requirePermission("VIEW_REPORTS"),
   async (request, response) => {
-    const query = salesReportQuerySchema.parse(request.query);
+    const query = userReportQuerySchema.parse(request.query);
 
     response
       .status(200)
@@ -249,7 +284,7 @@ reportsRoutes.get(
   "/reports/users/pdf",
   requirePermission("VIEW_REPORTS"),
   async (request, response) => {
-    const query = salesReportQuerySchema.parse(request.query);
+    const query = userReportQuerySchema.parse(request.query);
     const pdf = await generateUserPerformanceReportPdf({
       ...query,
       branchId: requireActiveBranchId(response.locals),

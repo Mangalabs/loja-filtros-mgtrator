@@ -1,6 +1,6 @@
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
-import type { FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import type { PaymentMethod, Sale } from '../../api'
 import { InlineNote } from '../../components/layout'
 import { TableActionButton } from '../../components/ui'
@@ -9,7 +9,7 @@ import { formatQuantity } from '../../utils/format'
 export type SaleReturnHandler = (
   event: FormEvent<HTMLFormElement>,
   sale: Sale,
-) => Promise<boolean> | void
+) => Promise<boolean | void> | boolean | void
 
 export function SaleReturnForm({
   onCancel,
@@ -22,14 +22,30 @@ export function SaleReturnForm({
   sale: Sale
   onReturnItem: SaleReturnHandler
 }) {
+  const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const returnableItems = sale.items.filter(
     (item) => Number(item.returnableQuantity) > 0,
   )
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    const saved = await onReturnItem(event, sale)
+    event.preventDefault()
 
-    saved && onCancel?.()
+    if (submittingRef.current) {
+      return
+    }
+
+    submittingRef.current = true
+    setSubmitting(true)
+
+    try {
+      const saved = await onReturnItem(event, sale)
+
+      saved && onCancel?.()
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
+    }
   }
 
   return returnableItems.length > 0 ? (
@@ -96,9 +112,14 @@ export function SaleReturnForm({
         helperText='NSU, comprovante ou observacao curta.'
       />
       <div className='flex flex-wrap gap-2'>
-        <TableActionButton type='submit'>Devolver item</TableActionButton>
+        <TableActionButton loading={submitting} type='submit'>
+          {submitting ? 'Registrando devolução…' : 'Devolver item'}
+        </TableActionButton>
         {onCancel ? (
-          <TableActionButton type='button' onClick={onCancel}>
+          <TableActionButton
+            disabled={submitting}
+            type='button'
+            onClick={onCancel}>
             Cancelar
           </TableActionButton>
         ) : null}

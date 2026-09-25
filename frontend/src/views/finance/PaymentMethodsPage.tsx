@@ -1,4 +1,5 @@
 import { CreditCard, Power, PowerOff } from 'lucide-react'
+import { useRef, useState } from 'react'
 import type { PaymentMethod } from '../../api'
 import { PageHeader, PagePanel, ResponsiveTable } from '../../components/layout'
 import { StatusChip, TableActionsMenu } from '../../components/ui'
@@ -9,10 +10,29 @@ export function PaymentMethodsPage({
   onChangeStatus,
 }: {
   paymentMethods: PaymentMethod[]
-  onChangeStatus: (paymentMethod: PaymentMethod) => void
+  onChangeStatus: (paymentMethod: PaymentMethod) => Promise<unknown> | unknown
 }) {
+  const [pendingPaymentMethodId, setPendingPaymentMethodId] = useState<string>()
+  const pendingStatusRef = useRef(false)
   const { pagination, visibleItems } =
     usePaginatedRows<PaymentMethod>(paymentMethods)
+
+  async function changeStatus(paymentMethod: PaymentMethod) {
+    if (pendingStatusRef.current) {
+      return
+    }
+
+    pendingStatusRef.current = true
+    setPendingPaymentMethodId(paymentMethod.id)
+
+    try {
+      await onChangeStatus(paymentMethod)
+    } finally {
+      pendingStatusRef.current = false
+      setPendingPaymentMethodId(undefined)
+    }
+  }
+
   const columns = [
     {
       header: 'Forma de pagamento',
@@ -38,13 +58,21 @@ export function PaymentMethodsPage({
           <TableActionsMenu
             actions={[
               {
+                disabled: Boolean(pendingPaymentMethodId),
                 icon: paymentMethod.active ? (
                   <PowerOff size={14} />
                 ) : (
                   <Power size={14} />
                 ),
-                label: paymentMethod.active ? 'Inativar' : 'Ativar',
-                onSelect: () => onChangeStatus(paymentMethod),
+                label:
+                  pendingPaymentMethodId === paymentMethod.id
+                    ? paymentMethod.active
+                      ? 'Inativando…'
+                      : 'Ativando…'
+                    : paymentMethod.active
+                      ? 'Inativar'
+                      : 'Ativar',
+                onSelect: () => void changeStatus(paymentMethod),
               },
             ]}
           />

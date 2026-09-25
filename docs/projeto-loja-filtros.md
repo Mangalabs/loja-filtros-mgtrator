@@ -279,7 +279,7 @@ Relatorios posteriores:
 - Configuracao fiscal central da loja com trava explicita para producao.
 - Configuracao fiscal sincronizada com o CNPJ da filial ativa.
 - Relatorios gerenciais iniciais.
-- Ultima validacao backend registrada nesta revisao: `npm test` com 94 testes passando.
+- Ultima validacao backend registrada nesta revisao: `npm test` com 130 testes passando.
 
 ### Frontend
 
@@ -393,6 +393,35 @@ Estado: MVP gerencial entregue.
 ### 4. Completar PDV/Caixa
 
 - Estorno financeiro detalhado de itens devolvidos.
+
+### 5. Backlog apos as melhorias visuais do frontend
+
+- [x] Orcamentos: exibir o valor total de cada item, calculado a partir de
+  quantidade, valor unitario e desconto, sem remover o valor unitario atual.
+- [x] Relatorios: permitir que o usuario escolha por checkboxes quais campos serao
+  incluidos nos arquivos exportados. Manter essa configuracao dentro de um
+  drawer aberto sob demanda, inclusive no relatorio de inventario, para nao
+  ocupar espaco permanente acima da tabela.
+- [x] Relatorios: adicionar paginacao as listas exibidas na interface para evitar
+  tabelas excessivamente longas com os filtros padrao. Manter CSV e PDF capazes
+  de exportar o conjunto completo correspondente aos filtros, sem limitar os
+  arquivos a pagina atualmente visivel.
+- [x] NF-e: adicionar uma acao de impressao que abra o DANFE diretamente no
+  navegador, seguindo o comportamento da pre-visualizacao, para que o usuario
+  possa imprimir, salvar ou apenas consultar sem precisar baixar primeiro.
+- [x] Edicao de venda: disponibilizar a acao em todas as etapas aplicaveis. Para
+  venda concluida sem NF-e bloqueante, clicar em editar deve reabrir a venda e
+  abrir imediatamente o formulario de edicao, sem exigir uma acao separada de
+  reabertura. Preservar bloqueios e salvaguardas quando houver documento fiscal
+  que impeça alteracoes comerciais.
+- [x] NF-e: separar a fila de emissao das notas ja emitidas. A tela de notas
+  concluidas passa a se chamar "Historico de notas emitidas" e deve ficar
+  disponivel como atalho proprio no menu lateral.
+- [x] Identidade visual: quando a logomarca PNG for adicionada aos assets do
+  frontend, preservar o arquivo-fonte, gerar uma versao web mais leve e usar a
+  marca como favicon e no lugar do icone generico do menu lateral. Neste projeto
+  os poucos usos podem ser empacotados no frontend; em projetos novos, servir
+  imagens e demais midias a partir do backend.
 
 ## Observacoes Sobre Modelagem
 

@@ -5,7 +5,6 @@ import {
   Banknote,
   CreditCard,
   FileText,
-  Filter,
   List as ListIcon,
   PackagePlus,
   Percent,
@@ -18,6 +17,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import type { AuthUser } from '../api'
+import brandLogoUrl from '../assets/logo_mgtratorpecas_png_branco.png'
 import {
   canAccessView,
   navSectionViews,
@@ -52,25 +52,25 @@ export function AppSidebar({
 
   return (
     <aside
-      className='app-sidebar-scrollbar sticky top-0 flex h-screen min-h-0 min-w-0 flex-col overflow-y-auto overflow-x-hidden px-4 py-5 text-white lg:rounded-r-3xl'
+      className='flex min-h-0 min-w-0 flex-col overflow-hidden text-white lg:sticky lg:top-0 lg:h-screen lg:rounded-r-3xl'
       style={{
         background: `linear-gradient(180deg, ${frontendPalette.primaryNavy} 0%, #17264d 100%)`,
       }}>
-      <div className='mb-7 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/10 p-3'>
-        <div className='flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#d8b769] text-[#203466]'>
-          <Filter size={25} />
+      <div className='app-sidebar-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 py-5'>
+        <div className='mb-7 px-1'>
+          <img
+            alt='MG Trator Peças'
+            className='block h-auto w-full object-contain'
+            fetchPriority='high'
+            height={200}
+            src={brandLogoUrl}
+            width={367}
+          />
         </div>
-        <div className='min-w-0'>
-          <strong className='block truncate text-base'>MG TRATOR PEÇAS</strong>
-          <span className='mt-0.5 block truncate text-xs text-white/70'>
-            Operacao da filial
-          </span>
-        </div>
-      </div>
 
-      <nav
-        className='grid min-w-0 max-w-full gap-2 overflow-x-hidden'
-        aria-label='Navegacao principal'>
+        <nav
+          className='grid min-w-0 max-w-full gap-2 overflow-x-hidden'
+          aria-label='Navegacao principal'>
         <NavSection
           active={isSectionActive('products')}
           icon={<PackagePlus size={17} />}
@@ -211,12 +211,20 @@ export function AppSidebar({
                 Configuração fiscal
               </NavButton>
             ) : null}
-            {canAccess('fiscal-operations') ? (
+            {canAccess('fiscal-documents') ? (
               <NavButton
-                active={view === 'fiscal-operations'}
+                active={view === 'fiscal-documents'}
                 icon={<FileText size={18} />}
-                onClick={() => onSelectView('fiscal-operations')}>
-                NF-e
+                onClick={() => onSelectView('fiscal-documents')}>
+                Fila de emissão
+              </NavButton>
+            ) : null}
+            {canAccess('fiscal-issued-documents') ? (
+              <NavButton
+                active={view === 'fiscal-issued-documents'}
+                icon={<ListIcon size={18} />}
+                onClick={() => onSelectView('fiscal-issued-documents')}>
+                Histórico de notas emitidas
               </NavButton>
             ) : null}
             {canAccess('manual-fiscal-document') ? (
@@ -309,7 +317,8 @@ export function AppSidebar({
             </NavButton>
           </NavSection>
         ) : null}
-      </nav>
+        </nav>
+      </div>
     </aside>
   )
 }

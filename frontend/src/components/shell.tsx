@@ -8,6 +8,8 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
+import LinearProgress from "@mui/material/LinearProgress";
+import Snackbar from "@mui/material/Snackbar";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { frontendPalette } from "../theme";
@@ -165,6 +167,8 @@ export function AppMessage({
 }) {
   return (
     <MuiAlert
+      aria-live={kind === "error" ? "assertive" : "polite"}
+      role={kind === "error" ? "alert" : "status"}
       severity={kind === "error" ? "error" : "success"}
       variant="outlined"
       sx={{ mt: 2.25 }}
@@ -181,6 +185,59 @@ export function AppMessage({
     >
       {message}
     </MuiAlert>
+  );
+}
+
+export function AppFeedbackSnackbar({
+  kind,
+  message,
+  onClose,
+}: {
+  kind: "error" | "success";
+  message: string;
+  onClose: () => void;
+}) {
+  return (
+    <Snackbar
+      anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+      autoHideDuration={kind === "success" ? 5_000 : null}
+      open={Boolean(message)}
+      onClose={(_event, reason) => {
+        if (reason !== "clickaway") {
+          onClose();
+        }
+      }}
+    >
+      <MuiAlert
+        aria-live={kind === "error" ? "assertive" : "polite"}
+        onClose={onClose}
+        role={kind === "error" ? "alert" : "status"}
+        severity={kind}
+        sx={{ maxWidth: 520, width: "100%" }}
+        variant="filled"
+      >
+        {message}
+      </MuiAlert>
+    </Snackbar>
+  );
+}
+
+export function AppActionProgress({ active }: { active: boolean }) {
+  if (!active) {
+    return null;
+  }
+
+  return (
+    <div
+      aria-live="polite"
+      className="fixed inset-x-4 top-4 z-[1400] mx-auto max-w-sm overflow-hidden rounded-xl border border-[#dfe5e1] bg-white shadow-lg sm:inset-x-auto sm:right-5 sm:mx-0 sm:w-80"
+      role="status"
+    >
+      <LinearProgress aria-label="Operação em andamento" />
+      <span className="block px-4 py-2.5 text-sm font-medium text-[#44504a]">
+        Processando sua solicitação…
+      </span>
+    </div>
   );
 }
 
@@ -210,9 +267,14 @@ export function ConfirmationDialog({
     >
       <DialogTitle id="confirmation-dialog-title">{title}</DialogTitle>
       <DialogContent>
-        <DialogContentText id="confirmation-dialog-description">
-          {message}
-        </DialogContentText>
+        <MuiAlert severity="warning" variant="outlined">
+          <DialogContentText
+            id="confirmation-dialog-description"
+            sx={{ color: "inherit", m: 0 }}
+          >
+            {message}
+          </DialogContentText>
+        </MuiAlert>
       </DialogContent>
       <DialogActions>
         <Button color="inherit" onClick={onCancel}>
@@ -220,9 +282,8 @@ export function ConfirmationDialog({
         </Button>
         <Button
           variant="contained"
-          color="success"
+          color="primary"
           onClick={onConfirm}
-          autoFocus
         >
           {confirmLabel}
         </Button>

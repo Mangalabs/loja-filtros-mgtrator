@@ -6721,6 +6721,20 @@ describe("catalog routes", () => {
       'attachment; filename="relatorio-estoque.pdf"',
     );
     assert.equal(pdf.body.subarray(0, 4).toString(), "%PDF");
+
+    const selectedColumnsPdf = await requestRaw(
+      "/reports/stock/pdf?columns=product&columns=currentStock",
+    );
+
+    assert.equal(selectedColumnsPdf.status, 200);
+    assert.equal(selectedColumnsPdf.contentType, "application/pdf");
+    assert.equal(selectedColumnsPdf.body.subarray(0, 4).toString(), "%PDF");
+
+    const invalidColumn = await request(
+      "/reports/stock/pdf?columns=unknownColumn",
+    );
+
+    assert.equal(invalidColumn.status, 422);
   });
 
   it("returns inventory reports with stock values and product filters", async () => {

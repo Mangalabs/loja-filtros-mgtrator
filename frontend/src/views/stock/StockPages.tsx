@@ -9,7 +9,7 @@ import {
   Plus,
   SlidersHorizontal,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type {
   Product,
@@ -36,6 +36,35 @@ import {
 } from "../../utils/format";
 import { productDisplayName } from "../../utils/productDisplay";
 
+type AsyncFormSubmitHandler = (
+  event: FormEvent<HTMLFormElement>,
+) => Promise<unknown> | unknown;
+
+function usePendingFormSubmit(onSubmit: AsyncFormSubmitHandler) {
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (submittingRef.current) {
+      return;
+    }
+
+    submittingRef.current = true;
+    setSubmitting(true);
+
+    try {
+      await onSubmit(event);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  }
+
+  return { submit, submitting };
+}
+
 export function StockEntriesPage({
   entries,
   products,
@@ -45,13 +74,14 @@ export function StockEntriesPage({
   entries: StockEntry[];
   products: Product[];
   suppliers: Supplier[];
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: AsyncFormSubmitHandler;
 }) {
   const { pagination, visibleItems } = usePaginatedRows<StockEntry>(entries);
+  const { submit, submitting } = usePendingFormSubmit(onSubmit);
 
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(290px,0.7fr)_minmax(0,1.3fr)]">
-      <FormGrid onSubmit={onSubmit}>
+      <FormGrid onSubmit={submit}>
         <PageHeader icon={<ArrowDownToLine size={18} />} title="Nova entrada" />
         <ProductSearchField
           label="Produto"
@@ -101,8 +131,8 @@ export function StockEntriesPage({
           rows={3}
           slotProps={{ htmlInput: { maxLength: 500 } }}
         />
-        <PrimaryButton icon={<Plus size={17} />} type="submit">
-          Registrar entrada
+        <PrimaryButton loading={submitting} icon={<Plus size={17} />} type="submit">
+          {submitting ? "Registrando entrada…" : "Registrar entrada"}
         </PrimaryButton>
       </FormGrid>
 
@@ -159,14 +189,15 @@ export function StockAdjustmentsPage({
 }: {
   adjustments: StockAdjustment[];
   products: Product[];
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: AsyncFormSubmitHandler;
 }) {
   const { pagination, visibleItems } =
     usePaginatedRows<StockAdjustment>(adjustments);
+  const { submit, submitting } = usePendingFormSubmit(onSubmit);
 
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(290px,0.7fr)_minmax(0,1.3fr)]">
-      <FormGrid onSubmit={onSubmit}>
+      <FormGrid onSubmit={submit}>
         <PageHeader
           icon={<SlidersHorizontal size={18} />}
           title="Novo ajuste"
@@ -196,8 +227,8 @@ export function StockAdjustmentsPage({
           slotProps={{ htmlInput: { maxLength: 500 } }}
           required
         />
-        <PrimaryButton icon={<Plus size={17} />} type="submit">
-          Registrar ajuste
+        <PrimaryButton loading={submitting} icon={<Plus size={17} />} type="submit">
+          {submitting ? "Registrando ajuste…" : "Registrar ajuste"}
         </PrimaryButton>
       </FormGrid>
 
@@ -257,6 +288,8 @@ export function LowStockPage({
   const [searchedProducts, setSearchedProducts] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [togglingProductId, setTogglingProductId] = useState<string>();
+  const togglingProductRef = useRef(false);
   const searchIsActive = Boolean(search.trim());
   const listProducts = searchIsActive
     ? searchedProducts.filter((product) => product.active)
@@ -309,19 +342,31 @@ export function LowStockPage({
   }, [search]);
 
   async function toggleReplenishmentMonitor(product: Product) {
-    await onToggleReplenishmentMonitor(product);
+    if (togglingProductRef.current) {
+      return;
+    }
 
-    setSearchedProducts((currentProducts) =>
-      currentProducts.map((currentProduct) =>
-        currentProduct.id === product.id
-          ? {
-              ...currentProduct,
-              replenishmentMonitorEnabled:
-                !currentProduct.replenishmentMonitorEnabled,
-            }
-          : currentProduct,
-      ),
-    );
+    togglingProductRef.current = true;
+    setTogglingProductId(product.id);
+
+    try {
+      await onToggleReplenishmentMonitor(product);
+
+      setSearchedProducts((currentProducts) =>
+        currentProducts.map((currentProduct) =>
+          currentProduct.id === product.id
+            ? {
+                ...currentProduct,
+                replenishmentMonitorEnabled:
+                  !currentProduct.replenishmentMonitorEnabled,
+              }
+            : currentProduct,
+        ),
+      );
+    } finally {
+      togglingProductRef.current = false;
+      setTogglingProductId(undefined);
+    }
   }
 
   return (
@@ -349,7 +394,7 @@ export function LowStockPage({
               helperText={
                 searchError ||
                 (searching
-                  ? "Buscando produtos..."
+                  ? "Buscando produtos…"
                   : "A busca consulta o catalogo completo da filial.")
               }
               value={search}
@@ -419,6 +464,7 @@ export function LowStockPage({
               header: "Ações",
               render: (product) => (
                 <TableActionButton
+                  disabled={Boolean(togglingProductId)}
                   icon={
                     product.replenishmentMonitorEnabled ? (
                       <BellOff size={15} />
@@ -426,19 +472,22 @@ export function LowStockPage({
                       <Bell size={15} />
                     )
                   }
+                  loading={togglingProductId === product.id}
                   type="button"
                   onClick={() => void toggleReplenishmentMonitor(product)}
                 >
-                  {product.replenishmentMonitorEnabled
-                    ? "Parar monitoramento"
-                    : "Monitorar"}
+                  {togglingProductId === product.id
+                    ? "Atualizando…"
+                    : product.replenishmentMonitorEnabled
+                      ? "Parar monitoramento"
+                      : "Monitorar"}
                 </TableActionButton>
               ),
             },
           ]}
           emptyMessage={
             searching
-              ? "Buscando produtos..."
+              ? "Buscando produtos…"
               : search
               ? "Nenhum produto encontrado para esta busca."
               : "Nenhum produto requer reposição."

@@ -36,6 +36,7 @@ export function useAdministrationData() {
   const [selectedEmployee, setSelectedEmployee] = useState<AuthUser>();
   const [selectedPasswordResetEmployee, setSelectedPasswordResetEmployee] =
     useState<AuthUser>();
+  const [initialized, setInitialized] = useState(false);
   const [state, setState] = useState<AdministrationState>("loading");
   const [message, setMessage] = useState("");
   const [selectedBranch, setSelectedBranch] = useState<Branch>();
@@ -65,6 +66,8 @@ export function useAdministrationData() {
     } catch (error) {
       setMessage(readErrorMessage(error));
       setState("error");
+    } finally {
+      setInitialized(true);
     }
   }, [authEventFilters, authEventPage, authEventRowsPerPage]);
 
@@ -246,6 +249,7 @@ export function useAdministrationData() {
     clearSelectedBranch: () => setSelectedBranch(undefined),
     clearSelectedPasswordResetEmployee: () =>
       setSelectedPasswordResetEmployee(undefined),
+    initialized,
     message,
     lookupBranchCompany,
     resetEmployeePassword,

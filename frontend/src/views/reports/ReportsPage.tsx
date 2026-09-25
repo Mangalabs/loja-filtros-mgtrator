@@ -1,9 +1,10 @@
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Checkbox from '@mui/material/Checkbox'
+import Drawer from '@mui/material/Drawer'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import FormGroup from '@mui/material/FormGroup'
-import Menu from '@mui/material/Menu'
+import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
 import Skeleton from '@mui/material/Skeleton'
 import TextField from '@mui/material/TextField'
@@ -21,8 +22,15 @@ import {
   ShoppingCart,
   SlidersHorizontal,
   Truck,
+  X,
 } from 'lucide-react'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import type {
   CashReport,
   InventoryReport,
@@ -33,7 +41,12 @@ import type {
   UserPerformanceReport,
 } from '../../api'
 import { apiGet, downloadApiFile, type ApiResult } from '../../api'
-import { PageHeader, PagePanel, ResponsiveTable } from '../../components/layout'
+import {
+  PageHeader,
+  PagePanel,
+  ResponsiveTable as BaseResponsiveTable,
+  type ResponsiveTableColumn,
+} from '../../components/layout'
 import { StatusChip, type StatusTone } from '../../components/ui'
 import { frontendPalette } from '../../theme'
 import {
@@ -118,7 +131,7 @@ function ReportsLoading() {
   return (
     <PagePanel wide>
       <PageHeader
-        description='Carregando indicadores operacionais...'
+        description='Carregando indicadores operacionais…'
         title='Resumo gerencial'
       />
       <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-3'>
@@ -129,6 +142,390 @@ function ReportsLoading() {
     </PagePanel>
   )
 }
+
+function useReportAction() {
+  const [loading, setLoading] = useState(false)
+  const loadingRef = useRef(false)
+
+  async function run(action: () => Promise<boolean>) {
+    if (loadingRef.current) {
+      return false
+    }
+
+    loadingRef.current = true
+    setLoading(true)
+
+    try {
+      return await action()
+    } finally {
+      loadingRef.current = false
+      setLoading(false)
+    }
+  }
+
+  return { loading, run }
+}
+
+const defaultReportRowsPerPage = 10
+const reportRowsPerPageOptions = [10, 25, 50]
+
+function ResponsiveTable<T>({
+  columns,
+  emptyMessage,
+  getRowId,
+  items,
+  loading,
+}: {
+  columns: Array<ResponsiveTableColumn<T>>
+  emptyMessage: ReactNode
+  getRowId: (item: T) => string
+  items: T[]
+  loading?: boolean
+}) {
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(defaultReportRowsPerPage)
+
+  useEffect(() => {
+    setPage(0)
+  }, [items])
+
+  const lastPage = Math.max(0, Math.ceil(items.length / rowsPerPage) - 1)
+  const visiblePage = Math.min(page, lastPage)
+  const firstVisibleItem = visiblePage * rowsPerPage
+  const visibleItems = items.slice(
+    firstVisibleItem,
+    firstVisibleItem + rowsPerPage,
+  )
+
+  return (
+    <BaseResponsiveTable
+      columns={columns}
+      emptyMessage={emptyMessage}
+      getRowId={getRowId}
+      items={visibleItems}
+      loading={loading}
+      pagination={
+        items.length > defaultReportRowsPerPage
+          ? {
+              count: items.length,
+              page: visiblePage,
+              rowsPerPage,
+              rowsPerPageOptions: reportRowsPerPageOptions,
+              onPageChange: setPage,
+              onRowsPerPageChange: (nextRowsPerPage) => {
+                setRowsPerPage(nextRowsPerPage)
+                setPage(0)
+              },
+            }
+          : undefined
+      }
+    />
+  )
+}
+
+function ReportPdfButton({
+  filename,
+  filters,
+  path,
+}: {
+  filename: string
+  filters: ReportDownloadFilters | InventoryReportFilters
+  path: string
+}) {
+  const [downloading, setDownloading] = useState(false)
+  const downloadingRef = useRef(false)
+
+  async function download() {
+    if (downloadingRef.current) {
+      return
+    }
+
+    downloadingRef.current = true
+    setDownloading(true)
+
+    try {
+      await downloadReportPdf(path, filters, filename)
+    } finally {
+      downloadingRef.current = false
+      setDownloading(false)
+    }
+  }
+
+  return (
+    <Button
+      disabled={downloading}
+      loading={downloading}
+      startIcon={<FileText size={16} />}
+      type='button'
+      variant='outlined'
+      onClick={() => void download()}>
+      {downloading ? 'Gerando…' : 'PDF'}
+    </Button>
+  )
+}
+
+type ReportExportColumnOption<Key extends string> = {
+  csvHeaders?: readonly string[]
+  key: Key
+  label: string
+}
+
+function ReportColumnsDrawer<Key extends string>({
+  columns,
+  defaultColumns,
+  open,
+  selectedColumns,
+  onChange,
+  onClose,
+}: {
+  columns: ReadonlyArray<ReportExportColumnOption<Key>>
+  defaultColumns: readonly Key[]
+  open: boolean
+  selectedColumns: Key[]
+  onChange: (columns: Key[]) => void
+  onClose: () => void
+}) {
+  function toggleColumn(column: Key) {
+    if (selectedColumns.includes(column)) {
+      if (selectedColumns.length === 1) {
+        return
+      }
+
+      onChange(
+        selectedColumns.filter((selectedColumn) => selectedColumn !== column),
+      )
+      return
+    }
+
+    onChange([...selectedColumns, column])
+  }
+
+  return (
+    <Drawer
+      anchor='right'
+      open={open}
+      slotProps={{
+        paper: {
+          sx: {
+            maxWidth: '100vw',
+            overflowX: 'hidden',
+          },
+        },
+      }}
+      onClose={onClose}>
+      <div className='flex h-full min-h-0 w-[min(92vw,400px)] max-w-full flex-col overflow-hidden bg-white overscroll-contain'>
+        <div className='flex shrink-0 items-start justify-between gap-4 border-b border-[#dfe5e1] p-5'>
+          <div className='min-w-0'>
+            <h2 className='m-0 break-words text-xl font-bold text-[#2c281e]'>
+              Campos do arquivo
+            </h2>
+            <p className='mb-0 mt-1 break-words text-sm text-[#5f665f]'>
+              A seleção será aplicada aos arquivos PDF e CSV.
+            </p>
+          </div>
+          <IconButton aria-label='Fechar seleção de campos' onClick={onClose}>
+            <X aria-hidden='true' size={20} />
+          </IconButton>
+        </div>
+
+        <FormGroup
+          className='min-h-0 min-w-0 flex-1 gap-1 overflow-x-hidden overflow-y-auto p-4 sm:p-5'
+          sx={{
+            flexWrap: 'nowrap',
+            scrollbarGutter: 'stable',
+          }}>
+          {columns.map((column) => {
+            const checked = selectedColumns.includes(column.key)
+
+            return (
+              <FormControlLabel
+                className='min-w-0 rounded-lg px-1 py-0.5 hover:bg-[#f7f7f4] sm:px-2'
+                control={
+                  <Checkbox
+                    checked={checked}
+                    disabled={checked && selectedColumns.length === 1}
+                    size='small'
+                    sx={{ flexShrink: 0 }}
+                    onChange={() => toggleColumn(column.key)}
+                  />
+                }
+                key={column.key}
+                label={column.label}
+                sx={{
+                  alignItems: 'flex-start',
+                  display: 'flex',
+                  margin: 0,
+                  width: '100%',
+                  '& .MuiFormControlLabel-label': {
+                    flex: 1,
+                    lineHeight: 1.35,
+                    minWidth: 0,
+                    overflowWrap: 'break-word',
+                    paddingTop: '8px',
+                    whiteSpace: 'normal',
+                  },
+                }}
+              />
+            )
+          })}
+        </FormGroup>
+
+        <div className='flex min-w-0 shrink-0 flex-wrap justify-end gap-2 border-t border-[#dfe5e1] p-4 sm:p-5'>
+          <Button
+            type='button'
+            variant='outlined'
+            onClick={() => onChange([...defaultColumns])}>
+            Restaurar padrão
+          </Button>
+          <Button type='button' variant='contained' onClick={onClose}>
+            Concluir
+          </Button>
+        </div>
+      </div>
+    </Drawer>
+  )
+}
+
+const salesReportExportColumns = [
+  { key: 'code', label: 'Código do produto', csvHeaders: ['Codigo'] },
+  { key: 'product', label: 'Produto', csvHeaders: ['Produto'] },
+  { key: 'quantity', label: 'Quantidade', csvHeaders: ['Quantidade'] },
+  { key: 'total', label: 'Total / faturamento', csvHeaders: ['Total', 'Faturamento'] },
+  { key: 'cost', label: 'Custo', csvHeaders: ['Custo'] },
+  { key: 'profit', label: 'Lucro', csvHeaders: ['Lucro'] },
+  { key: 'margin', label: 'Margem', csvHeaders: ['Margem'] },
+  { key: 'client', label: 'Cliente', csvHeaders: ['Cliente'] },
+  { key: 'sales', label: 'Quantidade de vendas', csvHeaders: ['Vendas'] },
+  {
+    key: 'paymentMethod',
+    label: 'Forma de pagamento',
+    csvHeaders: ['Forma de pagamento'],
+  },
+  { key: 'participation', label: 'Participação', csvHeaders: ['Participacao'] },
+  { key: 'cumulative', label: 'Participação acumulada', csvHeaders: ['Acumulado'] },
+  { key: 'class', label: 'Classe ABC', csvHeaders: ['Classe'] },
+] as const
+
+type SalesReportExportColumnKey =
+  (typeof salesReportExportColumns)[number]['key']
+
+const defaultSalesReportExportColumns = salesReportExportColumns.map(
+  (column) => column.key,
+)
+
+const userReportExportColumns = [
+  { key: 'user', label: 'Usuário', csvHeaders: ['Usuario'] },
+  { key: 'completedSales', label: 'Vendas concluídas', csvHeaders: ['Vendas concluidas'] },
+  { key: 'cancelledSales', label: 'Vendas canceladas', csvHeaders: ['Vendas canceladas'] },
+  { key: 'openSales', label: 'Vendas em aberto', csvHeaders: ['Vendas em aberto'] },
+  { key: 'gross', label: 'Valor bruto', csvHeaders: ['Bruto'] },
+  { key: 'refunds', label: 'Devoluções', csvHeaders: ['Devolucoes'] },
+  { key: 'net', label: 'Valor líquido', csvHeaders: ['Liquido'] },
+  { key: 'quotes', label: 'Orçamentos', csvHeaders: ['Orcamentos'] },
+  {
+    key: 'stockMovements',
+    label: 'Movimentações de estoque',
+    csvHeaders: ['Movimentacoes estoque'],
+  },
+  { key: 'fiscalDocuments', label: 'NF-e emitidas', csvHeaders: ['NF-e emitidas'] },
+  { key: 'saleNumber', label: 'Número da venda', csvHeaders: ['Numero da venda'] },
+  { key: 'date', label: 'Data', csvHeaders: ['Data'] },
+  { key: 'client', label: 'Cliente', csvHeaders: ['Cliente'] },
+  { key: 'status', label: 'Status', csvHeaders: ['Status'] },
+  { key: 'total', label: 'Total', csvHeaders: ['Total'] },
+] as const
+
+type UserReportExportColumnKey =
+  (typeof userReportExportColumns)[number]['key']
+
+const defaultUserReportExportColumns = userReportExportColumns.map(
+  (column) => column.key,
+)
+
+const purchaseReportExportColumns = [
+  { key: 'source', label: 'Origem', csvHeaders: ['Origem'] },
+  { key: 'entries', label: 'Entradas', csvHeaders: ['Entradas'] },
+  { key: 'quantity', label: 'Quantidade', csvHeaders: ['Quantidade'] },
+  { key: 'total', label: 'Total', csvHeaders: ['Total'] },
+  { key: 'supplier', label: 'Fornecedor', csvHeaders: ['Fornecedor'] },
+  { key: 'product', label: 'Produto', csvHeaders: ['Produto'] },
+] as const
+
+type PurchaseReportExportColumnKey =
+  (typeof purchaseReportExportColumns)[number]['key']
+
+const defaultPurchaseReportExportColumns = purchaseReportExportColumns.map(
+  (column) => column.key,
+)
+
+const cashReportExportColumns = [
+  {
+    key: 'paymentMethod',
+    label: 'Forma de pagamento',
+    csvHeaders: ['Forma de pagamento'],
+  },
+  { key: 'gross', label: 'Valor bruto', csvHeaders: ['Bruto'] },
+  { key: 'refunds', label: 'Devoluções', csvHeaders: ['Devolucoes'] },
+  { key: 'net', label: 'Valor líquido', csvHeaders: ['Liquido'] },
+  { key: 'openedBy', label: 'Operador de abertura', csvHeaders: ['Operador abertura'] },
+  { key: 'closedBy', label: 'Operador de fechamento', csvHeaders: ['Operador fechamento'] },
+  { key: 'status', label: 'Status', csvHeaders: ['Status'] },
+  { key: 'openedAt', label: 'Abertura', csvHeaders: ['Abertura'] },
+  { key: 'closedAt', label: 'Fechamento', csvHeaders: ['Fechamento'] },
+  { key: 'openingBalance', label: 'Saldo inicial', csvHeaders: ['Saldo inicial'] },
+  { key: 'sales', label: 'Vendas', csvHeaders: ['Vendas'] },
+  { key: 'supplies', label: 'Suprimentos', csvHeaders: ['Suprimentos'] },
+  { key: 'withdrawals', label: 'Sangrias', csvHeaders: ['Sangrias'] },
+  { key: 'expected', label: 'Fechamento esperado', csvHeaders: ['Esperado'] },
+  { key: 'reported', label: 'Fechamento informado', csvHeaders: ['Informado'] },
+  { key: 'difference', label: 'Divergência', csvHeaders: ['Divergencia'] },
+] as const
+
+type CashReportExportColumnKey =
+  (typeof cashReportExportColumns)[number]['key']
+
+const defaultCashReportExportColumns = cashReportExportColumns.map(
+  (column) => column.key,
+)
+
+const stockReportExportColumns = [
+  { key: 'code', label: 'Código do produto', csvHeaders: ['Código'] },
+  { key: 'product', label: 'Produto', csvHeaders: ['Produto'] },
+  { key: 'location', label: 'Locação', csvHeaders: ['Locação'] },
+  { key: 'movements', label: 'Movimentações', csvHeaders: ['Movimentacoes'] },
+  { key: 'entryQuantity', label: 'Quantidade de entrada', csvHeaders: ['Quantidade entrada'] },
+  { key: 'entryAmount', label: 'Valor de entrada', csvHeaders: ['Valor entrada'] },
+  { key: 'exitQuantity', label: 'Quantidade de saída', csvHeaders: ['Quantidade saida'] },
+  { key: 'exitCost', label: 'Custo de saída', csvHeaders: ['Custo saida'] },
+  {
+    key: 'adjustmentQuantity',
+    label: 'Quantidade de ajustes',
+    csvHeaders: ['Quantidade ajustes/recomposicoes'],
+  },
+  {
+    key: 'adjustmentCost',
+    label: 'Valor de ajustes',
+    csvHeaders: ['Valor ajustes/recomposicoes'],
+  },
+  { key: 'balance', label: 'Saldo em quantidade', csvHeaders: ['Saldo quantidade'] },
+  { key: 'lastMovement', label: 'Última movimentação', csvHeaders: ['Ultima movimentacao'] },
+  { key: 'movementType', label: 'Tipo de movimentação', csvHeaders: ['Tipo'] },
+  { key: 'movementQuantity', label: 'Quantidade movimentada', csvHeaders: ['Quantidade'] },
+  { key: 'value', label: 'Valor base', csvHeaders: ['Valor'] },
+  { key: 'currentStock', label: 'Estoque físico', csvHeaders: ['Fisico'] },
+  { key: 'reservedStock', label: 'Estoque reservado', csvHeaders: ['Reservado'] },
+  { key: 'availableStock', label: 'Estoque disponível', csvHeaders: ['Disponivel'] },
+  { key: 'minimumStock', label: 'Estoque mínimo', csvHeaders: ['Minimo'] },
+  { key: 'soldQuantity', label: 'Quantidade vendida', csvHeaders: ['Quantidade vendida'] },
+  { key: 'lastSale', label: 'Última venda', csvHeaders: ['Ultima venda'] },
+] as const
+
+type StockReportExportColumnKey =
+  (typeof stockReportExportColumns)[number]['key']
+
+const defaultStockReportExportColumns = stockReportExportColumns.map(
+  (column) => column.key,
+)
 
 function ReportsOverviewContent({
   activeReport,
@@ -347,7 +744,7 @@ function ReportHubCard({
 }) {
   return (
     <button
-      className='grid min-h-[132px] gap-3 rounded-lg border border-[#dfe5df] bg-white p-4 text-left shadow-sm transition hover:border-[#b7c4b8] hover:bg-[#fbfcfb] focus:outline-none focus:ring-2 focus:ring-[#203466]'
+      className='grid min-h-[132px] gap-3 rounded-lg border border-[#dfe5df] bg-white p-4 text-left shadow-sm transition hover:border-[#b7c4b8] hover:bg-[#fbfcfb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#203466]'
       type='button'
       onClick={onClick}>
       <span className='flex h-10 w-10 items-center justify-center rounded-lg bg-[#eef2f6] text-[#203466]'>
@@ -370,23 +767,21 @@ function SalesReportSection({
 }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [columnsDrawerOpen, setColumnsDrawerOpen] = useState(false)
+  const [selectedColumns, setSelectedColumns] = useState<
+    SalesReportExportColumnKey[]
+  >([...defaultSalesReportExportColumns])
+  const { loading, run } = useReportAction()
 
   async function filterSalesReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setLoading(true)
-
-    await onLoadSalesReport({ dateFrom, dateTo })
-    setLoading(false)
+    await run(() => onLoadSalesReport({ dateFrom, dateTo }))
   }
 
   async function clearSalesReportFilters() {
     setDateFrom('')
     setDateTo('')
-    setLoading(true)
-
-    await onLoadSalesReport()
-    setLoading(false)
+    await run(() => onLoadSalesReport())
   }
 
   return (
@@ -394,7 +789,7 @@ function SalesReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto_auto] lg:w-auto'
             onSubmit={filterSalesReport}>
             <TextField
               label='De'
@@ -412,7 +807,7 @@ function SalesReportSection({
               onChange={(event) => setDateTo(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            <Button disabled={loading} type='submit' variant='contained'>
+            <Button loading={loading} type='submit' variant='contained'>
               Filtrar
             </Button>
             <Button
@@ -423,30 +818,37 @@ function SalesReportSection({
               Limpar
             </Button>
             <Button
+              startIcon={<SlidersHorizontal size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() => setColumnsDrawerOpen(true)}>
+              Campos ({selectedColumns.length})
+            </Button>
+            <Button
               startIcon={<Download size={16} />}
               type='button'
               variant='outlined'
-              onClick={() => exportSalesReportCsv(salesReport)}>
+              onClick={() => exportSalesReportCsv(salesReport, selectedColumns)}>
               CSV
             </Button>
-            <Button
-              startIcon={<FileText size={16} />}
-              type='button'
-              variant='outlined'
-              onClick={() =>
-                void downloadReportPdf(
-                  '/reports/sales/pdf',
-                  { dateFrom, dateTo },
-                  'relatorio-vendas',
-                )
-              }>
-              PDF
-            </Button>
+            <ReportPdfButton
+              filename='relatorio-vendas'
+              filters={{ columns: selectedColumns, dateFrom, dateTo }}
+              path='/reports/sales/pdf'
+            />
           </form>
         }
         description='Vendas concluidas agrupadas por produto, cliente e forma de pagamento.'
         icon={<CircleDollarSign size={18} />}
         title='Relatorio comercial'
+      />
+      <ReportColumnsDrawer
+        columns={salesReportExportColumns}
+        defaultColumns={defaultSalesReportExportColumns}
+        open={columnsDrawerOpen}
+        selectedColumns={selectedColumns}
+        onChange={setSelectedColumns}
+        onClose={() => setColumnsDrawerOpen(false)}
       />
       <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>
         <ReportMetric
@@ -484,7 +886,7 @@ function SalesReportSection({
         Margem geral: {salesReport.summary.grossMarginPercentage}%
       </span>
 
-      <div className='mt-5 grid gap-4 xl:grid-cols-3'>
+      <div className='mt-5 grid gap-4'>
         <ResponsiveTable
           columns={[
             {
@@ -520,6 +922,7 @@ function SalesReportSection({
           emptyMessage='Nenhuma venda por produto.'
           getRowId={(item) => item.productId}
           items={salesReport.byProduct ?? []}
+          loading={loading}
         />
 
         <ResponsiveTable
@@ -542,6 +945,7 @@ function SalesReportSection({
           emptyMessage='Nenhuma venda por cliente.'
           getRowId={(item) => item.clientId ?? item.clientName}
           items={salesReport.byClient ?? []}
+          loading={loading}
         />
 
         <ResponsiveTable
@@ -564,6 +968,7 @@ function SalesReportSection({
           emptyMessage='Nenhuma venda por pagamento.'
           getRowId={(item) => item.paymentMethodId}
           items={salesReport.byPaymentMethod ?? []}
+          loading={loading}
         />
       </div>
 
@@ -602,6 +1007,7 @@ function SalesReportSection({
           emptyMessage='Nenhum produto para curva ABC.'
           getRowId={(item) => item.productId}
           items={salesReport.abcProducts ?? []}
+          loading={loading}
         />
       </div>
     </PagePanel>
@@ -619,25 +1025,23 @@ function UserPerformanceReportSection({
 }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [columnsDrawerOpen, setColumnsDrawerOpen] = useState(false)
+  const [selectedColumns, setSelectedColumns] = useState<
+    UserReportExportColumnKey[]
+  >([...defaultUserReportExportColumns])
+  const { loading, run } = useReportAction()
 
   async function filterUserPerformanceReport(
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault()
-    setLoading(true)
-
-    await onLoadUserPerformanceReport({ dateFrom, dateTo })
-    setLoading(false)
+    await run(() => onLoadUserPerformanceReport({ dateFrom, dateTo }))
   }
 
   async function clearUserPerformanceReportFilters() {
     setDateFrom('')
     setDateTo('')
-    setLoading(true)
-
-    await onLoadUserPerformanceReport()
-    setLoading(false)
+    await run(() => onLoadUserPerformanceReport())
   }
 
   return (
@@ -645,7 +1049,7 @@ function UserPerformanceReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto_auto] lg:w-auto'
             onSubmit={filterUserPerformanceReport}>
             <TextField
               label='De'
@@ -663,7 +1067,7 @@ function UserPerformanceReportSection({
               onChange={(event) => setDateTo(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            <Button disabled={loading} type='submit' variant='contained'>
+            <Button loading={loading} type='submit' variant='contained'>
               Filtrar usuarios
             </Button>
             <Button
@@ -674,30 +1078,39 @@ function UserPerformanceReportSection({
               Limpar
             </Button>
             <Button
+              startIcon={<SlidersHorizontal size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() => setColumnsDrawerOpen(true)}>
+              Campos ({selectedColumns.length})
+            </Button>
+            <Button
               startIcon={<Download size={16} />}
               type='button'
               variant='outlined'
-              onClick={() => exportUserPerformanceReportCsv(report)}>
+              onClick={() =>
+                exportUserPerformanceReportCsv(report, selectedColumns)
+              }>
               CSV
             </Button>
-            <Button
-              startIcon={<FileText size={16} />}
-              type='button'
-              variant='outlined'
-              onClick={() =>
-                void downloadReportPdf(
-                  '/reports/users/pdf',
-                  { dateFrom, dateTo },
-                  'relatorio-usuarios',
-                )
-              }>
-              PDF
-            </Button>
+            <ReportPdfButton
+              filename='relatorio-usuarios'
+              filters={{ columns: selectedColumns, dateFrom, dateTo }}
+              path='/reports/users/pdf'
+            />
           </form>
         }
         description='Vendas, comissoes conferiveis e acoes operacionais por usuario.'
         icon={<CircleDollarSign size={18} />}
         title='Desempenho por usuario'
+      />
+      <ReportColumnsDrawer
+        columns={userReportExportColumns}
+        defaultColumns={defaultUserReportExportColumns}
+        open={columnsDrawerOpen}
+        selectedColumns={selectedColumns}
+        onChange={setSelectedColumns}
+        onClose={() => setColumnsDrawerOpen(false)}
       />
       <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>
         <ReportMetric
@@ -732,7 +1145,7 @@ function UserPerformanceReportSection({
         />
       </div>
 
-      <div className='mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]'>
+      <div className='mt-5 grid gap-4'>
         <ResponsiveTable
           columns={[
             {
@@ -768,6 +1181,7 @@ function UserPerformanceReportSection({
           emptyMessage='Nenhum usuario com acao no periodo.'
           getRowId={(item) => item.userId}
           items={report.users}
+          loading={loading}
         />
 
         <ResponsiveTable
@@ -804,6 +1218,7 @@ function UserPerformanceReportSection({
           emptyMessage='Nenhuma venda no periodo.'
           getRowId={(item) => item.saleId}
           items={report.sales}
+          loading={loading}
         />
       </div>
     </PagePanel>
@@ -819,23 +1234,21 @@ function PurchaseReportSection({
 }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [columnsDrawerOpen, setColumnsDrawerOpen] = useState(false)
+  const [selectedColumns, setSelectedColumns] = useState<
+    PurchaseReportExportColumnKey[]
+  >([...defaultPurchaseReportExportColumns])
+  const { loading, run } = useReportAction()
 
   async function filterPurchaseReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setLoading(true)
-
-    await onLoadPurchaseReport({ dateFrom, dateTo })
-    setLoading(false)
+    await run(() => onLoadPurchaseReport({ dateFrom, dateTo }))
   }
 
   async function clearPurchaseReportFilters() {
     setDateFrom('')
     setDateTo('')
-    setLoading(true)
-
-    await onLoadPurchaseReport()
-    setLoading(false)
+    await run(() => onLoadPurchaseReport())
   }
 
   return (
@@ -843,7 +1256,7 @@ function PurchaseReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto_auto] lg:w-auto'
             onSubmit={filterPurchaseReport}>
             <TextField
               label='De'
@@ -861,7 +1274,7 @@ function PurchaseReportSection({
               onChange={(event) => setDateTo(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            <Button disabled={loading} type='submit' variant='contained'>
+            <Button loading={loading} type='submit' variant='contained'>
               Filtrar compras
             </Button>
             <Button
@@ -872,30 +1285,39 @@ function PurchaseReportSection({
               Limpar
             </Button>
             <Button
+              startIcon={<SlidersHorizontal size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() => setColumnsDrawerOpen(true)}>
+              Campos ({selectedColumns.length})
+            </Button>
+            <Button
               startIcon={<Download size={16} />}
               type='button'
               variant='outlined'
-              onClick={() => exportPurchaseReportCsv(purchaseReport)}>
+              onClick={() =>
+                exportPurchaseReportCsv(purchaseReport, selectedColumns)
+              }>
               CSV
             </Button>
-            <Button
-              startIcon={<FileText size={16} />}
-              type='button'
-              variant='outlined'
-              onClick={() =>
-                void downloadReportPdf(
-                  '/reports/purchases/pdf',
-                  { dateFrom, dateTo },
-                  'relatorio-compras',
-                )
-              }>
-              PDF
-            </Button>
+            <ReportPdfButton
+              filename='relatorio-compras'
+              filters={{ columns: selectedColumns, dateFrom, dateTo }}
+              path='/reports/purchases/pdf'
+            />
           </form>
         }
         description='Gastos com entradas manuais e compras importadas por XML.'
         icon={<Truck size={18} />}
         title='Gastos com compras'
+      />
+      <ReportColumnsDrawer
+        columns={purchaseReportExportColumns}
+        defaultColumns={defaultPurchaseReportExportColumns}
+        open={columnsDrawerOpen}
+        selectedColumns={selectedColumns}
+        onChange={setSelectedColumns}
+        onClose={() => setColumnsDrawerOpen(false)}
       />
       <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
         <ReportMetric
@@ -925,7 +1347,7 @@ function PurchaseReportSection({
         />
       </div>
 
-      <div className='mt-5 grid gap-4 xl:grid-cols-3'>
+      <div className='mt-5 grid gap-4'>
         <ResponsiveTable
           columns={[
             {
@@ -947,6 +1369,7 @@ function PurchaseReportSection({
           emptyMessage='Nenhuma compra por origem.'
           getRowId={(item) => item.source}
           items={purchaseReport.bySource ?? []}
+          loading={loading}
         />
 
         <ResponsiveTable
@@ -969,6 +1392,7 @@ function PurchaseReportSection({
           emptyMessage='Nenhuma compra por fornecedor.'
           getRowId={(item) => item.supplierId}
           items={purchaseReport.bySupplier ?? []}
+          loading={loading}
         />
 
         <ResponsiveTable
@@ -991,6 +1415,7 @@ function PurchaseReportSection({
           emptyMessage='Nenhuma compra por produto.'
           getRowId={(item) => item.productId}
           items={purchaseReport.byProduct ?? []}
+          loading={loading}
         />
       </div>
     </PagePanel>
@@ -1006,23 +1431,21 @@ function CashReportSection({
 }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [columnsDrawerOpen, setColumnsDrawerOpen] = useState(false)
+  const [selectedColumns, setSelectedColumns] = useState<
+    CashReportExportColumnKey[]
+  >([...defaultCashReportExportColumns])
+  const { loading, run } = useReportAction()
 
   async function filterCashReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setLoading(true)
-
-    await onLoadCashReport({ dateFrom, dateTo })
-    setLoading(false)
+    await run(() => onLoadCashReport({ dateFrom, dateTo }))
   }
 
   async function clearCashReportFilters() {
     setDateFrom('')
     setDateTo('')
-    setLoading(true)
-
-    await onLoadCashReport()
-    setLoading(false)
+    await run(() => onLoadCashReport())
   }
 
   return (
@@ -1030,7 +1453,7 @@ function CashReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto_auto] lg:w-auto'
             onSubmit={filterCashReport}>
             <TextField
               label='De'
@@ -1048,7 +1471,7 @@ function CashReportSection({
               onChange={(event) => setDateTo(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            <Button disabled={loading} type='submit' variant='contained'>
+            <Button loading={loading} type='submit' variant='contained'>
               Filtrar caixa
             </Button>
             <Button
@@ -1059,30 +1482,37 @@ function CashReportSection({
               Limpar
             </Button>
             <Button
+              startIcon={<SlidersHorizontal size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() => setColumnsDrawerOpen(true)}>
+              Campos ({selectedColumns.length})
+            </Button>
+            <Button
               startIcon={<Download size={16} />}
               type='button'
               variant='outlined'
-              onClick={() => exportCashReportCsv(cashReport)}>
+              onClick={() => exportCashReportCsv(cashReport, selectedColumns)}>
               CSV
             </Button>
-            <Button
-              startIcon={<FileText size={16} />}
-              type='button'
-              variant='outlined'
-              onClick={() =>
-                void downloadReportPdf(
-                  '/reports/cash/pdf',
-                  { dateFrom, dateTo },
-                  'relatorio-caixa',
-                )
-              }>
-              PDF
-            </Button>
+            <ReportPdfButton
+              filename='relatorio-caixa'
+              filters={{ columns: selectedColumns, dateFrom, dateTo }}
+              path='/reports/cash/pdf'
+            />
           </form>
         }
         description='Conferencia de vendas, entradas, sangrias e fechamento por caixa aberto no periodo.'
         icon={<Banknote size={18} />}
         title='Relatorio financeiro de caixa'
+      />
+      <ReportColumnsDrawer
+        columns={cashReportExportColumns}
+        defaultColumns={defaultCashReportExportColumns}
+        open={columnsDrawerOpen}
+        selectedColumns={selectedColumns}
+        onChange={setSelectedColumns}
+        onClose={() => setColumnsDrawerOpen(false)}
       />
       <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>
         <ReportMetric
@@ -1117,7 +1547,7 @@ function CashReportSection({
         />
       </div>
 
-      <div className='mt-5 grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)]'>
+      <div className='mt-5 grid gap-4'>
         <ResponsiveTable
           columns={[
             {
@@ -1143,6 +1573,7 @@ function CashReportSection({
           emptyMessage='Nenhum pagamento registrado no periodo.'
           getRowId={(item) => item.paymentMethodId}
           items={cashReport.byPaymentMethod ?? []}
+          loading={loading}
         />
 
         <ResponsiveTable
@@ -1187,6 +1618,7 @@ function CashReportSection({
           emptyMessage='Nenhum caixa no periodo.'
           getRowId={(item) => item.id}
           items={cashReport.sessions ?? []}
+          loading={loading}
         />
       </div>
     </PagePanel>
@@ -1202,23 +1634,21 @@ function StockReportSection({
 }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [columnsDrawerOpen, setColumnsDrawerOpen] = useState(false)
+  const [selectedColumns, setSelectedColumns] = useState<
+    StockReportExportColumnKey[]
+  >([...defaultStockReportExportColumns])
+  const { loading, run } = useReportAction()
 
   async function filterStockReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setLoading(true)
-
-    await onLoadStockReport({ dateFrom, dateTo })
-    setLoading(false)
+    await run(() => onLoadStockReport({ dateFrom, dateTo }))
   }
 
   async function clearStockReportFilters() {
     setDateFrom('')
     setDateTo('')
-    setLoading(true)
-
-    await onLoadStockReport()
-    setLoading(false)
+    await run(() => onLoadStockReport())
   }
 
   return (
@@ -1226,7 +1656,7 @@ function StockReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto_auto] lg:w-auto'
             onSubmit={filterStockReport}>
             <TextField
               label='De'
@@ -1244,7 +1674,7 @@ function StockReportSection({
               onChange={(event) => setDateTo(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
-            <Button disabled={loading} type='submit' variant='contained'>
+            <Button loading={loading} type='submit' variant='contained'>
               Filtrar giro
             </Button>
             <Button
@@ -1255,30 +1685,37 @@ function StockReportSection({
               Limpar
             </Button>
             <Button
+              startIcon={<SlidersHorizontal size={16} />}
+              type='button'
+              variant='outlined'
+              onClick={() => setColumnsDrawerOpen(true)}>
+              Campos ({selectedColumns.length})
+            </Button>
+            <Button
               startIcon={<Download size={16} />}
               type='button'
               variant='outlined'
-              onClick={() => exportStockReportCsv(stockReport)}>
+              onClick={() => exportStockReportCsv(stockReport, selectedColumns)}>
               CSV
             </Button>
-            <Button
-              startIcon={<FileText size={16} />}
-              type='button'
-              variant='outlined'
-              onClick={() =>
-                void downloadReportPdf(
-                  '/reports/stock/pdf',
-                  { dateFrom, dateTo },
-                  'relatorio-estoque',
-                )
-              }>
-              PDF
-            </Button>
+            <ReportPdfButton
+              filename='relatorio-estoque'
+              filters={{ columns: selectedColumns, dateFrom, dateTo }}
+              path='/reports/stock/pdf'
+            />
           </form>
         }
         description='Estoque baixo, produtos sem movimentacao, giro e valores movimentados.'
         icon={<PackageSearch size={18} />}
         title='Relatorio de estoque'
+      />
+      <ReportColumnsDrawer
+        columns={stockReportExportColumns}
+        defaultColumns={defaultStockReportExportColumns}
+        open={columnsDrawerOpen}
+        selectedColumns={selectedColumns}
+        onChange={setSelectedColumns}
+        onClose={() => setColumnsDrawerOpen(false)}
       />
       <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
         <ReportMetric
@@ -1323,7 +1760,7 @@ function StockReportSection({
         />
       </div>
 
-      <div className='mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]'>
+      <div className='mt-5 grid gap-4'>
         <ResponsiveTable
           columns={[
             {
@@ -1360,6 +1797,7 @@ function StockReportSection({
           emptyMessage='Nenhum produto movimentado no periodo.'
           getRowId={(item) => item.productId}
           items={stockReport.movedProducts ?? []}
+          loading={loading}
         />
 
         <ResponsiveTable
@@ -1387,10 +1825,11 @@ function StockReportSection({
           emptyMessage='Nenhuma movimentacao no periodo.'
           getRowId={(item) => item.type}
           items={stockReport.byMovementType ?? []}
+          loading={loading}
         />
       </div>
 
-      <div className='mt-5 grid gap-4 xl:grid-cols-3'>
+      <div className='mt-5 grid gap-4'>
         <ResponsiveTable
           columns={[
             {
@@ -1418,6 +1857,7 @@ function StockReportSection({
           emptyMessage='Nenhum produto em estoque baixo.'
           getRowId={(item) => item.productId}
           items={stockReport.lowStockProducts ?? []}
+          loading={loading}
         />
 
         <ResponsiveTable
@@ -1447,6 +1887,7 @@ function StockReportSection({
           emptyMessage='Nenhum produto sem movimentacao.'
           getRowId={(item) => item.productId}
           items={stockReport.productsWithoutMovement ?? []}
+          loading={loading}
         />
 
         <ResponsiveTable
@@ -1476,6 +1917,7 @@ function StockReportSection({
           emptyMessage='Nenhum giro de vendas no periodo.'
           getRowId={(item) => item.productId}
           items={stockReport.turnoverProducts ?? []}
+          loading={loading}
         />
       </div>
     </PagePanel>
@@ -1499,17 +1941,15 @@ function InventoryReportSection({
   const [selectedColumns, setSelectedColumns] = useState<
     InventoryReportColumnKey[]
   >(defaultInventoryReportColumnKeys)
-  const [columnMenuAnchor, setColumnMenuAnchor] =
-    useState<HTMLElement | null>(null)
+  const [columnsDrawerOpen, setColumnsDrawerOpen] = useState(false)
   const [appliedFilters, setAppliedFilters] = useState<InventoryReportFilters>({
     active: true,
   })
-  const [loading, setLoading] = useState(false)
+  const { loading, run } = useReportAction()
   const locationOptions = inventoryLocationOptions(report)
 
   async function filterInventoryReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setLoading(true)
     const filters = inventoryReportFiltersFromControls({
       activeFilter,
       locations,
@@ -1517,13 +1957,12 @@ function InventoryReportSection({
       stockStatus,
     })
 
-    const loaded = await onLoadInventoryReport(filters)
+    const loaded = await run(() => onLoadInventoryReport(filters))
 
     if (loaded) {
       setAppliedFilters(filters)
     }
 
-    setLoading(false)
   }
 
   async function clearInventoryReportFilters() {
@@ -1531,23 +1970,12 @@ function InventoryReportSection({
     setStockStatus('ALL')
     setActiveFilter('ACTIVE')
     setLocations([])
-    setLoading(true)
-
-    const loaded = await onLoadInventoryReport({ active: true })
+    const loaded = await run(() => onLoadInventoryReport({ active: true }))
 
     if (loaded) {
       setAppliedFilters({ active: true })
     }
 
-    setLoading(false)
-  }
-
-  function toggleInventoryColumn(column: InventoryReportColumnKey) {
-    setSelectedColumns((currentColumns) =>
-      currentColumns.includes(column)
-        ? currentColumns.filter((currentColumn) => currentColumn !== column)
-        : [...currentColumns, column],
-    )
   }
 
   function toggleInventoryLocation(location: string) {
@@ -1558,17 +1986,14 @@ function InventoryReportSection({
     )
   }
 
-  const selectedExportColumns = selectedColumns.length
-    ? selectedColumns
-    : defaultInventoryReportColumnKeys
-  const columnMenuOpen = Boolean(columnMenuAnchor)
+  const selectedExportColumns = selectedColumns
 
   return (
     <PagePanel wide>
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 lg:w-auto xl:grid-cols-[minmax(220px,1fr)_170px_170px_auto_auto_auto_auto_auto]'
+            className='grid w-full gap-3 sm:grid-cols-2 lg:w-auto lg:grid-cols-[minmax(220px,1fr)_170px_170px_auto] 2xl:grid-cols-[minmax(220px,1fr)_170px_170px_auto_auto_auto_auto_auto]'
             onSubmit={filterInventoryReport}>
             <TextField
               label='Buscar'
@@ -1607,7 +2032,7 @@ function InventoryReportSection({
               <MenuItem value='ALL'>Todos</MenuItem>
               <MenuItem value='INACTIVE'>Inativos</MenuItem>
             </TextField>
-            <Button disabled={loading} type='submit' variant='contained'>
+            <Button loading={loading} type='submit' variant='contained'>
               Filtrar
             </Button>
             <Button
@@ -1627,35 +2052,9 @@ function InventoryReportSection({
               startIcon={<SlidersHorizontal size={16} />}
               type='button'
               variant='outlined'
-              onClick={(event) => setColumnMenuAnchor(event.currentTarget)}>
-              Colunas ({selectedExportColumns.length})
+              onClick={() => setColumnsDrawerOpen(true)}>
+              Campos ({selectedExportColumns.length})
             </Button>
-            <Menu
-              anchorEl={columnMenuAnchor}
-              open={columnMenuOpen}
-              onClose={() => setColumnMenuAnchor(null)}
-              slotProps={{ paper: { className: 'min-w-64' } }}>
-              <div className='px-4 py-2'>
-                <strong className='text-sm text-[#2c281e]'>
-                  Dados do arquivo
-                </strong>
-                <span className='block text-xs text-[#5f665f]'>
-                  PDF e CSV usam esta seleção.
-                </span>
-              </div>
-              {inventoryReportColumns.map((column) => (
-                <MenuItem
-                  key={column.key}
-                  dense
-                  onClick={() => toggleInventoryColumn(column.key)}>
-                  <Checkbox
-                    checked={selectedColumns.includes(column.key)}
-                    size='small'
-                  />
-                  {column.label}
-                </MenuItem>
-              ))}
-            </Menu>
             <Button
               startIcon={<Download size={16} />}
               type='button'
@@ -1668,28 +2067,28 @@ function InventoryReportSection({
               }>
               CSV
             </Button>
-            <Button
-              startIcon={<FileText size={16} />}
-              type='button'
-              variant='outlined'
-              onClick={() =>
-                void downloadReportPdf(
-                  '/reports/inventory/pdf',
-                  {
-                    ...appliedFilters,
-                    columns: selectedExportColumns,
-                    limit: 0,
-                  },
-                  'relatorio-inventario',
-                )
-              }>
-              PDF
-            </Button>
+            <ReportPdfButton
+              filename='relatorio-inventario'
+              filters={{
+                ...appliedFilters,
+                columns: selectedExportColumns,
+                limit: 0,
+              }}
+              path='/reports/inventory/pdf'
+            />
           </form>
         }
         description='Snapshot de saldo fisico, reservado, disponivel e valores de estoque.'
         icon={<PackageSearch size={18} />}
         title='Inventario'
+      />
+      <ReportColumnsDrawer
+        columns={inventoryReportColumns}
+        defaultColumns={defaultInventoryReportColumnKeys}
+        open={columnsDrawerOpen}
+        selectedColumns={selectedColumns}
+        onChange={setSelectedColumns}
+        onClose={() => setColumnsDrawerOpen(false)}
       />
       <div className='grid gap-2 rounded-lg border border-[#e4e9e5] bg-[#fbfcfb] p-4'>
           <strong className='text-sm text-[#2c281e]'>
@@ -1812,6 +2211,7 @@ function InventoryReportSection({
           emptyMessage='Nenhum produto encontrado no inventario.'
           getRowId={(item) => item.productId}
           items={report.items}
+          loading={loading}
         />
       </div>
     </PagePanel>
@@ -1821,6 +2221,10 @@ function InventoryReportSection({
 type SalesReportFilters = {
   dateFrom?: string
   dateTo?: string
+}
+
+type ReportDownloadFilters = SalesReportFilters & {
+  columns?: readonly string[]
 }
 
 type InventoryReportFilters = {
@@ -2006,7 +2410,7 @@ function stockMovementTypeLabel(type: StockReport['byMovementType'][number]['typ
 
 function downloadReportPdf(
   path: string,
-  filters: SalesReportFilters | InventoryReportFilters,
+  filters: ReportDownloadFilters | InventoryReportFilters,
   filename: string,
 ) {
   return downloadApiFile(
@@ -2017,7 +2421,7 @@ function downloadReportPdf(
 
 function reportDownloadPath(
   path: string,
-  filters: SalesReportFilters | InventoryReportFilters,
+  filters: ReportDownloadFilters | InventoryReportFilters,
 ) {
   const query = new URLSearchParams()
 
@@ -2041,8 +2445,11 @@ function reportDownloadPath(
   return query.size > 0 ? `${path}?${query.toString()}` : path
 }
 
-function exportSalesReportCsv(report: SalesReport) {
-  downloadCsv('relatorio-vendas', [
+function exportSalesReportCsv(
+  report: SalesReport,
+  selectedColumns: SalesReportExportColumnKey[],
+) {
+  downloadCsv('relatorio-vendas', filterReportCsvRows([
     ['Secao', 'Indicador', 'Valor'],
     ['Resumo', 'Vendas', report.summary.salesCount],
     ['Resumo', 'Itens vendidos', report.summary.itemsQuantity],
@@ -2107,11 +2514,14 @@ function exportSalesReportCsv(report: SalesReport) {
       `${item.cumulativeRevenuePercentage}%`,
       item.abcClass,
     ]),
-  ])
+  ], salesReportExportColumns, selectedColumns))
 }
 
-function exportUserPerformanceReportCsv(report: UserPerformanceReport) {
-  downloadCsv('relatorio-usuarios', [
+function exportUserPerformanceReportCsv(
+  report: UserPerformanceReport,
+  selectedColumns: UserReportExportColumnKey[],
+) {
+  downloadCsv('relatorio-usuarios', filterReportCsvRows([
     ['Secao', 'Indicador', 'Valor'],
     ['Resumo', 'Usuarios', report.summary.usersCount],
     ['Resumo', 'Vendas concluidas', report.summary.salesCount],
@@ -2171,7 +2581,7 @@ function exportUserPerformanceReportCsv(report: UserPerformanceReport) {
       item.refundAmount,
       item.netAmount,
     ]),
-  ])
+  ], userReportExportColumns, selectedColumns))
 }
 
 async function exportInventoryReportCsv(
@@ -2197,8 +2607,11 @@ async function exportInventoryReportCsv(
   ])
 }
 
-function exportPurchaseReportCsv(report: PurchaseReport) {
-  downloadCsv('relatorio-compras', [
+function exportPurchaseReportCsv(
+  report: PurchaseReport,
+  selectedColumns: PurchaseReportExportColumnKey[],
+) {
+  downloadCsv('relatorio-compras', filterReportCsvRows([
     ['Secao', 'Indicador', 'Valor'],
     ['Resumo', 'Entradas', report.summary.entriesCount],
     ['Resumo', 'Quantidade comprada', report.summary.totalQuantity],
@@ -2230,11 +2643,14 @@ function exportPurchaseReportCsv(report: PurchaseReport) {
       item.quantity,
       item.totalAmount,
     ]),
-  ])
+  ], purchaseReportExportColumns, selectedColumns))
 }
 
-function exportCashReportCsv(report: CashReport) {
-  downloadCsv('relatorio-caixa', [
+function exportCashReportCsv(
+  report: CashReport,
+  selectedColumns: CashReportExportColumnKey[],
+) {
+  downloadCsv('relatorio-caixa', filterReportCsvRows([
     ['Secao', 'Indicador', 'Valor'],
     ['Resumo', 'Caixas', report.summary.sessionsCount],
     ['Resumo', 'Caixas abertos', report.summary.openSessionsCount],
@@ -2294,11 +2710,14 @@ function exportCashReportCsv(report: CashReport) {
       item.closingBalance ?? '',
       item.difference ?? '',
     ]),
-  ])
+  ], cashReportExportColumns, selectedColumns))
 }
 
-function exportStockReportCsv(report: StockReport) {
-  downloadCsv('relatorio-estoque', [
+function exportStockReportCsv(
+  report: StockReport,
+  selectedColumns: StockReportExportColumnKey[],
+) {
+  downloadCsv('relatorio-estoque', filterReportCsvRows([
     ['Secao', 'Indicador', 'Valor'],
     ['Resumo', 'Produtos ativos', report.summary.activeProductsCount],
     ['Resumo', 'Estoque baixo', report.summary.lowStockProductsCount],
@@ -2400,7 +2819,7 @@ function exportStockReportCsv(report: StockReport) {
       item.soldQuantity,
       item.lastSaleAt ? formatDateTime(item.lastSaleAt) : '',
     ]),
-  ])
+  ], stockReportExportColumns, selectedColumns))
 }
 
 function downloadCsv(filename: string, rows: CsvRow[]) {
@@ -2420,6 +2839,59 @@ function downloadCsv(filename: string, rows: CsvRow[]) {
 }
 
 type CsvRow = Array<string | number | null | undefined>
+
+function filterReportCsvRows<Key extends string>(
+  rows: CsvRow[],
+  columns: ReadonlyArray<ReportExportColumnOption<Key>>,
+  selectedColumns: Key[],
+) {
+  const firstSectionIndex = rows.findIndex((row) => row.length === 0)
+
+  if (firstSectionIndex < 0) {
+    return rows
+  }
+
+  const selectedHeaders = new Set(
+    columns
+      .filter((column) => selectedColumns.includes(column.key))
+      .flatMap((column) => column.csvHeaders ?? []),
+  )
+  const filteredRows = rows.slice(0, firstSectionIndex)
+  let sectionStart = firstSectionIndex + 1
+
+  while (sectionStart < rows.length) {
+    const nextSeparatorIndex = rows.findIndex(
+      (row, index) => index >= sectionStart && row.length === 0,
+    )
+    const sectionEnd = nextSeparatorIndex < 0 ? rows.length : nextSeparatorIndex
+    const sectionRows = rows.slice(sectionStart, sectionEnd)
+
+    if (sectionRows.length > 0) {
+      const header = sectionRows[0]
+      const selectedIndexes = header
+        .map((value, index) => ({ index, value: String(value ?? '') }))
+        .filter(({ index, value }) => index === 0 || selectedHeaders.has(value))
+        .map(({ index }) => index)
+
+      if (selectedIndexes.length > 1) {
+        filteredRows.push(
+          [],
+          ...sectionRows.map((row) =>
+            selectedIndexes.map((index) => row[index]),
+          ),
+        )
+      }
+    }
+
+    if (nextSeparatorIndex < 0) {
+      break
+    }
+
+    sectionStart = nextSeparatorIndex + 1
+  }
+
+  return filteredRows
+}
 
 function csvLine(row: CsvRow) {
   return row.map(csvCell).join(';')

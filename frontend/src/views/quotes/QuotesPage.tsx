@@ -7,7 +7,7 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import TextField from '@mui/material/TextField'
 import { CreditCard, List as ListIcon, Pencil, Plus } from 'lucide-react'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   Client,
   CommercialSettings,
@@ -156,13 +156,20 @@ export function QuotesPage({
   onDiscardQuoteFormDraft: (draft: QuoteFormDraft) => Promise<boolean>
   onEditQuote: (quote: Quote) => void
   onReuseQuote: (quote: Quote) => void
-  onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void
-  onCreateShippingOrder: (quote: Quote) => void
+  onCancelQuote: (
+    event: FormEvent<HTMLFormElement>,
+    quote: Quote,
+  ) => Promise<unknown> | unknown
+  onCreateShippingOrder: (quote: Quote) => Promise<unknown> | unknown
 }) {
   const [clientId, setClientId] = useState('')
   const [sourceDraft, setSourceDraft] = useState<QuoteFormDraft | null>(null)
   const [pendingSavedDraftSignature, setPendingSavedDraftSignature] =
     useState<string | null>(null)
+  const [pendingFormAction, setPendingFormAction] = useState<
+    'delete-draft' | 'save-draft' | 'submit'
+  >()
+  const pendingFormActionRef = useRef(false)
   const [payments, setPayments] = useState<QuotePaymentDraft[]>([
     emptyQuotePayment(),
   ])
@@ -232,7 +239,7 @@ export function QuotesPage({
     (paymentMethod) => paymentMethod.code === 'BOLETO',
   )
   const quoteSubtotal = items.reduce((sum, item) => {
-    return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0)
+    return sum + quoteItemSubtotal(item)
   }, 0)
   const itemDiscountTotal = items.reduce(
     (sum, item) => sum + quoteItemDiscountAmount(item),
@@ -493,34 +500,57 @@ export function QuotesPage({
   }
 
   async function saveQuoteFormDraft() {
+    if (pendingFormActionRef.current) {
+      return
+    }
+
+    pendingFormActionRef.current = true
+    setPendingFormAction('save-draft')
     const payload = currentQuoteFormDraftPayload()
-    const saved = await onSaveQuoteFormDraft(payload, sourceDraft ?? undefined)
 
-    if (!saved) {
-      return
+    try {
+      const saved = await onSaveQuoteFormDraft(
+        payload,
+        sourceDraft ?? undefined,
+      )
+
+      if (!saved) {
+        return
+      }
+
+      if (!sourceDraft) {
+        setPendingSavedDraftSignature(quoteFormDraftPayloadSignature(payload))
+        return
+      }
+
+      setSourceDraft({
+        ...sourceDraft,
+        payload,
+        updatedAt: new Date().toISOString(),
+      })
+    } finally {
+      pendingFormActionRef.current = false
+      setPendingFormAction(undefined)
     }
-
-    if (!sourceDraft) {
-      setPendingSavedDraftSignature(quoteFormDraftPayloadSignature(payload))
-      return
-    }
-
-    setSourceDraft({
-      ...sourceDraft,
-      payload,
-      updatedAt: new Date().toISOString(),
-    })
   }
 
   async function deleteLoadedQuoteFormDraft() {
-    if (!sourceDraft) {
+    if (!sourceDraft || pendingFormActionRef.current) {
       return
     }
 
-    const deleted = await onDeleteQuoteFormDraft(sourceDraft)
+    pendingFormActionRef.current = true
+    setPendingFormAction('delete-draft')
 
-    if (deleted) {
-      setSourceDraft(null)
+    try {
+      const deleted = await onDeleteQuoteFormDraft(sourceDraft)
+
+      if (deleted) {
+        setSourceDraft(null)
+      }
+    } finally {
+      pendingFormActionRef.current = false
+      setPendingFormAction(undefined)
     }
   }
 
@@ -539,6 +569,13 @@ export function QuotesPage({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if (pendingFormActionRef.current) {
+      return
+    }
+
+    pendingFormActionRef.current = true
+    setPendingFormAction('submit')
 
     const input = {
       clientId,
@@ -567,14 +604,19 @@ export function QuotesPage({
         discountPercentage: quoteItemDiscountPercentage(item),
       })),
     }
-    const saved = await onSubmit(input)
+    try {
+      const saved = await onSubmit(input)
 
-    if (saved) {
-      if (sourceDraft) {
-        await onDiscardQuoteFormDraft(sourceDraft)
+      if (saved) {
+        if (sourceDraft) {
+          await onDiscardQuoteFormDraft(sourceDraft)
+        }
+
+        resetQuoteForm()
       }
-
-      resetQuoteForm()
+    } finally {
+      pendingFormActionRef.current = false
+      setPendingFormAction(undefined)
     }
   }
 
@@ -609,14 +651,26 @@ export function QuotesPage({
               />
             )}
           />
-          <SecondaryButton type='button' onClick={saveQuoteFormDraft}>
-            {sourceDraft ? 'Atualizar rascunho' : 'Salvar rascunho'}
+          <SecondaryButton
+            disabled={Boolean(pendingFormAction)}
+            loading={pendingFormAction === 'save-draft'}
+            type='button'
+            onClick={() => void saveQuoteFormDraft()}>
+            {pendingFormAction === 'save-draft'
+              ? 'Salvando rascunho…'
+              : sourceDraft
+                ? 'Atualizar rascunho'
+                : 'Salvar rascunho'}
           </SecondaryButton>
           {sourceDraft ? (
             <SecondaryButton
+              disabled={Boolean(pendingFormAction)}
+              loading={pendingFormAction === 'delete-draft'}
               type='button'
               onClick={() => void deleteLoadedQuoteFormDraft()}>
-              Excluir rascunho
+              {pendingFormAction === 'delete-draft'
+                ? 'Excluindo rascunho…'
+                : 'Excluir rascunho'}
             </SecondaryButton>
           ) : null}
         </div>
@@ -824,7 +878,7 @@ export function QuotesPage({
                 }
                 slotProps={{ htmlInput: { maxLength: 500 } }}
               />
-              <FormRow>
+              <FormRow columns={3}>
                 <TextField
                   label='Quantidade'
                   value={item.quantity}
@@ -846,6 +900,14 @@ export function QuotesPage({
                   }
                   slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
                   required
+                />
+                <TextField
+                  helperText={`Subtotal ${formatCurrency(
+                    quoteItemSubtotal(item),
+                  )} · desconto ${formatCurrency(quoteItemDiscountAmount(item))}`}
+                  label='Valor total do item'
+                  value={formatCurrency(quoteItemTotalAmount(item))}
+                  slotProps={{ htmlInput: { readOnly: true } }}
                 />
               </FormRow>
               <TextField
@@ -889,7 +951,7 @@ export function QuotesPage({
                     index,
                     quoteItemDiscountModeInput(
                       value,
-                      Number(item.quantity || 0) * Number(item.unitPrice || 0),
+                      quoteItemSubtotal(item),
                       quoteItemDiscountAmount(item),
                     ),
                   )
@@ -913,10 +975,13 @@ export function QuotesPage({
             Adicionar item
           </SecondaryButton>
           <PrimaryButton
-            disabled={hasQuoteBlockingIssues}
+            disabled={hasQuoteBlockingIssues || Boolean(pendingFormAction)}
             icon={<Plus size={17} />}
+            loading={pendingFormAction === 'submit'}
             type='submit'>
-            Salvar orçamento
+            {pendingFormAction === 'submit'
+              ? 'Salvando orçamento…'
+              : 'Salvar orçamento'}
           </PrimaryButton>
         </ActionGroup>
       </FormGrid>
@@ -932,7 +997,7 @@ export function QuotesPage({
         <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_220px_200px]'>
           <TextField
             label='Buscar orçamento'
-            placeholder='Cliente, nº, produto, vendedor...'
+            placeholder='Cliente, nº, produto, vendedor…'
             size='small'
             value={quoteSearch}
             onChange={(event) => setQuoteSearch(event.target.value)}
@@ -1090,6 +1155,8 @@ export function QuoteEditPage({
   onCancel: () => void
   onSubmit: (quote: Quote, input: QuoteDraftInput) => Promise<boolean>
 }) {
+  const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const [clientId, setClientId] = useState(quote.clientId)
   const [payments, setPayments] = useState<QuotePaymentDraft[]>(
     quotePaymentDrafts(quote),
@@ -1167,7 +1234,7 @@ export function QuoteEditPage({
     (paymentMethod) => paymentMethod.code === 'BOLETO',
   )
   const quoteSubtotal = items.reduce((sum, item) => {
-    return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0)
+    return sum + quoteItemSubtotal(item)
   }, 0)
   const itemDiscountTotal = items.reduce(
     (sum, item) => sum + quoteItemDiscountAmount(item),
@@ -1344,36 +1411,48 @@ export function QuoteEditPage({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const saved = await onSubmit(quote, {
-      clientId,
-      paymentMethodId: primaryPaymentMethodId,
-      payments: quotePaymentPayloads(payments, quoteTotal),
-      billingIssueDate: billingIssueDate || null,
-      billingDueDate: billingDueDate || null,
-      validUntil: validUntil || null,
-      notes: notes.trim() || null,
-      showBrand,
-      ...quoteGeneralDiscountInput(
-        discountMode,
-        discountPercentage,
-        discountAmount,
-      ),
-      paymentInstallments: paymentInstallments.map((installment) => ({
-        amount: Number(installment.amount),
-        dueDate: installment.dueDate,
-        position: installment.position,
-      })),
-      items: items.map((item) => ({
-        productId: item.productId,
-        description: item.description.trim() || null,
-        quantity: Number(item.quantity),
-        unitPrice: item.unitPrice === '' ? null : Number(item.unitPrice),
-        discountPercentage: quoteItemDiscountPercentage(item),
-      })),
-    })
+    if (submittingRef.current) {
+      return
+    }
 
-    if (saved) {
-      onCancel()
+    submittingRef.current = true
+    setSubmitting(true)
+
+    try {
+      const saved = await onSubmit(quote, {
+        clientId,
+        paymentMethodId: primaryPaymentMethodId,
+        payments: quotePaymentPayloads(payments, quoteTotal),
+        billingIssueDate: billingIssueDate || null,
+        billingDueDate: billingDueDate || null,
+        validUntil: validUntil || null,
+        notes: notes.trim() || null,
+        showBrand,
+        ...quoteGeneralDiscountInput(
+          discountMode,
+          discountPercentage,
+          discountAmount,
+        ),
+        paymentInstallments: paymentInstallments.map((installment) => ({
+          amount: Number(installment.amount),
+          dueDate: installment.dueDate,
+          position: installment.position,
+        })),
+        items: items.map((item) => ({
+          productId: item.productId,
+          description: item.description.trim() || null,
+          quantity: Number(item.quantity),
+          unitPrice: item.unitPrice === '' ? null : Number(item.unitPrice),
+          discountPercentage: quoteItemDiscountPercentage(item),
+        })),
+      })
+
+      if (saved) {
+        onCancel()
+      }
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
     }
   }
 
@@ -1590,7 +1669,7 @@ export function QuoteEditPage({
               }
               slotProps={{ htmlInput: { maxLength: 500 } }}
             />
-            <FormRow>
+            <FormRow columns={3}>
               <TextField
                 label='Quantidade'
                 value={item.quantity}
@@ -1612,6 +1691,14 @@ export function QuoteEditPage({
                 }
                 slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
                 required
+              />
+              <TextField
+                helperText={`Subtotal ${formatCurrency(
+                  quoteItemSubtotal(item),
+                )} · desconto ${formatCurrency(quoteItemDiscountAmount(item))}`}
+                label='Valor total do item'
+                value={formatCurrency(quoteItemTotalAmount(item))}
+                slotProps={{ htmlInput: { readOnly: true } }}
               />
             </FormRow>
             <TextField
@@ -1655,7 +1742,7 @@ export function QuoteEditPage({
                   index,
                   quoteItemDiscountModeInput(
                     value,
-                    Number(item.quantity || 0) * Number(item.unitPrice || 0),
+                    quoteItemSubtotal(item),
                     quoteItemDiscountAmount(item),
                   ),
                 )
@@ -1668,7 +1755,7 @@ export function QuoteEditPage({
       </div>
       <ActionGroup className='pt-1'>
         {quoteFormIssues[0] ? <InlineNote>{quoteFormIssues[0]}</InlineNote> : null}
-        <SecondaryButton type='button' onClick={onCancel}>
+        <SecondaryButton disabled={submitting} type='button' onClick={onCancel}>
           Cancelar
         </SecondaryButton>
         <SecondaryButton
@@ -1679,10 +1766,11 @@ export function QuoteEditPage({
           Adicionar item
         </SecondaryButton>
         <PrimaryButton
-          disabled={hasQuoteBlockingIssues}
+          disabled={hasQuoteBlockingIssues || submitting}
           icon={<Plus size={17} />}
+          loading={submitting}
           type='submit'>
-          Salvar alterações
+          {submitting ? 'Salvando alterações…' : 'Salvar alterações'}
         </PrimaryButton>
       </ActionGroup>
     </FormGrid>
@@ -1798,15 +1886,56 @@ function QuoteActions({
   quote: Quote
   onEditQuote: (quote: Quote) => void
   onReuseQuote: (quote: Quote) => void
-  onCancelQuote: (event: FormEvent<HTMLFormElement>, quote: Quote) => void
-  onCreateShippingOrder: (quote: Quote) => void
+  onCancelQuote: (
+    event: FormEvent<HTMLFormElement>,
+    quote: Quote,
+  ) => Promise<unknown> | unknown
+  onCreateShippingOrder: (quote: Quote) => Promise<unknown> | unknown
 }) {
   const [showCancellationForm, setShowCancellationForm] = useState(false)
+  const [pendingAction, setPendingAction] = useState<'cancel' | 'create-sale'>()
+  const pendingActionRef = useRef(false)
+
+  async function createShippingOrder() {
+    if (pendingActionRef.current) {
+      return
+    }
+
+    pendingActionRef.current = true
+    setPendingAction('create-sale')
+
+    try {
+      await onCreateShippingOrder(quote)
+    } finally {
+      pendingActionRef.current = false
+      setPendingAction(undefined)
+    }
+  }
+
+  async function cancelQuote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (pendingActionRef.current) {
+      return
+    }
+
+    pendingActionRef.current = true
+    setPendingAction('cancel')
+
+    try {
+      await onCancelQuote(event, quote)
+    } finally {
+      pendingActionRef.current = false
+      setPendingAction(undefined)
+    }
+  }
+
   const actions = quoteActions({
     onCancelQuote: () => setShowCancellationForm(true),
-    onCreateShippingOrder: () => onCreateShippingOrder(quote),
+    onCreateShippingOrder: () => void createShippingOrder(),
     onEditQuote: () => onEditQuote(quote),
     onReuseQuote: () => onReuseQuote(quote),
+    pendingAction,
     quote,
   })
 
@@ -1837,10 +1966,13 @@ function QuoteActions({
       <div className='inline-flex justify-end'>
         <TableActionsMenu actions={actions} />
       </div>
+      {pendingAction === 'create-sale' ? (
+        <InlineNote>Criando venda a partir do orçamento…</InlineNote>
+      ) : null}
       {showCancellationForm ? (
         <form
           className='grid w-full max-w-72 gap-2'
-          onSubmit={(event) => onCancelQuote(event, quote)}>
+          onSubmit={cancelQuote}>
           <TextField
             label='Motivo do cancelamento'
             name='quoteCancellationReason'
@@ -1849,8 +1981,11 @@ function QuoteActions({
             required
           />
           <div className='flex flex-wrap gap-2'>
-            <TableActionButton type='submit'>Cancelar</TableActionButton>
+            <TableActionButton loading={pendingAction === 'cancel'} type='submit'>
+              {pendingAction === 'cancel' ? 'Cancelando…' : 'Cancelar'}
+            </TableActionButton>
             <TableActionButton
+              disabled={Boolean(pendingAction)}
               type='button'
               onClick={() => setShowCancellationForm(false)}>
               Fechar
@@ -1867,12 +2002,14 @@ function quoteActions({
   onCreateShippingOrder,
   onEditQuote,
   onReuseQuote,
+  pendingAction,
   quote,
 }: {
   onCancelQuote: () => void
   onCreateShippingOrder: () => void
   onEditQuote: () => void
   onReuseQuote: () => void
+  pendingAction?: 'cancel' | 'create-sale'
   quote: Quote
 }) {
   const actions: TableActionsMenuAction[] = [
@@ -1881,6 +2018,7 @@ function quoteActions({
       onSelect: () => void downloadQuotePdf(quote),
     },
     {
+      disabled: Boolean(pendingAction),
       label: 'Reutilizar orçamento',
       onSelect: onReuseQuote,
     },
@@ -1889,14 +2027,22 @@ function quoteActions({
   quote.status === 'DRAFT' &&
     actions.push(
       {
+        disabled: Boolean(pendingAction),
         label: 'Editar',
         onSelect: onEditQuote,
       },
       {
-        label: quote.shippingOrderId ? 'Criar nova venda' : 'Criar venda',
+        disabled: Boolean(pendingAction),
+        label:
+          pendingAction === 'create-sale'
+            ? 'Criando venda…'
+            : quote.shippingOrderId
+              ? 'Criar nova venda'
+              : 'Criar venda',
         onSelect: onCreateShippingOrder,
       },
       {
+        disabled: Boolean(pendingAction),
         label: 'Cancelar orçamento',
         onSelect: onCancelQuote,
       },
@@ -2473,8 +2619,12 @@ function installmentDueDate(firstDueDate: string, index: number) {
   return date.toLocaleDateString('en-CA')
 }
 
+function quoteItemSubtotal(item: QuoteDraftItem) {
+  return Number(item.quantity || 0) * Number(item.unitPrice || 0)
+}
+
 function quoteItemDiscountAmount(item: QuoteDraftItem) {
-  const baseAmount = Number(item.quantity || 0) * Number(item.unitPrice || 0)
+  const baseAmount = quoteItemSubtotal(item)
 
   if (item.discountMode === 'AMOUNT') {
     return moneyInputValue(item.discountAmount)
@@ -2486,14 +2636,18 @@ function quoteItemDiscountAmount(item: QuoteDraftItem) {
   )
 }
 
+function quoteItemTotalAmount(item: QuoteDraftItem) {
+  return Math.max(quoteItemSubtotal(item) - quoteItemDiscountAmount(item), 0)
+}
+
 function quoteItemDiscountExceedsSubtotal(item: QuoteDraftItem) {
-  const baseAmount = Number(item.quantity || 0) * Number(item.unitPrice || 0)
+  const baseAmount = quoteItemSubtotal(item)
 
   return quoteItemDiscountAmount(item) > baseAmount
 }
 
 function quoteItemDiscountPercentage(item: QuoteDraftItem) {
-  const baseAmount = Number(item.quantity || 0) * Number(item.unitPrice || 0)
+  const baseAmount = quoteItemSubtotal(item)
 
   if (item.discountMode === 'PERCENTAGE') {
     return Number(item.discountPercentage || 0)

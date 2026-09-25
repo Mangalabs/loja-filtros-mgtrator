@@ -40,6 +40,7 @@ export function ProductSearchField({
     defaultValue ?? "",
   );
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const [remoteProducts, setRemoteProducts] = useState<Product[]>([]);
   const [inputValue, setInputValue] = useState("");
   const productOptions = useMemo(
@@ -59,6 +60,7 @@ export function ProductSearchField({
 
     if (term.length < 2) {
       setLoading(false);
+      setSearchError(false);
       setRemoteProducts((currentProducts) =>
         selectedProductId
           ? currentProducts.filter((product) => product.id === selectedProductId)
@@ -69,13 +71,20 @@ export function ProductSearchField({
 
     if (selectedProductLabel && term === selectedProductLabel) {
       setLoading(false);
+      setSearchError(false);
       return;
     }
 
+    let active = true;
     const timeout = window.setTimeout(() => {
       setLoading(true);
+      setSearchError(false);
       void searchProducts(term)
-        .then((products) =>
+        .then((products) => {
+          if (!active) {
+            return;
+          }
+
           setRemoteProducts((currentProducts) =>
             uniqueProducts([
               ...currentProducts.filter(
@@ -83,13 +92,24 @@ export function ProductSearchField({
               ),
               ...products,
             ]),
-          ),
-        )
-        .catch(() => undefined)
-        .finally(() => setLoading(false));
+          );
+        })
+        .catch(() => {
+          if (active) {
+            setSearchError(true);
+          }
+        })
+        .finally(() => {
+          if (active) {
+            setLoading(false);
+          }
+        });
     }, 250);
 
-    return () => window.clearTimeout(timeout);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
   }, [inputValue, selectedProductId, selectedProductLabel]);
 
   useEffect(() => {
@@ -97,9 +117,24 @@ export function ProductSearchField({
       return;
     }
 
-    void fetchSelectedProduct(selectedProductId, setRemoteProducts).catch(
-      () => undefined,
-    );
+    let active = true;
+
+    void fetchSelectedProduct(selectedProductId)
+      .then((product) => {
+        if (active) {
+          setRemoteProducts([product]);
+          setSearchError(false);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSearchError(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, [selectedProduct, selectedProductId]);
 
   function selectProduct(product: Product | null) {
@@ -122,7 +157,7 @@ export function ProductSearchField({
         getOptionLabel={productSearchLabel}
         isOptionEqualToValue={(option, value) => option.id === value.id}
         loading={loading}
-        loadingText="Buscando produtos..."
+        loadingText="Buscando produtos…"
         noOptionsText={noOptionsText(inputValue)}
         options={sortedProducts}
         value={selectedProduct}
@@ -154,7 +189,12 @@ export function ProductSearchField({
         renderInput={(params) => (
           <TextField
             {...params}
-            helperText={helperText}
+            error={searchError}
+            helperText={
+              searchError
+                ? "Não foi possível buscar produtos. Tente novamente."
+                : helperText
+            }
             label={label}
             required={required}
             size={size}
@@ -208,13 +248,10 @@ async function searchProducts(
   return result.data;
 }
 
-async function fetchSelectedProduct(
-  productId: string,
-  setRemoteProducts: (products: Product[]) => void,
-) {
+async function fetchSelectedProduct(productId: string) {
   const result = await apiGet<ApiResult<Product>>(`/products/${productId}`);
 
-  setRemoteProducts([result.data]);
+  return result.data;
 }
 
 function filterProducts(products: Product[], inputValue: string) {
