@@ -573,6 +573,7 @@ type StockReport = {
     internalCode: string | null;
     productName: string;
     location: string | null;
+    currentStock: string;
     movementsCount: number;
     entryQuantity: string;
     entryAmount: string;
@@ -6689,6 +6690,7 @@ describe("catalog routes", () => {
     assert.equal(movedSoldProduct?.exitCostAmount, "60.00");
     assert.equal(movedSoldProduct?.location, "B-02");
     assert.equal(movedSoldProduct?.internalCode, "STK-SOLD");
+    assert.equal(movedSoldProduct?.currentStock, "2.000");
     assert.deepEqual(
       report.body.data?.byMovementType.map((item) => ({
         type: item.type,

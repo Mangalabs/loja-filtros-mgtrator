@@ -228,6 +228,7 @@ export type StockReport = {
     internalCode: string | null;
     productName: string;
     location: string | null;
+    currentStock: string;
     movementsCount: number;
     entryQuantity: string;
     entryAmount: string;
@@ -517,6 +518,7 @@ type StockMovedProductRow = {
   internalCode: string | null;
   productName: string;
   location: string | null;
+  currentStock: string;
   movementsCount: string;
   entryQuantity: string;
   entryAmount: string;
@@ -907,6 +909,7 @@ export async function getStockReport(
         "products.internal_code as internalCode",
         "products.name as productName",
         "products.location",
+        "products.current_stock as currentStock",
         db.raw("count(stock_movements.id)::text as ??", ["movementsCount"]),
         ...stockMovementProductSelect(),
         db.raw("max(stock_movements.created_at) as ??", ["lastMovementAt"]),
@@ -916,6 +919,7 @@ export async function getStockReport(
         "products.internal_code",
         "products.name",
         "products.location",
+        "products.current_stock",
       )
       .orderByRaw("max(stock_movements.created_at) desc")
       .limit(50),
