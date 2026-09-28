@@ -53,6 +53,7 @@ export function AuthenticatedApp({
     readInitialBranchId(user),
   );
   const [selectedProduct, setSelectedProduct] = useState<Product>();
+  const [stockMovementProduct, setStockMovementProduct] = useState<Product>();
   const [selectedClient, setSelectedClient] = useState<Client>();
   const [selectedManualFiscalDocument, setSelectedManualFiscalDocument] =
     useState<FiscalDocument>();
@@ -175,6 +176,10 @@ export function AuthenticatedApp({
 
       if (nextView === "new-quote") {
         setReusedQuote(undefined);
+      }
+
+      if (nextView === "stock-movements") {
+        setStockMovementProduct(undefined);
       }
 
       setView(nextView);
@@ -440,6 +445,7 @@ export function AuthenticatedApp({
             selectedManualFiscalDocumentDraft={selectedManualFiscalDocumentDraft}
             selectedFiscalSale={selectedFiscalSale}
             selectedProduct={selectedProduct}
+            stockMovementProduct={stockMovementProduct}
             selectedQuote={selectedQuote}
             reusedQuote={reusedQuote}
             selectedSale={selectedSale}
@@ -475,6 +481,10 @@ export function AuthenticatedApp({
             onResolveFiscalPendency={resolveFiscalPendency}
             onProductPageChange={setProductPage}
             onProductFiltersChange={setProductFilters}
+            onOpenProductMovements={(product) => {
+              setStockMovementProduct(product);
+              setView("stock-movements");
+            }}
             onSearchProducts={searchProducts}
             onOpenFiscalDocumentSource={openFiscalDocumentSource}
             onOpenSaleFiscalQueue={(sale) => {

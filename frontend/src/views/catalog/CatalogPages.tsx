@@ -2,6 +2,7 @@ import Autocomplete from '@mui/material/Autocomplete'
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import {
+  ArrowLeftRight,
   PackagePlus,
   Pencil,
   Plus,
@@ -99,6 +100,7 @@ export function ProductsPage({
   onSearchChange,
   onEdit,
   onClone,
+  onViewMovements,
   onChangeStatus,
   onDelete,
 }: {
@@ -118,6 +120,7 @@ export function ProductsPage({
   onSearchChange: (value: string) => void
   onEdit: (product: Product) => void
   onClone: (product: Product) => void
+  onViewMovements?: (product: Product) => void
   onChangeStatus: AsyncEntityAction<Product>
   onDelete: AsyncEntityAction<Product>
 }) {
@@ -200,6 +203,7 @@ export function ProductsPage({
         onPageChange={onPageChange}
         onEdit={onEdit}
         onClone={onClone}
+        onViewMovements={onViewMovements}
         pendingAction={pendingAction}
         onChangeStatus={(product) =>
           runProductAction(product, 'status', onChangeStatus)
@@ -219,6 +223,7 @@ function ProductTable({
   onPageChange,
   onEdit,
   onClone,
+  onViewMovements,
   onChangeStatus,
   onDelete,
   pendingAction,
@@ -231,6 +236,7 @@ function ProductTable({
   onPageChange: (pageIndex: number, rowsPerPage?: number) => void
   onEdit: (product: Product) => void
   onClone: (product: Product) => void
+  onViewMovements?: (product: Product) => void
   onChangeStatus: AsyncEntityAction<Product>
   onDelete: AsyncEntityAction<Product>
   pendingAction?: PendingEntityAction
@@ -306,6 +312,16 @@ function ProductTable({
                     label: 'Clonar',
                     onSelect: () => onClone(product),
                   },
+                  ...(onViewMovements
+                    ? [
+                        {
+                          disabled: Boolean(pendingAction),
+                          icon: <ArrowLeftRight size={15} />,
+                          label: 'Movimentações do produto',
+                          onSelect: () => onViewMovements(product),
+                        },
+                      ]
+                    : []),
                   {
                     disabled: Boolean(pendingAction),
                     icon: product.active ? (

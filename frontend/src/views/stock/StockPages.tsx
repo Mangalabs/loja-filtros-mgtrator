@@ -9,7 +9,7 @@ import {
   Plus,
   SlidersHorizontal,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type {
   Product,
@@ -26,7 +26,12 @@ import {
   PagePanel,
   ResponsiveTable,
 } from "../../components/layout";
-import { PrimaryButton, StatusChip, TableActionButton } from "../../components/ui";
+import {
+  PrimaryButton,
+  SecondaryButton,
+  StatusChip,
+  TableActionButton,
+} from "../../components/ui";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import {
   formatCurrency,
@@ -551,20 +556,142 @@ function replenishmentPriorityTone(product: Product) {
 }
 
 export function StockMovementsPage({
+  initialProduct,
   movements,
 }: {
+  initialProduct?: Product;
   movements: StockMovement[];
 }) {
+  const [search, setSearch] = useState("");
+  const [productId, setProductId] = useState(initialProduct?.id ?? "");
+  const [type, setType] = useState<StockMovement["type"] | "ALL">("ALL");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const productOptions = useMemo(() => {
+    const productsById = new Map<string, string>();
+
+    if (initialProduct) {
+      productsById.set(initialProduct.id, initialProduct.name);
+    }
+
+    for (const movement of movements) {
+      productsById.set(movement.productId, movement.productName);
+    }
+
+    return Array.from(productsById, ([id, name]) => ({ id, name })).sort(
+      (left, right) => left.name.localeCompare(right.name, "pt-BR"),
+    );
+  }, [initialProduct, movements]);
+  const filteredMovements = useMemo(() => {
+    const normalizedSearch = normalizeMovementSearch(search);
+    const startDate = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
+    const endDate = dateTo ? new Date(`${dateTo}T23:59:59.999`) : null;
+
+    return movements.filter((movement) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        normalizeMovementSearch(
+          [
+            movement.productName,
+            movement.supplierName,
+            movement.createdByUserName,
+            movement.notes,
+            movementTypeLabel(movement.type),
+          ].join(" "),
+        ).includes(normalizedSearch);
+      const movementDate = new Date(movement.createdAt);
+      const matchesStart = !startDate || movementDate >= startDate;
+      const matchesEnd = !endDate || movementDate <= endDate;
+
+      return (
+        matchesSearch &&
+        (!productId || movement.productId === productId) &&
+        (type === "ALL" || movement.type === type) &&
+        matchesStart &&
+        matchesEnd
+      );
+    });
+  }, [dateFrom, dateTo, movements, productId, search, type]);
+  const resetKey = [search, productId, type, dateFrom, dateTo].join("|");
   const { pagination, visibleItems } =
-    usePaginatedRows<StockMovement>(movements);
+    usePaginatedRows<StockMovement>(filteredMovements, resetKey);
+
+  useEffect(() => {
+    setProductId(initialProduct?.id ?? "");
+  }, [initialProduct?.id]);
+
+  function clearFilters() {
+    setSearch("");
+    setProductId("");
+    setType("ALL");
+    setDateFrom("");
+    setDateTo("");
+  }
 
   return (
     <PagePanel wide>
       <PageHeader
-        description="Entradas, vendas, estornos e ajustes de estoque."
+        description={`${filteredMovements.length} de ${movements.length} movimentações encontradas.`}
         icon={<ArrowLeftRight size={18} />}
-        title="Movimentacoes registradas"
+        title="Movimentações registradas"
       />
+      <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(15rem,1.4fr)_minmax(12rem,1fr)_minmax(11rem,0.8fr)_minmax(10rem,0.7fr)_minmax(10rem,0.7fr)_auto]">
+        <TextField
+          label="Pesquisar"
+          placeholder="Produto, fornecedor, operador ou observação"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <TextField
+          label="Produto"
+          select
+          value={productId}
+          onChange={(event) => setProductId(event.target.value)}
+        >
+          <MenuItem value="">Todos os produtos</MenuItem>
+          {productOptions.map((product) => (
+            <MenuItem key={product.id} value={product.id}>
+              {product.name}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          label="Tipo"
+          select
+          value={type}
+          onChange={(event) =>
+            setType(event.target.value as StockMovement["type"] | "ALL")
+          }
+        >
+          <MenuItem value="ALL">Todos os tipos</MenuItem>
+          {Object.entries(movementTypeLabels).map(([value, label]) => (
+            <MenuItem key={value} value={value}>
+              {label}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          label="De"
+          slotProps={{ inputLabel: { shrink: true } }}
+          type="date"
+          value={dateFrom}
+          onChange={(event) => setDateFrom(event.target.value)}
+        />
+        <TextField
+          label="Até"
+          slotProps={{ inputLabel: { shrink: true } }}
+          type="date"
+          value={dateTo}
+          onChange={(event) => setDateTo(event.target.value)}
+        />
+        <SecondaryButton
+          disabled={!search && !productId && type === "ALL" && !dateFrom && !dateTo}
+          onClick={clearFilters}
+          type="button"
+        >
+          Limpar
+        </SecondaryButton>
+      </div>
       <ResponsiveTable
         columns={[
           {
@@ -601,7 +728,7 @@ export function StockMovementsPage({
             render: (movement) => movement.notes ?? "-",
           },
         ]}
-        emptyMessage="Nenhuma movimentacao registrada."
+        emptyMessage="Nenhuma movimentação encontrada para os filtros informados."
         getRowId={(movement) => movement.id}
         items={visibleItems}
         pagination={pagination}
@@ -622,3 +749,11 @@ const movementTypeLabels: Record<StockMovement["type"], string> = {
   SALE_CORRECTION: "Correcao de venda",
   SALE_RETURN: "Devolucao de venda",
 };
+
+function normalizeMovementSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .trim();
+}

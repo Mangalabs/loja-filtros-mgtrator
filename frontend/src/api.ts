@@ -692,6 +692,7 @@ export type StockReport = {
     internalCode: string | null;
     productName: string;
     location: string | null;
+    currentStock: string;
     movementsCount: number;
     entryQuantity: string;
     entryAmount: string;

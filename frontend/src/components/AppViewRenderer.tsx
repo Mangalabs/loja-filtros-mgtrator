@@ -127,6 +127,7 @@ type AppViewRendererProps = {
   selectedManualFiscalDocumentDraft?: ManualFiscalDocumentDraft;
   selectedFiscalSale?: Sale;
   selectedProduct?: Product;
+  stockMovementProduct?: Product;
   selectedQuote?: Quote;
   reusedQuote?: Quote;
   selectedSale?: Sale;
@@ -152,6 +153,7 @@ type AppViewRendererProps = {
     stockStatus?: ProductStockStatusFilter;
   }) => void;
   onProductPageChange: (pageIndex: number, rowsPerPage?: number) => void;
+  onOpenProductMovements: (product: Product) => void;
   onResolveFiscalPendency: (target: FiscalPendencyTarget) => void;
   onOpenFiscalDocumentSource: (fiscalDocument: FiscalDocument) => void;
   onOpenManualFiscalDocumentDraft: (
@@ -239,6 +241,7 @@ export function AppViewRenderer({
   selectedManualFiscalDocumentDraft,
   selectedFiscalSale,
   selectedProduct,
+  stockMovementProduct,
   selectedQuote,
   reusedQuote,
   selectedSale,
@@ -270,6 +273,7 @@ export function AppViewRenderer({
   onOpenSaleFiscalDocumentEditor,
   onProductFiltersChange,
   onProductPageChange,
+  onOpenProductMovements,
   onResolveFiscalPendency,
   onSearchProducts,
   onSelectView,
@@ -436,6 +440,11 @@ export function AppViewRenderer({
           onSearchChange={onSearchChange}
           onEdit={catalogActions.editProduct}
           onClone={catalogActions.cloneProduct}
+          onViewMovements={
+            canAccessView(user, "stock-movements")
+              ? onOpenProductMovements
+              : undefined
+          }
           onChangeStatus={(product) =>
             catalogActions.changeProductStatus(product)
           }
@@ -512,7 +521,12 @@ export function AppViewRenderer({
         onToggleReplenishmentMonitor={stockActions.toggleReplenishmentMonitor}
       />
     ),
-    "stock-movements": <StockMovementsPage movements={stockMovements} />,
+    "stock-movements": (
+      <StockMovementsPage
+        initialProduct={stockMovementProduct}
+        movements={stockMovements}
+      />
+    ),
     "payment-methods": (
         <PaymentMethodsPage
           paymentMethods={paymentMethods}
