@@ -149,6 +149,7 @@ export type SaleCommercialDetailsInput = {
   billingIssueDate?: string | null;
   billingDueDate?: string | null;
   payments?: SalePaymentInput[];
+  paymentInstallments?: SalePaymentInstallmentInput[];
 };
 
 export type SaleProduct = {

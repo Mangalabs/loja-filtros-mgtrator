@@ -235,8 +235,8 @@ export function QuotesPage({
       Boolean(paymentMethod),
     )
   const primaryPaymentMethodId = payments[0]?.paymentMethodId ?? ''
-  const usesBankSlip = selectedPaymentMethods.some(
-    (paymentMethod) => paymentMethod.code === 'BOLETO',
+  const usesInstallments = selectedPaymentMethods.some(
+    (paymentMethod) => quotePaymentMethodAllowsInstallments(paymentMethod),
   )
   const quoteSubtotal = items.reduce((sum, item) => {
     return sum + quoteItemSubtotal(item)
@@ -253,15 +253,15 @@ export function QuotesPage({
     discountAmount,
   )
   const quoteTotal = Math.max(totalBeforeGeneralDiscount - generalDiscount, 0)
-  const bankSlipAmount = usesBankSlip
-    ? quotePaymentMethodAmount(payments, quoteTotal, paymentMethods, 'BOLETO')
+  const installmentAmount = usesInstallments
+    ? quoteInstallmentPaymentAmount(payments, quoteTotal, paymentMethods)
     : 0
   const installmentTotal = quotePaymentInstallmentsTotal(paymentInstallments)
   const installmentDifference = Number(
-    (bankSlipAmount - installmentTotal).toFixed(2),
+    (installmentAmount - installmentTotal).toFixed(2),
   )
   const hasInstallmentDifference =
-    usesBankSlip && Math.abs(installmentDifference) >= 0.01
+    usesInstallments && Math.abs(installmentDifference) >= 0.01
   const paymentTotal = quotePaymentDraftTotal(payments, quoteTotal)
   const paymentDifference = Number((quoteTotal - paymentTotal).toFixed(2))
   const hasPaymentDifference = Math.abs(paymentDifference) >= 0.01
@@ -293,26 +293,26 @@ export function QuotesPage({
     const nextDueDate = quoteDueDate(billingIssueDate, commercialSettings)
 
     setBillingDueDate(nextDueDate)
-    if (usesBankSlip) {
+    if (usesInstallments) {
       setPaymentInstallments(
         quotePaymentInstallments(
           installmentCount,
           nextDueDate,
-          bankSlipAmount,
+          installmentAmount,
         ),
       )
     }
   }, [
-    bankSlipAmount,
+    installmentAmount,
     billingDueDateTouched,
     billingIssueDate,
     commercialSettings?.defaultQuoteDueDays,
     installmentCount,
-    usesBankSlip,
+    usesInstallments,
   ])
 
   useEffect(() => {
-    if (!usesBankSlip) {
+    if (!usesInstallments) {
       setPaymentInstallments([])
       return
     }
@@ -322,15 +322,15 @@ export function QuotesPage({
         currentInstallments,
         installmentCount,
         billingDueDate || billingIssueDate,
-        bankSlipAmount,
+        installmentAmount,
       ),
     )
   }, [
-    bankSlipAmount,
+    installmentAmount,
     billingDueDate,
     billingIssueDate,
     installmentCount,
-    usesBankSlip,
+    usesInstallments,
   ])
 
   useEffect(() => {
@@ -696,11 +696,11 @@ export function QuotesPage({
         <QuotePaymentHighlight
           paymentMethodName={quotePaymentSummary(selectedPaymentMethods)}
         />
-        {usesBankSlip ? (
+        {usesInstallments ? (
           <FormCard>
             <PageHeader
               description='As parcelas são sugeridas pela configuração comercial e podem ser ajustadas manualmente.'
-              title='Parcelamento do boleto'
+              title='Parcelamento do pagamento'
             />
             <TextField
               label='Número de parcelas'
@@ -745,7 +745,7 @@ export function QuotesPage({
                 quotePaymentInstallments(
                   installmentCount,
                   nextDueDate || billingIssueDate,
-                  bankSlipAmount,
+                  installmentAmount,
                 ),
               )
             }}
@@ -1230,8 +1230,8 @@ export function QuoteEditPage({
       Boolean(paymentMethod),
     )
   const primaryPaymentMethodId = payments[0]?.paymentMethodId ?? ''
-  const usesBankSlip = selectedPaymentMethods.some(
-    (paymentMethod) => paymentMethod.code === 'BOLETO',
+  const usesInstallments = selectedPaymentMethods.some(
+    (paymentMethod) => quotePaymentMethodAllowsInstallments(paymentMethod),
   )
   const quoteSubtotal = items.reduce((sum, item) => {
     return sum + quoteItemSubtotal(item)
@@ -1248,15 +1248,15 @@ export function QuoteEditPage({
     discountAmount,
   )
   const quoteTotal = Math.max(totalBeforeGeneralDiscount - generalDiscount, 0)
-  const bankSlipAmount = usesBankSlip
-    ? quotePaymentMethodAmount(payments, quoteTotal, paymentMethods, 'BOLETO')
+  const installmentAmount = usesInstallments
+    ? quoteInstallmentPaymentAmount(payments, quoteTotal, paymentMethods)
     : 0
   const installmentTotal = quotePaymentInstallmentsTotal(paymentInstallments)
   const installmentDifference = Number(
-    (bankSlipAmount - installmentTotal).toFixed(2),
+    (installmentAmount - installmentTotal).toFixed(2),
   )
   const hasInstallmentDifference =
-    usesBankSlip && Math.abs(installmentDifference) >= 0.01
+    usesInstallments && Math.abs(installmentDifference) >= 0.01
   const paymentTotal = quotePaymentDraftTotal(payments, quoteTotal)
   const paymentDifference = Number((quoteTotal - paymentTotal).toFixed(2))
   const hasPaymentDifference = Math.abs(paymentDifference) >= 0.01
@@ -1320,26 +1320,26 @@ export function QuoteEditPage({
     )
 
     setBillingDueDate(nextDueDate)
-    if (usesBankSlip) {
+    if (usesInstallments) {
       setPaymentInstallments(
         quotePaymentInstallments(
           installmentCount,
           nextDueDate,
-          bankSlipAmount,
+          installmentAmount,
         ),
       )
     }
   }, [
-    bankSlipAmount,
+    installmentAmount,
     billingDueDateTouched,
     billingIssueDate,
     commercialSettings?.defaultQuoteDueDays,
     installmentCount,
-    usesBankSlip,
+    usesInstallments,
   ])
 
   useEffect(() => {
-    if (!usesBankSlip) {
+    if (!usesInstallments) {
       setPaymentInstallments([])
       return
     }
@@ -1349,15 +1349,15 @@ export function QuoteEditPage({
         currentInstallments,
         installmentCount,
         billingDueDate || billingIssueDate || todayInputDate(),
-        bankSlipAmount,
+        installmentAmount,
       ),
     )
   }, [
-    bankSlipAmount,
+    installmentAmount,
     billingDueDate,
     billingIssueDate,
     installmentCount,
-    usesBankSlip,
+    usesInstallments,
   ])
 
   function updateItem(index: number, changes: Partial<QuoteDraftItem>) {
@@ -1490,11 +1490,11 @@ export function QuoteEditPage({
       <QuotePaymentHighlight
         paymentMethodName={quotePaymentSummary(selectedPaymentMethods)}
       />
-      {usesBankSlip ? (
+      {usesInstallments ? (
         <FormCard>
           <PageHeader
             description='As parcelas são sugeridas pela configuração comercial e podem ser ajustadas manualmente.'
-            title='Parcelamento do boleto'
+            title='Parcelamento do pagamento'
           />
           <TextField
             label='Número de parcelas'
@@ -1539,7 +1539,7 @@ export function QuoteEditPage({
               quotePaymentInstallments(
                 installmentCount,
                 nextDueDate || billingIssueDate || todayInputDate(),
-                bankSlipAmount,
+                installmentAmount,
               ),
             )
           }}
@@ -2507,25 +2507,41 @@ function quotePaymentDraftTotal(
   )
 }
 
-function quotePaymentMethodAmount(
+function quoteInstallmentPaymentAmount(
   payments: QuotePaymentDraft[],
   totalAmount: number,
   paymentMethods: PaymentMethod[],
-  code: string,
 ) {
-  const paymentMethodIds = new Set(
+  const payloads = quotePaymentPayloads(payments, totalAmount)
+  const bankSlipIds = new Set(
     paymentMethods
-      .filter((paymentMethod) => paymentMethod.code === code)
+      .filter((paymentMethod) => paymentMethod.code === 'BOLETO')
       .map((paymentMethod) => paymentMethod.id),
   )
-  const payloads = quotePaymentPayloads(payments, totalAmount)
+  const creditIds = new Set(
+    paymentMethods
+      .filter((paymentMethod) => paymentMethod.code === 'CREDIT')
+      .map((paymentMethod) => paymentMethod.id),
+  )
+  const usesBankSlip = payloads.some((payment) =>
+    bankSlipIds.has(payment.paymentMethodId),
+  )
+  const installmentPaymentMethodIds = usesBankSlip ? bankSlipIds : creditIds
 
   return Number(
     payloads
-      .filter((payment) => paymentMethodIds.has(payment.paymentMethodId))
+      .filter((payment) =>
+        installmentPaymentMethodIds.has(payment.paymentMethodId),
+      )
       .reduce((sum, payment) => sum + payment.amount, 0)
       .toFixed(2),
   )
+}
+
+function quotePaymentMethodAllowsInstallments(
+  paymentMethod: Pick<PaymentMethod, 'code'>,
+) {
+  return paymentMethod.code === 'BOLETO' || paymentMethod.code === 'CREDIT'
 }
 
 function quoteBlockingIssues({
@@ -2575,7 +2591,7 @@ function quoteBlockingIssues({
       ? `A soma dos pagamentos precisa bater com o total final. Diferença atual: ${formatCurrency(Math.abs(paymentDifference))}.`
       : null,
     hasInstallmentDifference
-      ? `A soma das parcelas do boleto precisa bater com o valor do boleto. Diferença atual: ${formatCurrency(Math.abs(installmentDifference))}.`
+      ? `A soma das parcelas precisa bater com o valor faturável. Diferença atual: ${formatCurrency(Math.abs(installmentDifference))}.`
       : null,
   ].filter((issue): issue is string => Boolean(issue))
 }

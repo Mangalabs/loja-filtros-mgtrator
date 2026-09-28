@@ -210,6 +210,17 @@ const updateSaleCommercialDetailsSchema = z
       .union([z.iso.date(), z.literal(""), z.null()])
       .transform((value) => value || null)
       .optional(),
+    paymentInstallments: z
+      .array(
+        z
+          .object({
+            position: z.coerce.number().int().positive(),
+            dueDate: z.iso.date(),
+            amount: z.coerce.number().positive(),
+          })
+          .strict(),
+      )
+      .optional(),
   })
   .strict()
   .superRefine((value, context) => {

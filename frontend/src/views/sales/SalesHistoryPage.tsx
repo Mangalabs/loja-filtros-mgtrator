@@ -2,7 +2,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
 import { FileText, ReceiptText } from 'lucide-react'
-import { type FormEvent, useMemo, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   FiscalDocument,
   PaymentMethod,
@@ -603,6 +603,15 @@ export function SaleCommercialDetailsForm({
   const [submitting, setSubmitting] = useState(false)
   const submittingRef = useRef(false)
   const [payments, setPayments] = useState(() => saleCommercialPaymentDrafts(sale))
+  const [billingIssueDate, setBillingIssueDate] = useState(
+    sale.billingIssueDate?.slice(0, 10) ?? todayInputDate(),
+  )
+  const [billingDueDate, setBillingDueDate] = useState(
+    sale.billingDueDate?.slice(0, 10) ?? todayInputDate(),
+  )
+  const [installmentCount, setInstallmentCount] = useState(
+    Math.max(sale.paymentInstallments.length, 1),
+  )
   const availablePaymentMethods = paymentMethods.filter(
     (method) =>
       method.active ||
@@ -612,6 +621,44 @@ export function SaleCommercialDetailsForm({
   const difference = Number((Number(sale.totalAmount) - paymentTotal).toFixed(2))
   const hasPaymentDifference = Math.abs(difference) >= 0.01
   const saleAllowsBilling = salePaymentsAllowBilling(paymentMethods, payments)
+  const installmentTargetAmount = saleInstallmentTargetAmount(
+    paymentMethods,
+    payments,
+  )
+  const [paymentInstallments, setPaymentInstallments] = useState(() =>
+    saleInstallmentDrafts(
+      sale,
+      Math.max(sale.paymentInstallments.length, 1),
+      sale.billingDueDate?.slice(0, 10) ?? todayInputDate(),
+      saleInstallmentTargetAmount(paymentMethods, saleCommercialPaymentDrafts(sale)),
+    ),
+  )
+  const installmentTotal = saleInstallmentTotal(paymentInstallments)
+  const hasInstallmentDifference =
+    saleAllowsBilling &&
+    Math.abs(installmentTargetAmount - installmentTotal) >= 0.01
+
+  useEffect(() => {
+    if (!saleAllowsBilling) {
+      setPaymentInstallments([])
+      return
+    }
+
+    setPaymentInstallments((currentInstallments) =>
+      syncSaleInstallments(
+        currentInstallments,
+        installmentCount,
+        billingDueDate || billingIssueDate || todayInputDate(),
+        installmentTargetAmount,
+      ),
+    )
+  }, [
+    billingDueDate,
+    billingIssueDate,
+    installmentCount,
+    installmentTargetAmount,
+    saleAllowsBilling,
+  ])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -723,21 +770,99 @@ export function SaleCommercialDetailsForm({
       {saleAllowsBilling ? (
         <>
           <TextField
-            defaultValue={sale.billingIssueDate?.slice(0, 10) ?? ''}
             label='Data da fatura'
             name='saleBillingIssueDate'
+            onChange={(event) => setBillingIssueDate(event.target.value)}
             size='small'
             slotProps={{ inputLabel: { shrink: true } }}
             type='date'
+            value={billingIssueDate}
           />
           <TextField
-            defaultValue={sale.billingDueDate?.slice(0, 10) ?? ''}
-            label='Vencimento do boleto/fatura'
+            label='Primeiro vencimento'
             name='saleBillingDueDate'
+            onChange={(event) => {
+              const nextDueDate = event.target.value
+
+              setBillingDueDate(nextDueDate)
+              setPaymentInstallments(
+                buildSaleInstallments(
+                  installmentCount,
+                  nextDueDate || billingIssueDate || todayInputDate(),
+                  installmentTargetAmount,
+                ).map((installment, index) => ({
+                  ...installment,
+                  amount: paymentInstallments[index]?.amount ?? installment.amount,
+                })),
+              )
+            }}
             size='small'
             slotProps={{ inputLabel: { shrink: true } }}
             type='date'
+            value={billingDueDate}
           />
+          <TextField
+            label='Número de parcelas'
+            onChange={(event) =>
+              setInstallmentCount(
+                normalizeSaleInstallmentCount(Number(event.target.value || 1)),
+              )
+            }
+            size='small'
+            slotProps={{ htmlInput: { min: '1', max: '24', step: '1' } }}
+            type='number'
+            value={installmentCount}
+          />
+          <div className='grid gap-2'>
+            {paymentInstallments.map((installment, index) => (
+              <div
+                className='grid gap-2 sm:grid-cols-[auto_minmax(140px,1fr)_minmax(120px,0.8fr)] sm:items-center'
+                key={installment.position}>
+                <InlineNote>Parcela {installment.position}</InlineNote>
+                <input
+                  name='saleCommercialInstallmentPosition'
+                  type='hidden'
+                  value={installment.position}
+                />
+                <TextField
+                  label='Vencimento'
+                  name='saleCommercialInstallmentDueDate'
+                  onChange={(event) =>
+                    setPaymentInstallments((currentInstallments) =>
+                      updateSaleInstallment(currentInstallments, index, {
+                        dueDate: event.target.value,
+                      }),
+                    )
+                  }
+                  required
+                  size='small'
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  type='date'
+                  value={installment.dueDate}
+                />
+                <TextField
+                  label='Valor'
+                  name='saleCommercialInstallmentAmount'
+                  onChange={(event) =>
+                    setPaymentInstallments((currentInstallments) =>
+                      updateSaleInstallment(currentInstallments, index, {
+                        amount: event.target.value,
+                      }),
+                    )
+                  }
+                  required
+                  size='small'
+                  slotProps={{ htmlInput: { min: '0.01', step: '0.01' } }}
+                  type='number'
+                  value={installment.amount}
+                />
+              </div>
+            ))}
+            <InlineNote>
+              Parcelas {formatCurrency(installmentTotal)} | Valor faturável{' '}
+              {formatCurrency(installmentTargetAmount)}
+            </InlineNote>
+          </div>
         </>
       ) : null}
       <div className='flex flex-wrap justify-end gap-2'>
@@ -750,7 +875,7 @@ export function SaleCommercialDetailsForm({
           Cancelar
         </Button>
         <Button
-          disabled={hasPaymentDifference || submitting}
+          disabled={hasPaymentDifference || hasInstallmentDifference || submitting}
           loading={submitting}
           size='small'
           type='submit'
@@ -760,6 +885,128 @@ export function SaleCommercialDetailsForm({
       </div>
     </form>
   )
+}
+
+type SaleInstallmentDraft = {
+  amount: string
+  dueDate: string
+  position: number
+}
+
+function todayInputDate() {
+  return new Date().toLocaleDateString('en-CA')
+}
+
+function saleInstallmentTargetAmount(
+  paymentMethods: PaymentMethod[],
+  payments: Array<{ amount: string; paymentMethodId: string }>,
+) {
+  const bankSlipIds = new Set(
+    paymentMethods
+      .filter((method) => method.code === 'BOLETO')
+      .map((method) => method.id),
+  )
+  const creditIds = new Set(
+    paymentMethods
+      .filter((method) => method.code === 'CREDIT')
+      .map((method) => method.id),
+  )
+  const usesBankSlip = payments.some((payment) =>
+    bankSlipIds.has(payment.paymentMethodId),
+  )
+  const installmentPaymentMethodIds = usesBankSlip ? bankSlipIds : creditIds
+
+  return Number(
+    payments
+      .filter((payment) =>
+        installmentPaymentMethodIds.has(payment.paymentMethodId),
+      )
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+      .toFixed(2),
+  )
+}
+
+function saleInstallmentDrafts(
+  sale: Sale,
+  count: number,
+  firstDueDate: string,
+  totalAmount: number,
+) {
+  if (sale.paymentInstallments.length > 0) {
+    return sale.paymentInstallments.map((installment, index) => ({
+      amount: installment.amount,
+      dueDate: installment.dueDate.slice(0, 10),
+      position: index + 1,
+    }))
+  }
+
+  return buildSaleInstallments(count, firstDueDate, totalAmount)
+}
+
+function syncSaleInstallments(
+  currentInstallments: SaleInstallmentDraft[],
+  count: number,
+  firstDueDate: string,
+  totalAmount: number,
+) {
+  const nextInstallments = buildSaleInstallments(count, firstDueDate, totalAmount)
+  const preservesAmounts =
+    currentInstallments.length === nextInstallments.length &&
+    Math.abs(saleInstallmentTotal(currentInstallments) - totalAmount) < 0.01
+
+  return nextInstallments.map((installment, index) => ({
+    ...installment,
+    dueDate: currentInstallments[index]?.dueDate ?? installment.dueDate,
+    amount: preservesAmounts
+      ? currentInstallments[index]?.amount ?? installment.amount
+      : installment.amount,
+  }))
+}
+
+function buildSaleInstallments(
+  count: number,
+  firstDueDate: string,
+  totalAmount: number,
+): SaleInstallmentDraft[] {
+  const installmentCount = normalizeSaleInstallmentCount(count)
+  const baseAmount = Math.floor((totalAmount / installmentCount) * 100) / 100
+  const baseTotal = Number((baseAmount * installmentCount).toFixed(2))
+  const lastAmount = Number((baseAmount + totalAmount - baseTotal).toFixed(2))
+
+  return Array.from({ length: installmentCount }, (_item, index) => ({
+    amount: String(index === installmentCount - 1 ? lastAmount : baseAmount),
+    dueDate: saleInstallmentDueDate(firstDueDate, index),
+    position: index + 1,
+  }))
+}
+
+function updateSaleInstallment(
+  installments: SaleInstallmentDraft[],
+  index: number,
+  changes: Partial<SaleInstallmentDraft>,
+) {
+  return installments.map((installment, installmentIndex) =>
+    installmentIndex === index ? { ...installment, ...changes } : installment,
+  )
+}
+
+function saleInstallmentTotal(installments: SaleInstallmentDraft[]) {
+  return Number(
+    installments
+      .reduce((sum, installment) => sum + Number(installment.amount || 0), 0)
+      .toFixed(2),
+  )
+}
+
+function normalizeSaleInstallmentCount(count: number) {
+  return Math.min(Math.max(Math.trunc(count) || 1, 1), 24)
+}
+
+function saleInstallmentDueDate(firstDueDate: string, index: number) {
+  const date = new Date(`${firstDueDate || todayInputDate()}T00:00:00`)
+  date.setMonth(date.getMonth() + index)
+
+  return date.toLocaleDateString('en-CA')
 }
 
 type SaleCommercialPaymentDraft = {

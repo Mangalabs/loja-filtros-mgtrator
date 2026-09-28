@@ -2318,6 +2318,7 @@ describe("catalog routes", () => {
     });
     const paymentMethod = await activePaymentMethod();
     const boleto = await activePaymentMethod("BOLETO");
+    const credit = await activePaymentMethod("CREDIT");
 
     await request("/stock-adjustments", {
       method: "POST",
@@ -2384,6 +2385,41 @@ describe("catalog routes", () => {
         },
       },
     );
+    const updatedToCredit = await request<Sale>(
+      `/sales/${sale.body.data?.id}/commercial-details`,
+      {
+        method: "PATCH",
+        body: {
+          billingIssueDate: "2026-09-01",
+          billingDueDate: "2026-10-01",
+          payments: [
+            {
+              paymentMethodId: credit.id,
+              amount: 120,
+            },
+          ],
+          paymentInstallments: [
+            { position: 1, dueDate: "2026-10-01", amount: 60 },
+            { position: 2, dueDate: "2026-11-01", amount: 60 },
+          ],
+        },
+      },
+    );
+    const invalidCreditInstallments = await request(
+      `/sales/${sale.body.data?.id}/commercial-details`,
+      {
+        method: "PATCH",
+        body: {
+          billingIssueDate: "2026-09-01",
+          billingDueDate: "2026-10-01",
+          payments: [{ paymentMethodId: credit.id, amount: 120 }],
+          paymentInstallments: [
+            { position: 1, dueDate: "2026-10-01", amount: 50 },
+            { position: 2, dueDate: "2026-11-01", amount: 50 },
+          ],
+        },
+      },
+    );
 
     assert.equal(sale.status, 201);
     assert.equal(sale.body.data?.paymentMethodCode, "PIX");
@@ -2412,6 +2448,20 @@ describe("catalog routes", () => {
     assert.equal(updatedBackToPix.body.data?.billingIssueDate, null);
     assert.equal(updatedBackToPix.body.data?.billingDueDate, null);
     assert.equal(updatedBackToPix.body.data?.paymentInstallments.length, 0);
+    assert.equal(updatedToCredit.status, 200);
+    assert.equal(updatedToCredit.body.data?.paymentMethodCode, "CREDIT");
+    assert.equal(updatedToCredit.body.data?.paymentInstallments.length, 2);
+    assert.equal(updatedToCredit.body.data?.paymentInstallments[0]?.amount, "60.00");
+    assert.ok(
+      updatedToCredit.body.data?.paymentInstallments[1]?.dueDate.startsWith(
+        "2026-11-01",
+      ),
+    );
+    assert.equal(invalidCreditInstallments.status, 422);
+    assert.equal(
+      invalidCreditInstallments.body.message,
+      "Total das parcelas deve ser igual ao total faturado por boleto ou credito.",
+    );
   });
 
   it("reopens and completes a sale before fiscal issue", async () => {
@@ -8571,7 +8621,7 @@ describe("catalog routes", () => {
     );
   });
 
-  it("stores boleto installments for a quote", async () => {
+  it("stores boleto and credit card installments for quotes", async () => {
     const product = await request<Product>("/products", {
       method: "POST",
       body: { name: "Filtro quote boleto parcelado", salePrice: 100 },
@@ -8581,6 +8631,7 @@ describe("catalog routes", () => {
       body: { personType: "PF", name: "Cliente boleto parcelado" },
     });
     const boleto = await activePaymentMethod("BOLETO");
+    const credit = await activePaymentMethod("CREDIT");
 
     const created = await request<Quote>("/quotes", {
       method: "POST",
@@ -8597,6 +8648,21 @@ describe("catalog routes", () => {
       },
     });
     const shown = await request<Quote>(`/quotes/${created.body.data?.id}`);
+    const creditQuote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: credit.id,
+        billingIssueDate: "2026-08-06",
+        billingDueDate: "2026-09-06",
+        paymentInstallments: [
+          { position: 1, dueDate: "2026-09-06", amount: 40 },
+          { position: 2, dueDate: "2026-10-06", amount: 30 },
+          { position: 3, dueDate: "2026-11-06", amount: 30 },
+        ],
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.paymentMethodName, "Boleto");
@@ -8611,6 +8677,10 @@ describe("catalog routes", () => {
     assert.equal(shown.body.data?.paymentInstallments.length, 2);
     assert.equal(shown.body.data?.paymentInstallments[1]?.position, 2);
     assert.equal(shown.body.data?.paymentInstallments[1]?.amount, "50.00");
+    assert.equal(creditQuote.status, 201);
+    assert.equal(creditQuote.body.data?.paymentMethodName, "Cartao de credito");
+    assert.equal(creditQuote.body.data?.paymentInstallments.length, 3);
+    assert.equal(creditQuote.body.data?.paymentInstallments[2]?.amount, "30.00");
   });
 
   it("keeps multiple quote payments and boleto installments when completing a quoted shipping order", async () => {

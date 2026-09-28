@@ -504,17 +504,23 @@ function quoteInstallmentTargetAmount(
       paymentMethod,
     ]),
   )
-  const bankSlipAmount = Number(
+  const usesBankSlip = payments.some(
+    (payment) =>
+      paymentMethodById.get(payment.paymentMethodId)?.code === 'BOLETO',
+  )
+  const installmentPaymentCode = usesBankSlip ? 'BOLETO' : 'CREDIT'
+  const installmentAmount = Number(
     payments
       .filter(
         (payment) =>
-          paymentMethodById.get(payment.paymentMethodId)?.code === 'BOLETO',
+          paymentMethodById.get(payment.paymentMethodId)?.code ===
+          installmentPaymentCode,
       )
       .reduce((sum, payment) => sum + payment.amount, 0)
       .toFixed(2),
   )
 
-  return bankSlipAmount > 0 ? bankSlipAmount : totalAmount
+  return installmentAmount > 0 ? installmentAmount : totalAmount
 }
 
 function percentageAmount(baseAmount: number, percentage: number) {

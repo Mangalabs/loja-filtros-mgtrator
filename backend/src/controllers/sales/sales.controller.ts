@@ -235,9 +235,31 @@ export async function updateCompletedSaleCommercialDetails(
       ? normalizeCommercialSalePayments(input.payments, lockedSale.totalAmount)
       : undefined;
 
-    await validateSaleClosingPaymentMethods(transaction, payments ?? []);
+    const effectivePayments =
+      payments ??
+      (await getSaleById(id, transaction, { branchId }))?.payments.map(
+        (payment) => ({
+          paymentMethodId: payment.paymentMethodId,
+          amount: Number(payment.amount),
+        }),
+      ) ??
+      [];
+    const paymentMethods = await validateSaleClosingPaymentMethods(
+      transaction,
+      effectivePayments,
+    );
+    const paymentInstallments = normalizeCommercialSaleInstallments(
+      input.paymentInstallments,
+      effectivePayments,
+      paymentMethods,
+      input.billingIssueDate,
+    );
 
-    return updateSaleCommercialDetails(transaction, id, input);
+    return updateSaleCommercialDetails(transaction, id, {
+      ...input,
+      payments,
+      paymentInstallments,
+    });
   });
 
   return {
@@ -645,6 +667,8 @@ async function validateSaleClosingPaymentMethods(
   transaction: Parameters<typeof findActivePaymentMethod>[0],
   payments: Array<{ paymentMethodId: string }>,
 ) {
+  const paymentMethods: Array<{ id: string; code: string; name: string }> = [];
+
   for (const payment of payments) {
     const paymentMethod = await findActivePaymentMethod(
       transaction,
@@ -661,7 +685,100 @@ async function validateSaleClosingPaymentMethods(
         422,
       );
     }
+
+    paymentMethods.push(paymentMethod);
   }
+
+  return paymentMethods;
+}
+
+function normalizeCommercialSaleInstallments(
+  installments: SaleCommercialDetailsInput["paymentInstallments"],
+  payments: NonNullable<SaleCommercialDetailsInput["payments"]>,
+  paymentMethods: Array<{ id: string; code: string }>,
+  billingIssueDate?: string | null,
+) {
+  if (installments === undefined) {
+    return undefined;
+  }
+
+  if (installments.length === 0) {
+    return [];
+  }
+
+  const bankSlipPaymentMethodIds = new Set(
+    paymentMethods
+      .filter((paymentMethod) => paymentMethod.code === "BOLETO")
+      .map((paymentMethod) => paymentMethod.id),
+  );
+  const creditPaymentMethodIds = new Set(
+    paymentMethods
+      .filter((paymentMethod) => paymentMethod.code === "CREDIT")
+      .map((paymentMethod) => paymentMethod.id),
+  );
+  const usesBankSlip = payments.some((payment) =>
+    bankSlipPaymentMethodIds.has(payment.paymentMethodId),
+  );
+  const installmentPaymentMethodIds = usesBankSlip
+    ? bankSlipPaymentMethodIds
+    : creditPaymentMethodIds;
+  const installmentTargetAmount = Number(
+    payments
+      .filter((payment) =>
+        installmentPaymentMethodIds.has(payment.paymentMethodId),
+      )
+      .reduce((sum, payment) => sum + payment.amount, 0)
+      .toFixed(2),
+  );
+
+  if (installmentTargetAmount <= 0) {
+    throw new AppError(
+      "Parcelas exigem pagamento por boleto ou cartao de credito.",
+      422,
+    );
+  }
+
+  const sortedInstallments = [...installments].sort(
+    (current, next) => current.position - next.position,
+  );
+
+  if (
+    !sortedInstallments.every(
+      (installment, index) => installment.position === index + 1,
+    )
+  ) {
+    throw new AppError("Parcelas da venda devem ser sequenciais.", 422);
+  }
+
+  if (
+    billingIssueDate &&
+    sortedInstallments.some(
+      (installment) => installment.dueDate < billingIssueDate,
+    )
+  ) {
+    throw new AppError(
+      "Vencimento das parcelas nao pode ser anterior a data da fatura.",
+      422,
+    );
+  }
+
+  const installmentTotal = Number(
+    sortedInstallments
+      .reduce((sum, installment) => sum + installment.amount, 0)
+      .toFixed(2),
+  );
+
+  if (installmentTotal !== installmentTargetAmount) {
+    throw new AppError(
+      "Total das parcelas deve ser igual ao total faturado por boleto ou credito.",
+      422,
+    );
+  }
+
+  return sortedInstallments.map((installment) => ({
+    ...installment,
+    amount: Number(installment.amount.toFixed(2)),
+  }));
 }
 
 function aggregateSaleItems(

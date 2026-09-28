@@ -196,6 +196,10 @@ export function useSalesActions({
           "saleCommercial",
           Number(sale.totalAmount),
         ),
+        paymentInstallments: formSalePaymentInstallments(
+          form,
+          "saleCommercial",
+        ),
       });
       await refreshSalesFlow();
     });
@@ -642,6 +646,18 @@ function formSalePayments(form: FormData, prefix: string, totalAmount: number) {
     amount: usesSinglePaymentTotal
       ? Number(totalAmount.toFixed(2))
       : Number(amounts[index] || 0),
+  }));
+}
+
+function formSalePaymentInstallments(form: FormData, prefix: string) {
+  const positions = form.getAll(`${prefix}InstallmentPosition`);
+  const dueDates = form.getAll(`${prefix}InstallmentDueDate`);
+  const amounts = form.getAll(`${prefix}InstallmentAmount`);
+
+  return positions.map((position, index) => ({
+    position: Number(position),
+    dueDate: String(dueDates[index] ?? ""),
+    amount: Number(amounts[index] ?? 0),
   }));
 }
 
