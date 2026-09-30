@@ -572,7 +572,7 @@ export function ProductForm({
               setProfitMarginPercentage(event.target.value)
               setSalePriceTouched(false)
             }}
-            slotProps={{ htmlInput: { min: '0', max: '1000', step: '0.01' } }}
+            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
           />
           <TextField
             helperText={salePriceHelperText(

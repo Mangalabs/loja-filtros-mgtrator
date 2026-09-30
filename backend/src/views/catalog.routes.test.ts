@@ -9561,7 +9561,7 @@ describe("catalog routes", () => {
         accessoryExpenses: 1.5,
         otherExpenses: 2,
         salePrice: 29.9,
-        profitMarginPercentage: 61.62,
+        profitMarginPercentage: 1061.62,
         minimumStock: 3,
         currentStock: 4.5,
         ncm: "84212300",
@@ -9591,7 +9591,7 @@ describe("catalog routes", () => {
           name: "Filtro Wega FAP4040 Atualizado",
           accessoryExpenses: 3.75,
           salePrice: 31.9,
-          profitMarginPercentage: 72.43,
+          profitMarginPercentage: 1272.43,
           currentStock: 2.75,
           location: "",
         },
@@ -9619,7 +9619,7 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.availableStock, "4.500");
     assert.equal(created.body.data?.accessoryExpenses, "1.50");
     assert.equal(created.body.data?.otherExpenses, "2.00");
-    assert.equal(created.body.data?.profitMarginPercentage, "61.62");
+    assert.equal(created.body.data?.profitMarginPercentage, "1061.62");
     assert.equal(created.body.data?.ncm, "84212300");
     assert.equal(created.body.data?.cest, "0100100");
     assert.equal(created.body.data?.cfop, "5102");
@@ -9655,7 +9655,7 @@ describe("catalog routes", () => {
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.name, "Filtro Wega FAP4040 Atualizado");
     assert.equal(updated.body.data?.accessoryExpenses, "3.75");
-    assert.equal(updated.body.data?.profitMarginPercentage, "72.43");
+    assert.equal(updated.body.data?.profitMarginPercentage, "1272.43");
     assert.equal(updated.body.data?.currentStock, "2.750");
     assert.equal(updated.body.data?.location, null);
     assert.equal(
