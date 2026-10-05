@@ -1,23 +1,38 @@
 import Autocomplete from '@mui/material/Autocomplete'
 import Alert from '@mui/material/Alert'
 import Checkbox from '@mui/material/Checkbox'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogTitle from '@mui/material/DialogTitle'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import TextField from '@mui/material/TextField'
-import { CreditCard, List as ListIcon, Pencil, Plus } from 'lucide-react'
+import {
+  ClipboardPaste,
+  CreditCard,
+  List as ListIcon,
+  Pencil,
+  Plus,
+  Sparkles,
+} from 'lucide-react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type {
+  CashRegisterSession,
   Client,
   CommercialSettings,
   PaymentMethod,
   Product,
   Quote,
   QuoteFormDraft,
+  QuoteProductMatchGroup,
 } from '../../api'
-import { downloadApiFile } from '../../api'
+import { apiPost, downloadApiFile, type ApiResult } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
+import { QuoteClientSuggestions } from './QuoteClientSuggestions'
+import { QuoteProductSuggestions } from './QuoteProductSuggestions'
 import {
   ActionGroup,
   ActionStack,
@@ -39,6 +54,13 @@ import {
 } from '../../components/ui'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/format'
+import {
+  nonNegativeMoneyInputProps,
+  nonNegativePercentageInputProps,
+  positiveMoneyInputProps,
+  positiveWholeNumberInputProps,
+} from '../../utils/numericInput'
+import { salePaymentsAllowBilling } from '../sales/saleBilling'
 
 type QuoteDraftItem = {
   productId: string
@@ -102,7 +124,23 @@ export type QuoteDraftInput = {
   }>
 }
 
+export type QuoteSaleClosingInput = {
+  paymentMethodId?: string | null
+  payments: Array<{
+    paymentMethodId: string
+    amount: number
+  }>
+  billingIssueDate?: string | null
+  billingDueDate?: string | null
+  paymentInstallments: Array<{
+    position: number
+    dueDate: string
+    amount: number
+  }>
+}
+
 export type QuoteFormDraftPayload = {
+  requestLabel: string
   clientId: string
   clientName: string | null
   payments: QuotePaymentDraft[]
@@ -122,6 +160,7 @@ export type QuoteFormDraftPayload = {
 }
 
 export function QuotesPage({
+  cashRegister,
   clients,
   commercialSettings,
   mode = 'all',
@@ -129,16 +168,20 @@ export function QuotesPage({
   products,
   quoteFormDrafts,
   quotes,
+  initialDraft,
   sourceQuote,
   onSubmit,
   onSaveQuoteFormDraft,
   onDeleteQuoteFormDraft,
-  onDiscardQuoteFormDraft,
+  onRememberProductAlias,
+  onRemoveProductAlias,
   onEditQuote,
   onReuseQuote,
   onCancelQuote,
-  onCreateShippingOrder,
+  onCompleteQuote,
+  onOpenShippingOrders,
 }: {
+  cashRegister: CashRegisterSession | null
   clients: Client[]
   commercialSettings: CommercialSettings | null
   mode?: 'all' | 'form' | 'list'
@@ -146,26 +189,37 @@ export function QuotesPage({
   products: Product[]
   quoteFormDrafts: QuoteFormDraft[]
   quotes: Quote[]
+  initialDraft?: QuoteFormDraft
   sourceQuote?: Quote
-  onSubmit: (input: QuoteDraftInput) => Promise<boolean>
+  onSubmit: (input: QuoteDraftInput, draft?: QuoteFormDraft) => Promise<boolean>
   onSaveQuoteFormDraft: (
     input: QuoteFormDraftPayload,
     draft?: QuoteFormDraft,
   ) => Promise<boolean>
   onDeleteQuoteFormDraft: (draft: QuoteFormDraft) => Promise<boolean | void>
-  onDiscardQuoteFormDraft: (draft: QuoteFormDraft) => Promise<boolean>
+  onRememberProductAlias: (
+    productId: string,
+    alias: string,
+  ) => Promise<boolean>
+  onRemoveProductAlias: (id: string, alias: string) => Promise<boolean>
   onEditQuote: (quote: Quote) => void
   onReuseQuote: (quote: Quote) => void
   onCancelQuote: (
     event: FormEvent<HTMLFormElement>,
     quote: Quote,
   ) => Promise<unknown> | unknown
-  onCreateShippingOrder: (quote: Quote) => Promise<unknown> | unknown
+  onCompleteQuote: (
+    quote: Quote,
+    input: QuoteSaleClosingInput,
+  ) => Promise<boolean | void>
+  onOpenShippingOrders: () => void
 }) {
   const [clientId, setClientId] = useState('')
+  const [requestLabel, setRequestLabel] = useState('')
   const [sourceDraft, setSourceDraft] = useState<QuoteFormDraft | null>(null)
-  const [pendingSavedDraftSignature, setPendingSavedDraftSignature] =
-    useState<string | null>(null)
+  const [pendingSavedDraftSignature, setPendingSavedDraftSignature] = useState<
+    string | null
+  >(null)
   const [pendingFormAction, setPendingFormAction] = useState<
     'delete-draft' | 'save-draft' | 'submit'
   >()
@@ -192,6 +246,11 @@ export function QuotesPage({
     QuotePaymentInstallmentDraft[]
   >([])
   const [items, setItems] = useState<QuoteDraftItem[]>([emptyQuoteItem()])
+  const [batchMatchResults, setBatchMatchResults] = useState<
+    Record<string, QuoteProductMatchGroup>
+  >({})
+  const [batchMatching, setBatchMatching] = useState(false)
+  const [batchMatchError, setBatchMatchError] = useState(false)
   const [quoteSearch, setQuoteSearch] = useState('')
   const [quoteStatusFilter, setQuoteStatusFilter] =
     useState<QuoteListStatusFilter>('ALL')
@@ -210,6 +269,7 @@ export function QuotesPage({
     [quotePaymentMethodId, quoteSearch, quoteStatusFilter].join('|'),
   )
   const activeProducts = products.filter((product) => product.active)
+  const pendingMatchItems = pendingQuoteProductMatchItems(items)
   const activeClients = clients.filter((client) => client.active)
   const selectedClient =
     activeClients.find((client) => client.id === clientId) ?? null
@@ -235,8 +295,8 @@ export function QuotesPage({
       Boolean(paymentMethod),
     )
   const primaryPaymentMethodId = payments[0]?.paymentMethodId ?? ''
-  const usesInstallments = selectedPaymentMethods.some(
-    (paymentMethod) => quotePaymentMethodAllowsInstallments(paymentMethod),
+  const usesInstallments = selectedPaymentMethods.some((paymentMethod) =>
+    quotePaymentMethodAllowsInstallments(paymentMethod),
   )
   const quoteSubtotal = items.reduce((sum, item) => {
     return sum + quoteItemSubtotal(item)
@@ -280,10 +340,7 @@ export function QuotesPage({
 
   useEffect(() => {
     setValidUntil(quoteValidityDate(billingIssueDate, commercialSettings))
-  }, [
-    billingIssueDate,
-    commercialSettings?.defaultQuoteValidityDays,
-  ])
+  }, [billingIssueDate, commercialSettings?.defaultQuoteValidityDays])
 
   useEffect(() => {
     if (billingDueDateTouched) {
@@ -353,6 +410,14 @@ export function QuotesPage({
   }, [pendingSavedDraftSignature, quoteFormDrafts, sourceDraft])
 
   useEffect(() => {
+    if (!initialDraft) {
+      return
+    }
+
+    loadQuoteFormDraft(initialDraft)
+  }, [initialDraft?.id])
+
+  useEffect(() => {
     if (!sourceQuote) {
       return
     }
@@ -376,17 +441,65 @@ export function QuotesPage({
             ...item,
             ...changes,
             description:
+              changes.description ??
               product?.description ??
               product?.name ??
-              changes.description ??
               item.description,
-            unitPrice: product?.salePrice ?? changes.unitPrice ?? item.unitPrice,
+            unitPrice:
+              product?.salePrice ?? changes.unitPrice ?? item.unitPrice,
           }
         }
 
         return { ...item, ...changes }
       }),
     )
+  }
+
+  async function matchPendingItems(
+    matchItems: Array<{ index: number; query: string }>,
+  ) {
+    if (batchMatching || matchItems.length === 0 || matchItems.length > 50) {
+      return
+    }
+
+    setBatchMatching(true)
+    setBatchMatchError(false)
+
+    try {
+      const result = await apiPost<ApiResult<QuoteProductMatchGroup[]>>(
+        '/quotes/product-matches/batch',
+        {
+          items: matchItems.map(({ index, query }) => ({
+            key: String(index),
+            query,
+          })),
+          limit: 3,
+        },
+      )
+
+      setBatchMatchResults(
+        Object.fromEntries(result.data.map((group) => [group.key, group])),
+      )
+    } catch {
+      setBatchMatchError(true)
+    } finally {
+      setBatchMatching(false)
+    }
+  }
+
+  function matchAllPendingItems() {
+    return matchPendingItems(pendingMatchItems)
+  }
+
+  function importQuoteItems(importedItems: QuoteDraftItem[]) {
+    const nextItems =
+      items.length === 1 && quoteDraftItemIsEmpty(items[0])
+        ? importedItems
+        : [...items, ...importedItems]
+
+    setItems(nextItems)
+    setBatchMatchResults({})
+    void matchPendingItems(pendingQuoteProductMatchItems(nextItems))
   }
 
   function removeItem(index: number) {
@@ -397,6 +510,7 @@ export function QuotesPage({
 
   function resetQuoteForm() {
     setClientId('')
+    setRequestLabel('')
     setSourceDraft(null)
     setPendingSavedDraftSignature(null)
     setPayments([emptyQuotePayment()])
@@ -414,10 +528,13 @@ export function QuotesPage({
     setInstallmentCount(1)
     setPaymentInstallments([])
     setItems([emptyQuoteItem()])
+    setBatchMatchResults({})
+    setBatchMatchError(false)
   }
 
   function currentQuoteFormDraftPayload(): QuoteFormDraftPayload {
     return {
+      requestLabel,
       clientId,
       clientName: selectedClient?.name ?? null,
       payments,
@@ -441,6 +558,7 @@ export function QuotesPage({
     const payload = normalizeQuoteFormDraftPayload(draft.payload)
 
     setSourceDraft(draft)
+    setRequestLabel(payload.requestLabel)
     setClientId(payload.clientId)
     setPayments(payload.payments)
     setBillingIssueDate(payload.billingIssueDate)
@@ -455,6 +573,8 @@ export function QuotesPage({
     setInstallmentCount(payload.installmentCount)
     setPaymentInstallments(payload.paymentInstallments)
     setItems(payload.items)
+    setBatchMatchResults({})
+    void matchPendingItems(pendingQuoteProductMatchItems(payload.items))
   }
 
   function loadReusableQuote(quote: Quote) {
@@ -464,6 +584,7 @@ export function QuotesPage({
 
     setSourceDraft(null)
     setPendingSavedDraftSignature(null)
+    setRequestLabel('')
     setClientId(quote.clientId)
     setPayments(quotePaymentDrafts(quote))
     setBillingIssueDate(issueDate)
@@ -605,13 +726,9 @@ export function QuotesPage({
       })),
     }
     try {
-      const saved = await onSubmit(input)
+      const saved = await onSubmit(input, sourceDraft ?? undefined)
 
       if (saved) {
-        if (sourceDraft) {
-          await onDiscardQuoteFormDraft(sourceDraft)
-        }
-
         resetQuoteForm()
       }
     } finally {
@@ -623,516 +740,601 @@ export function QuotesPage({
   return (
     <section className='grid gap-4'>
       {mode !== 'list' ? (
-      <FormGrid className='gap-5 sm:gap-6' onSubmit={submit}>
-        <PageHeader
-          description='Monte itens, valores e dados comerciais antes do PDF.'
-          icon={<ListIcon size={18} />}
-          title='Novo orçamento'
-        />
-        <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]'>
-          <Autocomplete
-            getOptionLabel={(draft) =>
-              `${draft.title} - ${formatDateTime(draft.updatedAt)}`
+        <FormGrid className='gap-5 sm:gap-6' onSubmit={submit}>
+          <PageHeader
+            description={
+              requestLabel
+                ? `Solicitação: ${requestLabel}`
+                : 'Monte itens, valores e dados comerciais antes do PDF.'
             }
-            isOptionEqualToValue={(option, value) => option.id === value.id}
-            noOptionsText='Nenhum rascunho salvo'
-            options={quoteFormDrafts}
-            value={sourceDraft}
-            onChange={(_event, draft) => {
-              if (draft) {
-                loadQuoteFormDraft(draft)
-              }
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label='Carregar rascunho'
-                size='medium'
-              />
-            )}
+            icon={<ListIcon size={18} />}
+            title='Novo orçamento'
           />
-          <SecondaryButton
-            disabled={Boolean(pendingFormAction)}
-            loading={pendingFormAction === 'save-draft'}
-            type='button'
-            onClick={() => void saveQuoteFormDraft()}>
-            {pendingFormAction === 'save-draft'
-              ? 'Salvando rascunho…'
-              : sourceDraft
-                ? 'Atualizar rascunho'
-                : 'Salvar rascunho'}
-          </SecondaryButton>
-          {sourceDraft ? (
+          <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]'>
+            <Autocomplete
+              getOptionLabel={(draft) =>
+                `${draft.title} - ${formatDateTime(draft.updatedAt)}`
+              }
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              noOptionsText='Nenhum rascunho salvo'
+              options={quoteFormDrafts}
+              value={sourceDraft}
+              onChange={(_event, draft) => {
+                if (draft) {
+                  loadQuoteFormDraft(draft)
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label='Carregar rascunho'
+                  size='medium'
+                />
+              )}
+            />
             <SecondaryButton
               disabled={Boolean(pendingFormAction)}
-              loading={pendingFormAction === 'delete-draft'}
+              loading={pendingFormAction === 'save-draft'}
               type='button'
-              onClick={() => void deleteLoadedQuoteFormDraft()}>
-              {pendingFormAction === 'delete-draft'
-                ? 'Excluindo rascunho…'
-                : 'Excluir rascunho'}
+              onClick={() => void saveQuoteFormDraft()}>
+              {pendingFormAction === 'save-draft'
+                ? 'Salvando rascunho…'
+                : sourceDraft
+                  ? 'Atualizar rascunho'
+                  : 'Salvar rascunho'}
             </SecondaryButton>
-          ) : null}
-        </div>
-        <Autocomplete
-          getOptionLabel={(client) =>
-            `${client.name}${client.phone ? ` - ${client.phone}` : ''}`
-          }
-          isOptionEqualToValue={(option, value) => option.id === value.id}
-          noOptionsText='Nenhum cliente encontrado'
-          options={activeClients}
-          value={selectedClient}
-          onChange={(_event, client) => setClientId(client?.id ?? '')}
-          renderInput={(params) => (
-            <TextField {...params} label='Cliente' required size='medium' />
-          )}
-        />
-        <QuotePaymentFields
-          paymentMethods={activePaymentMethods}
-          payments={payments}
-          totalAmount={quoteTotal}
-          onChange={setPayments}
-        />
-        <QuotePaymentHighlight
-          paymentMethodName={quotePaymentSummary(selectedPaymentMethods)}
-        />
-        {usesInstallments ? (
-          <FormCard>
-            <PageHeader
-              description='As parcelas são sugeridas pela configuração comercial e podem ser ajustadas manualmente.'
-              title='Parcelamento do pagamento'
-            />
-            <TextField
-              label='Número de parcelas'
-              value={installmentCount}
-              type='number'
-              size='medium'
-              onChange={(event) =>
-                setInstallmentCount(
-                  normalizeInstallmentCount(Number(event.target.value || 1)),
-                )
-              }
-              slotProps={{ htmlInput: { min: '1', max: '24', step: '1' } }}
-              required
-            />
-            <QuoteInstallmentsEditor
-              installments={paymentInstallments}
-              onChange={updatePaymentInstallment}
-            />
-          </FormCard>
-        ) : null}
-        <FormRow>
-          <TextField
-            label='Data de emissão do orçamento'
-            size='medium'
-            type='date'
-            value={billingIssueDate}
-            onChange={(event) => setBillingIssueDate(event.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-          <TextField
-            helperText={`Sugerido pela configuração comercial: ${quoteDueDays(commercialSettings)} dia(s). Pode ser alterado manualmente.`}
-            label='Primeiro vencimento do boleto/fatura'
-            size='medium'
-            type='date'
-            value={billingDueDate}
-            onChange={(event) => {
-              const nextDueDate = event.target.value
-
-              setBillingDueDate(nextDueDate)
-              setBillingDueDateTouched(true)
-              setPaymentInstallments(
-                quotePaymentInstallments(
-                  installmentCount,
-                  nextDueDate || billingIssueDate,
-                  installmentAmount,
-                ),
-              )
-            }}
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-        </FormRow>
-        <FormRow>
-          <TextField
-            disabled
-            helperText={`Calculada pela configuração comercial: ${quoteValidityDays(commercialSettings)} dia(s).`}
-            label='Validade do orçamento'
-            size='medium'
-            value={quoteValidityLabel(validUntil, commercialSettings)}
-          />
-          <TextField
-            disabled
-            label='Subtotal'
-            size='medium'
-            value={formatCurrency(quoteSubtotal)}
-          />
-        </FormRow>
-        <FormRow>
-          <div className='grid gap-2'>
-            <ToggleButtonGroup
-              exclusive
-              size='small'
-              value={discountMode}
-              onChange={(_event, value: QuoteDiscountMode | null) => {
-                if (value) {
-                  setDiscountMode(value)
-                }
-              }}>
-              <ToggleButton value='PERCENTAGE'>%</ToggleButton>
-              <ToggleButton value='AMOUNT'>R$</ToggleButton>
-            </ToggleButtonGroup>
-            <TextField
-              label={
-                discountMode === 'PERCENTAGE'
-                  ? 'Desconto geral (%)'
-                  : 'Desconto geral (R$)'
-              }
-              value={
-                discountMode === 'PERCENTAGE'
-                  ? discountPercentage
-                  : discountAmount
-              }
-              type='number'
-              size='medium'
-              onChange={(event) => {
-                if (discountMode === 'PERCENTAGE') {
-                  setDiscountPercentage(event.target.value)
-                } else {
-                  setDiscountAmount(event.target.value)
-                }
-              }}
-              slotProps={{
-                htmlInput:
-                  discountMode === 'PERCENTAGE'
-                    ? { min: '0', max: '100', step: '0.01' }
-                    : { min: '0', step: '0.01' },
-              }}
-            />
+            {sourceDraft ? (
+              <SecondaryButton
+                disabled={Boolean(pendingFormAction)}
+                loading={pendingFormAction === 'delete-draft'}
+                type='button'
+                onClick={() => void deleteLoadedQuoteFormDraft()}>
+                {pendingFormAction === 'delete-draft'
+                  ? 'Excluindo rascunho…'
+                  : 'Excluir rascunho'}
+              </SecondaryButton>
+            ) : null}
           </div>
-          <TextField
-            disabled
-            label='Total final'
-            size='medium'
-            value={formatCurrency(quoteTotal)}
+          <Autocomplete
+            getOptionLabel={(client) =>
+              `${client.name}${client.phone ? ` - ${client.phone}` : ''}`
+            }
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            noOptionsText='Nenhum cliente encontrado'
+            options={activeClients}
+            value={selectedClient}
+            onChange={(_event, client) => setClientId(client?.id ?? '')}
+            renderInput={(params) => (
+              <TextField {...params} label='Cliente' required size='medium' />
+            )}
           />
-        </FormRow>
-        <InlineNote>
-          Desconto nos itens: {formatCurrency(itemDiscountTotal)} | Desconto
-          geral: {formatCurrency(generalDiscount)}
-        </InlineNote>
-        <TextField
-          label='Observações do orçamento'
-          multiline
-          value={notes}
-          rows={3}
-          size='medium'
-          onChange={(event) => setNotes(event.target.value)}
-          slotProps={{ htmlInput: { maxLength: 1000 } }}
-        />
-        <FormControlLabel
-          className='m-0'
-          control={
-            <Checkbox
-              checked={showBrand}
-              color='primary'
-              onChange={(event) => setShowBrand(event.target.checked)}
-            />
-          }
-          label='Exibir fabricante na coluna Marca do PDF'
-        />
-
-        <div className='grid gap-4'>
-          {items.map((item, index) => (
-            <FormCard key={index}>
-              <div className='flex items-center justify-between gap-3'>
-                <strong>Item {index + 1}</strong>
-                {items.length > 1 ? (
-                  <TableActionButton
-                    type='button'
-                    onClick={() => removeItem(index)}>
-                    Remover
-                  </TableActionButton>
-                ) : null}
-              </div>
-              <ProductSearchField
-                label='Produto'
-                name={`quoteItems.${index}.productId`}
-                products={activeProducts}
-                required
-                stockLabel='available'
-                value={item.productId}
-                onSelect={(product) =>
-                  updateItem(index, {
-                    productId: product?.id ?? '',
-                    description: product?.description ?? product?.name ?? '',
-                    unitPrice: product?.salePrice ?? '',
-                  })
-                }
+          <QuoteClientSuggestions
+            clients={activeClients}
+            query={requestLabel}
+            selectedClientId={clientId}
+            onSelect={(client) => setClientId(client.id)}
+          />
+          <QuotePaymentFields
+            paymentMethods={activePaymentMethods}
+            payments={payments}
+            totalAmount={quoteTotal}
+            onChange={setPayments}
+          />
+          <QuotePaymentHighlight
+            paymentMethodName={quotePaymentSummary(selectedPaymentMethods)}
+          />
+          {usesInstallments ? (
+            <FormCard>
+              <PageHeader
+                description='As parcelas são sugeridas pela configuração comercial e podem ser ajustadas manualmente.'
+                title='Parcelamento do pagamento'
               />
               <TextField
-                label='Descrição comercial'
-                value={item.description}
-                size='medium'
-                onChange={(event) =>
-                  updateItem(index, { description: event.target.value })
-                }
-                slotProps={{ htmlInput: { maxLength: 500 } }}
-              />
-              <FormRow columns={3}>
-                <TextField
-                  label='Quantidade'
-                  value={item.quantity}
-                  type='number'
-                  size='medium'
-                  onChange={(event) =>
-                    updateItem(index, { quantity: event.target.value })
-                  }
-                  slotProps={{ htmlInput: { min: '1', step: '1' } }}
-                  required
-                />
-                <TextField
-                  label='Valor unitario'
-                  value={item.unitPrice}
-                  type='number'
-                  size='medium'
-                  onChange={(event) =>
-                    updateItem(index, { unitPrice: event.target.value })
-                  }
-                  slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
-                  required
-                />
-                <TextField
-                  helperText={`Subtotal ${formatCurrency(
-                    quoteItemSubtotal(item),
-                  )} · desconto ${formatCurrency(quoteItemDiscountAmount(item))}`}
-                  label='Valor total do item'
-                  value={formatCurrency(quoteItemTotalAmount(item))}
-                  slotProps={{ htmlInput: { readOnly: true } }}
-                />
-              </FormRow>
-              <TextField
-                label={
-                  item.discountMode === 'PERCENTAGE'
-                    ? 'Desconto do item (%)'
-                    : 'Desconto do item (R$)'
-                }
-                value={
-                  item.discountMode === 'PERCENTAGE'
-                    ? item.discountPercentage
-                    : item.discountAmount
-                }
+                label='Número de parcelas'
+                value={installmentCount}
                 type='number'
                 size='medium'
-                onChange={(event) => {
-                  if (item.discountMode === 'PERCENTAGE') {
-                    updateItem(index, { discountPercentage: event.target.value })
-                  } else {
-                    updateItem(index, { discountAmount: event.target.value })
-                  }
-                }}
-                helperText={`Valor: ${formatCurrency(quoteItemDiscountAmount(item))}`}
+                onChange={(event) =>
+                  setInstallmentCount(
+                    normalizeInstallmentCount(Number(event.target.value || 1)),
+                  )
+                }
                 slotProps={{
-                  htmlInput:
-                    item.discountMode === 'PERCENTAGE'
-                      ? { min: '0', max: '100', step: '0.01' }
-                      : { min: '0', step: '0.01' },
+                  htmlInput: { ...positiveWholeNumberInputProps, max: 24 },
                 }}
+                required
               />
+              <QuoteInstallmentsEditor
+                installments={paymentInstallments}
+                onChange={updatePaymentInstallment}
+              />
+            </FormCard>
+          ) : null}
+          <FormRow>
+            <TextField
+              label='Data de emissão do orçamento'
+              size='medium'
+              type='date'
+              value={billingIssueDate}
+              onChange={(event) => setBillingIssueDate(event.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              helperText={`Sugerido pela configuração comercial: ${quoteDueDays(commercialSettings)} dia(s). Pode ser alterado manualmente.`}
+              label='Primeiro vencimento do boleto/fatura'
+              size='medium'
+              type='date'
+              value={billingDueDate}
+              onChange={(event) => {
+                const nextDueDate = event.target.value
+
+                setBillingDueDate(nextDueDate)
+                setBillingDueDateTouched(true)
+                setPaymentInstallments(
+                  quotePaymentInstallments(
+                    installmentCount,
+                    nextDueDate || billingIssueDate,
+                    installmentAmount,
+                  ),
+                )
+              }}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </FormRow>
+          <FormRow>
+            <TextField
+              disabled
+              helperText={`Calculada pela configuração comercial: ${quoteValidityDays(commercialSettings)} dia(s).`}
+              label='Validade do orçamento'
+              size='medium'
+              value={quoteValidityLabel(validUntil, commercialSettings)}
+            />
+            <TextField
+              disabled
+              label='Subtotal'
+              size='medium'
+              value={formatCurrency(quoteSubtotal)}
+            />
+          </FormRow>
+          <FormRow>
+            <div className='grid gap-2'>
               <ToggleButtonGroup
                 exclusive
                 size='small'
-                value={item.discountMode}
+                value={discountMode}
                 onChange={(_event, value: QuoteDiscountMode | null) => {
-                  if (!value) {
-                    return
+                  if (value) {
+                    setDiscountMode(value)
                   }
-
-                  updateItem(
-                    index,
-                    quoteItemDiscountModeInput(
-                      value,
-                      quoteItemSubtotal(item),
-                      quoteItemDiscountAmount(item),
-                    ),
-                  )
                 }}>
                 <ToggleButton value='PERCENTAGE'>%</ToggleButton>
                 <ToggleButton value='AMOUNT'>R$</ToggleButton>
               </ToggleButtonGroup>
-            </FormCard>
-          ))}
-        </div>
+              <TextField
+                label={
+                  discountMode === 'PERCENTAGE'
+                    ? 'Desconto geral (%)'
+                    : 'Desconto geral (R$)'
+                }
+                value={
+                  discountMode === 'PERCENTAGE'
+                    ? discountPercentage
+                    : discountAmount
+                }
+                type='number'
+                size='medium'
+                onChange={(event) => {
+                  if (discountMode === 'PERCENTAGE') {
+                    setDiscountPercentage(event.target.value)
+                  } else {
+                    setDiscountAmount(event.target.value)
+                  }
+                }}
+                slotProps={{
+                  htmlInput:
+                    discountMode === 'PERCENTAGE'
+                      ? { ...nonNegativePercentageInputProps, max: 100 }
+                      : nonNegativeMoneyInputProps,
+                }}
+              />
+            </div>
+            <TextField
+              disabled
+              label='Total final'
+              size='medium'
+              value={formatCurrency(quoteTotal)}
+            />
+          </FormRow>
+          <InlineNote>
+            Desconto nos itens: {formatCurrency(itemDiscountTotal)} | Desconto
+            geral: {formatCurrency(generalDiscount)}
+          </InlineNote>
+          <TextField
+            label='Observações do orçamento'
+            multiline
+            value={notes}
+            rows={3}
+            size='medium'
+            onChange={(event) => setNotes(event.target.value)}
+            slotProps={{ htmlInput: { maxLength: 1000 } }}
+          />
+          <FormControlLabel
+            className='m-0'
+            control={
+              <Checkbox
+                checked={showBrand}
+                color='primary'
+                onChange={(event) => setShowBrand(event.target.checked)}
+              />
+            }
+            label='Exibir fabricante na coluna Marca do PDF'
+          />
 
-        <ActionGroup className='pt-1'>
-          {hasQuoteBlockingIssues ? (
-            <InlineNote>{quoteFormIssues[0]}</InlineNote>
+          <QuoteItemListPaste onImport={importQuoteItems} />
+
+          {pendingMatchItems.length > 1 ? (
+            <div className='grid gap-2 rounded-xl border border-[#dfe5e1] bg-white p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center'>
+              <div>
+                <strong>Comparar itens pendentes</strong>
+                <p className='mt-1 text-sm text-[#5f665f]'>
+                  {batchMatching
+                    ? `Buscando por código, nome e fabricante para ${pendingMatchItems.length} itens.`
+                    : `Confira as sugestões dos ${pendingMatchItems.length} itens. Nenhum produto é selecionado automaticamente.`}
+                </p>
+              </div>
+              <SecondaryButton
+                disabled={batchMatching || pendingMatchItems.length > 50}
+                icon={<Sparkles size={17} />}
+                type='button'
+                onClick={() => void matchAllPendingItems()}>
+                {batchMatching ? 'Comparando lista…' : 'Sugerir para todos'}
+              </SecondaryButton>
+              {pendingMatchItems.length > 50 ? (
+                <Alert className='sm:col-span-2' severity='warning'>
+                  Compare no máximo 50 itens por vez.
+                </Alert>
+              ) : null}
+              {batchMatchError ? (
+                <Alert className='sm:col-span-2' severity='error'>
+                  Não foi possível comparar a lista. Tente novamente.
+                </Alert>
+              ) : null}
+            </div>
           ) : null}
-          <SecondaryButton
-            type='button'
-            onClick={() =>
-              setItems((currentItems) => [...currentItems, emptyQuoteItem()])
-            }>
-            Adicionar item
-          </SecondaryButton>
-          <PrimaryButton
-            disabled={hasQuoteBlockingIssues || Boolean(pendingFormAction)}
-            icon={<Plus size={17} />}
-            loading={pendingFormAction === 'submit'}
-            type='submit'>
-            {pendingFormAction === 'submit'
-              ? 'Salvando orçamento…'
-              : 'Salvar orçamento'}
-          </PrimaryButton>
-        </ActionGroup>
-      </FormGrid>
+
+          <div className='grid gap-4'>
+            {items.map((item, index) => (
+              <FormCard key={index}>
+                <div className='flex items-center justify-between gap-3'>
+                  <strong>Item {index + 1}</strong>
+                  {items.length > 1 ? (
+                    <TableActionButton
+                      type='button'
+                      onClick={() => removeItem(index)}>
+                      Remover
+                    </TableActionButton>
+                  ) : null}
+                </div>
+                <ProductSearchField
+                  label='Produto'
+                  name={`quoteItems.${index}.productId`}
+                  products={activeProducts}
+                  required
+                  stockLabel='available'
+                  value={item.productId}
+                  onSelect={(product) =>
+                    updateItem(index, {
+                      productId: product?.id ?? '',
+                      description: product
+                        ? item.description.trim() ||
+                          product.description ||
+                          product.name
+                        : item.description,
+                      unitPrice: product?.salePrice ?? '',
+                    })
+                  }
+                />
+                {item.productId ? (
+                  <div className='flex justify-end'>
+                    <TableActionButton
+                      type='button'
+                      onClick={() =>
+                        updateItem(index, { productId: '', unitPrice: '' })
+                      }>
+                      Remover produto e pesquisar novamente
+                    </TableActionButton>
+                  </div>
+                ) : null}
+                <TextField
+                  helperText='Usado no Smart Match para localizar código, nome e fabricante; também será a descrição exibida no orçamento.'
+                  label='Descrição recebida / comercial'
+                  value={item.description}
+                  size='medium'
+                  onChange={(event) =>
+                    updateItem(index, { description: event.target.value })
+                  }
+                  slotProps={{ htmlInput: { maxLength: 500 } }}
+                />
+                <QuoteProductSuggestions
+                  batchLoading={batchMatching}
+                  batchResult={batchMatchResults[String(index)]}
+                  query={item.description}
+                  selectedProductId={item.productId}
+                  onRememberAlias={onRememberProductAlias}
+                  onRemoveAlias={onRemoveProductAlias}
+                  onSelect={(product) =>
+                    updateItem(index, {
+                      productId: product.id,
+                      description:
+                        item.description.trim() ||
+                        product.description ||
+                        product.name,
+                      unitPrice: product.salePrice,
+                    })
+                  }
+                />
+                <FormRow columns={3}>
+                  <TextField
+                    label='Quantidade'
+                    value={item.quantity}
+                    type='number'
+                    size='medium'
+                    onChange={(event) =>
+                      updateItem(index, { quantity: event.target.value })
+                    }
+                    slotProps={{ htmlInput: positiveWholeNumberInputProps }}
+                    required
+                  />
+                  <TextField
+                    label='Valor unitario'
+                    value={item.unitPrice}
+                    type='number'
+                    size='medium'
+                    onChange={(event) =>
+                      updateItem(index, { unitPrice: event.target.value })
+                    }
+                    slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
+                    required
+                  />
+                  <TextField
+                    helperText={`Subtotal ${formatCurrency(
+                      quoteItemSubtotal(item),
+                    )} · desconto ${formatCurrency(quoteItemDiscountAmount(item))}`}
+                    label='Valor total do item'
+                    value={formatCurrency(quoteItemTotalAmount(item))}
+                    slotProps={{ htmlInput: { readOnly: true } }}
+                  />
+                </FormRow>
+                <TextField
+                  label={
+                    item.discountMode === 'PERCENTAGE'
+                      ? 'Desconto do item (%)'
+                      : 'Desconto do item (R$)'
+                  }
+                  value={
+                    item.discountMode === 'PERCENTAGE'
+                      ? item.discountPercentage
+                      : item.discountAmount
+                  }
+                  type='number'
+                  size='medium'
+                  onChange={(event) => {
+                    if (item.discountMode === 'PERCENTAGE') {
+                      updateItem(index, {
+                        discountPercentage: event.target.value,
+                      })
+                    } else {
+                      updateItem(index, { discountAmount: event.target.value })
+                    }
+                  }}
+                  helperText={`Valor: ${formatCurrency(quoteItemDiscountAmount(item))}`}
+                  slotProps={{
+                    htmlInput:
+                      item.discountMode === 'PERCENTAGE'
+                        ? { ...nonNegativePercentageInputProps, max: 100 }
+                        : nonNegativeMoneyInputProps,
+                  }}
+                />
+                <ToggleButtonGroup
+                  exclusive
+                  size='small'
+                  value={item.discountMode}
+                  onChange={(_event, value: QuoteDiscountMode | null) => {
+                    if (!value) {
+                      return
+                    }
+
+                    updateItem(
+                      index,
+                      quoteItemDiscountModeInput(
+                        value,
+                        quoteItemSubtotal(item),
+                        quoteItemDiscountAmount(item),
+                      ),
+                    )
+                  }}>
+                  <ToggleButton value='PERCENTAGE'>%</ToggleButton>
+                  <ToggleButton value='AMOUNT'>R$</ToggleButton>
+                </ToggleButtonGroup>
+              </FormCard>
+            ))}
+          </div>
+
+          <ActionGroup className='pt-1'>
+            {hasQuoteBlockingIssues ? (
+              <InlineNote>{quoteFormIssues[0]}</InlineNote>
+            ) : null}
+            <SecondaryButton
+              type='button'
+              onClick={() =>
+                setItems((currentItems) => [...currentItems, emptyQuoteItem()])
+              }>
+              Adicionar item
+            </SecondaryButton>
+            <PrimaryButton
+              disabled={hasQuoteBlockingIssues || Boolean(pendingFormAction)}
+              icon={<Plus size={17} />}
+              loading={pendingFormAction === 'submit'}
+              type='submit'>
+              {pendingFormAction === 'submit'
+                ? 'Salvando orçamento…'
+                : 'Salvar orçamento'}
+            </PrimaryButton>
+          </ActionGroup>
+        </FormGrid>
       ) : null}
 
       {mode !== 'form' ? (
-      <PagePanel wide>
-        <PageHeader
-          actions={<StatusChip label='PDF disponível' tone='success' />}
-          description={`${filteredQuotes.length} de ${quotes.length} registro(s)`}
-          title='Orçamentos salvos'
-        />
-        <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_220px_200px]'>
-          <TextField
-            label='Buscar orçamento'
-            placeholder='Cliente, nº, produto, vendedor…'
-            size='small'
-            value={quoteSearch}
-            onChange={(event) => setQuoteSearch(event.target.value)}
+        <PagePanel wide>
+          <PageHeader
+            actions={<StatusChip label='PDF disponível' tone='success' />}
+            description={`${filteredQuotes.length} de ${quotes.length} registro(s)`}
+            title='Orçamentos salvos'
           />
-          <TextField
-            label='Situação'
-            select
-            size='small'
-            value={quoteStatusFilter}
-            onChange={(event) =>
-              setQuoteStatusFilter(event.target.value as QuoteListStatusFilter)
-            }>
-            {quoteListStatusFilterOptions.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label='Pagamento'
-            select
-            size='small'
-            value={quotePaymentMethodId}
-            onChange={(event) => setQuotePaymentMethodId(event.target.value)}>
-            <MenuItem value='ALL'>Todos</MenuItem>
-            {quotePaymentFilterOptions.map((method) => (
-              <MenuItem key={method.id} value={method.id}>
-                {method.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </div>
-        <ResponsiveTable
-          columns={[
-            {
-              header: 'Nº do orçamento',
-              render: (quote) => quote.quoteNumber,
-            },
-            {
-              header: 'Data',
-              render: (quote) => formatDateTime(quote.createdAt),
-            },
-            {
-              header: 'Cliente',
-              render: (quote) => quote.clientName,
-            },
-            {
-              header: 'Vendedor',
-              render: (quote) => quote.createdByUserName,
-            },
-            {
-              header: 'Pagamento',
-              render: (quote) => (
-                <>
-                  <QuotePaymentHighlight
-                    compact
-                    paymentMethodName={quotePaymentListSummary(quote)}
-                  />
-                  {quote.paymentInstallments.length > 0 ? (
-                    <InlineNote>
-                      {quote.paymentInstallments.length} parcela(s)
-                    </InlineNote>
-                  ) : null}
-                </>
-              ),
-            },
-            {
-              header: 'Itens',
-              render: (quote) => `${quote.items.length} item(ns)`,
-            },
-            {
-              header: 'Fatura',
-              render: (quote) => (
-                <>
-                  {quote.billingIssueDate
-                    ? formatDate(quote.billingIssueDate)
-                    : '-'}
-                  <InlineNote>
-                    Primeiro vencimento:{' '}
-                    {quote.billingDueDate
-                      ? formatDate(quote.billingDueDate)
+          <div className='mb-4 grid gap-3 xl:grid-cols-[minmax(220px,1fr)_220px_200px]'>
+            <TextField
+              label='Buscar orçamento'
+              placeholder='Cliente, nº, produto, vendedor…'
+              size='small'
+              value={quoteSearch}
+              onChange={(event) => setQuoteSearch(event.target.value)}
+            />
+            <TextField
+              label='Situação'
+              select
+              size='small'
+              value={quoteStatusFilter}
+              onChange={(event) =>
+                setQuoteStatusFilter(
+                  event.target.value as QuoteListStatusFilter,
+                )
+              }>
+              {quoteListStatusFilterOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label='Pagamento'
+              select
+              size='small'
+              value={quotePaymentMethodId}
+              onChange={(event) => setQuotePaymentMethodId(event.target.value)}>
+              <MenuItem value='ALL'>Todos</MenuItem>
+              {quotePaymentFilterOptions.map((method) => (
+                <MenuItem key={method.id} value={method.id}>
+                  {method.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </div>
+          <ResponsiveTable
+            columns={[
+              {
+                header: 'Nº do orçamento',
+                render: (quote) => quote.quoteNumber,
+              },
+              {
+                header: 'Data',
+                render: (quote) => formatDateTime(quote.createdAt),
+              },
+              {
+                header: 'Cliente',
+                render: (quote) => quote.clientName,
+              },
+              {
+                header: 'Vendedor',
+                render: (quote) => quote.createdByUserName,
+              },
+              {
+                header: 'Pagamento',
+                render: (quote) => (
+                  <>
+                    <QuotePaymentHighlight
+                      compact
+                      paymentMethodName={quotePaymentListSummary(quote)}
+                    />
+                    {quote.paymentInstallments.length > 0 ? (
+                      <InlineNote>
+                        {quote.paymentInstallments.length} parcela(s)
+                      </InlineNote>
+                    ) : null}
+                  </>
+                ),
+              },
+              {
+                header: 'Itens',
+                render: (quote) => `${quote.items.length} item(ns)`,
+              },
+              {
+                header: 'Fatura',
+                render: (quote) => (
+                  <>
+                    {quote.billingIssueDate
+                      ? formatDate(quote.billingIssueDate)
                       : '-'}
-                  </InlineNote>
-                </>
-              ),
-            },
-            {
-              header: 'Validade do orçamento',
-              render: (quote) =>
-                quote.validUntil ? formatDate(quote.validUntil) : '-',
-            },
-            {
-              header: 'Total',
-              render: (quote) => (
-                <>
-                  {formatCurrency(quote.totalAmount)}
-                  {Number(quote.discountAmount) > 0 ||
-                  quote.items.some(
-                    (item) => Number(item.discountAmount) > 0,
-                  ) ? (
                     <InlineNote>
-                      Subtotal {formatCurrency(quote.subtotalAmount)} | Desc.{' '}
-                      {formatCurrency(totalQuoteDiscount(quote))}
-                      {Number(quote.discountPercentage) > 0
-                        ? ` (${quote.discountPercentage}% geral)`
-                        : ''}
+                      Primeiro vencimento:{' '}
+                      {quote.billingDueDate
+                        ? formatDate(quote.billingDueDate)
+                        : '-'}
                     </InlineNote>
-                  ) : null}
-                </>
-              ),
-            },
-            {
-              header: 'Status',
-              render: (quote) => <QuoteStatusSummary quote={quote} />,
-            },
-            {
-              align: 'right',
-              header: 'Ações',
-              render: (quote) => (
-                <QuoteActions
-                  quote={quote}
-                  onEditQuote={onEditQuote}
-                  onReuseQuote={onReuseQuote}
-                  onCancelQuote={onCancelQuote}
-                  onCreateShippingOrder={onCreateShippingOrder}
-                />
-              ),
-            },
-          ]}
-          emptyMessage='Nenhum orçamento salvo.'
-          getRowId={(quote) => quote.id}
-          items={visibleItems}
-          pagination={pagination}
-        />
-      </PagePanel>
+                  </>
+                ),
+              },
+              {
+                header: 'Validade do orçamento',
+                render: (quote) =>
+                  quote.validUntil ? formatDate(quote.validUntil) : '-',
+              },
+              {
+                header: 'Total',
+                render: (quote) => (
+                  <>
+                    {formatCurrency(quote.totalAmount)}
+                    {Number(quote.discountAmount) > 0 ||
+                    quote.items.some(
+                      (item) => Number(item.discountAmount) > 0,
+                    ) ? (
+                      <InlineNote>
+                        Subtotal {formatCurrency(quote.subtotalAmount)} | Desc.{' '}
+                        {formatCurrency(totalQuoteDiscount(quote))}
+                        {Number(quote.discountPercentage) > 0
+                          ? ` (${quote.discountPercentage}% geral)`
+                          : ''}
+                      </InlineNote>
+                    ) : null}
+                  </>
+                ),
+              },
+              {
+                header: 'Status',
+                render: (quote) => <QuoteStatusSummary quote={quote} />,
+              },
+              {
+                align: 'right',
+                header: 'Ações',
+                render: (quote) => (
+                  <QuoteActions
+                    cashRegister={cashRegister}
+                    paymentMethods={activePaymentMethods}
+                    quote={quote}
+                    onEditQuote={onEditQuote}
+                    onReuseQuote={onReuseQuote}
+                    onCancelQuote={onCancelQuote}
+                    onCompleteQuote={onCompleteQuote}
+                    onOpenShippingOrders={onOpenShippingOrders}
+                  />
+                ),
+              },
+            ]}
+            emptyMessage='Nenhum orçamento salvo.'
+            getRowId={(quote) => quote.id}
+            items={visibleItems}
+            pagination={pagination}
+          />
+        </PagePanel>
       ) : null}
     </section>
   )
@@ -1145,6 +1347,8 @@ export function QuoteEditPage({
   products,
   quote,
   onCancel,
+  onRememberProductAlias,
+  onRemoveProductAlias,
   onSubmit,
 }: {
   clients: Client[]
@@ -1153,6 +1357,11 @@ export function QuoteEditPage({
   products: Product[]
   quote: Quote
   onCancel: () => void
+  onRememberProductAlias: (
+    productId: string,
+    alias: string,
+  ) => Promise<boolean>
+  onRemoveProductAlias: (id: string, alias: string) => Promise<boolean>
   onSubmit: (quote: Quote, input: QuoteDraftInput) => Promise<boolean>
 }) {
   const [submitting, setSubmitting] = useState(false)
@@ -1230,8 +1439,8 @@ export function QuoteEditPage({
       Boolean(paymentMethod),
     )
   const primaryPaymentMethodId = payments[0]?.paymentMethodId ?? ''
-  const usesInstallments = selectedPaymentMethods.some(
-    (paymentMethod) => quotePaymentMethodAllowsInstallments(paymentMethod),
+  const usesInstallments = selectedPaymentMethods.some((paymentMethod) =>
+    quotePaymentMethodAllowsInstallments(paymentMethod),
   )
   const quoteSubtotal = items.reduce((sum, item) => {
     return sum + quoteItemSubtotal(item)
@@ -1380,7 +1589,8 @@ export function QuoteEditPage({
               product?.name ??
               changes.description ??
               item.description,
-            unitPrice: product?.salePrice ?? changes.unitPrice ?? item.unitPrice,
+            unitPrice:
+              product?.salePrice ?? changes.unitPrice ?? item.unitPrice,
           }
         }
 
@@ -1506,7 +1716,9 @@ export function QuoteEditPage({
                 normalizeInstallmentCount(Number(event.target.value || 1)),
               )
             }
-            slotProps={{ htmlInput: { min: '1', max: '24', step: '1' } }}
+            slotProps={{
+              htmlInput: { ...positiveWholeNumberInputProps, max: 24 },
+            }}
             required
           />
           <QuoteInstallmentsEditor
@@ -1582,7 +1794,9 @@ export function QuoteEditPage({
                 : 'Desconto geral (R$)'
             }
             value={
-              discountMode === 'PERCENTAGE' ? discountPercentage : discountAmount
+              discountMode === 'PERCENTAGE'
+                ? discountPercentage
+                : discountAmount
             }
             type='number'
             size='medium'
@@ -1596,8 +1810,8 @@ export function QuoteEditPage({
             slotProps={{
               htmlInput:
                 discountMode === 'PERCENTAGE'
-                  ? { min: '0', max: '100', step: '0.01' }
-                  : { min: '0', step: '0.01' },
+                  ? { ...nonNegativePercentageInputProps, max: 100 }
+                  : nonNegativeMoneyInputProps,
             }}
           />
         </div>
@@ -1655,11 +1869,26 @@ export function QuoteEditPage({
               onSelect={(product) =>
                 updateItem(index, {
                   productId: product?.id ?? '',
-                  description: product?.description ?? product?.name ?? '',
+                  description: product
+                    ? item.description.trim() ||
+                      product.description ||
+                      product.name
+                    : '',
                   unitPrice: product?.salePrice ?? '',
                 })
               }
             />
+            {item.productId ? (
+              <div className='flex justify-end'>
+                <TableActionButton
+                  type='button'
+                  onClick={() =>
+                    updateItem(index, { productId: '', unitPrice: '' })
+                  }>
+                  Remover produto e pesquisar novamente
+                </TableActionButton>
+              </div>
+            ) : null}
             <TextField
               label='Descrição comercial'
               value={item.description}
@@ -1668,6 +1897,22 @@ export function QuoteEditPage({
                 updateItem(index, { description: event.target.value })
               }
               slotProps={{ htmlInput: { maxLength: 500 } }}
+            />
+            <QuoteProductSuggestions
+              query={item.description}
+              selectedProductId={item.productId}
+              onRememberAlias={onRememberProductAlias}
+              onRemoveAlias={onRemoveProductAlias}
+              onSelect={(product) =>
+                updateItem(index, {
+                  productId: product.id,
+                  description:
+                    item.description.trim() ||
+                    product.description ||
+                    product.name,
+                  unitPrice: product.salePrice,
+                })
+              }
             />
             <FormRow columns={3}>
               <TextField
@@ -1678,7 +1923,7 @@ export function QuoteEditPage({
                 onChange={(event) =>
                   updateItem(index, { quantity: event.target.value })
                 }
-                slotProps={{ htmlInput: { min: '1', step: '1' } }}
+                slotProps={{ htmlInput: positiveWholeNumberInputProps }}
                 required
               />
               <TextField
@@ -1689,7 +1934,7 @@ export function QuoteEditPage({
                 onChange={(event) =>
                   updateItem(index, { unitPrice: event.target.value })
                 }
-                slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+                slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
                 required
               />
               <TextField
@@ -1725,8 +1970,8 @@ export function QuoteEditPage({
               slotProps={{
                 htmlInput:
                   item.discountMode === 'PERCENTAGE'
-                    ? { min: '0', max: '100', step: '0.01' }
-                    : { min: '0', step: '0.01' },
+                    ? { ...nonNegativePercentageInputProps, max: 100 }
+                    : nonNegativeMoneyInputProps,
               }}
             />
             <ToggleButtonGroup
@@ -1754,7 +1999,9 @@ export function QuoteEditPage({
         ))}
       </div>
       <ActionGroup className='pt-1'>
-        {quoteFormIssues[0] ? <InlineNote>{quoteFormIssues[0]}</InlineNote> : null}
+        {quoteFormIssues[0] ? (
+          <InlineNote>{quoteFormIssues[0]}</InlineNote>
+        ) : null}
         <SecondaryButton disabled={submitting} type='button' onClick={onCancel}>
           Cancelar
         </SecondaryButton>
@@ -1843,7 +2090,7 @@ function QuoteInstallmentsEditor({
             onChange={(event) =>
               onChange(index, { amount: event.target.value })
             }
-            slotProps={{ htmlInput: { min: '0.01', step: '0.01' } }}
+            slotProps={{ htmlInput: positiveMoneyInputProps }}
           />
         </div>
       ))}
@@ -1877,12 +2124,17 @@ function QuoteStatusSummary({ quote }: { quote: Quote }) {
 }
 
 function QuoteActions({
+  cashRegister,
+  paymentMethods,
   quote,
   onEditQuote,
   onReuseQuote,
   onCancelQuote,
-  onCreateShippingOrder,
+  onCompleteQuote,
+  onOpenShippingOrders,
 }: {
+  cashRegister: CashRegisterSession | null
+  paymentMethods: PaymentMethod[]
   quote: Quote
   onEditQuote: (quote: Quote) => void
   onReuseQuote: (quote: Quote) => void
@@ -1890,22 +2142,153 @@ function QuoteActions({
     event: FormEvent<HTMLFormElement>,
     quote: Quote,
   ) => Promise<unknown> | unknown
-  onCreateShippingOrder: (quote: Quote) => Promise<unknown> | unknown
+  onCompleteQuote: (
+    quote: Quote,
+    input: QuoteSaleClosingInput,
+  ) => Promise<boolean | void>
+  onOpenShippingOrders: () => void
 }) {
   const [showCancellationForm, setShowCancellationForm] = useState(false)
-  const [pendingAction, setPendingAction] = useState<'cancel' | 'create-sale'>()
+  const [showClosingForm, setShowClosingForm] = useState(false)
+  const closingPaymentMethods = paymentMethods.filter(
+    (paymentMethod) =>
+      paymentMethod.active && paymentMethod.code !== 'TO_AGREE',
+  )
+  const [closingPayments, setClosingPayments] = useState<QuotePaymentDraft[]>(
+    () => quoteSaleClosingPayments(quote, closingPaymentMethods),
+  )
+  const [closingBillingIssueDate, setClosingBillingIssueDate] = useState(
+    quote.billingIssueDate?.slice(0, 10) ?? todayInputDate(),
+  )
+  const [closingBillingDueDate, setClosingBillingDueDate] = useState(
+    quote.billingDueDate?.slice(0, 10) ??
+      quote.billingIssueDate?.slice(0, 10) ??
+      todayInputDate(),
+  )
+  const [closingInstallmentCount, setClosingInstallmentCount] = useState(
+    Math.max(quote.paymentInstallments.length, 1),
+  )
+  const [closingPaymentInstallments, setClosingPaymentInstallments] = useState<
+    QuotePaymentInstallmentDraft[]
+  >(() =>
+    quotePaymentInstallmentDrafts(
+      quote.paymentInstallments,
+      Math.max(quote.paymentInstallments.length, 1),
+      quote.billingDueDate?.slice(0, 10) ?? todayInputDate(),
+      quoteInstallmentPaymentAmount(
+        quoteSaleClosingPayments(quote, closingPaymentMethods),
+        Number(quote.totalAmount),
+        closingPaymentMethods,
+      ),
+    ),
+  )
+  const [pendingAction, setPendingAction] = useState<
+    'cancel' | 'complete-sale'
+  >()
   const pendingActionRef = useRef(false)
+  const hasActiveShippingOrder = quoteHasActiveShippingOrder(quote)
+  const closingPaymentPayloads = quotePaymentPayloads(
+    closingPayments,
+    Number(quote.totalAmount),
+  )
+  const closingPaymentsAreComplete =
+    closingPayments.length > 0 &&
+    closingPayments.every(
+      (payment) =>
+        Boolean(payment.paymentMethodId) &&
+        (closingPayments.length === 1 || moneyInputValue(payment.amount) > 0),
+    ) &&
+    closingPaymentPayloads.length === closingPayments.length
+  const closingPaymentTotalMatches =
+    quotePaymentDraftTotal(closingPayments, Number(quote.totalAmount)) ===
+    Number(quote.totalAmount)
+  const closingPaymentsAllowBilling = salePaymentsAllowBilling(
+    closingPaymentMethods,
+    closingPayments,
+  )
+  const closingSelectedPaymentMethods = closingPayments
+    .map((payment) =>
+      closingPaymentMethods.find(
+        (paymentMethod) => paymentMethod.id === payment.paymentMethodId,
+      ),
+    )
+    .filter((paymentMethod): paymentMethod is PaymentMethod =>
+      Boolean(paymentMethod),
+    )
+  const closingUsesInstallments = closingSelectedPaymentMethods.some(
+    quotePaymentMethodAllowsInstallments,
+  )
+  const closingInstallmentAmount = closingUsesInstallments
+    ? quoteInstallmentPaymentAmount(
+        closingPayments,
+        Number(quote.totalAmount),
+        closingPaymentMethods,
+      )
+    : 0
+  const closingInstallmentTotal = quotePaymentInstallmentsTotal(
+    closingPaymentInstallments,
+  )
+  const closingHasInstallmentDifference =
+    closingUsesInstallments &&
+    Math.abs(closingInstallmentAmount - closingInstallmentTotal) >= 0.01
 
-  async function createShippingOrder() {
+  useEffect(() => {
+    if (!closingUsesInstallments) {
+      setClosingPaymentInstallments([])
+      return
+    }
+
+    setClosingPaymentInstallments((currentInstallments) =>
+      syncQuotePaymentInstallments(
+        currentInstallments,
+        closingInstallmentCount,
+        closingBillingDueDate || closingBillingIssueDate || todayInputDate(),
+        closingInstallmentAmount,
+      ),
+    )
+  }, [
+    closingBillingDueDate,
+    closingBillingIssueDate,
+    closingInstallmentAmount,
+    closingInstallmentCount,
+    closingUsesInstallments,
+  ])
+
+  async function completeQuote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
     if (pendingActionRef.current) {
       return
     }
 
     pendingActionRef.current = true
-    setPendingAction('create-sale')
+    setPendingAction('complete-sale')
 
     try {
-      await onCreateShippingOrder(quote)
+      const completed = await onCompleteQuote(quote, {
+        paymentMethodId: closingPaymentPayloads[0]?.paymentMethodId ?? null,
+        payments: closingPaymentPayloads.map((payment) => ({
+          paymentMethodId: payment.paymentMethodId,
+          amount: payment.amount,
+        })),
+        billingIssueDate: closingPaymentsAllowBilling
+          ? closingBillingIssueDate || null
+          : null,
+        billingDueDate: closingPaymentsAllowBilling
+          ? closingBillingDueDate || null
+          : null,
+        paymentInstallments: closingUsesInstallments
+          ? closingPaymentInstallments.map((installment) => ({
+              amount: Number(installment.amount),
+              dueDate: installment.dueDate,
+              position: installment.position,
+            }))
+          : [],
+      })
+
+      if (completed) {
+        setShowClosingForm(false)
+      }
     } finally {
       pendingActionRef.current = false
       setPendingAction(undefined)
@@ -1932,22 +2315,25 @@ function QuoteActions({
 
   const actions = quoteActions({
     onCancelQuote: () => setShowCancellationForm(true),
-    onCreateShippingOrder: () => void createShippingOrder(),
     onEditQuote: () => onEditQuote(quote),
     onReuseQuote: () => onReuseQuote(quote),
     pendingAction,
     quote,
   })
 
-  if (quote.shippingOrderId && quote.status !== 'DRAFT') {
-    return (
-      <ActionStack className='ml-auto w-fit justify-items-end'>
-        <div className='inline-flex justify-end'>
-          <TableActionsMenu actions={actions} />
-        </div>
-        <InlineNote>Pedido criado</InlineNote>
-      </ActionStack>
-    )
+  if (quote.status === 'DRAFT') {
+    actions.unshift({
+      disabled:
+        Boolean(pendingAction) || (!hasActiveShippingOrder && !cashRegister),
+      label: hasActiveShippingOrder
+        ? 'Continuar fechamento'
+        : quote.shippingOrderId
+          ? 'Fechar nova venda'
+          : 'Fechar venda',
+      onSelect: hasActiveShippingOrder
+        ? onOpenShippingOrders
+        : () => setShowClosingForm(true),
+    })
   }
 
   if (quote.status !== 'DRAFT') {
@@ -1963,16 +2349,143 @@ function QuoteActions({
 
   return (
     <ActionStack className='ml-auto w-fit justify-items-end'>
-      <div className='inline-flex justify-end'>
+      <div className='flex justify-end'>
         <TableActionsMenu actions={actions} />
       </div>
-      {pendingAction === 'create-sale' ? (
-        <InlineNote>Criando venda a partir do orçamento…</InlineNote>
+      {!cashRegister && !hasActiveShippingOrder ? (
+        <InlineNote>Abra o caixa para fechar a venda.</InlineNote>
       ) : null}
+      {hasActiveShippingOrder ? (
+        <InlineNote>Aguardando fechamento</InlineNote>
+      ) : null}
+      <Dialog
+        fullWidth
+        maxWidth='sm'
+        open={showClosingForm}
+        onClose={() => {
+          if (!pendingAction) {
+            setShowClosingForm(false)
+          }
+        }}>
+        <form onSubmit={completeQuote}>
+          <DialogTitle>
+            {quote.shippingOrderId ? 'Fechar nova venda' : 'Fechar venda'}
+          </DialogTitle>
+          <DialogContent className='grid gap-4' dividers>
+            <Alert severity='info' variant='outlined'>
+              Orçamento Nº {quote.quoteNumber} · {quote.clientName}
+              <br />
+              Total: {formatCurrency(quote.totalAmount)}
+            </Alert>
+            {quote.shippingOrderId ? (
+              <Alert severity='warning' variant='outlined'>
+                Este orçamento já possui histórico de pedido ou venda. O novo
+                fechamento não altera os registros anteriores.
+              </Alert>
+            ) : null}
+            <QuotePaymentFields
+              paymentMethods={closingPaymentMethods}
+              payments={closingPayments}
+              totalAmount={Number(quote.totalAmount)}
+              onChange={setClosingPayments}
+            />
+            {closingPaymentMethods.length === 0 ? (
+              <Alert severity='error' variant='outlined'>
+                Nenhuma forma de pagamento disponível para concluir a venda.
+              </Alert>
+            ) : null}
+            {closingPaymentsAllowBilling ? (
+              <div className='grid gap-3 sm:grid-cols-2'>
+                <TextField
+                  label='Data da fatura'
+                  size='small'
+                  type='date'
+                  value={closingBillingIssueDate}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  onChange={(event) =>
+                    setClosingBillingIssueDate(event.target.value)
+                  }
+                />
+                <TextField
+                  label='Vencimento do boleto/fatura'
+                  size='small'
+                  type='date'
+                  value={closingBillingDueDate}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  onChange={(event) =>
+                    setClosingBillingDueDate(event.target.value)
+                  }
+                />
+              </div>
+            ) : null}
+            {closingUsesInstallments ? (
+              <FormCard>
+                <PageHeader
+                  description='Confira ou ajuste as parcelas antes de concluir a venda.'
+                  title='Parcelamento da venda'
+                />
+                <TextField
+                  label='Número de parcelas'
+                  value={closingInstallmentCount}
+                  type='number'
+                  size='medium'
+                  onChange={(event) =>
+                    setClosingInstallmentCount(
+                      normalizeInstallmentCount(
+                        Number(event.target.value || 1),
+                      ),
+                    )
+                  }
+                  slotProps={{
+                    htmlInput: { ...positiveWholeNumberInputProps, max: 24 },
+                  }}
+                  required
+                />
+                <QuoteInstallmentsEditor
+                  installments={closingPaymentInstallments}
+                  onChange={(index, changes) =>
+                    setClosingPaymentInstallments((currentInstallments) =>
+                      currentInstallments.map((installment, installmentIndex) =>
+                        installmentIndex === index
+                          ? { ...installment, ...changes }
+                          : installment,
+                      ),
+                    )
+                  }
+                />
+                <InlineNote>
+                  Parcelas {formatCurrency(closingInstallmentTotal)} | Valor
+                  parcelado {formatCurrency(closingInstallmentAmount)}
+                </InlineNote>
+              </FormCard>
+            ) : null}
+          </DialogContent>
+          <DialogActions>
+            <TableActionButton
+              disabled={Boolean(pendingAction)}
+              type='button'
+              onClick={() => setShowClosingForm(false)}>
+              Voltar
+            </TableActionButton>
+            <TableActionButton
+              disabled={
+                !cashRegister ||
+                !closingPaymentsAreComplete ||
+                !closingPaymentTotalMatches ||
+                closingHasInstallmentDifference ||
+                Boolean(pendingAction)
+              }
+              loading={pendingAction === 'complete-sale'}
+              type='submit'>
+              {pendingAction === 'complete-sale'
+                ? 'Concluindo venda…'
+                : 'Concluir venda e baixar estoque'}
+            </TableActionButton>
+          </DialogActions>
+        </form>
+      </Dialog>
       {showCancellationForm ? (
-        <form
-          className='grid w-full max-w-72 gap-2'
-          onSubmit={cancelQuote}>
+        <form className='grid w-full max-w-72 gap-2' onSubmit={cancelQuote}>
           <TextField
             label='Motivo do cancelamento'
             name='quoteCancellationReason'
@@ -1981,7 +2494,9 @@ function QuoteActions({
             required
           />
           <div className='flex flex-wrap gap-2'>
-            <TableActionButton loading={pendingAction === 'cancel'} type='submit'>
+            <TableActionButton
+              loading={pendingAction === 'cancel'}
+              type='submit'>
               {pendingAction === 'cancel' ? 'Cancelando…' : 'Cancelar'}
             </TableActionButton>
             <TableActionButton
@@ -1999,17 +2514,15 @@ function QuoteActions({
 
 function quoteActions({
   onCancelQuote,
-  onCreateShippingOrder,
   onEditQuote,
   onReuseQuote,
   pendingAction,
   quote,
 }: {
   onCancelQuote: () => void
-  onCreateShippingOrder: () => void
   onEditQuote: () => void
   onReuseQuote: () => void
-  pendingAction?: 'cancel' | 'create-sale'
+  pendingAction?: 'cancel' | 'complete-sale'
   quote: Quote
 }) {
   const actions: TableActionsMenuAction[] = [
@@ -2024,31 +2537,63 @@ function quoteActions({
     },
   ]
 
-  quote.status === 'DRAFT' &&
-    actions.push(
-      {
-        disabled: Boolean(pendingAction),
-        label: 'Editar',
-        onSelect: onEditQuote,
-      },
-      {
-        disabled: Boolean(pendingAction),
-        label:
-          pendingAction === 'create-sale'
-            ? 'Criando venda…'
-            : quote.shippingOrderId
-              ? 'Criar nova venda'
-              : 'Criar venda',
-        onSelect: onCreateShippingOrder,
-      },
-      {
-        disabled: Boolean(pendingAction),
-        label: 'Cancelar orçamento',
-        onSelect: onCancelQuote,
-      },
-    )
+  if (quote.status === 'DRAFT') {
+    actions.push({
+      disabled: Boolean(pendingAction),
+      label: 'Editar',
+      onSelect: onEditQuote,
+    })
+
+    actions.push({
+      disabled: Boolean(pendingAction),
+      label: 'Cancelar orçamento',
+      onSelect: onCancelQuote,
+    })
+  }
 
   return actions
+}
+
+function quoteHasActiveShippingOrder(quote: Quote) {
+  return Boolean(
+    quote.shippingOrderStatus &&
+    ['QUOTED', 'APPROVED', 'SEPARATED'].includes(quote.shippingOrderStatus),
+  )
+}
+
+function quoteSaleClosingPayments(
+  quote: Quote,
+  paymentMethods: PaymentMethod[],
+): QuotePaymentDraft[] {
+  const availablePaymentMethodIds = new Set(
+    paymentMethods.map((paymentMethod) => paymentMethod.id),
+  )
+
+  if (
+    quote.payments.length > 0 &&
+    quote.payments.every((payment) =>
+      availablePaymentMethodIds.has(payment.paymentMethodId),
+    )
+  ) {
+    return quote.payments.map((payment) => ({
+      paymentMethodId: payment.paymentMethodId,
+      amount: payment.amount,
+    }))
+  }
+
+  if (
+    quote.paymentMethodId &&
+    availablePaymentMethodIds.has(quote.paymentMethodId)
+  ) {
+    return [
+      {
+        paymentMethodId: quote.paymentMethodId,
+        amount: quote.totalAmount,
+      },
+    ]
+  }
+
+  return [emptyQuotePayment()]
 }
 
 function downloadQuotePdf(quote: Quote) {
@@ -2074,11 +2619,11 @@ const quoteShippingStatusLabels: Record<
   NonNullable<Quote['shippingOrderStatus']>,
   string
 > = {
-  APPROVED: 'Pedido aprovado',
+  APPROVED: 'Itens reservados',
   CANCELLED: 'Pedido cancelado',
   COMPLETED: 'Venda concluída',
-  QUOTED: 'Pedido criado',
-  SEPARATED: 'Separado',
+  QUOTED: 'Aguardando fechamento',
+  SEPARATED: 'Pronto para finalizar',
 }
 
 const quoteListStatusFilterOptions: Array<{
@@ -2088,8 +2633,8 @@ const quoteListStatusFilterOptions: Array<{
   { label: 'Todos', value: 'ALL' },
   { label: 'Rascunhos', value: 'DRAFT' },
   { label: 'Com pedido criado', value: 'SHIPPING_ORDER' },
-  { label: 'Pedidos aprovados', value: 'SHIPPING_ORDER_APPROVED' },
-  { label: 'Separados', value: 'SHIPPING_ORDER_SEPARATED' },
+  { label: 'Itens reservados', value: 'SHIPPING_ORDER_APPROVED' },
+  { label: 'Prontos para finalizar', value: 'SHIPPING_ORDER_SEPARATED' },
   { label: 'Vendas concluídas', value: 'SHIPPING_ORDER_COMPLETED' },
   { label: 'Pedidos cancelados', value: 'SHIPPING_ORDER_CANCELLED' },
   { label: 'Cancelados', value: 'CANCELLED' },
@@ -2114,17 +2659,13 @@ function filterQuotes(
         (payment) => payment.paymentMethodId === filters.paymentMethodId,
       )
     const matchesSearch =
-      !normalizedSearch ||
-      quoteSearchText(quote).includes(normalizedSearch)
+      !normalizedSearch || quoteSearchText(quote).includes(normalizedSearch)
 
     return matchesStatus && matchesPayment && matchesSearch
   })
 }
 
-function quoteMatchesStatusFilter(
-  quote: Quote,
-  status: QuoteListStatusFilter,
-) {
+function quoteMatchesStatusFilter(quote: Quote, status: QuoteListStatusFilter) {
   if (status === 'ALL') {
     return true
   }
@@ -2273,6 +2814,132 @@ function emptyQuoteItem(): QuoteDraftItem {
   }
 }
 
+function quoteDraftItemIsEmpty(item: QuoteDraftItem) {
+  return !item.productId && !item.description.trim() && !item.unitPrice
+}
+
+function pendingQuoteProductMatchItems(items: QuoteDraftItem[]) {
+  return items.flatMap((item, index) =>
+    !item.productId && item.description.trim().length >= 2
+      ? [{ index, query: item.description.trim() }]
+      : [],
+  )
+}
+
+function QuoteItemListPaste({
+  onImport,
+}: {
+  onImport: (items: QuoteDraftItem[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [value, setValue] = useState('')
+  const parsedItems = useMemo(() => parseQuoteItemList(value), [value])
+  const exceedsLimit = parsedItems.length > 50
+  const hasLongDescription = parsedItems.some(
+    (item) => item.description.length > 500,
+  )
+
+  if (!open) {
+    return (
+      <div className='flex justify-end'>
+        <SecondaryButton
+          icon={<ClipboardPaste size={17} />}
+          type='button'
+          onClick={() => setOpen(true)}>
+          Colar lista de itens
+        </SecondaryButton>
+      </div>
+    )
+  }
+
+  return (
+    <div className='grid gap-3 rounded-xl border border-[#dfe5e1] bg-[#f8faf9] p-4'>
+      <div>
+        <strong>Importar itens da solicitação</strong>
+        <p className='mt-1 text-sm text-[#5f665f]'>
+          Use uma linha por item. Quantidades podem ser informadas como “2x” ou
+          “3 un”. O sistema buscará código, nome e fabricante; você confirma os
+          produtos antes de salvar.
+        </p>
+      </div>
+      <TextField
+        error={exceedsLimit || hasLongDescription}
+        helperText={quoteItemListHelperText(
+          parsedItems.length,
+          exceedsLimit,
+          hasLongDescription,
+        )}
+        label='Lista de itens'
+        minRows={5}
+        multiline
+        placeholder={
+          '2x filtro diesel 6110\n1 un filtro de ar externo\nfiltro hidráulico Volvo'
+        }
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+      />
+      <div className='flex flex-wrap justify-end gap-2'>
+        <SecondaryButton
+          type='button'
+          onClick={() => {
+            setOpen(false)
+            setValue('')
+          }}>
+          Cancelar
+        </SecondaryButton>
+        <PrimaryButton
+          disabled={
+            parsedItems.length === 0 || exceedsLimit || hasLongDescription
+          }
+          type='button'
+          onClick={() => {
+            onImport(parsedItems)
+            setOpen(false)
+            setValue('')
+          }}>
+          Importar {parsedItems.length || ''} item(ns)
+        </PrimaryButton>
+      </div>
+    </div>
+  )
+}
+
+function parseQuoteItemList(value: string): QuoteDraftItem[] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^[•*-]\s+/, ''))
+    .filter(Boolean)
+    .map((line) => {
+      const quantityMatch = line.match(
+        /^(\d+(?:[.,]\d+)?)\s*(?:x|un(?:id(?:ade)?s?)?\.?)\s+(.+)$/i,
+      )
+      const quantity = quantityMatch?.[1]?.replace(',', '.') ?? '1'
+      const description = quantityMatch?.[2]?.trim() ?? line
+
+      return {
+        ...emptyQuoteItem(),
+        description,
+        quantity,
+      }
+    })
+}
+
+function quoteItemListHelperText(
+  itemCount: number,
+  exceedsLimit: boolean,
+  hasLongDescription: boolean,
+) {
+  if (exceedsLimit) {
+    return 'O limite é de 50 itens por importação.'
+  }
+
+  if (hasLongDescription) {
+    return 'Cada descrição pode ter no máximo 500 caracteres.'
+  }
+
+  return `${itemCount} de 50 itens prontos para importar.`
+}
+
 function todayInputDate() {
   return new Date().toLocaleDateString('en-CA')
 }
@@ -2349,7 +3016,7 @@ function QuotePaymentFields({
               size='medium'
               slotProps={
                 payments.length > 1
-                  ? { htmlInput: { min: '0', step: '0.01' } }
+                  ? { htmlInput: nonNegativeMoneyInputProps }
                   : undefined
               }
               type={payments.length > 1 ? 'number' : undefined}
@@ -2360,7 +3027,9 @@ function QuotePaymentFields({
               }
             />
             {payments.length > 1 ? (
-              <TableActionButton type='button' onClick={() => removePayment(index)}>
+              <TableActionButton
+                type='button'
+                onClick={() => removePayment(index)}>
                 Remover pagamento
               </TableActionButton>
             ) : null}
@@ -2439,7 +3108,10 @@ function quotePaymentInstallmentsTotal(
 ) {
   return Number(
     installments
-      .reduce((sum, installment) => sum + moneyInputValue(installment.amount), 0)
+      .reduce(
+        (sum, installment) => sum + moneyInputValue(installment.amount),
+        0,
+      )
       .toFixed(2),
   )
 }
@@ -2472,11 +3144,18 @@ function syncQuotePaymentInstallments(
     firstDueDate,
     totalAmount,
   )
+  const preservesAmounts =
+    currentInstallments.length === nextInstallments.length &&
+    Math.abs(
+      quotePaymentInstallmentsTotal(currentInstallments) - totalAmount,
+    ) < 0.01
 
   return nextInstallments.map((installment, index) => ({
     ...installment,
     dueDate: currentInstallments[index]?.dueDate || installment.dueDate,
-    amount: currentInstallments[index]?.amount || installment.amount,
+    amount: preservesAmounts
+      ? currentInstallments[index]?.amount || installment.amount
+      : installment.amount,
   }))
 }
 
@@ -2569,7 +3248,9 @@ function quoteBlockingIssues({
   const zeroPriceItem = selectedItems.find(
     (item) => Number(item.unitPrice || 0) <= 0,
   )
-  const invalidItemDiscount = selectedItems.find(quoteItemDiscountExceedsSubtotal)
+  const invalidItemDiscount = selectedItems.find(
+    quoteItemDiscountExceedsSubtotal,
+  )
 
   return [
     clientId ? null : 'Selecione o cliente do orçamento.',
@@ -2646,10 +3327,7 @@ function quoteItemDiscountAmount(item: QuoteDraftItem) {
     return moneyInputValue(item.discountAmount)
   }
 
-  return percentageAmount(
-    baseAmount,
-    Number(item.discountPercentage || 0),
-  )
+  return percentageAmount(baseAmount, Number(item.discountPercentage || 0))
 }
 
 function quoteItemTotalAmount(item: QuoteDraftItem) {
@@ -2747,7 +3425,7 @@ function emptyQuotePayment(): QuotePaymentDraft {
   }
 }
 
-function normalizeQuoteFormDraftPayload(
+export function normalizeQuoteFormDraftPayload(
   payload: Record<string, unknown>,
 ): QuoteFormDraftPayload {
   const installmentCount = numberPayloadValue(payload.installmentCount, 1)
@@ -2756,17 +3434,20 @@ function normalizeQuoteFormDraftPayload(
   )
 
   return {
+    requestLabel: stringPayloadValue(payload.requestLabel),
     clientId: stringPayloadValue(payload.clientId),
     clientName: nullableStringPayloadValue(payload.clientName),
     payments: quotePaymentDraftPayloads(payload.payments),
-    billingIssueDate: stringPayloadValue(payload.billingIssueDate) || todayInputDate(),
+    billingIssueDate:
+      stringPayloadValue(payload.billingIssueDate) || todayInputDate(),
     billingDueDate: stringPayloadValue(payload.billingDueDate),
     billingDueDateTouched: booleanPayloadValue(payload.billingDueDateTouched),
     validUntil: stringPayloadValue(payload.validUntil),
     notes: stringPayloadValue(payload.notes),
-    showBrand: payload.showBrand === undefined
-      ? true
-      : booleanPayloadValue(payload.showBrand),
+    showBrand:
+      payload.showBrand === undefined
+        ? true
+        : booleanPayloadValue(payload.showBrand),
     discountMode: quoteDiscountModePayloadValue(payload.discountMode),
     discountPercentage: stringPayloadValue(payload.discountPercentage),
     discountAmount: stringPayloadValue(payload.discountAmount),
@@ -2789,9 +3470,8 @@ function quotePaymentInstallmentPayloads(value: unknown) {
           )
         : null,
     )
-    .filter(
-      (installment): installment is QuotePaymentInstallmentDraft =>
-        Boolean(installment),
+    .filter((installment): installment is QuotePaymentInstallmentDraft =>
+      Boolean(installment),
     )
 }
 
@@ -2828,8 +3508,9 @@ function quotePaymentDraftPayloads(value: unknown): QuotePaymentDraft[] {
   }
 
   const payments = value
-    .filter((payment): payment is Record<string, unknown> =>
-      Boolean(payment) && typeof payment === 'object',
+    .filter(
+      (payment): payment is Record<string, unknown> =>
+        Boolean(payment) && typeof payment === 'object',
     )
     .map((payment) => ({
       amount: stringPayloadValue(payment.amount),
@@ -2845,8 +3526,9 @@ function quoteItemDraftPayloads(value: unknown): QuoteDraftItem[] {
   }
 
   const items = value
-    .filter((item): item is Record<string, unknown> =>
-      Boolean(item) && typeof item === 'object',
+    .filter(
+      (item): item is Record<string, unknown> =>
+        Boolean(item) && typeof item === 'object',
     )
     .map((item) => ({
       productId: stringPayloadValue(item.productId),

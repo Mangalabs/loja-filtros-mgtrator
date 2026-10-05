@@ -2,8 +2,18 @@ import { db } from '../../database/knex.js'
 import { generateQuotePdf } from '../../integrations/pdf/quote-pdf.js'
 import { findBranchById } from '../../models/branches/branches.model.js'
 import {
+  activeProductExistsForBranch,
+  matchActiveProductsForQuote,
+  matchActiveProductsForQuoteBatch,
+} from '../../models/products/products.model.js'
+import {
+  deleteQuoteProductAlias,
+  upsertQuoteProductAlias,
+} from '../../models/quotes/quote-product-aliases.model.js'
+import {
   deleteQuoteFormDraft,
   insertQuoteFormDraft,
+  insertQuoteFormDraftBatch,
   listQuoteFormDrafts,
   updateQuoteFormDraft,
 } from '../../models/quotes/quote-form-drafts.model.js'
@@ -15,7 +25,7 @@ import {
   listActiveQuotePaymentMethods,
   listActiveQuoteProducts,
   listQuotes,
-  lockQuoteForCancellation,
+  lockQuote,
   updateQuote,
   type QuoteInput,
   type QuotePaymentInput,
@@ -25,7 +35,12 @@ import {
   findShippingOrderByQuoteId,
   insertShippingOrderFromQuote,
 } from '../../models/shipping-orders/shipping-orders.model.js'
+import {
+  completeShippingOrderInTransaction,
+  type ShippingOrderCompletionInput,
+} from '../../services/shipping-orders/complete-shipping-order.service.js'
 import { AppError } from '../../shared/errors/app-error.js'
+import { normalizeSearchText } from '../../shared/text/normalize-search-text.js'
 
 export async function indexQuotes(filters: { branchId: string }) {
   return {
@@ -46,6 +61,86 @@ export async function indexQuoteFormDrafts(branchId: string, userId: string) {
   }
 }
 
+export async function indexQuoteProductMatches(
+  query: string,
+  limit: number,
+  branchId: string,
+) {
+  return {
+    code: 200,
+    status: 'success',
+    data: await matchActiveProductsForQuote({ branchId, query, limit }),
+  }
+}
+
+export async function indexQuoteProductMatchBatch(
+  items: Array<{ key: string; query: string }>,
+  limit: number,
+  branchId: string,
+) {
+  const matchGroups = await matchActiveProductsForQuoteBatch({
+    branchId,
+    queries: items.map(({ query }) => query),
+    limit,
+  })
+
+  return {
+    code: 200,
+    status: 'success',
+    data: items.map((item, index) => ({
+      ...item,
+      matches: matchGroups[index] ?? [],
+    })),
+  }
+}
+
+export async function storeQuoteProductAlias(
+  input: { alias: string; productId: string },
+  userId: string,
+  branchId: string,
+) {
+  const productExists = await activeProductExistsForBranch({
+    branchId,
+    productId: input.productId,
+  })
+
+  if (!productExists) {
+    throw new AppError('Produto informado nao disponivel.', 422)
+  }
+
+  const alias = await upsertQuoteProductAlias({
+    alias: input.alias,
+    branchId,
+    createdByUserId: userId,
+    normalizedAlias: normalizeSearchText(input.alias),
+    productId: input.productId,
+  })
+
+  return {
+    code: 201,
+    status: 'success',
+    data: alias,
+  }
+}
+
+export async function destroyQuoteProductAlias(
+  id: string,
+  userId: string,
+  branchId: string,
+) {
+  const deleted = await deleteQuoteProductAlias({ branchId, id, userId })
+
+  if (!deleted) {
+    throw new AppError('Termo associado nao encontrado.', 404)
+  }
+
+  return {
+    code: 200,
+    status: 'success',
+    data: { deleted: true },
+  }
+}
+
 export async function storeQuoteFormDraft(
   payload: Record<string, unknown>,
   userId: string,
@@ -62,6 +157,52 @@ export async function storeQuoteFormDraft(
     code: 201,
     status: 'success',
     data: draft,
+  }
+}
+
+export async function storeQuoteFormDraftBatch(
+  requests: Array<
+    | string
+    | {
+        requestLabel: string
+        items: Array<{ description: string; quantity: number }>
+      }
+  >,
+  userId: string,
+  branchId: string,
+) {
+  const drafts = await db.transaction((transaction) =>
+    insertQuoteFormDraftBatch(
+      transaction,
+      requests.map((request) => {
+        const requestLabel =
+          typeof request === 'string' ? request : request.requestLabel
+        const payload = {
+          requestLabel,
+          notes: typeof request === 'string' ? requestLabel : '',
+          items:
+            typeof request === 'string'
+              ? []
+              : request.items.map((item) => ({
+                  description: item.description,
+                  quantity: String(item.quantity),
+                })),
+        }
+
+        return {
+          branchId,
+          createdByUserId: userId,
+          title: quoteFormDraftTitle(payload),
+          payload,
+        }
+      }),
+    ),
+  )
+
+  return {
+    code: 201,
+    status: 'success',
+    data: drafts,
   }
 }
 
@@ -155,6 +296,14 @@ function sanitizeQuotePdfFileNamePart(value: string) {
 }
 
 function quoteFormDraftTitle(payload: Record<string, unknown>) {
+  const requestLabel = typeof payload.requestLabel === 'string'
+    ? payload.requestLabel.trim()
+    : ''
+
+  if (requestLabel) {
+    return requestLabel.slice(0, 180)
+  }
+
   const clientName = typeof payload.clientName === 'string'
     ? payload.clientName.trim()
     : ''
@@ -177,29 +326,38 @@ export async function storeQuote(
   createdByUserId: string,
   branchId: string,
 ) {
-  const quote = await db.transaction(async (transaction) => {
-    const {
-      discountAmount,
-      discountPercentage,
-      payments,
-      quoteItems,
-      paymentInstallments,
-      subtotalAmount,
-      totalAmount,
-    } = await prepareQuoteInput(transaction, input, branchId)
+  const quote = await db.transaction((transaction) =>
+    createQuoteRecord(transaction, input, createdByUserId, branchId),
+  )
 
-    return insertQuote(
+  return {
+    code: 201,
+    status: 'success',
+    data: quote,
+  }
+}
+
+export async function storeQuoteFromFormDraft(
+  draftId: string,
+  input: QuoteInput,
+  createdByUserId: string,
+  branchId: string,
+) {
+  const quote = await db.transaction(async (transaction) => {
+    const deleted = await deleteQuoteFormDraft(
+      { id: draftId, branchId, createdByUserId },
+      transaction,
+    )
+
+    if (!deleted) {
+      throw new AppError('Rascunho de orçamento nao encontrado.', 404)
+    }
+
+    return createQuoteRecord(
       transaction,
       input,
       createdByUserId,
       branchId,
-      quoteItems,
-      subtotalAmount,
-      discountPercentage,
-      discountAmount,
-      totalAmount,
-      paymentInstallments,
-      payments,
     )
   })
 
@@ -293,6 +451,61 @@ export async function createShippingOrderFromQuote(
   }
 }
 
+export async function completeQuoteAsSale(
+  id: string,
+  input: ShippingOrderCompletionInput,
+  completedByUserId: string,
+  branchId: string,
+) {
+  const order = await db.transaction(async (transaction) => {
+    const currentQuote = await lockQuote(transaction, id, branchId)
+
+    if (!currentQuote) {
+      throw new AppError('Orçamento nao encontrado.', 404)
+    }
+
+    if (currentQuote.status === 'CANCELLED') {
+      throw new AppError(
+        'Orçamento cancelado nao pode ser concluido como venda.',
+        409,
+      )
+    }
+
+    const quote = await getQuoteById(id, transaction, { branchId })
+
+    if (!quote) {
+      throw new AppError('Orçamento nao encontrado.', 404)
+    }
+
+    if (quote.items.length === 0) {
+      throw new AppError(
+        'Orçamento sem itens nao pode ser concluido como venda.',
+        422,
+      )
+    }
+
+    const shippingOrder = await insertShippingOrderFromQuote(
+      transaction,
+      quote,
+      completedByUserId,
+    )
+
+    return completeShippingOrderInTransaction(
+      transaction,
+      shippingOrder.id,
+      input,
+      completedByUserId,
+      branchId,
+    )
+  })
+
+  return {
+    code: 201,
+    status: 'success',
+    data: order,
+  }
+}
+
 export async function cancelDraftQuote(
   id: string,
   reason: string,
@@ -300,7 +513,7 @@ export async function cancelDraftQuote(
   branchId: string,
 ) {
   const quote = await db.transaction(async (transaction) => {
-    const currentQuote = await lockQuoteForCancellation(
+    const currentQuote = await lockQuote(
       transaction,
       id,
       branchId,
@@ -444,6 +657,37 @@ async function prepareQuoteInput(
     subtotalAmount,
     totalAmount,
   }
+}
+
+async function createQuoteRecord(
+  transaction: Parameters<typeof activeQuoteClientExists>[0],
+  input: QuoteInput,
+  createdByUserId: string,
+  branchId: string,
+) {
+  const {
+    discountAmount,
+    discountPercentage,
+    payments,
+    quoteItems,
+    paymentInstallments,
+    subtotalAmount,
+    totalAmount,
+  } = await prepareQuoteInput(transaction, input, branchId)
+
+  return insertQuote(
+    transaction,
+    input,
+    createdByUserId,
+    branchId,
+    quoteItems,
+    subtotalAmount,
+    discountPercentage,
+    discountAmount,
+    totalAmount,
+    paymentInstallments,
+    payments,
+  )
 }
 
 function quotePaymentInputs(input: QuoteInput) {

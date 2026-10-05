@@ -32,7 +32,7 @@ const productBodySchema = z.object({
   accessoryExpenses: z.coerce.number().min(0).optional(),
   otherExpenses: z.coerce.number().min(0).optional(),
   salePrice: z.coerce.number().min(0).optional(),
-  profitMarginPercentage: z.coerce.number().min(0).max(1000).nullable().optional(),
+  profitMarginPercentage: z.coerce.number().min(0).nullable().optional(),
   minimumStock: z.coerce.number().min(0).optional(),
   currentStock: z.coerce.number().optional(),
   ncm: optionalText(16),

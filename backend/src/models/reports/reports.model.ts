@@ -177,10 +177,14 @@ export type UserPerformanceReportFilters = {
   columns?: UserPerformanceReportColumnKey[];
   dateFrom?: string;
   dateTo?: string;
+  page?: number;
+  pageSize?: number;
+  userId?: string;
 };
 
 export type UserPerformanceReportColumnKey =
   | "user"
+  | "totalSales"
   | "completedSales"
   | "cancelledSales"
   | "openSales"
@@ -377,6 +381,7 @@ export type CashReport = {
 export type UserPerformanceReport = {
   summary: {
     usersCount: number;
+    totalSalesCount: number;
     salesCount: number;
     grossAmount: string;
     refundAmount: string;
@@ -388,6 +393,7 @@ export type UserPerformanceReport = {
   users: Array<{
     userId: string;
     userName: string;
+    totalSalesCount: number;
     salesCount: number;
     cancelledSalesCount: number;
     openSalesCount: number;
@@ -398,6 +404,11 @@ export type UserPerformanceReport = {
     stockMovementsCount: number;
     fiscalDocumentsIssuedCount: number;
   }>;
+  salesPagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
   sales: Array<{
     saleId: string;
     saleNumber: number;
@@ -604,6 +615,7 @@ type CashReportSessionRow = CashReport["sessions"][number];
 type UserSalesReportRow = {
   userId: string;
   userName: string;
+  totalSalesCount: string;
   salesCount: string;
   cancelledSalesCount: string;
   openSalesCount: string;
@@ -1277,14 +1289,23 @@ export async function getCashReport(
 export async function getUserPerformanceReport(
   filters: UserPerformanceReportFilters,
 ): Promise<UserPerformanceReport> {
-  const [salesByUser, quotesByUser, stockMovementsByUser, fiscalByUser, sales] =
-    await Promise.all([
-      userSalesReportQuery(filters),
-      userQuotesReportQuery(filters),
-      userStockMovementsReportQuery(filters),
-      userFiscalDocumentsReportQuery(filters),
-      userSaleDetailsQuery(filters),
-    ]);
+  const page = filters.page ?? 1;
+  const pageSize = filters.pageSize ?? 50;
+  const [
+    salesByUser,
+    quotesByUser,
+    stockMovementsByUser,
+    fiscalByUser,
+    sales,
+    salesCount,
+  ] = await Promise.all([
+    userSalesReportQuery(filters),
+    userQuotesReportQuery(filters),
+    userStockMovementsReportQuery(filters),
+    userFiscalDocumentsReportQuery(filters),
+    userSaleDetailsQuery({ ...filters, page, pageSize }),
+    userSaleDetailsCountQuery(filters),
+  ]);
   const users = new Map<string, UserPerformanceReport["users"][number]>();
   const ensureUser = (userId: string, userName: string) => {
     const current = users.get(userId);
@@ -1296,6 +1317,7 @@ export async function getUserPerformanceReport(
     const user = {
       userId,
       userName,
+      totalSalesCount: 0,
       salesCount: 0,
       cancelledSalesCount: 0,
       openSalesCount: 0,
@@ -1315,6 +1337,7 @@ export async function getUserPerformanceReport(
   for (const row of salesByUser) {
     const user = ensureUser(row.userId, row.userName);
 
+    user.totalSalesCount = Number(row.totalSalesCount);
     user.salesCount = Number(row.salesCount);
     user.cancelledSalesCount = Number(row.cancelledSalesCount);
     user.openSalesCount = Number(row.openSalesCount);
@@ -1348,6 +1371,10 @@ export async function getUserPerformanceReport(
   return {
     summary: {
       usersCount: userRows.length,
+      totalSalesCount: userRows.reduce(
+        (sum, user) => sum + user.totalSalesCount,
+        0,
+      ),
       salesCount: userRows.reduce((sum, user) => sum + user.salesCount, 0),
       grossAmount: sumMoney(userRows.map((user) => user.grossAmount)),
       refundAmount: sumMoney(userRows.map((user) => user.refundAmount)),
@@ -1366,6 +1393,11 @@ export async function getUserPerformanceReport(
       ),
     },
     users: userRows,
+    salesPagination: {
+      page,
+      pageSize: pageSize === 0 ? Number(salesCount?.count ?? 0) : pageSize,
+      total: Number(salesCount?.count ?? 0),
+    },
     sales: sales.map((sale) => ({
       ...sale,
       clientName: sale.clientName ?? "Consumidor nao identificado",
@@ -1394,10 +1426,12 @@ function userSalesReportQuery(filters: UserPerformanceReportFilters) {
     .where("sales.branch_id", filters.branchId)
     .modify((query) => {
       applyDateFilters(query, "sales.created_at", filters);
+      applyUserPerformanceFilter(query, filters);
     })
     .select<UserSalesReportRow[]>([
       "users.id as userId",
       "users.name as userName",
+      db.raw("count(sales.id)::text as ??", ["totalSalesCount"]),
       db.raw(
         "count(sales.id) filter (where sales.status = 'COMPLETED')::text as ??",
         ["salesCount"],
@@ -1515,6 +1549,7 @@ function userQuotesReportQuery(filters: UserPerformanceReportFilters) {
     .where("quotes.branch_id", filters.branchId)
     .modify((query) => {
       applyDateFilters(query, "quotes.created_at", filters);
+      applyUserPerformanceFilter(query, filters);
     })
     .select<UserActionCountRow[]>([
       "users.id as userId",
@@ -1533,6 +1568,7 @@ function userStockMovementsReportQuery(
     .where("products.branch_id", filters.branchId)
     .modify((query) => {
       applyDateFilters(query, "stock_movements.created_at", filters);
+      applyUserPerformanceFilter(query, filters);
     })
     .select<UserActionCountRow[]>([
       "users.id as userId",
@@ -1554,6 +1590,7 @@ function userFiscalDocumentsReportQuery(
         "coalesce(fiscal_documents.issued_at, fiscal_documents.created_at)",
         filters,
       );
+      applyUserPerformanceFilter(query, filters);
     })
     .select<UserActionCountRow[]>([
       "users.id as userId",
@@ -1564,18 +1601,7 @@ function userFiscalDocumentsReportQuery(
 }
 
 function userSaleDetailsQuery(filters: UserPerformanceReportFilters) {
-  return db("sales")
-    .join("users", "users.id", "sales.created_by_user_id")
-    .leftJoin("clients", "clients.id", "sales.client_id")
-    .leftJoin(
-      saleReturnsBySaleSubquery().as("sale_returns"),
-      "sale_returns.sale_id",
-      "sales.id",
-    )
-    .where("sales.branch_id", filters.branchId)
-    .modify((query) => {
-      applyDateFilters(query, "sales.created_at", filters);
-    })
+  const query = userSaleDetailsBaseQuery(filters)
     .select<UserSaleDetailRow[]>([
       "sales.id as saleId",
       "sales.sale_number as saleNumber",
@@ -1594,8 +1620,47 @@ function userSaleDetailsQuery(filters: UserPerformanceReportFilters) {
       ),
       "sales.created_at as createdAt",
     ])
-    .orderBy("sales.created_at", "desc")
-    .limit(50);
+    .orderBy("sales.created_at", "desc");
+
+  if (filters.pageSize !== 0) {
+    const page = filters.page ?? 1;
+    const pageSize = filters.pageSize ?? 50;
+
+    query.limit(pageSize).offset((page - 1) * pageSize);
+  }
+
+  return query;
+}
+
+function userSaleDetailsCountQuery(filters: UserPerformanceReportFilters) {
+  return userSaleDetailsBaseQuery(filters)
+    .count<{ count: string }>("sales.id as count")
+    .first();
+}
+
+function userSaleDetailsBaseQuery(filters: UserPerformanceReportFilters) {
+  return db("sales")
+    .join("users", "users.id", "sales.created_by_user_id")
+    .leftJoin("clients", "clients.id", "sales.client_id")
+    .leftJoin(
+      saleReturnsBySaleSubquery().as("sale_returns"),
+      "sale_returns.sale_id",
+      "sales.id",
+    )
+    .where("sales.branch_id", filters.branchId)
+    .modify((query) => {
+      applyDateFilters(query, "sales.created_at", filters);
+      applyUserPerformanceFilter(query, filters);
+    });
+}
+
+function applyUserPerformanceFilter(
+  query: Knex.QueryBuilder,
+  filters: UserPerformanceReportFilters,
+) {
+  if (filters.userId) {
+    query.where("users.id", filters.userId);
+  }
 }
 
 function saleReturnsBySaleSubquery() {

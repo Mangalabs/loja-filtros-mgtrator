@@ -22,6 +22,7 @@ export function showApiInfo() {
         "/pickup-reservations",
         "/quotes",
         "/quotes/:id/pdf",
+        "/quotes/:id/sale",
         "/quotes/:id/shipping-order",
         "/purchase-invoices",
         "/purchase-invoices/:id",

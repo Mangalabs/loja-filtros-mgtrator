@@ -63,6 +63,12 @@ import {
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import { formatCurrency, formatDateTime } from '../../utils/format'
 import {
+  nonNegativeMoneyInputProps,
+  nonNegativePercentageInputProps,
+  positiveDecimalQuantityInputProps,
+  positiveWholeNumberInputProps,
+} from '../../utils/numericInput'
+import {
   fiscalDocumentEnvironmentLabel,
   fiscalDocumentStatusDetail,
   fiscalDocumentStatusLabel,
@@ -1136,14 +1142,14 @@ export function ManualFiscalDocumentPage({
               name='manualFiscalTransportedVolumesQuantity'
               required
               type='number'
-              slotProps={{ htmlInput: { min: '1', step: '1' } }}
+              slotProps={{ htmlInput: positiveWholeNumberInputProps }}
             />
             <TextField
               defaultValue={sourceValues.transportedVolumesGrossWeight}
               label='Peso bruto (kg)'
               name='manualFiscalTransportedVolumesGrossWeight'
               type='number'
-              slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
+              slotProps={{ htmlInput: positiveDecimalQuantityInputProps }}
             />
           </div>
 
@@ -1478,7 +1484,7 @@ export function ManualFiscalDocumentPage({
                     onChange={(event) =>
                       updateItem(index, { quantity: event.target.value })
                     }
-                    slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
+                    slotProps={{ htmlInput: positiveDecimalQuantityInputProps }}
                   />
                   <TextField
                     label='Valor unitário'
@@ -1488,7 +1494,7 @@ export function ManualFiscalDocumentPage({
                     onChange={(event) =>
                       updateItem(index, { unitPrice: event.target.value })
                     }
-                    slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+                    slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
                   />
                   <TextField
                     label='Tipo desconto'
@@ -1517,14 +1523,10 @@ export function ManualFiscalDocumentPage({
                       updateItem(index, { discountValue: event.target.value })
                     }
                     slotProps={{
-                      htmlInput: {
-                        max:
-                          item.discountType === 'PERCENTAGE'
-                            ? '100'
-                            : undefined,
-                        min: '0',
-                        step: '0.01',
-                      },
+                      htmlInput:
+                        item.discountType === 'PERCENTAGE'
+                          ? { ...nonNegativePercentageInputProps, max: 100 }
+                          : nonNegativeMoneyInputProps,
                     }}
                   />
                 </div>
@@ -1569,14 +1571,10 @@ export function ManualFiscalDocumentPage({
                 )
               }
               slotProps={{
-                htmlInput: {
-                  max:
-                    manualGeneralDiscountType === 'PERCENTAGE'
-                      ? '100'
-                      : undefined,
-                  min: '0',
-                  step: '0.01',
-                },
+                htmlInput:
+                  manualGeneralDiscountType === 'PERCENTAGE'
+                    ? { ...nonNegativePercentageInputProps, max: 100 }
+                    : nonNegativeMoneyInputProps,
               }}
             />
           </div>
@@ -1603,7 +1601,7 @@ export function ManualFiscalDocumentPage({
                 ),
               )
             }}
-            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+            slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
           />
           {manualTotalEdited ? (
             <Alert severity='warning' variant='outlined'>
@@ -1665,7 +1663,7 @@ export function ManualFiscalDocumentPage({
                   onChange={(event) =>
                     updateManualPayment(index, { amount: event.target.value })
                   }
-                  slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+                  slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
                 />
                 <Button
                   disabled={manualPayments.length === 1}
@@ -1779,7 +1777,7 @@ export function ManualFiscalDocumentPage({
                           amount: event.target.value,
                         })
                       }
-                      slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+                      slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
                     />
                     <Button
                       disabled={manualPaymentInstallments.length === 1}

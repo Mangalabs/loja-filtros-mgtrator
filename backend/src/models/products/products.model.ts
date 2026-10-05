@@ -1,5 +1,6 @@
 import { db } from "../../database/knex.js";
 import type { Knex } from "knex";
+import { normalizeSearchText } from "../../shared/text/normalize-search-text.js";
 
 export type ProductListFilters = {
   search?: string;
@@ -16,6 +17,17 @@ export type ProductListPage = {
   page: number;
   limit: number;
   totalPages: number;
+};
+
+export type QuoteProductMatch = {
+  product: ProductListItem;
+  score: number;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  reasons: string[];
+  matchedAlias?: {
+    id: string;
+    alias: string;
+  };
 };
 
 export type ProductListItem = {
@@ -114,6 +126,188 @@ export async function listProductsPage(
     limit: filters.limit,
     totalPages: Math.max(1, Math.ceil(total / filters.limit)),
   };
+}
+
+export async function matchActiveProductsForQuote(filters: {
+  branchId: string;
+  query: string;
+  limit: number;
+}): Promise<QuoteProductMatch[]> {
+  const [matches = []] = await matchActiveProductsForQuoteBatch({
+    branchId: filters.branchId,
+    queries: [filters.query],
+    limit: filters.limit,
+  });
+
+  return matches;
+}
+
+export async function activeProductExistsForBranch(filters: {
+  branchId: string;
+  productId: string;
+}): Promise<boolean> {
+  const product = await db("products")
+    .select("id")
+    .where("id", filters.productId)
+    .where("branch_id", filters.branchId)
+    .where("active", true)
+    .whereNull("deleted_at")
+    .first();
+
+  return Boolean(product);
+}
+
+export async function matchActiveProductsForQuoteBatch(filters: {
+  branchId: string;
+  queries: string[];
+  limit: number;
+}): Promise<QuoteProductMatch[][]> {
+  const preparedQueries = filters.queries.map((query) => {
+    const normalizedQuery = normalizeSearchText(query);
+
+    return {
+      normalizedQuery,
+      tokens: uniqueMatchTokens(normalizedQuery),
+    };
+  });
+  const allTokens = [...new Set(preparedQueries.flatMap(({ tokens }) => tokens))];
+
+  if (allTokens.length === 0) {
+    return preparedQueries.map(() => []);
+  }
+
+  const exactQueries = preparedQueries
+    .map(({ normalizedQuery }) => normalizedQuery)
+    .filter(Boolean);
+  const candidateLimit = Math.min(
+    1_000,
+    Math.max(100, preparedQueries.length * 50),
+  );
+  const candidates = await db("products")
+    .leftJoin("branches", "branches.id", "products.branch_id")
+    .leftJoin("brands", "brands.id", "products.brand_id")
+    .leftJoin("product_groups", "product_groups.id", "products.group_id")
+    .select(productListColumns())
+    .where("products.branch_id", filters.branchId)
+    .where("products.active", true)
+    .whereNull("products.deleted_at")
+    .andWhereRaw(
+      `exists (
+        select 1
+        from unnest(?::text[]) as search_token(value)
+        where ${matchableProductSqlFields()
+          .map((field) => `${field} like '%' || search_token.value || '%'`)
+          .join(" or ")}
+      )`,
+      [allTokens],
+    )
+    .orderByRaw(
+      `case
+        when ${normalizedTextSql("products.internal_code")} = any(?::text[])
+          or ${normalizedTextSql("products.barcode")} = any(?::text[])
+          or exists (
+            select 1
+            from product_suppliers
+            where product_suppliers.product_id = products.id
+              and ${normalizedTextSql("product_suppliers.supplier_code")}
+                = any(?::text[])
+          )
+          or exists (
+            select 1
+            from quote_product_aliases
+            where quote_product_aliases.product_id = products.id
+              and quote_product_aliases.branch_id = products.branch_id
+              and quote_product_aliases.deleted_at is null
+              and quote_product_aliases.normalized_alias = any(?::text[])
+          ) then 0
+        when ${normalizedTextSql("products.name")} = any(?::text[]) then 1
+        when exists (
+          select 1 from unnest(?::text[]) as exact_query(value)
+          where ${normalizedTextSql("products.name")}
+            like '%' || exact_query.value || '%'
+        ) then 2
+        when exists (
+          select 1 from unnest(?::text[]) as exact_query(value)
+          where ${normalizedTextSql("products.description")}
+            like '%' || exact_query.value || '%'
+        ) then 3
+        else 4
+      end asc`,
+      [
+        exactQueries,
+        exactQueries,
+        exactQueries,
+        exactQueries,
+        exactQueries,
+        exactQueries,
+        exactQueries,
+      ],
+    )
+    .orderBy("products.name", "asc")
+    .limit(candidateLimit);
+  const candidateIds = candidates.map((product) => product.id);
+  const [supplierCodeRows, aliasRows] = candidates.length
+    ? await Promise.all([
+        db("product_suppliers")
+          .select([
+            "product_suppliers.product_id as productId",
+            "product_suppliers.supplier_code as supplierCode",
+          ])
+          .whereIn("product_suppliers.product_id", candidateIds)
+          .whereNotNull("product_suppliers.supplier_code"),
+        db("quote_product_aliases")
+          .select([
+            "quote_product_aliases.id",
+            "quote_product_aliases.product_id as productId",
+            "quote_product_aliases.alias",
+            "quote_product_aliases.normalized_alias as normalizedAlias",
+          ])
+          .where("quote_product_aliases.branch_id", filters.branchId)
+          .whereNull("quote_product_aliases.deleted_at")
+          .whereIn("quote_product_aliases.product_id", candidateIds),
+      ])
+    : [[], []];
+  const supplierCodesByProductId = new Map<string, string[]>();
+  const aliasesByProductId = new Map<
+    string,
+    Array<{ id: string; alias: string; normalizedAlias: string }>
+  >();
+
+  for (const row of supplierCodeRows) {
+    const supplierCodes = supplierCodesByProductId.get(row.productId) ?? [];
+
+    supplierCodes.push(row.supplierCode);
+    supplierCodesByProductId.set(row.productId, supplierCodes);
+  }
+
+  for (const row of aliasRows) {
+    const aliases = aliasesByProductId.get(row.productId) ?? [];
+
+    aliases.push(row);
+    aliasesByProductId.set(row.productId, aliases);
+  }
+
+  return preparedQueries.map(({ normalizedQuery, tokens }) =>
+    tokens.length === 0
+      ? []
+      : candidates
+          .map((product) =>
+            rankQuoteProductMatch(
+              product,
+              normalizedQuery,
+              tokens,
+              supplierCodesByProductId.get(product.id) ?? [],
+              aliasesByProductId.get(product.id) ?? [],
+            ),
+          )
+          .filter((match) => match.reasons.length > 0)
+          .sort(
+            (current, next) =>
+              next.score - current.score ||
+              current.product.name.localeCompare(next.product.name, "pt-BR"),
+          )
+          .slice(0, filters.limit),
+  );
 }
 
 export async function listLowStockProducts(filters: {
@@ -407,4 +601,195 @@ function productListColumns() {
     "products.description",
     "products.active",
   ];
+}
+
+const matchStopWords = new Set([
+  "a",
+  "as",
+  "com",
+  "da",
+  "das",
+  "de",
+  "do",
+  "dos",
+  "e",
+  "em",
+  "o",
+  "os",
+  "para",
+  "por",
+  "sem",
+  "um",
+  "uma",
+]);
+
+function uniqueMatchTokens(value: string) {
+  return [
+    ...new Set(
+      value
+        .split(" ")
+        .filter((token) => token.length >= 2 && !matchStopWords.has(token)),
+    ),
+  ].slice(0, 8);
+}
+
+function normalizedTextSql(column: string) {
+  return `regexp_replace(translate(lower(coalesce(${column}, '')), 'áàâãäéèêëíìîïóòôõöúùûüç', 'aaaaaeeeeiiiiooooouuuuc'), '[^a-z0-9]+', ' ', 'g')`;
+}
+
+function matchableProductSqlFields() {
+  return [
+    normalizedTextSql("products.name"),
+    normalizedTextSql("products.internal_code"),
+    normalizedTextSql("products.barcode"),
+    normalizedTextSql("brands.name"),
+    normalizedTextSql("products.description"),
+    `(select string_agg(${normalizedTextSql("product_suppliers.supplier_code")}, ' ')
+      from product_suppliers
+      where product_suppliers.product_id = products.id)`,
+    `(select string_agg(quote_product_aliases.normalized_alias, ' ')
+      from quote_product_aliases
+      where quote_product_aliases.product_id = products.id
+        and quote_product_aliases.branch_id = products.branch_id
+        and quote_product_aliases.deleted_at is null)`,
+  ];
+}
+
+function rankQuoteProductMatch(
+  product: ProductListItem,
+  query: string,
+  tokens: string[],
+  productSupplierCodes: string[],
+  productAliases: Array<{
+    id: string;
+    alias: string;
+    normalizedAlias: string;
+  }>,
+): QuoteProductMatch {
+  const fields = {
+    barcode: normalizeSearchText(product.barcode),
+    brand: normalizeSearchText(product.brandName),
+    code: normalizeSearchText(product.internalCode),
+    description: normalizeSearchText(product.description),
+    name: normalizeSearchText(product.name),
+  };
+  const supplierCodes = productSupplierCodes
+    .map(normalizeSearchText)
+    .filter(Boolean);
+  const exactAlias = productAliases.find(
+    ({ normalizedAlias }) => normalizedAlias === query,
+  );
+  const matchingAlias =
+    exactAlias ??
+    productAliases.find(({ normalizedAlias }) =>
+      tokens.some((token) => normalizedAlias.includes(token)),
+    );
+  const aliases = productAliases.map(({ normalizedAlias }) => normalizedAlias);
+  const compactQuery = query.replace(/\s/g, "");
+  const normalizedCodes = [fields.code, fields.barcode].filter(
+    (value) => value.replace(/\s/g, "").length >= 3,
+  );
+  const normalizedSupplierCodes = supplierCodes.filter(
+    (value) => value.replace(/\s/g, "").length >= 3,
+  );
+  const compactCodes = normalizedCodes.map((value) =>
+    value.replace(/\s/g, ""),
+  );
+  const compactSupplierCodes = normalizedSupplierCodes.map((value) =>
+    value.replace(/\s/g, ""),
+  );
+  const exactCatalogCode = compactCodes.some(
+    (value) => value === compactQuery,
+  );
+  const exactSupplierCode = compactSupplierCodes.some(
+    (value) => value === compactQuery,
+  );
+  const embeddedCatalogCode = normalizedCodes.some((value) =>
+    ` ${query} `.includes(` ${value} `),
+  );
+  const embeddedSupplierCode = normalizedSupplierCodes.some((value) =>
+    ` ${query} `.includes(` ${value} `),
+  );
+  const exactCode = exactCatalogCode || exactSupplierCode;
+  const embeddedCode = embeddedCatalogCode || embeddedSupplierCode;
+  const exactName = fields.name === query;
+  const matchingTokens = tokens.filter((token) =>
+    [...Object.values(fields), ...supplierCodes, ...aliases].some((value) =>
+      value.includes(token),
+    ),
+  );
+  let score = exactCode
+    ? 1_000
+    : exactAlias
+      ? 950
+      : embeddedCode
+        ? 850
+        : exactName
+          ? 900
+          : 0;
+
+  if (fields.name.includes(query)) score += 500;
+  if (fields.code.includes(query) || fields.barcode.includes(query)) {
+    score += 700;
+  }
+  if (fields.description.includes(query)) score += 350;
+  if (fields.brand.includes(query)) score += 250;
+
+  for (const token of tokens) {
+    if (fields.code.includes(token) || fields.barcode.includes(token)) {
+      score += 100;
+    }
+    if (supplierCodes.some((code) => code.includes(token))) score += 90;
+    if (aliases.some((alias) => alias.includes(token))) score += 85;
+    if (fields.name.includes(token)) score += 80;
+    if (fields.brand.includes(token)) score += 50;
+    if (fields.description.includes(token)) score += 35;
+  }
+
+  score += Math.round((matchingTokens.length / tokens.length) * 100);
+
+  const reasons: string[] = [];
+  if (exactCatalogCode) reasons.push("Código exato");
+  if (exactSupplierCode) reasons.push("Código do fornecedor exato");
+  if (!exactCatalogCode && embeddedCatalogCode) {
+    reasons.push("Código correspondente");
+  }
+  if (!exactSupplierCode && embeddedSupplierCode) {
+    reasons.push("Código do fornecedor correspondente");
+  }
+  if (exactAlias) reasons.push("Termo aprovado exato");
+  if (!exactAlias && matchingAlias) {
+    reasons.push("Termo aprovado correspondente");
+  }
+  if (exactName) reasons.push("Nome exato");
+  if (!exactName && fields.name.includes(query)) reasons.push("Nome semelhante");
+  if (fields.brand && tokens.some((token) => fields.brand.includes(token))) {
+    reasons.push("Fabricante correspondente");
+  }
+  if (
+    fields.description &&
+    tokens.some((token) => fields.description.includes(token))
+  ) {
+    reasons.push("Descrição correspondente");
+  }
+  if (matchingTokens.length > 0) {
+    reasons.push(
+      `${matchingTokens.length} de ${tokens.length} termos encontrados`,
+    );
+  }
+
+  return {
+    product,
+    score,
+    confidence:
+      embeddedCode || exactAlias || exactName || score >= 750
+        ? "HIGH"
+        : score >= 300
+          ? "MEDIUM"
+          : "LOW",
+    reasons: [...new Set(reasons)].slice(0, 3),
+    ...(matchingAlias
+      ? { matchedAlias: { id: matchingAlias.id, alias: matchingAlias.alias } }
+      : {}),
+  };
 }

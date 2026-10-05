@@ -344,39 +344,6 @@ export function useSalesActions({
     });
   }
 
-  async function approveShippingOrder(order: ShippingOrder) {
-    const orderQuantity = order.items.reduce(
-      (sum, item) => sum + Number(item.quantity),
-      0,
-    );
-    const confirmed = await requestConfirmation(
-      `Aprovar o pedido de ${order.clientName} e reservar ${formatQuantity(String(orderQuantity))} item(ns)?`,
-      "Aprovar pedido?",
-      "Aprovar e reservar",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    const allowInsufficientStock = await confirmInsufficientStockIfNeeded(
-      order.items,
-      "availableStock",
-      "Este pedido possui item(ns) sem saldo disponivel para reservar. Deseja aprovar mesmo assim?",
-    );
-
-    if (allowInsufficientStock === null) {
-      return;
-    }
-
-    await runAction(async () => {
-      await apiPatch(`/shipping-orders/${order.id}/approve`, {
-        allowInsufficientStock,
-      });
-      await refreshSalesFlow();
-    });
-  }
-
   async function cancelShippingOrder(
     event: FormEvent<HTMLFormElement>,
     order: ShippingOrder,
@@ -403,39 +370,12 @@ export function useSalesActions({
     });
   }
 
-  async function separateShippingOrder(order: ShippingOrder) {
-    const confirmed = await requestConfirmation(
-      `Confirmar separacao do pedido de ${order.clientName}?`,
-      "Confirmar separacao?",
-      "Confirmar",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    await runAction(async () => {
-      await apiPatch(`/shipping-orders/${order.id}/separate`, {});
-      await refreshSalesFlow();
-    });
-  }
-
   async function completeShippingOrder(
     event: FormEvent<HTMLFormElement>,
     order: ShippingOrder,
   ) {
     event.preventDefault();
     const formElement = event.currentTarget;
-    const confirmed = await requestConfirmation(
-      `Concluir o pedido de ${order.clientName} como venda e baixar o estoque?`,
-      "Concluir venda?",
-      "Concluir venda",
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     const form = new FormData(formElement);
     const allowInsufficientStock = await confirmInsufficientStockIfNeeded(
       order.items,
@@ -453,12 +393,20 @@ export function useSalesActions({
         "shipping",
         Number(order.totalAmount),
       );
+      const paymentInstallments = formSalePaymentInstallments(
+        form,
+        "shipping",
+      );
 
       await apiPatch(`/shipping-orders/${order.id}/complete`, {
         paymentMethodId: formStringValue(form, "shippingPaymentMethodId"),
         ...optionalPayloadField("payments", payments.length ? payments : null),
         billingIssueDate: formDateValue(form, "shippingBillingIssueDate"),
         billingDueDate: formDateValue(form, "shippingBillingDueDate"),
+        ...optionalPayloadField(
+          "paymentInstallments",
+          paymentInstallments.length ? paymentInstallments : null,
+        ),
         allowInsufficientStock,
       });
       showSalesHistory("shipping");
@@ -559,7 +507,6 @@ export function useSalesActions({
   }
 
   return {
-    approveShippingOrder,
     cancelPickupReservation,
     cancelShippingOrder,
     completeReopenedSale,
@@ -577,7 +524,6 @@ export function useSalesActions({
     previewShippingOrderFiscalDocument,
     reopenSale,
     returnSaleItem,
-    separateShippingOrder,
     updateOpenSale,
     updateSaleCommercialDetails,
   };

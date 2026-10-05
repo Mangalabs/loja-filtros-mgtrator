@@ -20,6 +20,7 @@ export type View =
   | 'manual-fiscal-document'
   | 'cash-register'
   | 'reports'
+  | 'quote-batch'
   | 'new-quote'
   | 'quotes'
   | 'edit-quote'
@@ -66,7 +67,7 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
   ],
   cash: ['cash-register'],
   reports: ['reports'],
-  quotes: ['new-quote', 'quotes', 'edit-quote'],
+  quotes: ['quote-batch', 'new-quote', 'quotes', 'edit-quote'],
   sales: [
     'sales-operations',
     'sales',
@@ -111,6 +112,7 @@ const viewValues: View[] = [
   'manual-fiscal-document',
   'cash-register',
   'reports',
+  'quote-batch',
   'new-quote',
   'quotes',
   'edit-quote',
@@ -280,6 +282,11 @@ export const viewTitles: Record<View, { title: string; description: string }> =
     reports: {
       title: 'Relatórios',
       description: 'Acompanhe indicadores operacionais e pendências da filial.',
+    },
+    'quote-batch': {
+      title: 'Orçamentos em lote',
+      description:
+        'Organize várias solicitações e continue cada orçamento sem perder o andamento.',
     },
     'new-quote': {
       title: 'Novo orçamento',

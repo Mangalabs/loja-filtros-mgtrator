@@ -1,15 +1,9 @@
 import { db } from '../../database/knex.js'
-import {
-  findActivePaymentMethod,
-  findOpenCashRegister,
-  insertSale,
-  type SaleInput,
-} from '../../models/sales/sales.model.js'
+import type { SaleInput } from '../../models/sales/sales.model.js'
 import {
   activeShippingClientExists,
   approveShippingOrder,
   cancelShippingOrder,
-  completeShippingOrder,
   insertShippingOrder,
   listShippingOrders,
   lockShippingOrder,
@@ -18,6 +12,10 @@ import {
   separateShippingOrder,
   type ShippingOrderInput,
 } from '../../models/shipping-orders/shipping-orders.model.js'
+import {
+  aggregateShippingItems,
+  completeShippingOrderInTransaction,
+} from '../../services/shipping-orders/complete-shipping-order.service.js'
 import { AppError } from '../../shared/errors/app-error.js'
 
 export async function indexShippingOrders(filters: { branchId: string }) {
@@ -257,218 +255,27 @@ export async function completeSeparatedShippingOrder(
   billingDates: {
     billingIssueDate?: string | null
     billingDueDate?: string | null
+    paymentInstallments?: SaleInput['paymentInstallments']
   } = {},
 ) {
-  const order = await db.transaction(async (transaction) => {
-    const currentOrder = await lockShippingOrder(transaction, id, branchId)
-
-    if (!currentOrder) {
-      throw new AppError('Pedido para envio nao encontrado.', 404)
-    }
-
-    if (currentOrder.status === 'CANCELLED') {
-      throw new AppError('Pedido cancelado nao pode ser concluido.', 409)
-    }
-
-    if (currentOrder.status === 'COMPLETED') {
-      throw new AppError('Este pedido ja foi concluido como venda.', 409)
-    }
-
-    const cashRegister = await findOpenCashRegister(transaction, branchId)
-
-    if (!cashRegister) {
-      throw new AppError(
-        'Abra o caixa antes de concluir a venda para envio.',
-        422,
-      )
-    }
-
-    const resolvedPaymentMethodId =
-      paymentMethodId ?? currentOrder.paymentMethodId
-    const resolvedPayments =
-      payments ??
-      currentOrder.payments.map((payment) => ({
-        paymentMethodId: payment.paymentMethodId,
-        amount: Number(payment.amount),
-      }))
-    const fallbackPayments =
-      resolvedPayments.length > 0
-        ? resolvedPayments
-        : undefined
-    const normalizedPayments =
-      fallbackPayments ??
-      (resolvedPaymentMethodId
-        ? [
-            {
-              paymentMethodId: resolvedPaymentMethodId,
-              amount: Number(currentOrder.totalAmount),
-            },
-          ]
-        : undefined)
-
-    if (!normalizedPayments) {
-      throw new AppError('Forma de pagamento informada nao disponivel.', 422)
-    }
-
-    await validateSaleClosingPaymentMethods(transaction, normalizedPayments)
-
-    validateSalePaymentsTotal(
-      normalizedPayments,
-      Number(currentOrder.totalAmount),
-    )
-
-    const reservedItems = aggregateShippingItems(currentOrder.items)
-    const hasReservation = currentOrder.status !== 'QUOTED'
-
-    for (const item of reservedItems) {
-      const product = await lockReservableProduct(
-        transaction,
-        item.productId,
-        branchId,
-      )
-
-      if (
-        !product ||
-        (hasReservation && Number(product.reservedStock) < item.quantity) ||
-        (Number(product.currentStock) < item.quantity &&
-          !allowInsufficientStock)
-      ) {
-        throw new AppError(
-          hasReservation
-            ? 'Reserva insuficiente para concluir esta venda.'
-            : 'Estoque insuficiente para concluir esta venda.',
-          422,
-        )
-      }
-    }
-
-    if (hasReservation) {
-      for (const item of reservedItems) {
-        await releaseShippingOrderReservation(
-          transaction,
-          item.productId,
-          item.quantity,
-        )
-      }
-    }
-
-    const saleItems = currentOrder.items.map((item) => ({
-      productId: item.productId,
-      description: item.description,
-      quantity: Number(item.quantity),
-      unitPrice: Number(item.unitPrice),
-      totalAmount: Number(item.totalAmount),
-      position: item.position,
-    }))
-    const saleSubtotalAmount = Number(
-      saleItems.reduce((sum, item) => sum + item.totalAmount, 0).toFixed(2),
-    )
-    const saleTotalAmount = Number(currentOrder.totalAmount)
-    const saleDiscountAmount = Number(
-      (saleSubtotalAmount - saleTotalAmount).toFixed(2),
-    )
-
-    const sale = await insertSale(
+  const order = await db.transaction((transaction) =>
+    completeShippingOrderInTransaction(
       transaction,
+      id,
       {
-        clientId: currentOrder.clientId,
-        billingIssueDate:
-          billingDates.billingIssueDate ?? currentOrder.billingIssueDate,
-        billingDueDate:
-          billingDates.billingDueDate ?? currentOrder.billingDueDate,
-        discountAmount: saleDiscountAmount,
-        paymentMethodId: resolvedPaymentMethodId ?? undefined,
-        payments: normalizedPayments,
-        paymentInstallments: currentOrder.paymentInstallments.map(
-          (installment) => ({
-            amount: Number(installment.amount),
-            dueDate: installment.dueDate,
-            position: installment.position,
-          }),
-        ),
-        items: currentOrder.items.map((item) => ({
-          productId: item.productId,
-          quantity: Number(item.quantity),
-        })),
+        paymentMethodId,
+        payments,
+        allowInsufficientStock,
+        ...billingDates,
       },
-      cashRegister.id,
       completedByUserId,
       branchId,
-      saleItems,
-      saleSubtotalAmount,
-      saleTotalAmount,
-    )
-
-    return completeShippingOrder(transaction, id, sale.id, completedByUserId)
-  })
+    ),
+  )
 
   return {
     code: 200,
     status: 'success',
     data: order,
   }
-}
-
-function validateSalePaymentsTotal(
-  payments: NonNullable<SaleInput['payments']>,
-  totalAmount: number,
-) {
-  const paymentsAmount = Number(
-    payments.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2),
-  )
-
-  if (paymentsAmount !== totalAmount) {
-    throw new AppError(
-      'Total dos pagamentos deve ser igual ao total da venda.',
-      422,
-    )
-  }
-}
-
-async function validateSaleClosingPaymentMethods(
-  transaction: Parameters<typeof findActivePaymentMethod>[0],
-  payments: NonNullable<SaleInput['payments']>,
-) {
-  for (const payment of payments) {
-    const paymentMethod = await findActivePaymentMethod(
-      transaction,
-      payment.paymentMethodId,
-    )
-
-    if (!paymentMethod) {
-      throw new AppError('Forma de pagamento informada nao disponivel.', 422)
-    }
-
-    if (paymentMethod.code === 'TO_AGREE') {
-      throw new AppError(
-        'Forma de pagamento A combinar nao pode concluir venda.',
-        422,
-      )
-    }
-  }
-}
-
-function aggregateShippingItems(
-  items: Array<{ productId: string; quantity: string }>,
-) {
-  return items.reduce<Array<{ productId: string; quantity: number }>>(
-    (aggregatedItems, item) => {
-      const existing = aggregatedItems.find(
-        (currentItem) => currentItem.productId === item.productId,
-      )
-
-      if (existing) {
-        existing.quantity += Number(item.quantity)
-        return aggregatedItems
-      }
-
-      aggregatedItems.push({
-        productId: item.productId,
-        quantity: Number(item.quantity),
-      })
-
-      return aggregatedItems
-    },
-    [],
-  )
 }

@@ -5,6 +5,10 @@ import type { PaymentMethod, Sale } from '../../api'
 import { InlineNote } from '../../components/layout'
 import { TableActionButton } from '../../components/ui'
 import { formatQuantity } from '../../utils/format'
+import {
+  nonNegativeMoneyInputProps,
+  positiveWholeNumberInputProps,
+} from '../../utils/numericInput'
 
 export type SaleReturnHandler = (
   event: FormEvent<HTMLFormElement>,
@@ -70,7 +74,7 @@ export function SaleReturnForm({
         type='number'
         size='small'
         required
-        slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
+        slotProps={{ htmlInput: positiveWholeNumberInputProps }}
       />
       <TextField label='Motivo' name='saleReturnReason' size='small' required />
       <TextField
@@ -80,7 +84,7 @@ export function SaleReturnForm({
         type='number'
         size='small'
         helperText='Ajuste se o valor devolvido for diferente.'
-        slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+        slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
       />
       <TextField
         label='Forma do estorno'

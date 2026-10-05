@@ -55,6 +55,38 @@ export async function insertQuoteFormDraft(
   return getCreatedQuoteFormDraft(created.id);
 }
 
+export async function insertQuoteFormDraftBatch(
+  transaction: Knex.Transaction,
+  inputs: QuoteFormDraftInput[],
+): Promise<QuoteFormDraft[]> {
+  const created = await transaction("quote_form_drafts")
+    .insert(
+      inputs.map((input) => ({
+        branch_id: input.branchId,
+        created_by_user_id: input.createdByUserId,
+        title: input.title,
+        payload: input.payload,
+      })),
+    )
+    .returning<{ id: string }[]>("id");
+  const createdIds = created.map((draft) => draft.id);
+  const drafts = await quoteFormDraftQuery(transaction).whereIn(
+    "quote_form_drafts.id",
+    createdIds,
+  );
+  const draftsById = new Map(drafts.map((draft) => [draft.id, draft]));
+
+  return createdIds.map((id) => {
+    const draft = draftsById.get(id);
+
+    if (!draft) {
+      throw new Error("Quote form draft was not found after batch save");
+    }
+
+    return draft;
+  });
+}
+
 export async function updateQuoteFormDraft(
   id: string,
   input: QuoteFormDraftInput,
@@ -77,12 +109,15 @@ export async function updateQuoteFormDraft(
   return getCreatedQuoteFormDraft(updated.id);
 }
 
-export async function deleteQuoteFormDraft(filters: {
-  id: string;
-  branchId: string;
-  createdByUserId: string;
-}): Promise<boolean> {
-  const deleted = await db("quote_form_drafts")
+export async function deleteQuoteFormDraft(
+  filters: {
+    id: string;
+    branchId: string;
+    createdByUserId: string;
+  },
+  database: Knex | Knex.Transaction = db,
+): Promise<boolean> {
+  const deleted = await database("quote_form_drafts")
     .where("id", filters.id)
     .where("branch_id", filters.branchId)
     .where("created_by_user_id", filters.createdByUserId)

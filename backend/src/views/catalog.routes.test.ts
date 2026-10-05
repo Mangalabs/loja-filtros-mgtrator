@@ -81,6 +81,23 @@ type ProductListPage = {
   totalPages: number;
 };
 
+type QuoteProductMatch = {
+  product: Product;
+  score: number;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  reasons: string[];
+  matchedAlias?: {
+    id: string;
+    alias: string;
+  };
+};
+
+type QuoteProductMatchGroup = {
+  key: string;
+  query: string;
+  matches: QuoteProductMatch[];
+};
+
 type NcmOption = {
   code: string;
   label: string;
@@ -722,6 +739,7 @@ type CashReport = {
 type UserPerformanceReport = {
   summary: {
     usersCount: number;
+    totalSalesCount: number;
     salesCount: number;
     grossAmount: string;
     refundAmount: string;
@@ -733,6 +751,7 @@ type UserPerformanceReport = {
   users: Array<{
     userId: string;
     userName: string;
+    totalSalesCount: number;
     salesCount: number;
     cancelledSalesCount: number;
     openSalesCount: number;
@@ -743,6 +762,11 @@ type UserPerformanceReport = {
     stockMovementsCount: number;
     fiscalDocumentsIssuedCount: number;
   }>;
+  salesPagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
   sales: Array<{
     saleId: string;
     saleNumber: number;
@@ -7097,6 +7121,7 @@ describe("catalog routes", () => {
 
     assert.equal(report.status, 200);
     assert.equal(report.body.data?.summary.usersCount, 1);
+    assert.equal(report.body.data?.summary.totalSalesCount, 1);
     assert.equal(report.body.data?.summary.salesCount, 1);
     assert.equal(report.body.data?.summary.grossAmount, "200.00");
     assert.equal(report.body.data?.summary.refundAmount, "0.00");
@@ -7105,6 +7130,7 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.summary.stockMovementsCount, 2);
     assert.equal(report.body.data?.summary.fiscalDocumentsIssuedCount, 1);
     assert.equal(report.body.data?.users[0]?.userName, "Administrador de teste");
+    assert.equal(report.body.data?.users[0]?.totalSalesCount, 1);
     assert.equal(report.body.data?.users[0]?.salesCount, 1);
     assert.equal(report.body.data?.users[0]?.quotesCreatedCount, 1);
     assert.equal(report.body.data?.users[0]?.stockMovementsCount, 2);
@@ -7113,6 +7139,64 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.sales[0]?.clientName, client.body.data?.name);
     assert.equal(report.body.data?.sales[0]?.status, "COMPLETED");
     assert.equal(report.body.data?.sales[0]?.netAmount, "200.00");
+    assert.equal(report.body.data?.salesPagination.total, 1);
+
+    const sourceSale = await db("sales")
+      .where("id", sale.body.data?.id)
+      .first();
+
+    assert.ok(sourceSale);
+
+    const {
+      id: _sourceSaleId,
+      sale_number: _sourceSaleNumber,
+      created_at: _sourceSaleCreatedAt,
+      ...sourceSaleValues
+    } = sourceSale;
+
+    await db("sales").insert(
+      Array.from({ length: 50 }, (_value, index) => ({
+        ...sourceSaleValues,
+        id: randomUUID(),
+        sale_number: 100_000 + index,
+        status: index === 0 ? "OPEN" : "COMPLETED",
+        created_at: new Date(Date.now() + index + 1),
+      })),
+    );
+
+    const expandedReport = await request<UserPerformanceReport>(
+      "/reports/users",
+    );
+    const lastPageReport = await request<UserPerformanceReport>(
+      "/reports/users?page=6&pageSize=10",
+    );
+    const createdByUserId = String(sourceSale.created_by_user_id);
+    const filteredReport = await request<UserPerformanceReport>(
+      `/reports/users?userId=${createdByUserId}&pageSize=0`,
+    );
+    const unmatchedReport = await request<UserPerformanceReport>(
+      `/reports/users?userId=${randomUUID()}`,
+    );
+
+    assert.equal(expandedReport.status, 200);
+    assert.equal(expandedReport.body.data?.summary.totalSalesCount, 51);
+    assert.equal(expandedReport.body.data?.summary.salesCount, 50);
+    assert.equal(expandedReport.body.data?.users[0]?.totalSalesCount, 51);
+    assert.equal(expandedReport.body.data?.users[0]?.openSalesCount, 1);
+    assert.equal(expandedReport.body.data?.salesPagination.total, 51);
+    assert.equal(expandedReport.body.data?.sales.length, 50);
+    assert.equal(lastPageReport.status, 200);
+    assert.equal(lastPageReport.body.data?.salesPagination.page, 6);
+    assert.equal(lastPageReport.body.data?.salesPagination.total, 51);
+    assert.equal(lastPageReport.body.data?.sales.length, 1);
+    assert.equal(filteredReport.status, 200);
+    assert.equal(filteredReport.body.data?.summary.totalSalesCount, 51);
+    assert.equal(filteredReport.body.data?.salesPagination.total, 51);
+    assert.equal(filteredReport.body.data?.sales.length, 51);
+    assert.equal(unmatchedReport.status, 200);
+    assert.equal(unmatchedReport.body.data?.summary.totalSalesCount, 0);
+    assert.equal(unmatchedReport.body.data?.users.length, 0);
+    assert.equal(unmatchedReport.body.data?.sales.length, 0);
   });
 
   it("creates a shipping quote and reserves its item after approval", async () => {
@@ -7773,6 +7857,201 @@ describe("catalog routes", () => {
       sales.body.data?.[0]?.billingIssueDate?.startsWith("2026-07-10"),
     );
     assert.ok(sales.body.data?.[0]?.billingDueDate?.startsWith("2026-07-25"));
+  });
+
+  it("completes a quote directly as an atomic sale", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro fechamento direto", salePrice: 125 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente fechamento direto" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 3,
+        reason: "Saldo para fechamento direto",
+      },
+    });
+
+    const paymentMethod = await activePaymentMethod("BOLETO");
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        billingIssueDate: "2026-08-10",
+        billingDueDate: "2026-08-25",
+        paymentInstallments: [
+          { position: 1, dueDate: "2026-08-25", amount: 125 },
+          { position: 2, dueDate: "2026-09-25", amount: 125 },
+        ],
+        items: [{ productId: product.body.data?.id, quantity: 2 }],
+      },
+    });
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const completed = await request<ShippingOrder>(
+      `/quotes/${quote.body.data?.id}/sale`,
+      {
+        method: "POST",
+        body: {},
+      },
+    );
+    const orders = await request<ShippingOrder[]>("/shipping-orders");
+    const sales = await request<Sale[]>("/sales");
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(completed.status, 201);
+    assert.equal(completed.body.data?.status, "COMPLETED");
+    assert.equal(completed.body.data?.quoteId, quote.body.data?.id);
+    assert.ok(completed.body.data?.saleId);
+    assert.equal(orders.body.data?.length, 1);
+    assert.equal(sales.body.data?.length, 1);
+    assert.equal(sales.body.data?.[0]?.totalAmount, "250.00");
+    assert.deepEqual(
+      sales.body.data?.[0]?.paymentInstallments.map((installment) => ({
+        amount: installment.amount,
+        dueDate: installment.dueDate.slice(0, 10),
+        position: installment.position,
+      })),
+      [
+        { amount: "125.00", dueDate: "2026-08-25", position: 1 },
+        { amount: "125.00", dueDate: "2026-09-25", position: 2 },
+      ],
+    );
+    assert.equal(updatedProduct.body.data?.currentStock, "1.000");
+    assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
+  });
+
+  it("records installments selected while closing a quote to agree", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro parcelado no fechamento", salePrice: 300 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente parcelado no fechamento" },
+    });
+    const toAgree = await activePaymentMethod("TO_AGREE");
+    const credit = await activePaymentMethod("CREDIT");
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 1,
+        reason: "Saldo para parcelamento no fechamento",
+      },
+    });
+
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: toAgree.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const completed = await request<ShippingOrder>(
+      `/quotes/${quote.body.data?.id}/sale`,
+      {
+        method: "POST",
+        body: {
+          paymentMethodId: credit.id,
+          payments: [{ paymentMethodId: credit.id, amount: 300 }],
+          billingIssueDate: "2026-08-10",
+          billingDueDate: "2026-08-20",
+          paymentInstallments: [
+            { position: 1, dueDate: "2026-08-20", amount: 100 },
+            { position: 2, dueDate: "2026-09-20", amount: 100 },
+            { position: 3, dueDate: "2026-10-20", amount: 100 },
+          ],
+        },
+      },
+    );
+    const sales = await request<Sale[]>("/sales");
+
+    assert.equal(completed.status, 201);
+    assert.equal(sales.body.data?.[0]?.paymentMethodCode, "CREDIT");
+    assert.deepEqual(
+      sales.body.data?.[0]?.paymentInstallments.map((installment) => ({
+        amount: installment.amount,
+        dueDate: installment.dueDate.slice(0, 10),
+        position: installment.position,
+      })),
+      [
+        { amount: "100.00", dueDate: "2026-08-20", position: 1 },
+        { amount: "100.00", dueDate: "2026-09-20", position: 2 },
+        { amount: "100.00", dueDate: "2026-10-20", position: 3 },
+      ],
+    );
+  });
+
+  it("rolls back the quote sale when closing validation fails", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro rollback fechamento", salePrice: 80 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente rollback fechamento" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para rollback do fechamento",
+      },
+    });
+
+    const paymentMethod = await activePaymentMethod("BOLETO");
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+
+    const failed = await request(`/quotes/${quote.body.data?.id}/sale`, {
+      method: "POST",
+      body: {},
+    });
+    const orders = await request<ShippingOrder[]>("/shipping-orders");
+    const sales = await request<Sale[]>("/sales");
+    const unchangedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(failed.status, 422);
+    assert.match(
+      failed.body.message ?? "",
+      /Abra o caixa antes de concluir a venda/,
+    );
+    assert.equal(orders.body.data?.length, 0);
+    assert.equal(sales.body.data?.length, 0);
+    assert.equal(unchangedProduct.body.data?.currentStock, "2.000");
+    assert.equal(unchangedProduct.body.data?.reservedStock, "0.000");
   });
 
   it("creates and cancels a pickup reservation releasing reserved stock", async () => {
@@ -8576,6 +8855,446 @@ describe("catalog routes", () => {
         (draft) => draft.id === created.body.data?.id,
       ),
     );
+  });
+
+  it("creates a quote and consumes its form draft atomically", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro para converter rascunho em orçamento",
+        salePrice: 145.9,
+      },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente da fila de orçamentos",
+      },
+    });
+    const paymentMethod = await activePaymentMethod();
+    const draft = await request<QuoteFormDraft>("/quotes/drafts", {
+      method: "POST",
+      body: {
+        requestLabel: "Solicitação pronta para converter",
+        clientId: client.body.data?.id,
+        items: [
+          {
+            productId: product.body.data?.id,
+            quantity: "2",
+            unitPrice: "145.90",
+          },
+        ],
+      },
+    });
+    const retainedDraft = await request<QuoteFormDraft>("/quotes/drafts", {
+      method: "POST",
+      body: {
+        requestLabel: "Solicitação preservada após falha",
+      },
+    });
+    const beforeQuotes = await request<Quote[]>("/quotes");
+    const failedConversion = await request<Quote>(
+      `/quotes/drafts/${retainedDraft.body.data?.id}/quote`,
+      {
+        method: "POST",
+        body: {
+          clientId: client.body.data?.id,
+          paymentMethodId: paymentMethod.id,
+          items: [
+            {
+              productId: randomUUID(),
+              quantity: 1,
+            },
+          ],
+        },
+      },
+    );
+    const draftsAfterFailedConversion = await request<QuoteFormDraft[]>(
+      "/quotes/drafts",
+    );
+    const converted = await request<Quote>(
+      `/quotes/drafts/${draft.body.data?.id}/quote`,
+      {
+        method: "POST",
+        body: {
+          clientId: client.body.data?.id,
+          paymentMethodId: paymentMethod.id,
+          items: [
+            {
+              productId: product.body.data?.id,
+              quantity: 2,
+              unitPrice: 145.9,
+            },
+          ],
+        },
+      },
+    );
+    const draftsAfterConversion = await request<QuoteFormDraft[]>(
+      "/quotes/drafts",
+    );
+    const repeated = await request<Quote>(
+      `/quotes/drafts/${draft.body.data?.id}/quote`,
+      {
+        method: "POST",
+        body: {
+          clientId: client.body.data?.id,
+          paymentMethodId: paymentMethod.id,
+          items: [
+            {
+              productId: product.body.data?.id,
+              quantity: 2,
+            },
+          ],
+        },
+      },
+    );
+    const afterQuotes = await request<Quote[]>("/quotes");
+    const deletedRetainedDraft = await request<{ deleted: boolean }>(
+      `/quotes/drafts/${retainedDraft.body.data?.id}`,
+      { method: "DELETE" },
+    );
+
+    assert.equal(draft.status, 201);
+    assert.equal(retainedDraft.status, 201);
+    assert.equal(failedConversion.status, 422);
+    assert.ok(
+      draftsAfterFailedConversion.body.data?.some(
+        (currentDraft) => currentDraft.id === retainedDraft.body.data?.id,
+      ),
+    );
+    assert.equal(converted.status, 201);
+    assert.equal(
+      converted.body.data?.clientName,
+      "Cliente da fila de orçamentos",
+    );
+    assert.equal(converted.body.data?.totalAmount, "291.80");
+    assert.ok(
+      !draftsAfterConversion.body.data?.some(
+        (currentDraft) => currentDraft.id === draft.body.data?.id,
+      ),
+    );
+    assert.equal(repeated.status, 404);
+    assert.equal(deletedRetainedDraft.body.data?.deleted, true);
+    assert.equal(
+      afterQuotes.body.data?.length,
+      (beforeQuotes.body.data?.length ?? 0) + 1,
+    );
+  });
+
+  it("creates an identified batch of independent quote form drafts", async () => {
+    const requests = [
+      "João - revisão do trator 6110",
+      "Oficina Central - orçamento mensal",
+      "Maria - filtros para colheitadeira",
+      {
+        requestLabel: "Fazenda Boa Esperança",
+        items: [
+          {
+            description: "SM-JD6110-COMB-P Wega",
+            quantity: 2,
+          },
+          {
+            description: "filtro de ar externo 6110",
+            quantity: 1,
+          },
+        ],
+      },
+    ];
+    const created = await request<QuoteFormDraft[]>(
+      "/quotes/drafts/batch",
+      {
+        method: "POST",
+        body: { requests },
+      },
+    );
+    const listed = await request<QuoteFormDraft[]>("/quotes/drafts");
+    const invalid = await request<QuoteFormDraft[]>(
+      "/quotes/drafts/batch",
+      {
+        method: "POST",
+        body: {
+          requests: Array.from(
+            { length: 21 },
+            (_, index) => `Fila ${index}`,
+          ),
+        },
+      },
+    );
+    const deleted = await Promise.all(
+      (created.body.data ?? []).map((draft) =>
+        request(`/quotes/drafts/${draft.id}`, { method: "DELETE" }),
+      ),
+    );
+
+    assert.equal(created.status, 201);
+    assert.deepEqual(
+      created.body.data?.map((draft) => draft.title),
+      [
+        "João - revisão do trator 6110",
+        "Oficina Central - orçamento mensal",
+        "Maria - filtros para colheitadeira",
+        "Fazenda Boa Esperança",
+      ],
+    );
+    assert.deepEqual(
+      created.body.data?.map((draft) => draft.payload.notes),
+      [
+        "João - revisão do trator 6110",
+        "Oficina Central - orçamento mensal",
+        "Maria - filtros para colheitadeira",
+        "",
+      ],
+    );
+    assert.deepEqual(created.body.data?.[3]?.payload.items, [
+      {
+        description: "SM-JD6110-COMB-P Wega",
+        quantity: "2",
+      },
+      {
+        description: "filtro de ar externo 6110",
+        quantity: "1",
+      },
+    ]);
+    assert.ok(
+      created.body.data?.every((draft) =>
+        listed.body.data?.some((listedDraft) => listedDraft.id === draft.id),
+      ),
+    );
+    assert.equal(invalid.status, 422);
+    assert.ok(deleted.every((result) => result.status === 200));
+  });
+
+  it("suggests deterministic quote product matches from the active branch", async () => {
+    const otherBranch = await request<Branch>("/branches", {
+      method: "POST",
+      body: { name: "Filial Smart Match", code: "SMART_MATCH" },
+    });
+    const brand = await request<NamedEntity>("/brands", {
+      method: "POST",
+      body: { name: "Wega" },
+    });
+    const exact = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro de combustivel Wega",
+        internalCode: "FCD-6110",
+        brandId: brand.body.data?.id,
+        salePrice: 150,
+      },
+    });
+    const supplier = await request<Supplier>("/suppliers", {
+      method: "POST",
+      body: { name: "Fornecedor Smart Match" },
+    });
+
+    await db("product_suppliers").insert({
+      product_id: exact.body.data?.id,
+      supplier_id: supplier.body.data?.id,
+      supplier_code: "FOR-4292-WEGA",
+    });
+    const similar = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro diesel secundario 6110",
+        internalCode: "SEC-6110",
+        salePrice: 110,
+      },
+    });
+    const inactive = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro diesel inativo 6110" },
+    });
+    const isolated = await request<Product>("/products", {
+      method: "POST",
+      headers: { "x-active-branch-id": otherBranch.body.data?.id ?? "" },
+      body: { name: "Filtro diesel isolado 6110" },
+    });
+    const learnedAlias = await request<{
+      id: string;
+      alias: string;
+      productId: string;
+    }>("/quotes/product-aliases", {
+      method: "POST",
+      body: {
+        alias: "kit colmeia rubi",
+        productId: exact.body.data?.id,
+      },
+    });
+    const invalidBranchAlias = await request("/quotes/product-aliases", {
+      method: "POST",
+      body: {
+        alias: "produto de outra filial",
+        productId: isolated.body.data?.id,
+      },
+    });
+
+    await request(`/products/${inactive.body.data?.id}/status`, {
+      method: "PATCH",
+      body: { active: false },
+    });
+
+    const byCode = await request<QuoteProductMatch[]>(
+      "/quotes/product-matches?query=FCD-6110&limit=3",
+    );
+    const byCodeAndManufacturer = await request<QuoteProductMatch[]>(
+      "/quotes/product-matches?query=FCD-6110%20Wega&limit=3",
+    );
+    const byDescription = await request<QuoteProductMatch[]>(
+      "/quotes/product-matches?query=filtro%20diesel%206110&limit=5",
+    );
+    const byManufacturer = await request<QuoteProductMatch[]>(
+      "/quotes/product-matches?query=wega&limit=3",
+    );
+    const bySupplierCode = await request<QuoteProductMatch[]>(
+      "/quotes/product-matches?query=FOR-4292-WEGA&limit=3",
+    );
+    const byLearnedAlias = await request<QuoteProductMatch[]>(
+      "/quotes/product-matches?query=kit%20colmeia%20rubi&limit=3",
+    );
+    const invalid = await request<QuoteProductMatch[]>(
+      "/quotes/product-matches?query=a",
+    );
+    const batch = await request<QuoteProductMatchGroup[]>(
+      "/quotes/product-matches/batch",
+      {
+        method: "POST",
+        body: {
+          items: [
+            { key: "first", query: "FCD-6110" },
+            { key: "second", query: "filtro diesel secundario" },
+          ],
+          limit: 3,
+        },
+      },
+    );
+    const duplicatedKey = await request<QuoteProductMatchGroup[]>(
+      "/quotes/product-matches/batch",
+      {
+        method: "POST",
+        body: {
+          items: [
+            { key: "same", query: "filtro diesel" },
+            { key: "same", query: "filtro combustivel" },
+          ],
+        },
+      },
+    );
+
+    assert.equal(byCode.status, 200);
+    assert.equal(byCode.body.data?.[0]?.product.id, exact.body.data?.id);
+    assert.equal(byCode.body.data?.[0]?.confidence, "HIGH");
+    assert.ok(byCode.body.data?.[0]?.reasons.includes("Código exato"));
+    assert.equal(byCode.body.data?.[0]?.product.description, null);
+    assert.equal(byCodeAndManufacturer.status, 200);
+    assert.equal(
+      byCodeAndManufacturer.body.data?.[0]?.product.id,
+      exact.body.data?.id,
+    );
+    assert.equal(byCodeAndManufacturer.body.data?.[0]?.confidence, "HIGH");
+    assert.ok(
+      byCodeAndManufacturer.body.data?.[0]?.reasons.includes(
+        "Código correspondente",
+      ),
+    );
+    assert.equal(byDescription.status, 200);
+    assert.ok(
+      byDescription.body.data?.some(
+        (match) => match.product.id === similar.body.data?.id,
+      ),
+    );
+    assert.equal(byManufacturer.status, 200);
+    assert.equal(byManufacturer.body.data?.[0]?.product.id, exact.body.data?.id);
+    assert.ok(
+      byManufacturer.body.data?.[0]?.reasons.includes(
+        "Fabricante correspondente",
+      ),
+    );
+    assert.equal(bySupplierCode.status, 200);
+    assert.equal(bySupplierCode.body.data?.[0]?.product.id, exact.body.data?.id);
+    assert.equal(bySupplierCode.body.data?.[0]?.confidence, "HIGH");
+    assert.ok(
+      bySupplierCode.body.data?.[0]?.reasons.includes(
+        "Código do fornecedor exato",
+      ),
+    );
+    assert.equal(learnedAlias.status, 201);
+    assert.equal(learnedAlias.body.data?.productId, exact.body.data?.id);
+    assert.equal(invalidBranchAlias.status, 422);
+    assert.equal(byLearnedAlias.status, 200);
+    assert.equal(byLearnedAlias.body.data?.[0]?.product.id, exact.body.data?.id);
+    assert.equal(byLearnedAlias.body.data?.[0]?.confidence, "HIGH");
+    assert.equal(
+      byLearnedAlias.body.data?.[0]?.matchedAlias?.id,
+      learnedAlias.body.data?.id,
+    );
+    assert.ok(
+      byLearnedAlias.body.data?.[0]?.reasons.includes("Termo aprovado exato"),
+    );
+    const isolatedDelete = await request(
+      `/quotes/product-aliases/${learnedAlias.body.data?.id}`,
+      {
+        method: "DELETE",
+        headers: { "x-active-branch-id": otherBranch.body.data?.id ?? "" },
+      },
+    );
+    const deletedAlias = await request(
+      `/quotes/product-aliases/${learnedAlias.body.data?.id}`,
+      { method: "DELETE" },
+    );
+    const afterAliasDelete = await request<QuoteProductMatch[]>(
+      "/quotes/product-matches?query=kit%20colmeia%20rubi&limit=3",
+    );
+    const deletedAliasAudit = await db("quote_product_aliases")
+      .select([
+        "deleted_at as deletedAt",
+        "deleted_by_user_id as deletedByUserId",
+      ])
+      .where("id", learnedAlias.body.data?.id)
+      .first();
+    const restoredAlias = await request<{
+      id: string;
+      deletedAt: string | null;
+    }>("/quotes/product-aliases", {
+      method: "POST",
+      body: {
+        alias: "kit colmeia rubi",
+        productId: exact.body.data?.id,
+      },
+    });
+    const afterAliasRestore = await request<QuoteProductMatch[]>(
+      "/quotes/product-matches?query=kit%20colmeia%20rubi&limit=3",
+    );
+
+    assert.equal(isolatedDelete.status, 404);
+    assert.equal(deletedAlias.status, 200);
+    assert.deepEqual(afterAliasDelete.body.data, []);
+    assert.ok(deletedAliasAudit?.deletedAt);
+    assert.ok(deletedAliasAudit?.deletedByUserId);
+    assert.equal(restoredAlias.status, 201);
+    assert.equal(restoredAlias.body.data?.id, learnedAlias.body.data?.id);
+    assert.equal(restoredAlias.body.data?.deletedAt, null);
+    assert.equal(
+      afterAliasRestore.body.data?.[0]?.matchedAlias?.id,
+      learnedAlias.body.data?.id,
+    );
+    assert.ok(
+      byDescription.body.data?.every(
+        (match) =>
+          match.product.id !== inactive.body.data?.id &&
+          match.product.id !== isolated.body.data?.id,
+      ),
+    );
+    assert.equal(invalid.status, 422);
+    assert.equal(batch.status, 200);
+    assert.equal(batch.body.data?.[0]?.key, "first");
+    assert.equal(batch.body.data?.[0]?.matches[0]?.product.id, exact.body.data?.id);
+    assert.equal(batch.body.data?.[1]?.key, "second");
+    assert.equal(
+      batch.body.data?.[1]?.matches[0]?.product.id,
+      similar.body.data?.id,
+    );
+    assert.equal(duplicatedKey.status, 422);
   });
 
   it("creates a quote with a fixed general discount amount", async () => {
@@ -9561,7 +10280,7 @@ describe("catalog routes", () => {
         accessoryExpenses: 1.5,
         otherExpenses: 2,
         salePrice: 29.9,
-        profitMarginPercentage: 61.62,
+        profitMarginPercentage: 1061.62,
         minimumStock: 3,
         currentStock: 4.5,
         ncm: "84212300",
@@ -9591,7 +10310,7 @@ describe("catalog routes", () => {
           name: "Filtro Wega FAP4040 Atualizado",
           accessoryExpenses: 3.75,
           salePrice: 31.9,
-          profitMarginPercentage: 72.43,
+          profitMarginPercentage: 1272.43,
           currentStock: 2.75,
           location: "",
         },
@@ -9619,7 +10338,7 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.availableStock, "4.500");
     assert.equal(created.body.data?.accessoryExpenses, "1.50");
     assert.equal(created.body.data?.otherExpenses, "2.00");
-    assert.equal(created.body.data?.profitMarginPercentage, "61.62");
+    assert.equal(created.body.data?.profitMarginPercentage, "1061.62");
     assert.equal(created.body.data?.ncm, "84212300");
     assert.equal(created.body.data?.cest, "0100100");
     assert.equal(created.body.data?.cfop, "5102");
@@ -9655,7 +10374,7 @@ describe("catalog routes", () => {
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.name, "Filtro Wega FAP4040 Atualizado");
     assert.equal(updated.body.data?.accessoryExpenses, "3.75");
-    assert.equal(updated.body.data?.profitMarginPercentage, "72.43");
+    assert.equal(updated.body.data?.profitMarginPercentage, "1272.43");
     assert.equal(updated.body.data?.currentStock, "2.750");
     assert.equal(updated.body.data?.location, null);
     assert.equal(

@@ -827,9 +827,9 @@ function invalidUnitReason(unit: string) {
 }
 
 function invalidProfitMarginReason(value: number | null) {
-  return value === null || (Number.isFinite(value) && value >= 0 && value <= 1000)
+  return value === null || (Number.isFinite(value) && value >= 0)
     ? null
-    : "Margem de lucro precisa estar entre 0 e 1000.";
+    : "Margem de lucro precisa ser maior ou igual a zero.";
 }
 
 function parseCsv(content: string): CsvRow[] {

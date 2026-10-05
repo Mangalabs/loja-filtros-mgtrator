@@ -5,26 +5,35 @@ import {
   apiPost,
   apiPut,
   type Quote,
+  type QuoteFormDraftBatchRequest,
   type QuoteFormDraft,
 } from '../../api'
-import type { QuoteDraftInput, QuoteFormDraftPayload } from './QuotesPage'
+import type {
+  QuoteDraftInput,
+  QuoteFormDraftPayload,
+  QuoteSaleClosingInput,
+} from './QuotesPage'
 
 type QuoteActionsOptions = {
   refreshQuoteFlow: () => Promise<void>
+  refreshSalesFlow: () => Promise<void>
   requestConfirmation: (
     message: string,
     title?: string,
     confirmLabel?: string,
   ) => Promise<boolean>
   runAction: (action: () => Promise<void>) => Promise<boolean>
+  showQuoteBatch: () => void
   showQuotes: () => void
   showShippingOrders: () => void
 }
 
 export function useQuoteActions({
   refreshQuoteFlow,
+  refreshSalesFlow,
   requestConfirmation,
   runAction,
+  showQuoteBatch,
   showQuotes,
   showShippingOrders,
 }: QuoteActionsOptions) {
@@ -33,6 +42,17 @@ export function useQuoteActions({
       await apiPost('/quotes', input)
       await refreshQuoteFlow()
       showQuotes()
+    })
+  }
+
+  async function createQuoteFromDraft(
+    draft: QuoteFormDraft,
+    input: QuoteDraftInput,
+  ) {
+    return runAction(async () => {
+      await apiPost(`/quotes/drafts/${draft.id}/quote`, input)
+      await refreshQuoteFlow()
+      showQuoteBatch()
     })
   }
 
@@ -58,6 +78,37 @@ export function useQuoteActions({
     })
   }
 
+  async function createQuoteFormDraftBatch(
+    requests: QuoteFormDraftBatchRequest[],
+  ) {
+    return runAction(async () => {
+      await apiPost('/quotes/drafts/batch', { requests })
+      await refreshQuoteFlow()
+    })
+  }
+
+  async function rememberQuoteProductAlias(productId: string, alias: string) {
+    return runAction(async () => {
+      await apiPost('/quotes/product-aliases', { alias, productId })
+    })
+  }
+
+  async function removeQuoteProductAlias(id: string, alias: string) {
+    const confirmed = await requestConfirmation(
+      `Remover o termo associado "${alias}"?`,
+      'Remover termo associado?',
+      'Remover',
+    )
+
+    if (!confirmed) {
+      return false
+    }
+
+    return runAction(async () => {
+      await apiDelete(`/quotes/product-aliases/${id}`)
+    })
+  }
+
   async function deleteQuoteFormDraft(draft: QuoteFormDraft) {
     const confirmed = await requestConfirmation(
       `Excluir o rascunho "${draft.title}"?`,
@@ -75,30 +126,34 @@ export function useQuoteActions({
     })
   }
 
-  async function discardQuoteFormDraft(draft: QuoteFormDraft) {
-    return runAction(async () => {
-      await apiDelete(`/quotes/drafts/${draft.id}`)
-      await refreshQuoteFlow()
-    })
-  }
-
-  async function createShippingOrderFromQuote(quote: Quote) {
-    const confirmed = await requestConfirmation(
-      quote.shippingOrderId
-        ? `Criar uma nova venda a partir do orçamento de ${quote.clientName}? As vendas e pedidos anteriores permanecem no historico.`
-        : `Criar venda a partir do orçamento de ${quote.clientName}?`,
-      quote.shippingOrderId ? 'Criar nova venda?' : 'Criar venda?',
-      quote.shippingOrderId ? 'Criar nova venda' : 'Criar venda',
+  async function completeQuoteAsSale(
+    quote: Quote,
+    input: QuoteSaleClosingInput,
+  ) {
+    const hasInsufficientStock = quote.items.some(
+      (item) => Number(item.productAvailableStock) < Number(item.quantity),
     )
+    let allowInsufficientStock = false
 
-    if (!confirmed) {
-      return
+    if (hasInsufficientStock) {
+      allowInsufficientStock = await requestConfirmation(
+        'Este orçamento possui item(ns) sem estoque físico suficiente. Deseja concluir a venda mesmo assim?',
+        'Estoque insuficiente',
+        'Concluir mesmo assim',
+      )
+
+      if (!allowInsufficientStock) {
+        return false
+      }
     }
 
-    await runAction(async () => {
-      await apiPost(`/quotes/${quote.id}/shipping-order`, {})
+    return runAction(async () => {
+      await apiPost(`/quotes/${quote.id}/sale`, {
+        ...input,
+        allowInsufficientStock,
+      })
+      await Promise.all([refreshQuoteFlow(), refreshSalesFlow()])
       showShippingOrders()
-      await refreshQuoteFlow()
     })
   }
 
@@ -127,10 +182,14 @@ export function useQuoteActions({
 
   return {
     cancelQuote,
+    createQuoteFormDraftBatch,
     createQuote,
-    createShippingOrderFromQuote,
+    createQuoteFromDraft,
+    completeQuoteAsSale,
     deleteQuoteFormDraft,
-    discardQuoteFormDraft,
+    openShippingOrders: showShippingOrders,
+    rememberQuoteProductAlias,
+    removeQuoteProductAlias,
     saveQuoteFormDraft,
     updateQuote,
   }

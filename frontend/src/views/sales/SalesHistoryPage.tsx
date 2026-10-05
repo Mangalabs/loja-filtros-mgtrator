@@ -30,6 +30,10 @@ import {
   formatQuantity,
 } from '../../utils/format'
 import {
+  positiveMoneyInputProps,
+  positiveWholeNumberInputProps,
+} from '../../utils/numericInput'
+import {
   fiscalDocumentStatusLabel,
   fiscalDocumentStatusTone,
 } from '../finance/fiscalPresentation'
@@ -727,7 +731,7 @@ export function SaleCommercialDetailsForm({
               }
               required
               size='small'
-              slotProps={{ htmlInput: { min: '0.01', step: '0.01' } }}
+              slotProps={{ htmlInput: positiveMoneyInputProps }}
               type='number'
               value={payment.amount}
             />
@@ -809,7 +813,9 @@ export function SaleCommercialDetailsForm({
               )
             }
             size='small'
-            slotProps={{ htmlInput: { min: '1', max: '24', step: '1' } }}
+            slotProps={{
+              htmlInput: { ...positiveWholeNumberInputProps, max: 24 },
+            }}
             type='number'
             value={installmentCount}
           />
@@ -852,7 +858,7 @@ export function SaleCommercialDetailsForm({
                   }
                   required
                   size='small'
-                  slotProps={{ htmlInput: { min: '0.01', step: '0.01' } }}
+                  slotProps={{ htmlInput: positiveMoneyInputProps }}
                   type='number'
                   value={installment.amount}
                 />

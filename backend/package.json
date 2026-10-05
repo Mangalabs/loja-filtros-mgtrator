@@ -15,6 +15,7 @@
     "users:create-root-admin": "tsx scripts/create-root-admin.ts",
     "db:make": "knex migrate:make --knexfile knexfile.cjs",
     "db:migrate": "knex migrate:latest --knexfile knexfile.cjs",
+    "db:seed:local-test": "NODE_ENV=development ALLOW_LOCAL_TEST_SEED=true knex seed:run --knexfile knexfile.cjs --specific=001_local_smart_match_test_data.cjs",
     "db:rollback": "knex migrate:rollback --knexfile knexfile.cjs"
   },
   "devDependencies": {

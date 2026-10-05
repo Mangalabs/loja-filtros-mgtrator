@@ -18,6 +18,12 @@ import {
 import { PrimaryButton, SecondaryButton, TableActionButton } from '../../components/ui'
 import { formatCurrency } from '../../utils/format'
 import {
+  nonNegativeMoneyInputProps,
+  nonNegativePercentageInputProps,
+  positiveMoneyInputProps,
+  positiveWholeNumberInputProps,
+} from '../../utils/numericInput'
+import {
   PaymentSplitFields,
   type SaleDraftInput,
   type SalePaymentDraft,
@@ -296,7 +302,7 @@ export function SaleEditPage({
               label='Quantidade'
               required
               size='medium'
-              slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
+              slotProps={{ htmlInput: positiveWholeNumberInputProps }}
               type='number'
               value={item.quantity}
               onChange={(event) =>
@@ -307,7 +313,7 @@ export function SaleEditPage({
               label='Valor unitário'
               required
               size='medium'
-              slotProps={{ htmlInput: { min: '0.01', step: '0.01' } }}
+              slotProps={{ htmlInput: positiveMoneyInputProps }}
               type='number'
               value={item.unitPrice}
               onChange={(event) =>
@@ -329,8 +335,8 @@ export function SaleEditPage({
               slotProps={{
                 htmlInput:
                   item.discountMode === 'PERCENTAGE'
-                    ? { min: '0', max: '100', step: '0.01' }
-                    : { min: '0', step: '0.01' },
+                    ? { ...nonNegativePercentageInputProps, max: 100 }
+                    : nonNegativeMoneyInputProps,
               }}
               type='number'
               value={
@@ -475,8 +481,8 @@ export function SaleEditPage({
             slotProps={{
               htmlInput:
                 discountMode === 'PERCENTAGE'
-                  ? { min: '0', max: '100', step: '0.01' }
-                  : { min: '0', step: '0.01' },
+                  ? { ...nonNegativePercentageInputProps, max: 100 }
+                  : nonNegativeMoneyInputProps,
             }}
           />
         </div>

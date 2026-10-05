@@ -37,7 +37,7 @@ export function useStockActions({
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
 
-    await runAction(async () => {
+    return runAction(async () => {
       await apiPost("/stock-entries", {
         productId: String(form.get("entryProductId") ?? ""),
         supplierId: String(form.get("entrySupplierId") ?? ""),

@@ -64,6 +64,31 @@ export type Product = {
   active: boolean;
 };
 
+export type QuoteProductMatch = {
+  product: Product;
+  score: number;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  reasons: string[];
+  matchedAlias?: {
+    id: string;
+    alias: string;
+  };
+};
+
+export type QuoteProductMatchGroup = {
+  key: string;
+  query: string;
+  matches: QuoteProductMatch[];
+};
+
+export type QuoteFormDraftBatchRequest = {
+  requestLabel: string;
+  items: Array<{
+    description: string;
+    quantity: number;
+  }>;
+};
+
 export type ProductPage = {
   items: Product[];
   total: number;
@@ -841,6 +866,7 @@ export type CashReport = {
 export type UserPerformanceReport = {
   summary: {
     usersCount: number;
+    totalSalesCount: number;
     salesCount: number;
     grossAmount: string;
     refundAmount: string;
@@ -852,6 +878,7 @@ export type UserPerformanceReport = {
   users: Array<{
     userId: string;
     userName: string;
+    totalSalesCount: number;
     salesCount: number;
     cancelledSalesCount: number;
     openSalesCount: number;
@@ -862,6 +889,11 @@ export type UserPerformanceReport = {
     stockMovementsCount: number;
     fiscalDocumentsIssuedCount: number;
   }>;
+  salesPagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
   sales: Array<{
     saleId: string;
     saleNumber: number;
@@ -901,6 +933,13 @@ export type ShippingOrder = {
   }>;
   billingIssueDate: string | null;
   billingDueDate: string | null;
+  paymentInstallments: Array<{
+    id: string;
+    quoteId: string;
+    position: number;
+    dueDate: string;
+    amount: string;
+  }>;
   items: Array<{
     id: string;
     productId: string;

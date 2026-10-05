@@ -8,6 +8,7 @@ import {
   type ManualFiscalDocumentDraft,
   type Product,
   type Quote,
+  type QuoteFormDraft,
   type Sale,
 } from "../api";
 import { useCatalogData } from "../hooks/useCatalogData";
@@ -65,6 +66,8 @@ export function AuthenticatedApp({
   const [fiscalPendencyReturnView, setFiscalPendencyReturnView] =
     useState<View>();
   const [selectedQuote, setSelectedQuote] = useState<Quote>();
+  const [selectedQuoteFormDraft, setSelectedQuoteFormDraft] =
+    useState<QuoteFormDraft>();
   const [reusedQuote, setReusedQuote] = useState<Quote>();
   const [selectedSale, setSelectedSale] = useState<Sale>();
   const [saleEditReturnTab, setSaleEditReturnTab] =
@@ -176,6 +179,7 @@ export function AuthenticatedApp({
 
       if (nextView === "new-quote") {
         setReusedQuote(undefined);
+        setSelectedQuoteFormDraft(undefined);
       }
 
       if (nextView === "stock-movements") {
@@ -258,8 +262,13 @@ export function AuthenticatedApp({
 
   const quoteActions = useQuoteActions({
     refreshQuoteFlow,
+    refreshSalesFlow,
     requestConfirmation,
     runAction,
+    showQuoteBatch: () => {
+      setSelectedQuoteFormDraft(undefined);
+      setView("quote-batch");
+    },
     showShippingOrders: () => {
       setSalesOperationsInitialTab("shipping");
       setView("sales-operations");
@@ -375,6 +384,7 @@ export function AuthenticatedApp({
           onSelectBranch={(branchId) => {
             storeActiveBranchId(branchId);
             setActiveBranchId(branchId);
+            setSelectedQuoteFormDraft(undefined);
           }}
         />
 
@@ -447,6 +457,7 @@ export function AuthenticatedApp({
             selectedProduct={selectedProduct}
             stockMovementProduct={stockMovementProduct}
             selectedQuote={selectedQuote}
+            selectedQuoteFormDraft={selectedQuoteFormDraft}
             reusedQuote={reusedQuote}
             selectedSale={selectedSale}
             shippingOrders={shippingOrders}
@@ -478,6 +489,12 @@ export function AuthenticatedApp({
               setView("sales-operations");
             }}
             onOpenQuotes={() => setView("quotes")}
+            onOpenQuoteFormDraft={(draft) => {
+              setReusedQuote(undefined);
+              setSelectedQuote(undefined);
+              setSelectedQuoteFormDraft(draft);
+              setView("new-quote");
+            }}
             onResolveFiscalPendency={resolveFiscalPendency}
             onProductPageChange={setProductPage}
             onProductFiltersChange={setProductFilters}
@@ -508,11 +525,13 @@ export function AuthenticatedApp({
             onSelectClient={setSelectedClient}
             onSelectQuote={(quote) => {
               setReusedQuote(undefined);
+              setSelectedQuoteFormDraft(undefined);
               setSelectedQuote(quote);
               setView("edit-quote");
             }}
             onReuseQuote={(quote) => {
               setSelectedQuote(undefined);
+              setSelectedQuoteFormDraft(undefined);
               setReusedQuote(quote);
               setView("new-quote");
             }}

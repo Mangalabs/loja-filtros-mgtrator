@@ -40,7 +40,6 @@ export function SalesOperationsPage({
   products,
   sales,
   shippingOrders,
-  onApproveShippingOrder,
   onCancelPickupReservation,
   onCancelShippingOrder,
   onCompletePickupReservation,
@@ -53,7 +52,6 @@ export function SalesOperationsPage({
   onOpenQuotes,
   onOpenSaleFiscalQueue,
   onReturnItem,
-  onSeparateShippingOrder,
   onUpdateSaleCommercialDetails,
 }: {
   cashRegister: CashRegisterSession | null
@@ -65,7 +63,6 @@ export function SalesOperationsPage({
   products: Product[]
   sales: Sale[]
   shippingOrders: ShippingOrder[]
-  onApproveShippingOrder: (order: ShippingOrder) => Promise<unknown>
   onCancelPickupReservation: (
     event: FormEvent<HTMLFormElement>,
     reservation: PickupReservation,
@@ -92,7 +89,6 @@ export function SalesOperationsPage({
   onOpenQuotes: () => void
   onOpenSaleFiscalQueue: (sale: Sale) => void
   onReturnItem: SaleReturnHandler
-  onSeparateShippingOrder: (order: ShippingOrder) => Promise<unknown>
   onUpdateSaleCommercialDetails: SaleCommercialDetailsHandler
 }) {
   const [activeTab, setActiveTab] = useState<SalesOperationsTab>(
@@ -185,13 +181,11 @@ export function SalesOperationsPage({
           sales={sales}
           onCompleteReopenedSale={onCompleteReopenedSale}
           onEditSale={onEditSale}
-          onApprove={onApproveShippingOrder}
           onCancel={onCancelShippingOrder}
           onComplete={onCompleteShippingOrder}
           onOpenQuotes={onOpenQuotes}
           onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
           onReturnItem={onReturnItem}
-          onSeparate={onSeparateShippingOrder}
           onUpdateSaleCommercialDetails={onUpdateSaleCommercialDetails}
         />
       ) : null}

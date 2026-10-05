@@ -9,6 +9,7 @@ import {
   storeShippingOrder,
 } from "../../controllers/shipping-orders/shipping-orders.controller.js";
 import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
+import { saleClosingSchema } from "../../shared/validation/sale-closing-schema.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const shippingOrdersRoutes = Router();
@@ -29,47 +30,6 @@ const shippingOrderParamsSchema = z.object({
 const cancelShippingOrderSchema = z.object({
   reason: z.string().trim().min(1).max(500),
 });
-
-const salePaymentSchema = z
-  .object({
-    paymentMethodId: z.uuid(),
-    amount: z.coerce.number().positive(),
-  })
-  .strict();
-
-const completeShippingOrderSchema = z
-  .object({
-    paymentMethodId: z
-      .union([z.uuid(), z.literal(""), z.null()])
-      .transform((value) => value || null)
-      .optional(),
-    payments: z.array(salePaymentSchema).min(1).optional(),
-    billingIssueDate: z
-      .union([z.iso.date(), z.literal(""), z.null()])
-      .transform((value) => value || null)
-      .optional(),
-    billingDueDate: z
-      .union([z.iso.date(), z.literal(""), z.null()])
-      .transform((value) => value || null)
-      .optional(),
-    allowInsufficientStock: z.boolean().optional(),
-  })
-  .superRefine((value, context) => {
-    const hasValidBillingDates =
-      !value.billingIssueDate ||
-      !value.billingDueDate ||
-      value.billingDueDate >= value.billingIssueDate;
-
-    if (hasValidBillingDates) {
-      return;
-    }
-
-    context.addIssue({
-      code: "custom",
-      message: "Vencimento nao pode ser anterior a data da fatura.",
-      path: ["billingDueDate"],
-    });
-  });
 
 const approveShippingOrderSchema = z.object({
   allowInsufficientStock: z.boolean().optional(),
@@ -162,7 +122,7 @@ shippingOrdersRoutes.patch(
   "/shipping-orders/:id/complete",
   async (request, response) => {
     const { id } = shippingOrderParamsSchema.parse(request.params);
-    const body = validateBody(request, completeShippingOrderSchema);
+    const body = validateBody(request, saleClosingSchema);
     const userId = response.locals.authenticatedUser.id as string;
 
     response
@@ -178,6 +138,7 @@ shippingOrdersRoutes.patch(
           {
             billingIssueDate: body.billingIssueDate,
             billingDueDate: body.billingDueDate,
+            paymentInstallments: body.paymentInstallments,
           },
         ),
       );

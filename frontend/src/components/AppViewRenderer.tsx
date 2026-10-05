@@ -65,6 +65,7 @@ import {
 import { FiscalSettingsPage } from "../views/finance/FiscalSettingsPage";
 import { PaymentMethodsPage } from "../views/finance/PaymentMethodsPage";
 import type { useFinanceActions } from "../views/finance/useFinanceActions";
+import { QuoteBatchWorkspace } from "../views/quotes/QuoteBatchWorkspace";
 import { QuoteEditPage, QuotesPage } from "../views/quotes/QuotesPage";
 import type { useQuoteActions } from "../views/quotes/useQuoteActions";
 import { ReportsPage } from "../views/reports/ReportsPage";
@@ -129,6 +130,7 @@ type AppViewRendererProps = {
   selectedProduct?: Product;
   stockMovementProduct?: Product;
   selectedQuote?: Quote;
+  selectedQuoteFormDraft?: QuoteFormDraft;
   reusedQuote?: Quote;
   selectedSale?: Sale;
   shippingOrders: ShippingOrder[];
@@ -146,6 +148,7 @@ type AppViewRendererProps = {
   onCancelProductEdit: () => void;
   onCancelQuoteEdit: () => void;
   onCancelSaleEdit: () => void;
+  onOpenQuoteFormDraft: (draft: QuoteFormDraft) => void;
   onOpenQuotes: () => void;
   onOpenSaleFiscalQueue: (sale: Sale) => void;
   onProductFiltersChange: (filters: {
@@ -243,6 +246,7 @@ export function AppViewRenderer({
   selectedProduct,
   stockMovementProduct,
   selectedQuote,
+  selectedQuoteFormDraft,
   reusedQuote,
   selectedSale,
   shippingOrders,
@@ -260,6 +264,7 @@ export function AppViewRenderer({
   onCancelProductEdit,
   onCancelQuoteEdit,
   onCancelSaleEdit,
+  onOpenQuoteFormDraft,
   onLoadSalesReport,
   onLoadCashReport,
   onLoadInventoryReport,
@@ -387,9 +392,6 @@ export function AppViewRenderer({
         products={products}
         sales={sales}
         shippingOrders={shippingOrders}
-        onApproveShippingOrder={(order) =>
-          salesActions.approveShippingOrder(order)
-        }
         onCancelPickupReservation={(event, reservation) =>
           salesActions.cancelPickupReservation(event, reservation)
         }
@@ -413,9 +415,6 @@ export function AppViewRenderer({
         onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
         onReturnItem={(event, sale) =>
           salesActions.returnSaleItem(event, sale)
-        }
-        onSeparateShippingOrder={(order) =>
-          salesActions.separateShippingOrder(order)
         }
         onUpdateSaleCommercialDetails={(event, sale) =>
           salesActions.updateSaleCommercialDetails(event, sale)
@@ -611,32 +610,49 @@ export function AppViewRenderer({
         onLoadUserPerformanceReport={onLoadUserPerformanceReport}
       />
     ),
+    "quote-batch": (
+      <QuoteBatchWorkspace
+        drafts={quoteFormDrafts}
+        onCreateDraftBatch={quoteActions.createQuoteFormDraftBatch}
+        onDeleteDraft={quoteActions.deleteQuoteFormDraft}
+        onDuplicateDraft={quoteActions.saveQuoteFormDraft}
+        onNewQuote={() => onSelectView("new-quote")}
+        onOpenDraft={onOpenQuoteFormDraft}
+      />
+    ),
     "new-quote": (
         <QuotesPage
+          cashRegister={cashRegister}
           clients={clients}
           commercialSettings={commercialSettings}
           mode="form"
+          initialDraft={selectedQuoteFormDraft}
           paymentMethods={paymentMethods}
           products={products}
           quoteFormDrafts={quoteFormDrafts}
           quotes={quotes}
           sourceQuote={reusedQuote}
-          onSubmit={quoteActions.createQuote}
+          onSubmit={(input, draft) =>
+            draft
+              ? quoteActions.createQuoteFromDraft(draft, input)
+              : quoteActions.createQuote(input)
+          }
           onSaveQuoteFormDraft={quoteActions.saveQuoteFormDraft}
           onDeleteQuoteFormDraft={quoteActions.deleteQuoteFormDraft}
-          onDiscardQuoteFormDraft={quoteActions.discardQuoteFormDraft}
+          onRememberProductAlias={quoteActions.rememberQuoteProductAlias}
+          onRemoveProductAlias={quoteActions.removeQuoteProductAlias}
           onEditQuote={onSelectQuote}
           onReuseQuote={onReuseQuote}
           onCancelQuote={(event, quote) =>
             quoteActions.cancelQuote(event, quote)
           }
-          onCreateShippingOrder={(quote) =>
-            quoteActions.createShippingOrderFromQuote(quote)
-          }
+          onCompleteQuote={quoteActions.completeQuoteAsSale}
+          onOpenShippingOrders={quoteActions.openShippingOrders}
         />
       ),
     quotes: (
         <QuotesPage
+          cashRegister={cashRegister}
           clients={clients}
           commercialSettings={commercialSettings}
           mode="list"
@@ -647,15 +663,15 @@ export function AppViewRenderer({
           onSubmit={quoteActions.createQuote}
           onSaveQuoteFormDraft={quoteActions.saveQuoteFormDraft}
           onDeleteQuoteFormDraft={quoteActions.deleteQuoteFormDraft}
-          onDiscardQuoteFormDraft={quoteActions.discardQuoteFormDraft}
+          onRememberProductAlias={quoteActions.rememberQuoteProductAlias}
+          onRemoveProductAlias={quoteActions.removeQuoteProductAlias}
           onEditQuote={onSelectQuote}
           onReuseQuote={onReuseQuote}
           onCancelQuote={(event, quote) =>
             quoteActions.cancelQuote(event, quote)
           }
-          onCreateShippingOrder={(quote) =>
-            quoteActions.createShippingOrderFromQuote(quote)
-          }
+          onCompleteQuote={quoteActions.completeQuoteAsSale}
+          onOpenShippingOrders={quoteActions.openShippingOrders}
         />
       ),
     "edit-quote": selectedQuote ? (
@@ -666,6 +682,8 @@ export function AppViewRenderer({
         products={products}
         quote={selectedQuote}
         onCancel={onCancelQuoteEdit}
+        onRememberProductAlias={quoteActions.rememberQuoteProductAlias}
+        onRemoveProductAlias={quoteActions.removeQuoteProductAlias}
         onSubmit={(quote, input) => quoteActions.updateQuote(quote.id, input)}
       />
     ) : (

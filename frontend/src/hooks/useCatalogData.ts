@@ -208,7 +208,9 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
           ? apiGet<ApiResult<CashReport>>("/reports/cash")
           : emptyResult<CashReport | null>(null),
         canAccessView(user, "reports")
-          ? apiGet<ApiResult<UserPerformanceReport>>("/reports/users")
+          ? apiGet<ApiResult<UserPerformanceReport>>(
+              userPerformanceReportPath({ page: 1, pageSize: 10 }),
+            )
           : emptyResult<UserPerformanceReport | null>(null),
         apiGet<ApiResult<Quote[]>>("/quotes"),
         apiGet<ApiResult<QuoteFormDraft[]>>("/quotes/drafts"),
@@ -562,12 +564,18 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     }
   }
 
-  async function loadUserPerformanceReport(filters: ReportPeriodFilters = {}) {
+  async function loadUserPerformanceReport(
+    filters: UserPerformanceReportFilters = {},
+  ) {
     setMessage("");
 
     try {
       const result = await apiGet<ApiResult<UserPerformanceReport>>(
-        reportPath("/reports/users", filters),
+        userPerformanceReportPath({
+          ...filters,
+          page: filters.page ?? 1,
+          pageSize: filters.pageSize ?? 10,
+        }),
       );
 
       setUserPerformanceReport(result.data);
@@ -802,6 +810,12 @@ type ReportPeriodFilters = {
   dateTo?: string;
 };
 
+type UserPerformanceReportFilters = ReportPeriodFilters & {
+  page?: number;
+  pageSize?: number;
+  userId?: string;
+};
+
 type InventoryReportFilters = {
   active?: boolean;
   columns?: string[];
@@ -813,6 +827,34 @@ type InventoryReportFilters = {
 
 function salesReportPath(filters: SalesReportFilters) {
   return reportPath("/reports/sales", filters);
+}
+
+function userPerformanceReportPath(filters: UserPerformanceReportFilters) {
+  const params = new URLSearchParams();
+
+  if (filters.dateFrom) {
+    params.set("dateFrom", filters.dateFrom);
+  }
+
+  if (filters.dateTo) {
+    params.set("dateTo", filters.dateTo);
+  }
+
+  if (filters.page !== undefined) {
+    params.set("page", String(filters.page));
+  }
+
+  if (filters.pageSize !== undefined) {
+    params.set("pageSize", String(filters.pageSize));
+  }
+
+  if (filters.userId) {
+    params.set("userId", filters.userId);
+  }
+
+  const query = params.toString();
+
+  return query ? `/reports/users?${query}` : "/reports/users";
 }
 
 function inventoryReportPath(filters: InventoryReportFilters) {
