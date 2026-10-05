@@ -25,6 +25,7 @@ import type {
   Product,
   Supplier,
 } from '../../api'
+import { SearchableSelectField } from '../../components/SearchableSelectField'
 import {
   ActionGroup,
   FormGrid,
@@ -42,6 +43,12 @@ import {
 } from '../../components/ui'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import { formatCurrency, formatQuantity } from '../../utils/format'
+import {
+  nonNegativeMoneyInputProps,
+  nonNegativePercentageInputProps,
+  nonNegativeWholeNumberInputProps,
+  wholeNumberInputProps,
+} from '../../utils/numericInput'
 import { productDisplayName } from '../../utils/productDisplay'
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
@@ -411,6 +418,7 @@ export function ProductForm({
   )
   const [cestValue, setCestValue] = useState(product?.cest ?? '')
   const [ncmValue, setNcmValue] = useState(product?.ncm ?? '')
+  const [brandId, setBrandId] = useState(product?.brandId ?? '')
   const finalCost = salePriceCalculationBase(costPrice, accessoryExpenses)
 
   useEffect(() => {
@@ -423,9 +431,11 @@ export function ProductForm({
     setSalePriceTouched(Boolean(product?.salePrice))
     setCestValue(product?.cest ?? '')
     setNcmValue(product?.ncm ?? '')
+    setBrandId(product?.brandId ?? '')
   }, [
     defaultProfitMarginPercentage,
     product?.accessoryExpenses,
+    product?.brandId,
     product?.cest,
     product?.costPrice,
     product?.id,
@@ -484,18 +494,17 @@ export function ProductForm({
         />
       </FormRow>
       <FormRow>
-        <TextField
-          defaultValue={product?.brandId ?? ''}
+        <SearchableSelectField
           label='Fabricante'
           name='brandId'
-          select>
-          <MenuItem value=''>Sem fabricante</MenuItem>
-          {brands.map((brand) => (
-            <MenuItem key={brand.id} value={brand.id}>
-              {brand.name}
-            </MenuItem>
-          ))}
-        </TextField>
+          options={brands.map((brand) => ({
+            value: brand.id,
+            label: brand.name,
+          }))}
+          placeholder='Sem fabricante'
+          value={brandId}
+          onChange={setBrandId}
+        />
         <TextField
           label='Locação'
           name='location'
@@ -534,7 +543,7 @@ export function ProductForm({
               setCostPrice(event.target.value)
               setSalePriceTouched(false)
             }}
-            slotProps={{ htmlInput: { step: '0.01' } }}
+            slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
           />
           <TextField
             helperText='Compõe a base do preço de venda.'
@@ -546,14 +555,14 @@ export function ProductForm({
               setAccessoryExpenses(event.target.value)
               setSalePriceTouched(false)
             }}
-            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+            slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
           />
           <TextField
             label='Custo final'
             type='number'
             value={finalCost > 0 ? finalCost.toFixed(2) : ''}
             disabled
-            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+            slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
           />
           <input
             name='otherExpenses'
@@ -572,7 +581,7 @@ export function ProductForm({
               setProfitMarginPercentage(event.target.value)
               setSalePriceTouched(false)
             }}
-            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+            slotProps={{ htmlInput: nonNegativePercentageInputProps }}
           />
           <TextField
             helperText={salePriceHelperText(
@@ -588,7 +597,7 @@ export function ProductForm({
               setSalePrice(event.target.value)
               setSalePriceTouched(true)
             }}
-            slotProps={{ htmlInput: { step: '0.01' } }}
+            slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
           />
         </FormRow>
       </section>
@@ -599,14 +608,14 @@ export function ProductForm({
           name='currentStock'
           type='number'
           defaultValue={product?.currentStock ?? '0'}
-          slotProps={{ htmlInput: { step: '0.001' } }}
+          slotProps={{ htmlInput: wholeNumberInputProps }}
         />
         <TextField
           label='Estoque min.'
           name='minimumStock'
           type='number'
           defaultValue={product?.minimumStock}
-          slotProps={{ htmlInput: { step: '0.001' } }}
+          slotProps={{ htmlInput: nonNegativeWholeNumberInputProps }}
         />
         <Autocomplete
           freeSolo

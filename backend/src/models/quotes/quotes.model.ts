@@ -457,7 +457,7 @@ export async function updateQuote(
   return quote
 }
 
-export async function lockQuoteForCancellation(
+export async function lockQuote(
   transaction: Knex.Transaction,
   id: string,
   branchId: string,

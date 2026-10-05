@@ -722,6 +722,7 @@ type CashReport = {
 type UserPerformanceReport = {
   summary: {
     usersCount: number;
+    totalSalesCount: number;
     salesCount: number;
     grossAmount: string;
     refundAmount: string;
@@ -733,6 +734,7 @@ type UserPerformanceReport = {
   users: Array<{
     userId: string;
     userName: string;
+    totalSalesCount: number;
     salesCount: number;
     cancelledSalesCount: number;
     openSalesCount: number;
@@ -743,6 +745,11 @@ type UserPerformanceReport = {
     stockMovementsCount: number;
     fiscalDocumentsIssuedCount: number;
   }>;
+  salesPagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
   sales: Array<{
     saleId: string;
     saleNumber: number;
@@ -7097,6 +7104,7 @@ describe("catalog routes", () => {
 
     assert.equal(report.status, 200);
     assert.equal(report.body.data?.summary.usersCount, 1);
+    assert.equal(report.body.data?.summary.totalSalesCount, 1);
     assert.equal(report.body.data?.summary.salesCount, 1);
     assert.equal(report.body.data?.summary.grossAmount, "200.00");
     assert.equal(report.body.data?.summary.refundAmount, "0.00");
@@ -7105,6 +7113,7 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.summary.stockMovementsCount, 2);
     assert.equal(report.body.data?.summary.fiscalDocumentsIssuedCount, 1);
     assert.equal(report.body.data?.users[0]?.userName, "Administrador de teste");
+    assert.equal(report.body.data?.users[0]?.totalSalesCount, 1);
     assert.equal(report.body.data?.users[0]?.salesCount, 1);
     assert.equal(report.body.data?.users[0]?.quotesCreatedCount, 1);
     assert.equal(report.body.data?.users[0]?.stockMovementsCount, 2);
@@ -7113,6 +7122,64 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.sales[0]?.clientName, client.body.data?.name);
     assert.equal(report.body.data?.sales[0]?.status, "COMPLETED");
     assert.equal(report.body.data?.sales[0]?.netAmount, "200.00");
+    assert.equal(report.body.data?.salesPagination.total, 1);
+
+    const sourceSale = await db("sales")
+      .where("id", sale.body.data?.id)
+      .first();
+
+    assert.ok(sourceSale);
+
+    const {
+      id: _sourceSaleId,
+      sale_number: _sourceSaleNumber,
+      created_at: _sourceSaleCreatedAt,
+      ...sourceSaleValues
+    } = sourceSale;
+
+    await db("sales").insert(
+      Array.from({ length: 50 }, (_value, index) => ({
+        ...sourceSaleValues,
+        id: randomUUID(),
+        sale_number: 100_000 + index,
+        status: index === 0 ? "OPEN" : "COMPLETED",
+        created_at: new Date(Date.now() + index + 1),
+      })),
+    );
+
+    const expandedReport = await request<UserPerformanceReport>(
+      "/reports/users",
+    );
+    const lastPageReport = await request<UserPerformanceReport>(
+      "/reports/users?page=6&pageSize=10",
+    );
+    const createdByUserId = String(sourceSale.created_by_user_id);
+    const filteredReport = await request<UserPerformanceReport>(
+      `/reports/users?userId=${createdByUserId}&pageSize=0`,
+    );
+    const unmatchedReport = await request<UserPerformanceReport>(
+      `/reports/users?userId=${randomUUID()}`,
+    );
+
+    assert.equal(expandedReport.status, 200);
+    assert.equal(expandedReport.body.data?.summary.totalSalesCount, 51);
+    assert.equal(expandedReport.body.data?.summary.salesCount, 50);
+    assert.equal(expandedReport.body.data?.users[0]?.totalSalesCount, 51);
+    assert.equal(expandedReport.body.data?.users[0]?.openSalesCount, 1);
+    assert.equal(expandedReport.body.data?.salesPagination.total, 51);
+    assert.equal(expandedReport.body.data?.sales.length, 50);
+    assert.equal(lastPageReport.status, 200);
+    assert.equal(lastPageReport.body.data?.salesPagination.page, 6);
+    assert.equal(lastPageReport.body.data?.salesPagination.total, 51);
+    assert.equal(lastPageReport.body.data?.sales.length, 1);
+    assert.equal(filteredReport.status, 200);
+    assert.equal(filteredReport.body.data?.summary.totalSalesCount, 51);
+    assert.equal(filteredReport.body.data?.salesPagination.total, 51);
+    assert.equal(filteredReport.body.data?.sales.length, 51);
+    assert.equal(unmatchedReport.status, 200);
+    assert.equal(unmatchedReport.body.data?.summary.totalSalesCount, 0);
+    assert.equal(unmatchedReport.body.data?.users.length, 0);
+    assert.equal(unmatchedReport.body.data?.sales.length, 0);
   });
 
   it("creates a shipping quote and reserves its item after approval", async () => {
@@ -7773,6 +7840,201 @@ describe("catalog routes", () => {
       sales.body.data?.[0]?.billingIssueDate?.startsWith("2026-07-10"),
     );
     assert.ok(sales.body.data?.[0]?.billingDueDate?.startsWith("2026-07-25"));
+  });
+
+  it("completes a quote directly as an atomic sale", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro fechamento direto", salePrice: 125 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente fechamento direto" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 3,
+        reason: "Saldo para fechamento direto",
+      },
+    });
+
+    const paymentMethod = await activePaymentMethod("BOLETO");
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        billingIssueDate: "2026-08-10",
+        billingDueDate: "2026-08-25",
+        paymentInstallments: [
+          { position: 1, dueDate: "2026-08-25", amount: 125 },
+          { position: 2, dueDate: "2026-09-25", amount: 125 },
+        ],
+        items: [{ productId: product.body.data?.id, quantity: 2 }],
+      },
+    });
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const completed = await request<ShippingOrder>(
+      `/quotes/${quote.body.data?.id}/sale`,
+      {
+        method: "POST",
+        body: {},
+      },
+    );
+    const orders = await request<ShippingOrder[]>("/shipping-orders");
+    const sales = await request<Sale[]>("/sales");
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(completed.status, 201);
+    assert.equal(completed.body.data?.status, "COMPLETED");
+    assert.equal(completed.body.data?.quoteId, quote.body.data?.id);
+    assert.ok(completed.body.data?.saleId);
+    assert.equal(orders.body.data?.length, 1);
+    assert.equal(sales.body.data?.length, 1);
+    assert.equal(sales.body.data?.[0]?.totalAmount, "250.00");
+    assert.deepEqual(
+      sales.body.data?.[0]?.paymentInstallments.map((installment) => ({
+        amount: installment.amount,
+        dueDate: installment.dueDate.slice(0, 10),
+        position: installment.position,
+      })),
+      [
+        { amount: "125.00", dueDate: "2026-08-25", position: 1 },
+        { amount: "125.00", dueDate: "2026-09-25", position: 2 },
+      ],
+    );
+    assert.equal(updatedProduct.body.data?.currentStock, "1.000");
+    assert.equal(updatedProduct.body.data?.reservedStock, "0.000");
+  });
+
+  it("records installments selected while closing a quote to agree", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro parcelado no fechamento", salePrice: 300 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente parcelado no fechamento" },
+    });
+    const toAgree = await activePaymentMethod("TO_AGREE");
+    const credit = await activePaymentMethod("CREDIT");
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 1,
+        reason: "Saldo para parcelamento no fechamento",
+      },
+    });
+
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: toAgree.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const completed = await request<ShippingOrder>(
+      `/quotes/${quote.body.data?.id}/sale`,
+      {
+        method: "POST",
+        body: {
+          paymentMethodId: credit.id,
+          payments: [{ paymentMethodId: credit.id, amount: 300 }],
+          billingIssueDate: "2026-08-10",
+          billingDueDate: "2026-08-20",
+          paymentInstallments: [
+            { position: 1, dueDate: "2026-08-20", amount: 100 },
+            { position: 2, dueDate: "2026-09-20", amount: 100 },
+            { position: 3, dueDate: "2026-10-20", amount: 100 },
+          ],
+        },
+      },
+    );
+    const sales = await request<Sale[]>("/sales");
+
+    assert.equal(completed.status, 201);
+    assert.equal(sales.body.data?.[0]?.paymentMethodCode, "CREDIT");
+    assert.deepEqual(
+      sales.body.data?.[0]?.paymentInstallments.map((installment) => ({
+        amount: installment.amount,
+        dueDate: installment.dueDate.slice(0, 10),
+        position: installment.position,
+      })),
+      [
+        { amount: "100.00", dueDate: "2026-08-20", position: 1 },
+        { amount: "100.00", dueDate: "2026-09-20", position: 2 },
+        { amount: "100.00", dueDate: "2026-10-20", position: 3 },
+      ],
+    );
+  });
+
+  it("rolls back the quote sale when closing validation fails", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro rollback fechamento", salePrice: 80 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: { personType: "PF", name: "Cliente rollback fechamento" },
+    });
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para rollback do fechamento",
+      },
+    });
+
+    const paymentMethod = await activePaymentMethod("BOLETO");
+    const quote = await request<Quote>("/quotes", {
+      method: "POST",
+      body: {
+        clientId: client.body.data?.id,
+        paymentMethodId: paymentMethod.id,
+        items: [{ productId: product.body.data?.id, quantity: 1 }],
+      },
+    });
+
+    const failed = await request(`/quotes/${quote.body.data?.id}/sale`, {
+      method: "POST",
+      body: {},
+    });
+    const orders = await request<ShippingOrder[]>("/shipping-orders");
+    const sales = await request<Sale[]>("/sales");
+    const unchangedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+
+    assert.equal(failed.status, 422);
+    assert.match(
+      failed.body.message ?? "",
+      /Abra o caixa antes de concluir a venda/,
+    );
+    assert.equal(orders.body.data?.length, 0);
+    assert.equal(sales.body.data?.length, 0);
+    assert.equal(unchangedProduct.body.data?.currentStock, "2.000");
+    assert.equal(unchangedProduct.body.data?.reservedStock, "0.000");
   });
 
   it("creates and cancels a pickup reservation releasing reserved stock", async () => {

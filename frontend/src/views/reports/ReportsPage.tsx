@@ -47,6 +47,7 @@ import {
   ResponsiveTable as BaseResponsiveTable,
   type ResponsiveTableColumn,
 } from '../../components/layout'
+import { SearchableSelectField } from '../../components/SearchableSelectField'
 import { StatusChip, type StatusTone } from '../../components/ui'
 import { frontendPalette } from '../../theme'
 import {
@@ -78,7 +79,7 @@ export function ReportsPage({
   onLoadPurchaseReport: (filters?: SalesReportFilters) => Promise<boolean>
   onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>
   onLoadUserPerformanceReport: (
-    filters?: SalesReportFilters,
+    filters?: UserPerformanceReportFilters,
   ) => Promise<boolean>
   overview: ReportsOverview | null
   purchaseReport: PurchaseReport | null
@@ -415,6 +416,11 @@ const defaultSalesReportExportColumns = salesReportExportColumns.map(
 
 const userReportExportColumns = [
   { key: 'user', label: 'Usuário', csvHeaders: ['Usuario'] },
+  {
+    key: 'totalSales',
+    label: 'Total de vendas registradas',
+    csvHeaders: ['Vendas registradas'],
+  },
   { key: 'completedSales', label: 'Vendas concluídas', csvHeaders: ['Vendas concluidas'] },
   { key: 'cancelledSales', label: 'Vendas canceladas', csvHeaders: ['Vendas canceladas'] },
   { key: 'openSales', label: 'Vendas em aberto', csvHeaders: ['Vendas em aberto'] },
@@ -557,7 +563,7 @@ function ReportsOverviewContent({
   onLoadSalesReport: (filters?: SalesReportFilters) => Promise<boolean>
   onLoadStockReport: (filters?: SalesReportFilters) => Promise<boolean>
   onLoadUserPerformanceReport: (
-    filters?: SalesReportFilters,
+    filters?: UserPerformanceReportFilters,
   ) => Promise<boolean>
   overview: ReportsOverview
   purchaseReport: PurchaseReport
@@ -1023,28 +1029,77 @@ function UserPerformanceReportSection({
   report,
 }: {
   onLoadUserPerformanceReport: (
-    filters?: SalesReportFilters,
+    filters?: UserPerformanceReportFilters,
   ) => Promise<boolean>
   report: UserPerformanceReport
 }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [userId, setUserId] = useState('')
+  const [userOptions, setUserOptions] = useState(() => report.users)
   const [columnsDrawerOpen, setColumnsDrawerOpen] = useState(false)
   const [selectedColumns, setSelectedColumns] = useState<
     UserReportExportColumnKey[]
   >([...defaultUserReportExportColumns])
   const { loading, run } = useReportAction()
 
+  useEffect(() => {
+    if (!userId) {
+      setUserOptions(report.users)
+    }
+  }, [report.users, userId])
+
   async function filterUserPerformanceReport(
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault()
-    await run(() => onLoadUserPerformanceReport({ dateFrom, dateTo }))
+    await run(() =>
+      onLoadUserPerformanceReport({
+        dateFrom,
+        dateTo,
+        page: 1,
+        pageSize: report.salesPagination.pageSize,
+        userId,
+      }),
+    )
+  }
+
+  async function loadUserPerformanceSalesPage(
+    page: number,
+    pageSize: number,
+  ) {
+    await run(() =>
+      onLoadUserPerformanceReport({
+        dateFrom,
+        dateTo,
+        page,
+        pageSize,
+        userId,
+      }),
+    )
+  }
+
+  async function exportCompleteUserPerformanceReportCsv() {
+    await run(async () => {
+      const result = await apiGet<ApiResult<UserPerformanceReport>>(
+        reportDownloadPath('/reports/users', {
+          dateFrom,
+          dateTo,
+          page: 1,
+          pageSize: 0,
+          userId,
+        }),
+      )
+
+      exportUserPerformanceReportCsv(result.data, selectedColumns)
+      return true
+    })
   }
 
   async function clearUserPerformanceReportFilters() {
     setDateFrom('')
     setDateTo('')
+    setUserId('')
     await run(() => onLoadUserPerformanceReport())
   }
 
@@ -1053,7 +1108,7 @@ function UserPerformanceReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:grid-cols-[repeat(3,minmax(150px,1fr))_repeat(5,auto)]'
             onSubmit={filterUserPerformanceReport}>
             <TextField
               label='De'
@@ -1071,11 +1126,22 @@ function UserPerformanceReportSection({
               onChange={(event) => setDateTo(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
+            <SearchableSelectField
+              label='Usuário'
+              options={userOptions.map((user) => ({
+                value: user.userId,
+                label: user.userName,
+              }))}
+              placeholder='Todos os usuários'
+              size='small'
+              value={userId}
+              onChange={setUserId}
+            />
             <Button loading={loading} type='submit' variant='contained'>
               Filtrar usuarios
             </Button>
             <Button
-              disabled={loading || (!dateFrom && !dateTo)}
+              disabled={loading || (!dateFrom && !dateTo && !userId)}
               type='button'
               variant='outlined'
               onClick={() => void clearUserPerformanceReportFilters()}>
@@ -1089,17 +1155,16 @@ function UserPerformanceReportSection({
               Campos ({selectedColumns.length})
             </Button>
             <Button
+              loading={loading}
               startIcon={<Download size={16} />}
               type='button'
               variant='outlined'
-              onClick={() =>
-                exportUserPerformanceReportCsv(report, selectedColumns)
-              }>
-              CSV
+              onClick={() => void exportCompleteUserPerformanceReportCsv()}>
+              {loading ? 'Gerando…' : 'CSV'}
             </Button>
             <ReportPdfButton
               filename='relatorio-usuarios'
-              filters={{ columns: selectedColumns, dateFrom, dateTo }}
+              filters={{ columns: selectedColumns, dateFrom, dateTo, userId }}
               path='/reports/users/pdf'
             />
           </form>
@@ -1124,12 +1189,12 @@ function UserPerformanceReportSection({
         />
         <ReportMetric
           icon={<ShoppingCart size={18} />}
-          label='Vendas'
-          value={String(report.summary.salesCount)}
+          label='Vendas registradas'
+          value={String(report.summary.totalSalesCount)}
         />
         <ReportMetric
           icon={<Banknote size={18} />}
-          label='Liquido'
+          label='Líquido das concluídas'
           value={formatCurrency(report.summary.netAmount)}
         />
         <ReportMetric
@@ -1159,11 +1224,19 @@ function UserPerformanceReportSection({
             {
               align: 'right',
               header: 'Vendas',
-              render: (item) => item.salesCount,
+              render: (item) => (
+                <div className='grid justify-items-end gap-1'>
+                  <strong>{item.totalSalesCount}</strong>
+                  <span className='text-xs text-[#5f665f]'>
+                    {item.salesCount} concluídas · {item.openSalesCount} abertas ·{' '}
+                    {item.cancelledSalesCount} canceladas
+                  </span>
+                </div>
+              ),
             },
             {
               align: 'right',
-              header: 'Liquido',
+              header: 'Líquido concluído',
               render: (item) => formatCurrency(item.netAmount),
             },
             {
@@ -1188,42 +1261,67 @@ function UserPerformanceReportSection({
           loading={loading}
         />
 
-        <ResponsiveTable
-          columns={[
-            {
-              header: 'Venda',
-              render: (item) => (
-                <div className='grid gap-1'>
-                  <strong>Venda #{item.saleNumber}</strong>
-                  <span className='text-xs text-[#5f665f]'>
-                    {formatDateTime(item.createdAt)}
-                  </span>
-                </div>
-              ),
-            },
-            {
-              header: 'Usuario',
-              render: (item) => item.userName,
-            },
-            {
-              header: 'Cliente',
-              render: (item) => item.clientName,
-            },
-            {
-              header: 'Status',
-              render: (item) => saleStatusLabel(item.status),
-            },
-            {
-              align: 'right',
-              header: 'Liquido',
-              render: (item) => formatCurrency(item.netAmount),
-            },
-          ]}
-          emptyMessage='Nenhuma venda no periodo.'
-          getRowId={(item) => item.saleId}
-          items={report.sales}
-          loading={loading}
-        />
+        <div className='grid gap-2'>
+          <div className='flex flex-wrap items-baseline justify-between gap-2'>
+            <strong>Vendas detalhadas</strong>
+            <span className='text-sm text-[#5f665f]'>
+              {report.salesPagination.total} registro(s) encontrado(s)
+            </span>
+          </div>
+          <BaseResponsiveTable
+            columns={[
+              {
+                header: 'Venda',
+                render: (item) => (
+                  <div className='grid gap-1'>
+                    <strong>Venda #{item.saleNumber}</strong>
+                    <span className='text-xs text-[#5f665f]'>
+                      {formatDateTime(item.createdAt)}
+                    </span>
+                  </div>
+                ),
+              },
+              {
+                header: 'Usuário',
+                render: (item) => item.userName,
+              },
+              {
+                header: 'Cliente',
+                render: (item) => item.clientName,
+              },
+              {
+                header: 'Status',
+                render: (item) => saleStatusLabel(item.status),
+              },
+              {
+                align: 'right',
+                header: 'Líquido',
+                render: (item) => formatCurrency(item.netAmount),
+              },
+            ]}
+            emptyMessage='Nenhuma venda no periodo.'
+            getRowId={(item) => item.saleId}
+            items={report.sales}
+            loading={loading}
+            pagination={
+              report.salesPagination.total > defaultReportRowsPerPage
+                ? {
+                    count: report.salesPagination.total,
+                    page: report.salesPagination.page - 1,
+                    rowsPerPage: report.salesPagination.pageSize,
+                    rowsPerPageOptions: reportRowsPerPageOptions,
+                    onPageChange: (nextPage) =>
+                      void loadUserPerformanceSalesPage(
+                        nextPage + 1,
+                        report.salesPagination.pageSize,
+                      ),
+                    onRowsPerPageChange: (nextPageSize) =>
+                      void loadUserPerformanceSalesPage(1, nextPageSize),
+                  }
+                : undefined
+            }
+          />
+        </div>
       </div>
     </PagePanel>
   )
@@ -2232,8 +2330,17 @@ type SalesReportFilters = {
   dateTo?: string
 }
 
+type UserPerformanceReportFilters = SalesReportFilters & {
+  page?: number
+  pageSize?: number
+  userId?: string
+}
+
 type ReportDownloadFilters = SalesReportFilters & {
   columns?: readonly string[]
+  page?: number
+  pageSize?: number
+  userId?: string
 }
 
 type InventoryReportFilters = {
@@ -2533,6 +2640,7 @@ function exportUserPerformanceReportCsv(
   downloadCsv('relatorio-usuarios', filterReportCsvRows([
     ['Secao', 'Indicador', 'Valor'],
     ['Resumo', 'Usuarios', report.summary.usersCount],
+    ['Resumo', 'Vendas registradas', report.summary.totalSalesCount],
     ['Resumo', 'Vendas concluidas', report.summary.salesCount],
     ['Resumo', 'Bruto', report.summary.grossAmount],
     ['Resumo', 'Devolucoes', report.summary.refundAmount],
@@ -2544,6 +2652,7 @@ function exportUserPerformanceReportCsv(
     [
       'Resumo por usuario',
       'Usuario',
+      'Vendas registradas',
       'Vendas concluidas',
       'Vendas canceladas',
       'Vendas em aberto',
@@ -2557,6 +2666,7 @@ function exportUserPerformanceReportCsv(
     ...report.users.map((item) => [
       'Resumo por usuario',
       item.userName,
+      item.totalSalesCount,
       item.salesCount,
       item.cancelledSalesCount,
       item.openSalesCount,
@@ -2569,7 +2679,7 @@ function exportUserPerformanceReportCsv(
     ]),
     [],
     [
-      'Vendas recentes',
+      'Vendas detalhadas',
       'Numero da venda',
       'Data',
       'Usuario',
@@ -2580,7 +2690,7 @@ function exportUserPerformanceReportCsv(
       'Liquido',
     ],
     ...report.sales.map((item) => [
-      'Vendas recentes',
+      'Vendas detalhadas',
       item.saleNumber,
       formatDateTime(item.createdAt),
       item.userName,

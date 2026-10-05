@@ -841,6 +841,7 @@ export type CashReport = {
 export type UserPerformanceReport = {
   summary: {
     usersCount: number;
+    totalSalesCount: number;
     salesCount: number;
     grossAmount: string;
     refundAmount: string;
@@ -852,6 +853,7 @@ export type UserPerformanceReport = {
   users: Array<{
     userId: string;
     userName: string;
+    totalSalesCount: number;
     salesCount: number;
     cancelledSalesCount: number;
     openSalesCount: number;
@@ -862,6 +864,11 @@ export type UserPerformanceReport = {
     stockMovementsCount: number;
     fiscalDocumentsIssuedCount: number;
   }>;
+  salesPagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+  };
   sales: Array<{
     saleId: string;
     saleNumber: number;
@@ -901,6 +908,13 @@ export type ShippingOrder = {
   }>;
   billingIssueDate: string | null;
   billingDueDate: string | null;
+  paymentInstallments: Array<{
+    id: string;
+    quoteId: string;
+    position: number;
+    dueDate: string;
+    amount: string;
+  }>;
   items: Array<{
     id: string;
     productId: string;

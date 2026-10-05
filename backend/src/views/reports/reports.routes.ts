@@ -55,10 +55,14 @@ const cashReportQuerySchema = reportQuerySchema([
   "expected", "reported", "difference",
 ]);
 const userReportQuerySchema = reportQuerySchema([
-  "user", "completedSales", "cancelledSales", "openSales", "gross", "refunds",
-  "net", "quotes", "stockMovements", "fiscalDocuments", "saleNumber", "date",
-  "client", "status", "total",
-]);
+  "user", "totalSales", "completedSales", "cancelledSales", "openSales", "gross",
+  "refunds", "net", "quotes", "stockMovements", "fiscalDocuments", "saleNumber",
+  "date", "client", "status", "total",
+]).extend({
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(0).max(100).optional(),
+  userId: z.uuid().optional(),
+});
 
 const inventoryReportQuerySchema = z.object({
   active: z

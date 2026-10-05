@@ -37,6 +37,7 @@ import type {
 } from '../../api'
 import { downloadApiFile } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
+import { SearchableSelectField } from '../../components/SearchableSelectField'
 import {
   ActionGroup,
   ActionStack,
@@ -64,6 +65,10 @@ import {
   formatDateTime,
   formatQuantity,
 } from '../../utils/format'
+import {
+  nonNegativeMoneyInputProps,
+  positiveWholeNumberInputProps,
+} from '../../utils/numericInput'
 import { SaleReturnForm, type SaleReturnHandler } from './SaleReturnForm'
 import { salePaymentsAllowBilling } from './saleBilling'
 import {
@@ -114,6 +119,12 @@ type PickupReservationDraftItem = {
 
 export type SalePaymentDraft = {
   paymentMethodId: string
+  amount: string
+}
+
+type SalePaymentInstallmentDraft = {
+  position: number
+  dueDate: string
   amount: string
 }
 
@@ -229,18 +240,16 @@ export function SalesPage({
       fiscalDocuments,
     ],
   )
-  const {
-    pagination: directSalePagination,
-    visibleItems: visibleDirectSales,
-  } = usePaginatedRows<Sale>(
-    directSales,
-    [
-      directSaleFiscalFilter,
-      directSaleSearch,
-      directSaleStatusFilter,
-      excludedSaleIds.join('|'),
-    ].join('|'),
-  )
+  const { pagination: directSalePagination, visibleItems: visibleDirectSales } =
+    usePaginatedRows<Sale>(
+      directSales,
+      [
+        directSaleFiscalFilter,
+        directSaleSearch,
+        directSaleStatusFilter,
+        excludedSaleIds.join('|'),
+      ].join('|'),
+    )
   const saleSubtotal = items.reduce((sum, item) => {
     const product = activeProducts.find(
       (currentProduct) => currentProduct.id === item.productId,
@@ -324,164 +333,164 @@ export function SalesPage({
           : 'grid items-start gap-4 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]'
       }>
       {showSaleForm ? (
-      <FormGrid className='gap-5 sm:gap-6' onSubmit={submit}>
-        <PageHeader
-          description='Monte uma venda direta com um ou mais itens.'
-          icon={<ShoppingCart size={18} />}
-          title='Nova venda direta'
-        />
-        {!cashRegister ? (
-          <Alert severity='warning' variant='outlined'>
-            Abra o caixa antes de registrar vendas.
-          </Alert>
-        ) : null}
+        <FormGrid className='gap-5 sm:gap-6' onSubmit={submit}>
+          <PageHeader
+            description='Monte uma venda direta com um ou mais itens.'
+            icon={<ShoppingCart size={18} />}
+            title='Nova venda direta'
+          />
+          {!cashRegister ? (
+            <Alert severity='warning' variant='outlined'>
+              Abra o caixa antes de registrar vendas.
+            </Alert>
+          ) : null}
 
-        <div className='grid gap-4'>
-          {items.map((item, index) => (
-            <FormCard key={index}>
-              <div className='flex items-center justify-between gap-3'>
-                <strong>Item {index + 1}</strong>
-                {items.length > 1 ? (
-                  <TableActionButton
-                    type='button'
-                    onClick={() => removeItem(index)}>
-                    Remover
-                  </TableActionButton>
-                ) : null}
-              </div>
-              <ProductSearchField
+          <div className='grid gap-4'>
+            {items.map((item, index) => (
+              <FormCard key={index}>
+                <div className='flex items-center justify-between gap-3'>
+                  <strong>Item {index + 1}</strong>
+                  {items.length > 1 ? (
+                    <TableActionButton
+                      type='button'
+                      onClick={() => removeItem(index)}>
+                      Remover
+                    </TableActionButton>
+                  ) : null}
+                </div>
+                <ProductSearchField
+                  disabled={!cashRegister}
+                  label='Produto'
+                  name={`saleItems.${index}.productId`}
+                  products={activeProducts}
+                  required
+                  stockLabel='available'
+                  value={item.productId}
+                  onChange={(productId) => updateItem(index, { productId })}
+                />
+                <TextField
+                  label='Quantidade'
+                  value={item.quantity}
+                  type='number'
+                  size='medium'
+                  required
+                  disabled={!cashRegister}
+                  onChange={(event) =>
+                    updateItem(index, { quantity: event.target.value })
+                  }
+                  slotProps={{ htmlInput: positiveWholeNumberInputProps }}
+                />
+              </FormCard>
+            ))}
+          </div>
+
+          <ActionGroup>
+            <SecondaryButton
+              type='button'
+              onClick={() =>
+                setItems((currentItems) => [...currentItems, emptySaleItem()])
+              }
+              disabled={!cashRegister}>
+              Adicionar item
+            </SecondaryButton>
+          </ActionGroup>
+
+          <FormRow>
+            <PaymentSplitFields
+              disabled={!cashRegister}
+              fieldPrefix='sale'
+              paymentMethods={paymentMethods}
+              payments={payments}
+              totalAmount={saleTotal}
+              onChange={setPayments}
+            />
+            <TextField
+              disabled
+              label='Subtotal'
+              size='medium'
+              value={formatCurrency(saleSubtotal)}
+            />
+          </FormRow>
+          {saleAllowsBilling ? (
+            <FormRow>
+              <TextField
                 disabled={!cashRegister}
-                label='Produto'
-                name={`saleItems.${index}.productId`}
-                products={activeProducts}
-                required
-                stockLabel='available'
-                value={item.productId}
-                onChange={(productId) => updateItem(index, { productId })}
+                label='Data da fatura'
+                size='medium'
+                type='date'
+                value={billingIssueDate}
+                onChange={(event) => setBillingIssueDate(event.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
               <TextField
-                label='Quantidade'
-                value={item.quantity}
-                type='number'
-                size='medium'
-                required
                 disabled={!cashRegister}
-                onChange={(event) =>
-                  updateItem(index, { quantity: event.target.value })
-                }
-                slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
+                label='Vencimento do boleto/fatura'
+                size='medium'
+                type='date'
+                value={billingDueDate}
+                onChange={(event) => setBillingDueDate(event.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
               />
-            </FormCard>
-          ))}
-        </div>
-
-        <ActionGroup>
-          <SecondaryButton
-            type='button'
-            onClick={() =>
-              setItems((currentItems) => [...currentItems, emptySaleItem()])
-            }
-            disabled={!cashRegister}>
-            Adicionar item
-          </SecondaryButton>
-        </ActionGroup>
-
-        <FormRow>
-          <PaymentSplitFields
-            disabled={!cashRegister}
-            fieldPrefix='sale'
-            paymentMethods={paymentMethods}
-            payments={payments}
-            totalAmount={saleTotal}
-            onChange={setPayments}
-          />
-          <TextField
-            disabled
-            label='Subtotal'
-            size='medium'
-            value={formatCurrency(saleSubtotal)}
-          />
-        </FormRow>
-        {saleAllowsBilling ? (
+            </FormRow>
+          ) : null}
           <FormRow>
             <TextField
               disabled={!cashRegister}
-              label='Data da fatura'
+              error={discountExceedsSubtotal}
+              helperText={
+                discountExceedsSubtotal
+                  ? 'Desconto maior que o subtotal.'
+                  : 'Informe o desconto em reais, se houver.'
+              }
+              label='Desconto'
               size='medium'
-              type='date'
-              value={billingIssueDate}
-              onChange={(event) => setBillingIssueDate(event.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
+              type='number'
+              value={discountAmount}
+              onChange={(event) => setDiscountAmount(event.target.value)}
+              slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
             />
             <TextField
-              disabled={!cashRegister}
-              label='Vencimento do boleto/fatura'
+              disabled
+              label='Total final'
               size='medium'
-              type='date'
-              value={billingDueDate}
-              onChange={(event) => setBillingDueDate(event.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
+              value={formatCurrency(saleTotal)}
             />
           </FormRow>
-        ) : null}
-        <FormRow>
-          <TextField
+          <SearchableSelectField
             disabled={!cashRegister}
-            error={discountExceedsSubtotal}
-            helperText={
-              discountExceedsSubtotal
-                ? 'Desconto maior que o subtotal.'
-                : 'Informe o desconto em reais, se houver.'
-            }
-            label='Desconto'
-            size='medium'
-            type='number'
-            value={discountAmount}
-            onChange={(event) => setDiscountAmount(event.target.value)}
-            slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+            label='Cliente'
+            options={clients
+              .filter((client) => client.active)
+              .map((client) => ({
+                value: client.id,
+                label: client.name,
+                searchText: [client.document, client.phone, client.email]
+                  .filter(Boolean)
+                  .join(' '),
+              }))}
+            placeholder='Cliente não identificado'
+            value={clientId}
+            onChange={setClientId}
           />
-          <TextField
-            disabled
-            label='Total final'
-            size='medium'
-            value={formatCurrency(saleTotal)}
-          />
-        </FormRow>
-        <TextField
-          label='Cliente'
-          select
-          size='medium'
-          value={clientId || ''}
-          onChange={(event) => setClientId(event.target.value)}
-          disabled={!cashRegister}>
-          <MenuItem value=''>Cliente não identificado</MenuItem>
-          {clients
-            .filter((client) => client.active)
-            .map((client) => (
-              <MenuItem key={client.id} value={client.id}>
-                {client.name}
-              </MenuItem>
-            ))}
-        </TextField>
-        <ActionGroup>
-          <PrimaryButton
-            icon={<Plus size={17} />}
-            loading={submittingSale}
-            type='submit'
-            disabled={
-              submittingSale || !cashRegister || discountExceedsSubtotal
-            }>
-            {submittingSale ? 'Concluindo venda…' : 'Concluir venda'}
-          </PrimaryButton>
-          {embedded ? (
-            <SecondaryButton
-              type='button'
-              onClick={() => setShowSaleForm(false)}>
-              Fechar
-            </SecondaryButton>
-          ) : null}
-        </ActionGroup>
-      </FormGrid>
+          <ActionGroup>
+            <PrimaryButton
+              icon={<Plus size={17} />}
+              loading={submittingSale}
+              type='submit'
+              disabled={
+                submittingSale || !cashRegister || discountExceedsSubtotal
+              }>
+              {submittingSale ? 'Concluindo venda…' : 'Concluir venda'}
+            </PrimaryButton>
+            {embedded ? (
+              <SecondaryButton
+                type='button'
+                onClick={() => setShowSaleForm(false)}>
+                Fechar
+              </SecondaryButton>
+            ) : null}
+          </ActionGroup>
+        </FormGrid>
       ) : null}
 
       <PagePanel>
@@ -557,7 +566,9 @@ export function SalesPage({
               header: 'Cliente',
               render: (sale) => (
                 <>
-                  <strong>{sale.clientName ?? 'Cliente não identificado'}</strong>
+                  <strong>
+                    {sale.clientName ?? 'Cliente não identificado'}
+                  </strong>
                   <InlineNote>{sale.items.length} item(ns)</InlineNote>
                 </>
               ),
@@ -619,7 +630,9 @@ export function SalesPage({
                       )
                     }
                     onReturnItem={onReturnItem}
-                    onUpdateSaleCommercialDetails={onUpdateSaleCommercialDetails}
+                    onUpdateSaleCommercialDetails={
+                      onUpdateSaleCommercialDetails
+                    }
                   />
                 </div>
               ),
@@ -772,12 +785,8 @@ function saleDetailHistoryFromSale(
 ) {
   return [
     `Venda criada em ${formatDateTime(sale.createdAt)} por ${sale.createdByUserName}`,
-    sale.status === 'OPEN'
-      ? 'Venda reaberta para correção'
-      : null,
-    sale.status === 'COMPLETED'
-      ? 'Venda concluída'
-      : null,
+    sale.status === 'OPEN' ? 'Venda reaberta para correção' : null,
+    sale.status === 'COMPLETED' ? 'Venda concluída' : null,
     sale.cancelledAt
       ? `Venda cancelada em ${formatDateTime(sale.cancelledAt)} por ${
           sale.cancelledByUserName ?? 'usuário não identificado'
@@ -938,7 +947,9 @@ function SaleDetailDrawer({
                 </div>
               </div>
             </SaleDetailSection>
-            <SaleDetailSection icon={<CreditCard size={15} />} title='Pagamento'>
+            <SaleDetailSection
+              icon={<CreditCard size={15} />}
+              title='Pagamento'>
               <strong>{detail.paymentSummary}</strong>
               {detail.sale?.billingDueDate ? (
                 <InlineNote>
@@ -946,10 +957,14 @@ function SaleDetailDrawer({
                 </InlineNote>
               ) : null}
             </SaleDetailSection>
-            <SaleDetailSection icon={<ReceiptText size={15} />} title='Status fiscal'>
+            <SaleDetailSection
+              icon={<ReceiptText size={15} />}
+              title='Status fiscal'>
               <DirectSaleFiscalStatus fiscalDocument={detail.fiscalDocument} />
             </SaleDetailSection>
-            <SaleDetailSection icon={<Paperclip size={15} />} title='Arquivos fiscais'>
+            <SaleDetailSection
+              icon={<Paperclip size={15} />}
+              title='Arquivos fiscais'>
               <SaleDetailFiles detail={detail} />
             </SaleDetailSection>
             <SaleDetailSection icon={<History size={15} />} title='Histórico'>
@@ -1127,10 +1142,7 @@ function directSaleMatchesFilters(
   return (
     directSaleMatchesSearch(sale, filters.search) &&
     directSaleMatchesStatus(sale, filters.status) &&
-    directSaleMatchesFiscalStatus(
-      filters.fiscalDocument,
-      filters.fiscalStatus,
-    )
+    directSaleMatchesFiscalStatus(filters.fiscalDocument, filters.fiscalStatus)
   )
 }
 
@@ -1155,10 +1167,7 @@ function directSaleMatchesSearch(sale: Sale, search: string) {
   )
 }
 
-function directSaleMatchesStatus(
-  sale: Sale,
-  status: DirectSaleStatusFilter,
-) {
+function directSaleMatchesStatus(sale: Sale, status: DirectSaleStatusFilter) {
   if (status === 'ALL') {
     return true
   }
@@ -1238,7 +1247,9 @@ function DirectSaleFiscalStatus({
         tone={directSaleFiscalStatusTone(fiscalDocument.status)}
       />
       <InlineNote>
-        {fiscalDocument.number ? `NF-e #${fiscalDocument.number}` : 'Sem numero'}
+        {fiscalDocument.number
+          ? `NF-e #${fiscalDocument.number}`
+          : 'Sem numero'}
       </InlineNote>
     </>
   )
@@ -1271,13 +1282,15 @@ function DirectSaleActions({
   const { pendingAction, runPendingAction } = usePendingSaleAction()
   const fiscalDocumentBlocksCommercialChanges = Boolean(
     fiscalDocument &&
-      ['AUTHORIZED', 'PENDING', 'PROCESSING'].includes(fiscalDocument.status),
+    ['AUTHORIZED', 'PENDING', 'PROCESSING'].includes(fiscalDocument.status),
   )
   const fiscalLinks = [
     { fileType: 'danfe', label: 'DANFE', url: fiscalDocument?.pdfUrl },
     { fileType: 'xml', label: 'XML', url: fiscalDocument?.xmlUrl },
   ].filter(
-    (link): link is {
+    (
+      link,
+    ): link is {
       fileType: 'danfe' | 'xml'
       label: 'DANFE' | 'XML'
       url: string
@@ -1408,7 +1421,8 @@ function directSaleFiscalDocument(
   sale: Sale,
 ) {
   return fiscalDocuments.find(
-    (document) => document.sourceType === 'SALE' && document.sourceId === sale.id,
+    (document) =>
+      document.sourceType === 'SALE' && document.sourceId === sale.id,
   )
 }
 
@@ -1539,7 +1553,7 @@ export function PaymentSplitFields({
               }
               required={hasMultiplePayments}
               size='small'
-              slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+              slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
               type='number'
               value={payment.amount}
             />
@@ -1599,6 +1613,113 @@ function salePaymentDraftTotal(
   )
 }
 
+function saleInstallmentPaymentAmount(
+  payments: SalePaymentDraft[],
+  totalAmount: number,
+  paymentMethods: PaymentMethod[],
+) {
+  const payloads = salePaymentPayloads(payments, totalAmount)
+  const paymentMethodById = new Map(
+    paymentMethods.map((paymentMethod) => [paymentMethod.id, paymentMethod]),
+  )
+  const usesBankSlip = payloads.some(
+    (payment) =>
+      paymentMethodById.get(payment.paymentMethodId)?.code === 'BOLETO',
+  )
+  const installmentPaymentCode = usesBankSlip ? 'BOLETO' : 'CREDIT'
+
+  return Number(
+    payloads
+      .filter(
+        (payment) =>
+          paymentMethodById.get(payment.paymentMethodId)?.code ===
+          installmentPaymentCode,
+      )
+      .reduce((sum, payment) => sum + payment.amount, 0)
+      .toFixed(2),
+  )
+}
+
+function buildSalePaymentInstallments(
+  count: number,
+  firstDueDate: string,
+  totalAmount: number,
+): SalePaymentInstallmentDraft[] {
+  const installmentCount = normalizeSalePaymentInstallmentCount(count)
+  const baseAmount = Math.floor((totalAmount / installmentCount) * 100) / 100
+  const baseTotal = Number((baseAmount * installmentCount).toFixed(2))
+  const lastAmount = Number((baseAmount + totalAmount - baseTotal).toFixed(2))
+
+  return Array.from({ length: installmentCount }, (_item, index) => ({
+    amount: String(index === installmentCount - 1 ? lastAmount : baseAmount),
+    dueDate: salePaymentInstallmentDueDate(firstDueDate, index),
+    position: index + 1,
+  }))
+}
+
+function syncSalePaymentInstallments(
+  currentInstallments: SalePaymentInstallmentDraft[],
+  count: number,
+  firstDueDate: string,
+  totalAmount: number,
+) {
+  const nextInstallments = buildSalePaymentInstallments(
+    count,
+    firstDueDate,
+    totalAmount,
+  )
+  const preservesAmounts =
+    currentInstallments.length === nextInstallments.length &&
+    Math.abs(salePaymentInstallmentTotal(currentInstallments) - totalAmount) <
+      0.01
+
+  return nextInstallments.map((installment, index) => ({
+    ...installment,
+    dueDate: currentInstallments[index]?.dueDate || installment.dueDate,
+    amount: preservesAmounts
+      ? currentInstallments[index]?.amount || installment.amount
+      : installment.amount,
+  }))
+}
+
+function updateSalePaymentInstallment(
+  installments: SalePaymentInstallmentDraft[],
+  index: number,
+  changes: Partial<SalePaymentInstallmentDraft>,
+) {
+  return installments.map((installment, installmentIndex) =>
+    installmentIndex === index ? { ...installment, ...changes } : installment,
+  )
+}
+
+function salePaymentInstallmentTotal(
+  installments: SalePaymentInstallmentDraft[],
+) {
+  return Number(
+    installments
+      .reduce(
+        (sum, installment) => sum + moneyInputValue(installment.amount),
+        0,
+      )
+      .toFixed(2),
+  )
+}
+
+function normalizeSalePaymentInstallmentCount(count: number) {
+  return Math.max(Math.min(Math.trunc(count || 1), 24), 1)
+}
+
+function salePaymentInstallmentDueDate(firstDueDate: string, index: number) {
+  const date = new Date(`${firstDueDate || saleTodayInputDate()}T00:00:00`)
+  date.setMonth(date.getMonth() + index)
+
+  return date.toLocaleDateString('en-CA')
+}
+
+function saleTodayInputDate() {
+  return new Date().toLocaleDateString('en-CA')
+}
+
 function moneyInputValue(value: string) {
   const parsedValue = Number(value || 0)
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0
@@ -1623,8 +1744,6 @@ export function ShippingOrdersPage({
   onOpenQuotes,
   onOpenSaleFiscalQueue,
   onReturnItem,
-  onApprove,
-  onSeparate,
   onComplete,
   onCancel,
   onUpdateSaleCommercialDetails,
@@ -1640,8 +1759,6 @@ export function ShippingOrdersPage({
   onOpenQuotes: () => void
   onOpenSaleFiscalQueue?: (sale: Sale) => void
   onReturnItem?: SaleReturnHandler
-  onApprove: (order: ShippingOrder) => Promise<unknown>
-  onSeparate: (order: ShippingOrder) => Promise<unknown>
   onComplete: (
     event: FormEvent<HTMLFormElement>,
     order: ShippingOrder,
@@ -1668,7 +1785,14 @@ export function ShippingOrdersPage({
         search,
         status: statusFilter,
       }),
-    [fiscalDocuments, fiscalStatusFilter, orders, paymentMethodId, search, statusFilter],
+    [
+      fiscalDocuments,
+      fiscalStatusFilter,
+      orders,
+      paymentMethodId,
+      search,
+      statusFilter,
+    ],
   )
   const { pagination, visibleItems } = usePaginatedRows<ShippingOrder>(
     filteredOrders,
@@ -1714,7 +1838,7 @@ export function ShippingOrdersPage({
                 </PrimaryButton>
               </div>
             }
-            description='Pedidos confirmados reúnem separação, pagamento, baixa de estoque e emissão fiscal.'
+            description='Acompanhe fechamentos, pagamentos, baixas de estoque e emissão fiscal das vendas por orçamento.'
             icon={<Send size={18} />}
             title='Vendas'
           />
@@ -1843,12 +1967,10 @@ export function ShippingOrdersPage({
                     sale: shippingOrderSale(sales, order),
                     onCompleteReopenedSale,
                     onEditSale,
-                    onApprove,
                     onCancel,
                     onComplete,
                     onOpenSaleFiscalQueue,
                     onReturnItem,
-                    onSeparate,
                     onUpdateSaleCommercialDetails,
                   })}
                 </div>
@@ -1886,8 +2008,6 @@ type ShippingOrderActionRendererProps = {
   sale?: Sale
   onCompleteReopenedSale?: SaleStatusActionHandler
   onEditSale?: SaleEditActionHandler
-  onApprove: (order: ShippingOrder) => Promise<unknown>
-  onSeparate: (order: ShippingOrder) => Promise<unknown>
   onComplete: (
     event: FormEvent<HTMLFormElement>,
     order: ShippingOrder,
@@ -1934,7 +2054,7 @@ function CompletedShippingOrderActions({
 
   const fiscalDocumentBlocksCommercialChanges = Boolean(
     fiscalDocument &&
-      ['AUTHORIZED', 'PENDING', 'PROCESSING'].includes(fiscalDocument.status),
+    ['AUTHORIZED', 'PENDING', 'PROCESSING'].includes(fiscalDocument.status),
   )
   const actions: TableActionsMenuAction[] = [
     {
@@ -2015,9 +2135,7 @@ function CompletedShippingOrderActions({
             : 'Concluindo a venda…'}
         </InlineNote>
       ) : null}
-      <InlineNote>
-        Venda Nº {sale.saleNumber} gerada via orçamento.
-      </InlineNote>
+      <InlineNote>Venda Nº {sale.saleNumber} gerada via orçamento.</InlineNote>
       {fiscalDocumentBlocksCommercialChanges ? (
         <InlineNote>Cancele a NF-e antes de editar a venda.</InlineNote>
       ) : null}
@@ -2037,7 +2155,9 @@ function CompletedShippingOrderActions({
           onReturnItem={onReturnItem}
         />
       ) : null}
-      {!order.saleId ? <InlineNote>Venda vinculada não encontrada.</InlineNote> : null}
+      {!order.saleId ? (
+        <InlineNote>Venda vinculada não encontrada.</InlineNote>
+      ) : null}
     </ActionStack>
   )
 }
@@ -2046,21 +2166,27 @@ function ShippingOrderActions({
   cashRegister,
   order,
   paymentMethods,
-  onApprove,
   onCancel,
   onComplete,
-  onSeparate,
 }: ShippingOrderActionRendererProps) {
   const [openAction, setOpenAction] = useState<'cancel' | 'complete' | null>(
     null,
   )
-  const [pendingAction, setPendingAction] = useState<
-    'approve' | 'cancel' | 'complete' | 'separate'
-  >()
+  const [pendingAction, setPendingAction] = useState<'cancel' | 'complete'>()
   const pendingActionRef = useRef(false)
   const [payments, setPayments] = useState<SalePaymentDraft[]>([
     emptySalePayment(),
   ])
+  const [manualBillingIssueDate, setManualBillingIssueDate] = useState(
+    saleTodayInputDate(),
+  )
+  const [manualBillingDueDate, setManualBillingDueDate] = useState(
+    saleTodayInputDate(),
+  )
+  const [manualInstallmentCount, setManualInstallmentCount] = useState(1)
+  const [manualPaymentInstallments, setManualPaymentInstallments] = useState<
+    SalePaymentInstallmentDraft[]
+  >([])
   const orderPayments = order.payments.length
     ? order.payments
     : order.paymentMethodId
@@ -2068,43 +2194,59 @@ function ShippingOrderActions({
       : []
   const usesQuoteBillingData = Boolean(
     order.quoteId &&
-      salePaymentsAllowBilling(paymentMethods, orderPayments) &&
-      (order.billingIssueDate ||
-        order.billingDueDate ||
-        order.payments.length > 0),
+    salePaymentsAllowBilling(paymentMethods, orderPayments) &&
+    (order.billingIssueDate ||
+      order.billingDueDate ||
+      order.payments.length > 0),
   )
   const manualPaymentAllowsBilling = salePaymentsAllowBilling(
     paymentMethods,
     payments,
   )
+  const manualInstallmentAmount = manualPaymentAllowsBilling
+    ? saleInstallmentPaymentAmount(
+        payments,
+        Number(order.totalAmount),
+        paymentMethods,
+      )
+    : 0
+  const manualInstallmentTotal = salePaymentInstallmentTotal(
+    manualPaymentInstallments,
+  )
+  const manualHasInstallmentDifference =
+    manualPaymentAllowsBilling &&
+    Math.abs(manualInstallmentAmount - manualInstallmentTotal) >= 0.01
+  const manualPaymentTotalMatches =
+    salePaymentDraftTotal(payments, Number(order.totalAmount)) ===
+    Number(order.totalAmount)
   const actions = shippingOrderActionsForStatus({
-    cashRegister,
+    closeDisabled: !cashRegister,
     order,
-    onApprove: () => void runOrderAction('approve', () => onApprove(order)),
     onCancel: () => setOpenAction('cancel'),
     onComplete: () => setOpenAction('complete'),
-    onSeparate: () =>
-      void runOrderAction('separate', () => onSeparate(order)),
   })
 
-  async function runOrderAction(
-    action: 'approve' | 'separate',
-    handler: () => Promise<unknown>,
-  ) {
-    if (pendingActionRef.current) {
+  useEffect(() => {
+    if (!manualPaymentAllowsBilling) {
+      setManualPaymentInstallments([])
       return
     }
 
-    pendingActionRef.current = true
-    setPendingAction(action)
-
-    try {
-      await handler()
-    } finally {
-      pendingActionRef.current = false
-      setPendingAction(undefined)
-    }
-  }
+    setManualPaymentInstallments((currentInstallments) =>
+      syncSalePaymentInstallments(
+        currentInstallments,
+        manualInstallmentCount,
+        manualBillingDueDate || manualBillingIssueDate || saleTodayInputDate(),
+        manualInstallmentAmount,
+      ),
+    )
+  }, [
+    manualBillingDueDate,
+    manualBillingIssueDate,
+    manualInstallmentAmount,
+    manualInstallmentCount,
+    manualPaymentAllowsBilling,
+  ])
 
   async function runOrderFormAction(
     action: 'cancel' | 'complete',
@@ -2129,11 +2271,9 @@ function ShippingOrderActions({
   }
 
   const pendingLabel = {
-    approve: 'Aprovando e reservando…',
     cancel: 'Cancelando pedido…',
     complete: 'Concluindo venda…',
-    separate: 'Confirmando separação…',
-  }[pendingAction ?? 'approve']
+  }[pendingAction ?? 'complete']
 
   return (
     <ActionStack>
@@ -2170,6 +2310,18 @@ function ShippingOrderActions({
               {order.billingDueDate
                 ? formatDate(order.billingDueDate)
                 : 'sem data'}
+              {order.paymentInstallments.length > 0 ? (
+                <>
+                  <br />
+                  Parcelamento: {order.paymentInstallments.length} parcela(s)
+                  {order.paymentInstallments.map((installment) => (
+                    <span className='block' key={installment.id}>
+                      {installment.position}ª · {formatDate(installment.dueDate)} ·{' '}
+                      {formatCurrency(installment.amount)}
+                    </span>
+                  ))}
+                </>
+              ) : null}
             </Alert>
           ) : (
             <>
@@ -2187,6 +2339,10 @@ function ShippingOrderActions({
                     disabled={!cashRegister}
                     label='Data da fatura'
                     name='shippingBillingIssueDate'
+                    value={manualBillingIssueDate}
+                    onChange={(event) =>
+                      setManualBillingIssueDate(event.target.value)
+                    }
                     size='small'
                     type='date'
                     slotProps={{ inputLabel: { shrink: true } }}
@@ -2195,22 +2351,107 @@ function ShippingOrderActions({
                     disabled={!cashRegister}
                     label='Vencimento do boleto/fatura'
                     name='shippingBillingDueDate'
+                    value={manualBillingDueDate}
+                    onChange={(event) =>
+                      setManualBillingDueDate(event.target.value)
+                    }
                     size='small'
                     type='date'
                     slotProps={{ inputLabel: { shrink: true } }}
                   />
+                  <TextField
+                    disabled={!cashRegister}
+                    label='Número de parcelas'
+                    value={manualInstallmentCount}
+                    onChange={(event) =>
+                      setManualInstallmentCount(
+                        normalizeSalePaymentInstallmentCount(
+                          Number(event.target.value || 1),
+                        ),
+                      )
+                    }
+                    size='small'
+                    slotProps={{
+                      htmlInput: { ...positiveWholeNumberInputProps, max: 24 },
+                    }}
+                    type='number'
+                  />
+                  <div className='grid gap-2'>
+                    {manualPaymentInstallments.map((installment, index) => (
+                      <div
+                        className='grid gap-2 sm:grid-cols-[auto_minmax(130px,1fr)_minmax(110px,0.8fr)] sm:items-center'
+                        key={installment.position}>
+                        <InlineNote>Parcela {installment.position}</InlineNote>
+                        <input
+                          name='shippingInstallmentPosition'
+                          type='hidden'
+                          value={installment.position}
+                        />
+                        <TextField
+                          disabled={!cashRegister}
+                          label='Vencimento'
+                          name='shippingInstallmentDueDate'
+                          value={installment.dueDate}
+                          onChange={(event) =>
+                            setManualPaymentInstallments(
+                              (currentInstallments) =>
+                                updateSalePaymentInstallment(
+                                  currentInstallments,
+                                  index,
+                                  { dueDate: event.target.value },
+                                ),
+                            )
+                          }
+                          required
+                          size='small'
+                          slotProps={{ inputLabel: { shrink: true } }}
+                          type='date'
+                        />
+                        <TextField
+                          disabled={!cashRegister}
+                          label='Valor'
+                          name='shippingInstallmentAmount'
+                          value={installment.amount}
+                          onChange={(event) =>
+                            setManualPaymentInstallments(
+                              (currentInstallments) =>
+                                updateSalePaymentInstallment(
+                                  currentInstallments,
+                                  index,
+                                  { amount: event.target.value },
+                                ),
+                            )
+                          }
+                          required
+                          size='small'
+                          slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
+                          type='number'
+                        />
+                      </div>
+                    ))}
+                    <InlineNote>
+                      Parcelas {formatCurrency(manualInstallmentTotal)} | Valor
+                      parcelado {formatCurrency(manualInstallmentAmount)}
+                    </InlineNote>
+                  </div>
                 </>
               ) : null}
             </>
           )}
           <div className='flex flex-wrap gap-2'>
             <TableActionButton
-              disabled={!cashRegister || Boolean(pendingAction)}
+              disabled={
+                !cashRegister ||
+                Boolean(pendingAction) ||
+                (!usesQuoteBillingData &&
+                  (!manualPaymentTotalMatches ||
+                    manualHasInstallmentDifference))
+              }
               loading={pendingAction === 'complete'}
               type='submit'>
               {pendingAction === 'complete'
                 ? 'Concluindo venda…'
-                : 'Concluir venda'}
+                : 'Concluir venda e baixar estoque'}
             </TableActionButton>
             <TableActionButton
               disabled={Boolean(pendingAction)}
@@ -2237,19 +2478,15 @@ function ShippingOrderActions({
 }
 
 function shippingOrderActionsForStatus({
-  cashRegister,
+  closeDisabled,
   order,
-  onApprove,
   onCancel,
   onComplete,
-  onSeparate,
 }: {
-  cashRegister: CashRegisterSession | null
+  closeDisabled: boolean
   order: ShippingOrder
-  onApprove: (order: ShippingOrder) => void
   onCancel: () => void
   onComplete: () => void
-  onSeparate: (order: ShippingOrder) => void
 }) {
   const actionsByStatus: Record<
     ShippingOrder['status'],
@@ -2257,11 +2494,7 @@ function shippingOrderActionsForStatus({
   > = {
     APPROVED: [
       {
-        label: 'Confirmar separação',
-        onSelect: () => onSeparate(order),
-      },
-      {
-        disabled: !cashRegister,
+        disabled: closeDisabled,
         label: 'Concluir venda',
         onSelect: onComplete,
       },
@@ -2274,8 +2507,9 @@ function shippingOrderActionsForStatus({
     COMPLETED: [],
     QUOTED: [
       {
-        label: 'Aprovar e reservar',
-        onSelect: () => onApprove(order),
+        disabled: closeDisabled,
+        label: 'Concluir venda',
+        onSelect: onComplete,
       },
       {
         label: 'Cancelar pedido',
@@ -2284,7 +2518,7 @@ function shippingOrderActionsForStatus({
     ],
     SEPARATED: [
       {
-        disabled: !cashRegister,
+        disabled: closeDisabled,
         label: 'Concluir venda',
         onSelect: onComplete,
       },
@@ -2299,11 +2533,17 @@ function shippingOrderActionsForStatus({
 }
 
 function shippingOrderCanComplete(order: ShippingOrder) {
-  return order.status === 'APPROVED' || order.status === 'SEPARATED'
+  return (
+    order.status === 'QUOTED' ||
+    order.status === 'APPROVED' ||
+    order.status === 'SEPARATED'
+  )
 }
 
 function shippingOrderSale(sales: Sale[], order: ShippingOrder) {
-  return order.saleId ? sales.find((sale) => sale.id === order.saleId) : undefined
+  return order.saleId
+    ? sales.find((sale) => sale.id === order.saleId)
+    : undefined
 }
 
 function shippingOrderFiscalDocument(
@@ -2312,7 +2552,8 @@ function shippingOrderFiscalDocument(
 ) {
   return fiscalDocuments.find(
     (document) =>
-      document.sourceType === 'SHIPPING_ORDER' && document.sourceId === order.id,
+      document.sourceType === 'SHIPPING_ORDER' &&
+      document.sourceId === order.id,
   )
 }
 
@@ -2321,7 +2562,9 @@ function shippingOrderFiscalLinks(fiscalDocument?: FiscalDocument) {
     { fileType: 'danfe', label: 'DANFE', url: fiscalDocument?.pdfUrl },
     { fileType: 'xml', label: 'XML', url: fiscalDocument?.xmlUrl },
   ].filter(
-    (link): link is {
+    (
+      link,
+    ): link is {
       fileType: 'danfe' | 'xml'
       label: 'DANFE' | 'XML'
       url: string
@@ -2525,25 +2768,22 @@ export function PickupReservationsPage({
             A reserva prende o saldo disponivel imediatamente. A baixa acontece
             somente ao concluir a venda.
           </InlineNote>
-          <TextField
+          <SearchableSelectField
             label='Cliente'
-            select
-            size='medium'
-            value={clientId || ''}
-            onChange={(event) => setClientId(event.target.value)}
-            required>
-            <MenuItem value='' disabled>
-              Cliente
-            </MenuItem>
-            {clients
+            options={clients
               .filter((client) => client.active)
-              .map((client) => (
-                <MenuItem key={client.id} value={client.id}>
-                  {client.name}
-                  {client.phone ? ` - ${client.phone}` : ''}
-                </MenuItem>
-              ))}
-          </TextField>
+              .map((client) => ({
+                value: client.id,
+                label: `${client.name}${client.phone ? ` - ${client.phone}` : ''}`,
+                searchText: [client.document, client.email]
+                  .filter(Boolean)
+                  .join(' '),
+              }))}
+            placeholder='Pesquise por nome, telefone ou documento'
+            required
+            value={clientId}
+            onChange={setClientId}
+          />
 
           <div className='grid gap-4'>
             {items.map((item, index) => (
@@ -2576,7 +2816,7 @@ export function PickupReservationsPage({
                   onChange={(event) =>
                     updateItem(index, { quantity: event.target.value })
                   }
-                  slotProps={{ htmlInput: { min: '0.001', step: '0.001' } }}
+                  slotProps={{ htmlInput: positiveWholeNumberInputProps }}
                 />
               </FormCard>
             ))}
@@ -2708,7 +2948,9 @@ export function PickupReservationsPage({
             {
               header: 'Data/hora',
               render: (reservation) =>
-                formatDateTime(reservation.completedAt ?? reservation.createdAt),
+                formatDateTime(
+                  reservation.completedAt ?? reservation.createdAt,
+                ),
             },
             {
               header: 'Status',
@@ -2742,7 +2984,8 @@ export function PickupReservationsPage({
             {
               header: 'Operador',
               render: (reservation) =>
-                reservation.completedByUserName ?? reservation.createdByUserName,
+                reservation.completedByUserName ??
+                reservation.createdByUserName,
             },
             {
               align: 'right',
@@ -2764,7 +3007,9 @@ export function PickupReservationsPage({
                     onEditSale={onEditSale}
                     onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
                     onReturnItem={onReturnItem}
-                    onUpdateSaleCommercialDetails={onUpdateSaleCommercialDetails}
+                    onUpdateSaleCommercialDetails={
+                      onUpdateSaleCommercialDetails
+                    }
                   />
                 </div>
               ),
@@ -3077,7 +3322,7 @@ function CompletedPickupReservationActions({
 
   const fiscalDocumentBlocksCommercialChanges = Boolean(
     fiscalDocument &&
-      ['AUTHORIZED', 'PENDING', 'PROCESSING'].includes(fiscalDocument.status),
+    ['AUTHORIZED', 'PENDING', 'PROCESSING'].includes(fiscalDocument.status),
   )
   const actions: TableActionsMenuAction[] = [
     {
@@ -3161,9 +3406,7 @@ function CompletedPickupReservationActions({
             : 'Concluindo a venda…'}
         </InlineNote>
       ) : null}
-      <InlineNote>
-        Venda Nº {sale.saleNumber} gerada pela retirada.
-      </InlineNote>
+      <InlineNote>Venda Nº {sale.saleNumber} gerada pela retirada.</InlineNote>
       {fiscalDocumentBlocksCommercialChanges ? (
         <InlineNote>Cancele a NF-e antes de editar a venda.</InlineNote>
       ) : null}
@@ -3190,10 +3433,7 @@ function CompletedPickupReservationActions({
   )
 }
 
-function pickupReservationSale(
-  sales: Sale[],
-  reservation: PickupReservation,
-) {
+function pickupReservationSale(sales: Sale[], reservation: PickupReservation) {
   return reservation.saleId
     ? sales.find((sale) => sale.id === reservation.saleId)
     : undefined
@@ -3215,7 +3455,9 @@ function pickupReservationFiscalLinks(fiscalDocument?: FiscalDocument) {
     { fileType: 'danfe', label: 'DANFE', url: fiscalDocument?.pdfUrl },
     { fileType: 'xml', label: 'XML', url: fiscalDocument?.xmlUrl },
   ].filter(
-    (link): link is {
+    (
+      link,
+    ): link is {
       fileType: 'danfe' | 'xml'
       label: 'DANFE' | 'XML'
       url: string
@@ -3313,9 +3555,9 @@ const shippingOrderStatusFilterOptions: Array<{
   value: ShippingOrderStatusFilter
 }> = [
   { label: 'Todos', value: 'ALL' },
-  { label: 'Orçamento enviado', value: 'QUOTED' },
-  { label: 'Aprovados', value: 'APPROVED' },
-  { label: 'Separados', value: 'SEPARATED' },
+  { label: 'Aguardando fechamento', value: 'QUOTED' },
+  { label: 'Itens reservados', value: 'APPROVED' },
+  { label: 'Prontos para finalizar', value: 'SEPARATED' },
   { label: 'Vendas concluídas', value: 'COMPLETED' },
   { label: 'Cancelados', value: 'CANCELLED' },
 ]
@@ -3349,7 +3591,9 @@ function filterShippingOrders(
       !normalizedSearch ||
       shippingOrderSearchText(order).includes(normalizedSearch)
 
-    return matchesStatus && matchesFiscalStatus && matchesPayment && matchesSearch
+    return (
+      matchesStatus && matchesFiscalStatus && matchesPayment && matchesSearch
+    )
   })
 }
 
@@ -3412,11 +3656,11 @@ const shippingOrderStatusPresentation: Record<
   ShippingOrder['status'],
   { label: string; tone: StatusTone }
 > = {
-  APPROVED: { label: 'Aprovado - separar', tone: 'success' },
+  APPROVED: { label: 'Itens reservados', tone: 'success' },
   CANCELLED: { label: 'Cancelado', tone: 'neutral' },
   COMPLETED: { label: 'Venda concluída', tone: 'success' },
-  QUOTED: { label: 'Orçamento enviado', tone: 'warning' },
-  SEPARATED: { label: 'Separado', tone: 'success' },
+  QUOTED: { label: 'Aguardando fechamento', tone: 'warning' },
+  SEPARATED: { label: 'Pronto para finalizar', tone: 'success' },
 }
 
 const pickupReservationStatusPresentation: Record<

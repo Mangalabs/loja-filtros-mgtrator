@@ -19,6 +19,7 @@ import type {
   Supplier,
 } from "../../api";
 import { ProductSearchField } from "../../components/ProductSearchField";
+import { SearchableSelectField } from "../../components/SearchableSelectField";
 import {
   FormGrid,
   FormRow,
@@ -39,6 +40,11 @@ import {
   formatQuantity,
   formatSignedQuantity,
 } from "../../utils/format";
+import {
+  nonNegativeMoneyInputProps,
+  positiveWholeNumberInputProps,
+  wholeNumberInputProps,
+} from "../../utils/numericInput";
 import { productDisplayName } from "../../utils/productDisplay";
 
 type AsyncFormSubmitHandler = (
@@ -82,7 +88,16 @@ export function StockEntriesPage({
   onSubmit: AsyncFormSubmitHandler;
 }) {
   const { pagination, visibleItems } = usePaginatedRows<StockEntry>(entries);
-  const { submit, submitting } = usePendingFormSubmit(onSubmit);
+  const [supplierId, setSupplierId] = useState("");
+  const { submit, submitting } = usePendingFormSubmit(async (event) => {
+    const saved = await onSubmit(event);
+
+    if (saved) {
+      setSupplierId("");
+    }
+
+    return saved;
+  });
 
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(290px,0.7fr)_minmax(0,1.3fr)]">
@@ -95,37 +110,36 @@ export function StockEntriesPage({
           required
           stockLabel="current"
         />
-        <TextField
-          defaultValue=""
+        <SearchableSelectField
           label="Fornecedor"
           name="entrySupplierId"
-          select
-          required
-        >
-          <MenuItem value="" disabled>
-            Fornecedor
-          </MenuItem>
-          {suppliers
+          options={suppliers
             .filter((supplier) => supplier.active)
-            .map((supplier) => (
-              <MenuItem key={supplier.id} value={supplier.id}>
-                {supplier.name}
-              </MenuItem>
-            ))}
-        </TextField>
+            .map((supplier) => ({
+              value: supplier.id,
+              label: supplier.name,
+              searchText: [supplier.document, supplier.email]
+                .filter(Boolean)
+                .join(" "),
+            }))}
+          placeholder="Pesquise o fornecedor"
+          required
+          value={supplierId}
+          onChange={setSupplierId}
+        />
         <FormRow>
           <TextField
             label="Quantidade"
             name="entryQuantity"
             type="number"
-            slotProps={{ htmlInput: { min: "0.001", step: "0.001" } }}
+            slotProps={{ htmlInput: positiveWholeNumberInputProps }}
             required
           />
           <TextField
             label="Custo unitario"
             name="entryUnitCost"
             type="number"
-            slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
+            slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
             required
           />
         </FormRow>
@@ -218,7 +232,7 @@ export function StockAdjustmentsPage({
           label="Variacao de estoque (+ ou -)"
           name="adjustmentQuantity"
           type="number"
-          slotProps={{ htmlInput: { step: "0.001" } }}
+          slotProps={{ htmlInput: wholeNumberInputProps }}
           required
         />
         <p className="m-0 text-xs text-[#5f665f]">
@@ -642,19 +656,16 @@ export function StockMovementsPage({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <TextField
+        <SearchableSelectField
           label="Produto"
-          select
+          options={productOptions.map((product) => ({
+            value: product.id,
+            label: product.name,
+          }))}
+          placeholder="Todos os produtos"
           value={productId}
-          onChange={(event) => setProductId(event.target.value)}
-        >
-          <MenuItem value="">Todos os produtos</MenuItem>
-          {productOptions.map((product) => (
-            <MenuItem key={product.id} value={product.id}>
-              {product.name}
-            </MenuItem>
-          ))}
-        </TextField>
+          onChange={setProductId}
+        />
         <TextField
           label="Tipo"
           select

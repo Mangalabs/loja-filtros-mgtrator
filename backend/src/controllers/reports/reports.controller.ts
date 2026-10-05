@@ -135,7 +135,10 @@ export async function generateUserPerformanceReportPdf(
 ) {
   return generateReportPdf(
     filterReportDocumentColumns(
-      userPerformanceReportDocument(await getUserPerformanceReport(filters), filters),
+      userPerformanceReportDocument(
+        await getUserPerformanceReport({ ...filters, page: 1, pageSize: 0 }),
+        filters,
+      ),
       filters.columns,
       userReportPdfColumnLabels,
     ),
@@ -212,7 +215,7 @@ const cashReportPdfColumnLabels: Record<CashReportColumnKey, readonly string[]> 
 };
 
 const userReportPdfColumnLabels: Record<UserPerformanceReportColumnKey, readonly string[]> = {
-  user: ["Usuario"], completedSales: ["Vendas"], cancelledSales: ["Cancel."],
+  user: ["Usuario"], totalSales: ["Registradas"], completedSales: ["Concluidas"], cancelledSales: ["Cancel."],
   openSales: ["Abertas"], gross: ["Bruto"], refunds: ["Devolucoes"], net: ["Liquido"],
   quotes: ["Orc."], stockMovements: ["Estoque"], fiscalDocuments: ["NF-e"],
   saleNumber: ["Venda"], date: ["Data"], client: ["Cliente"], status: ["Status"],
@@ -694,7 +697,8 @@ function userPerformanceReportDocument(
     periodLabel: periodLabel(filters),
     metrics: [
       { label: "Usuarios", value: report.summary.usersCount },
-      { label: "Vendas", value: report.summary.salesCount },
+      { label: "Vendas registradas", value: report.summary.totalSalesCount },
+      { label: "Vendas concluidas", value: report.summary.salesCount },
       { label: "Liquido", value: formatCurrency(report.summary.netAmount) },
       { label: "Orcamentos", value: report.summary.quotesCreatedCount },
       { label: "Mov. estoque", value: report.summary.stockMovementsCount },
@@ -706,7 +710,8 @@ function userPerformanceReportDocument(
         emptyMessage: "Nenhum usuario com acao no periodo.",
         columns: [
           { label: "Usuario" },
-          { label: "Vendas", align: "right" },
+          { label: "Registradas", align: "right" },
+          { label: "Concluidas", align: "right" },
           { label: "Cancel.", align: "right" },
           { label: "Abertas", align: "right" },
           { label: "Bruto", align: "right" },
@@ -718,6 +723,7 @@ function userPerformanceReportDocument(
         ],
         rows: report.users.map((item) => [
           item.userName,
+          item.totalSalesCount,
           item.salesCount,
           item.cancelledSalesCount,
           item.openSalesCount,
@@ -730,7 +736,7 @@ function userPerformanceReportDocument(
         ]),
       },
       {
-        title: "Vendas recentes",
+        title: "Vendas detalhadas",
         emptyMessage: "Nenhuma venda no periodo.",
         columns: [
           { label: "Venda" },

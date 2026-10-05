@@ -15,7 +15,7 @@ import {
   listActiveQuotePaymentMethods,
   listActiveQuoteProducts,
   listQuotes,
-  lockQuoteForCancellation,
+  lockQuote,
   updateQuote,
   type QuoteInput,
   type QuotePaymentInput,
@@ -25,6 +25,10 @@ import {
   findShippingOrderByQuoteId,
   insertShippingOrderFromQuote,
 } from '../../models/shipping-orders/shipping-orders.model.js'
+import {
+  completeShippingOrderInTransaction,
+  type ShippingOrderCompletionInput,
+} from '../../services/shipping-orders/complete-shipping-order.service.js'
 import { AppError } from '../../shared/errors/app-error.js'
 
 export async function indexQuotes(filters: { branchId: string }) {
@@ -293,6 +297,61 @@ export async function createShippingOrderFromQuote(
   }
 }
 
+export async function completeQuoteAsSale(
+  id: string,
+  input: ShippingOrderCompletionInput,
+  completedByUserId: string,
+  branchId: string,
+) {
+  const order = await db.transaction(async (transaction) => {
+    const currentQuote = await lockQuote(transaction, id, branchId)
+
+    if (!currentQuote) {
+      throw new AppError('Orçamento nao encontrado.', 404)
+    }
+
+    if (currentQuote.status === 'CANCELLED') {
+      throw new AppError(
+        'Orçamento cancelado nao pode ser concluido como venda.',
+        409,
+      )
+    }
+
+    const quote = await getQuoteById(id, transaction, { branchId })
+
+    if (!quote) {
+      throw new AppError('Orçamento nao encontrado.', 404)
+    }
+
+    if (quote.items.length === 0) {
+      throw new AppError(
+        'Orçamento sem itens nao pode ser concluido como venda.',
+        422,
+      )
+    }
+
+    const shippingOrder = await insertShippingOrderFromQuote(
+      transaction,
+      quote,
+      completedByUserId,
+    )
+
+    return completeShippingOrderInTransaction(
+      transaction,
+      shippingOrder.id,
+      input,
+      completedByUserId,
+      branchId,
+    )
+  })
+
+  return {
+    code: 201,
+    status: 'success',
+    data: order,
+  }
+}
+
 export async function cancelDraftQuote(
   id: string,
   reason: string,
@@ -300,7 +359,7 @@ export async function cancelDraftQuote(
   branchId: string,
 ) {
   const quote = await db.transaction(async (transaction) => {
-    const currentQuote = await lockQuoteForCancellation(
+    const currentQuote = await lockQuote(
       transaction,
       id,
       branchId,

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import {
   cancelDraftQuote,
+  completeQuoteAsSale,
   createShippingOrderFromQuote,
   destroyQuoteFormDraft,
   indexQuoteFormDrafts,
@@ -14,6 +15,7 @@ import {
   updateDraftQuote,
 } from "../../controllers/quotes/quotes.controller.js";
 import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
+import { saleClosingSchema } from "../../shared/validation/sale-closing-schema.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const quotesRoutes = Router();
@@ -220,6 +222,21 @@ quotesRoutes.post("/quotes/:id/shipping-order", async (request, response) => {
   response.status(201).json(
     await createShippingOrderFromQuote(
       id,
+      userId,
+      requireActiveBranchId(response.locals),
+    ),
+  );
+});
+
+quotesRoutes.post("/quotes/:id/sale", async (request, response) => {
+  const { id } = quoteParamsSchema.parse(request.params);
+  const body = validateBody(request, saleClosingSchema);
+  const userId = response.locals.authenticatedUser.id as string;
+
+  response.status(201).json(
+    await completeQuoteAsSale(
+      id,
+      body,
       userId,
       requireActiveBranchId(response.locals),
     ),

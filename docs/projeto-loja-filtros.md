@@ -423,6 +423,15 @@ Estado: MVP gerencial entregue.
   os poucos usos podem ser empacotados no frontend; em projetos novos, servir
   imagens e demais midias a partir do backend.
 
+### Capacidades reservadas para a versao generica
+
+- [ ] Tornar configuravel o fluxo de reserva de itens a partir de um orcamento,
+  para operacoes que precisam prender o saldo antes do fechamento da venda. A
+  capacidade futura deve reservar e liberar estoque de forma atomica, manter
+  autoria e historico e permitir que cada implantacao habilite ou desabilite o
+  recurso. Na Loja Filtros MG Trator essa etapa nao faz parte da operacao atual:
+  o fluxo exposto deve priorizar o fechamento direto do orcamento como venda.
+
 ## Observacoes Sobre Modelagem
 
 Produtos precisam ser modelados com cuidado porque o mesmo codigo pode existir em produtos de marcas ou fornecedores diferentes. O sistema nao deve assumir que codigo de produto e unico globalmente.

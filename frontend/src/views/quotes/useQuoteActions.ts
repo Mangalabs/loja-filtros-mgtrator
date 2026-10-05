@@ -7,10 +7,15 @@ import {
   type Quote,
   type QuoteFormDraft,
 } from '../../api'
-import type { QuoteDraftInput, QuoteFormDraftPayload } from './QuotesPage'
+import type {
+  QuoteDraftInput,
+  QuoteFormDraftPayload,
+  QuoteSaleClosingInput,
+} from './QuotesPage'
 
 type QuoteActionsOptions = {
   refreshQuoteFlow: () => Promise<void>
+  refreshSalesFlow: () => Promise<void>
   requestConfirmation: (
     message: string,
     title?: string,
@@ -23,6 +28,7 @@ type QuoteActionsOptions = {
 
 export function useQuoteActions({
   refreshQuoteFlow,
+  refreshSalesFlow,
   requestConfirmation,
   runAction,
   showQuotes,
@@ -82,23 +88,34 @@ export function useQuoteActions({
     })
   }
 
-  async function createShippingOrderFromQuote(quote: Quote) {
-    const confirmed = await requestConfirmation(
-      quote.shippingOrderId
-        ? `Criar uma nova venda a partir do orçamento de ${quote.clientName}? As vendas e pedidos anteriores permanecem no historico.`
-        : `Criar venda a partir do orçamento de ${quote.clientName}?`,
-      quote.shippingOrderId ? 'Criar nova venda?' : 'Criar venda?',
-      quote.shippingOrderId ? 'Criar nova venda' : 'Criar venda',
+  async function completeQuoteAsSale(
+    quote: Quote,
+    input: QuoteSaleClosingInput,
+  ) {
+    const hasInsufficientStock = quote.items.some(
+      (item) => Number(item.productAvailableStock) < Number(item.quantity),
     )
+    let allowInsufficientStock = false
 
-    if (!confirmed) {
-      return
+    if (hasInsufficientStock) {
+      allowInsufficientStock = await requestConfirmation(
+        'Este orçamento possui item(ns) sem estoque físico suficiente. Deseja concluir a venda mesmo assim?',
+        'Estoque insuficiente',
+        'Concluir mesmo assim',
+      )
+
+      if (!allowInsufficientStock) {
+        return false
+      }
     }
 
-    await runAction(async () => {
-      await apiPost(`/quotes/${quote.id}/shipping-order`, {})
+    return runAction(async () => {
+      await apiPost(`/quotes/${quote.id}/sale`, {
+        ...input,
+        allowInsufficientStock,
+      })
+      await Promise.all([refreshQuoteFlow(), refreshSalesFlow()])
       showShippingOrders()
-      await refreshQuoteFlow()
     })
   }
 
@@ -128,9 +145,10 @@ export function useQuoteActions({
   return {
     cancelQuote,
     createQuote,
-    createShippingOrderFromQuote,
+    completeQuoteAsSale,
     deleteQuoteFormDraft,
     discardQuoteFormDraft,
+    openShippingOrders: showShippingOrders,
     saveQuoteFormDraft,
     updateQuote,
   }

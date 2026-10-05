@@ -16,6 +16,10 @@ import {
 } from '../../components/layout'
 import { PrimaryButton, StatusChip } from '../../components/ui'
 import { formatCurrency, formatDateTime } from '../../utils/format'
+import {
+  nonNegativeMoneyInputProps,
+  positiveMoneyInputProps,
+} from '../../utils/numericInput'
 
 export function CashRegisterPage({
   session,
@@ -149,7 +153,7 @@ export function CashRegisterPage({
                 name='cashMovementAmount'
                 required
                 type='number'
-                slotProps={{ htmlInput: { min: '0.01', step: '0.01' } }}
+                slotProps={{ htmlInput: positiveMoneyInputProps }}
               />
             </FormRow>
             <TextField
@@ -185,7 +189,7 @@ export function CashRegisterPage({
                   label={payment.paymentMethodName}
                   name={`closingPayment.${payment.paymentMethodId}`}
                   type='number'
-                  slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+                  slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
                 />
               ))}
               {session.paymentSummary.length === 0 ? (
@@ -203,7 +207,7 @@ export function CashRegisterPage({
               name='closingBalance'
               required
               type='number'
-              slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+              slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
             />
             <PrimaryButton
               disabled={Boolean(pendingAction)}
@@ -234,7 +238,7 @@ export function CashRegisterPage({
         name='openingBalance'
         required
         type='number'
-        slotProps={{ htmlInput: { min: '0', step: '0.01' } }}
+        slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
       />
       <PrimaryButton
         disabled={Boolean(pendingAction)}

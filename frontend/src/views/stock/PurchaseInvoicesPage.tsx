@@ -23,6 +23,7 @@ import type {
   Supplier,
 } from "../../api";
 import { ProductSearchField } from "../../components/ProductSearchField";
+import { SearchableSelectField } from "../../components/SearchableSelectField";
 import {
   FormCard,
   FormGrid,
@@ -39,6 +40,10 @@ import {
 } from "../../components/ui";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
 import { formatCurrency, formatDate } from "../../utils/format";
+import {
+  nonNegativeMoneyInputProps,
+  positiveDecimalQuantityInputProps,
+} from "../../utils/numericInput";
 import { productDisplayName } from "../../utils/productDisplay";
 
 type PurchaseInvoicesPageProps = {
@@ -68,6 +73,7 @@ export function PurchaseInvoicesPage({
   onSaveReview,
 }: PurchaseInvoicesPageProps) {
   const [draft, setDraft] = useState<PurchaseInvoiceDraft | null>(null);
+  const [reviewSupplierId, setReviewSupplierId] = useState("");
   const [reviewInvoiceId, setReviewInvoiceId] = useState<string>();
   const [xmlContent, setXmlContent] = useState("");
   const [xmlFileName, setXmlFileName] = useState("");
@@ -106,6 +112,7 @@ export function PurchaseInvoicesPage({
 
       if (parsedInvoice) {
         setDraft(parsedInvoice);
+        setReviewSupplierId(parsedInvoice.supplierId ?? "");
         setReviewInvoiceId(undefined);
       }
     } finally {
@@ -158,13 +165,17 @@ export function PurchaseInvoicesPage({
   }
 
   function reviewInvoice(invoice: PurchaseInvoice) {
-    setDraft(draftFromInvoice(invoice));
+    const invoiceDraft = draftFromInvoice(invoice);
+
+    setDraft(invoiceDraft);
+    setReviewSupplierId(invoiceDraft.supplierId ?? "");
     setReviewInvoiceId(invoice.id);
     setXmlContent("");
   }
 
   function clearReview() {
     setDraft(null);
+    setReviewSupplierId("");
     setReviewInvoiceId(undefined);
     setXmlContent("");
     setXmlFileName("");
@@ -334,21 +345,22 @@ export function PurchaseInvoicesPage({
                   label="Documento do fornecedor"
                   name="purchaseSupplierDocument"
                 />
-                <TextField
-                  defaultValue={draft.supplierId ?? ""}
+                <SearchableSelectField
                   label="Fornecedor cadastrado"
                   name="purchaseSupplierId"
-                  select
-                >
-                  <MenuItem value="">Sem vinculo</MenuItem>
-                  {suppliers
+                  options={suppliers
                     .filter((supplier) => supplier.active)
-                    .map((supplier) => (
-                      <MenuItem key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </MenuItem>
-                    ))}
-                </TextField>
+                    .map((supplier) => ({
+                      value: supplier.id,
+                      label: supplier.name,
+                      searchText: [supplier.document, supplier.email]
+                        .filter(Boolean)
+                        .join(" "),
+                    }))}
+                  placeholder="Sem vínculo"
+                  value={reviewSupplierId}
+                  onChange={setReviewSupplierId}
+                />
               </FormRow>
               <FormControlLabel
                 control={
@@ -416,14 +428,14 @@ export function PurchaseInvoicesPage({
                   label="Produtos"
                   type="number"
                   disabled
-                  slotProps={{ htmlInput: { step: "0.01" } }}
+                  slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
                 />
                 <TextField
                   defaultValue={draft.totalAmount}
                   label="Valor total da NF-e"
                   name="purchaseTotalAmount"
                   type="number"
-                  slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
+                  slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
                   required
                 />
               </FormRow>
@@ -626,7 +638,7 @@ function PurchaseInvoiceInstallments({
               label="Valor"
               name={`purchaseInstallmentValue_${index}`}
               type="number"
-              slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
+              slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
             />
             <input
               name={`purchaseInstallmentNumber_${index}`}
@@ -724,7 +736,7 @@ function PurchaseInvoiceItemReview({
           label="Quantidade"
           name={`purchaseItemQuantity_${index}`}
           type="number"
-          slotProps={{ htmlInput: { min: "0.001", step: "0.001" } }}
+          slotProps={{ htmlInput: positiveDecimalQuantityInputProps }}
           required
         />
         <TextField
@@ -737,7 +749,7 @@ function PurchaseInvoiceItemReview({
           label="Valor unitario"
           name={`purchaseItemUnitCost_${index}`}
           type="number"
-          slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
+          slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
           required
         />
       </FormRow>
@@ -747,13 +759,14 @@ function PurchaseInvoiceItemReview({
           label="Desconto"
           type="number"
           disabled
+          slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
         />
         <TextField
           defaultValue={item.totalAmount}
           label="Subtotal"
           name={`purchaseItemTotalAmount_${index}`}
           type="number"
-          slotProps={{ htmlInput: { min: "0", step: "0.01" } }}
+          slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
           required
         />
         <TextField

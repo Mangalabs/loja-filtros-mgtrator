@@ -258,6 +258,7 @@ export function AuthenticatedApp({
 
   const quoteActions = useQuoteActions({
     refreshQuoteFlow,
+    refreshSalesFlow,
     requestConfirmation,
     runAction,
     showShippingOrders: () => {

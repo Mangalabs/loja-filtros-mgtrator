@@ -387,9 +387,6 @@ export function AppViewRenderer({
         products={products}
         sales={sales}
         shippingOrders={shippingOrders}
-        onApproveShippingOrder={(order) =>
-          salesActions.approveShippingOrder(order)
-        }
         onCancelPickupReservation={(event, reservation) =>
           salesActions.cancelPickupReservation(event, reservation)
         }
@@ -413,9 +410,6 @@ export function AppViewRenderer({
         onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
         onReturnItem={(event, sale) =>
           salesActions.returnSaleItem(event, sale)
-        }
-        onSeparateShippingOrder={(order) =>
-          salesActions.separateShippingOrder(order)
         }
         onUpdateSaleCommercialDetails={(event, sale) =>
           salesActions.updateSaleCommercialDetails(event, sale)
@@ -613,6 +607,7 @@ export function AppViewRenderer({
     ),
     "new-quote": (
         <QuotesPage
+          cashRegister={cashRegister}
           clients={clients}
           commercialSettings={commercialSettings}
           mode="form"
@@ -630,13 +625,13 @@ export function AppViewRenderer({
           onCancelQuote={(event, quote) =>
             quoteActions.cancelQuote(event, quote)
           }
-          onCreateShippingOrder={(quote) =>
-            quoteActions.createShippingOrderFromQuote(quote)
-          }
+          onCompleteQuote={quoteActions.completeQuoteAsSale}
+          onOpenShippingOrders={quoteActions.openShippingOrders}
         />
       ),
     quotes: (
         <QuotesPage
+          cashRegister={cashRegister}
           clients={clients}
           commercialSettings={commercialSettings}
           mode="list"
@@ -653,9 +648,8 @@ export function AppViewRenderer({
           onCancelQuote={(event, quote) =>
             quoteActions.cancelQuote(event, quote)
           }
-          onCreateShippingOrder={(quote) =>
-            quoteActions.createShippingOrderFromQuote(quote)
-          }
+          onCompleteQuote={quoteActions.completeQuoteAsSale}
+          onOpenShippingOrders={quoteActions.openShippingOrders}
         />
       ),
     "edit-quote": selectedQuote ? (

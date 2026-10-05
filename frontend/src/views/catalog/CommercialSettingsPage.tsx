@@ -4,6 +4,10 @@ import { useRef, useState, type FormEvent } from "react";
 import type { CommercialSettings } from "../../api";
 import { FormCard, FormGrid, PageHeader } from "../../components/layout";
 import { PrimaryButton } from "../../components/ui";
+import {
+  nonNegativePercentageInputProps,
+  nonNegativeWholeNumberInputProps,
+} from "../../utils/numericInput";
 
 export function CommercialSettingsPage({
   settings,
@@ -54,7 +58,9 @@ export function CommercialSettingsPage({
           name="defaultProfitMarginPercentage"
           required
           type="number"
-          slotProps={{ htmlInput: { min: 0, max: 1000, step: "0.01" } }}
+          slotProps={{
+            htmlInput: { ...nonNegativePercentageInputProps, max: 1000 },
+          }}
         />
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
@@ -64,7 +70,9 @@ export function CommercialSettingsPage({
             name="defaultQuoteDueDays"
             required
             type="number"
-            slotProps={{ htmlInput: { min: 0, max: 365, step: 1 } }}
+            slotProps={{
+              htmlInput: { ...nonNegativeWholeNumberInputProps, max: 365 },
+            }}
           />
           <TextField
             defaultValue={settings?.defaultQuoteValidityDays ?? 7}
@@ -73,7 +81,9 @@ export function CommercialSettingsPage({
             name="defaultQuoteValidityDays"
             required
             type="number"
-            slotProps={{ htmlInput: { min: 0, max: 365, step: 1 } }}
+            slotProps={{
+              htmlInput: { ...nonNegativeWholeNumberInputProps, max: 365 },
+            }}
           />
         </div>
         <PrimaryButton loading={submitting} icon={<Save size={17} />} type="submit">
