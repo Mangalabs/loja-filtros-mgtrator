@@ -845,10 +845,27 @@ function focusHttpError(response: Response, payload: FocusResponsePayload) {
 }
 
 function focusRejectionReason(payload: FocusResponsePayload) {
+  const messages = [
+    focusMessage(payload.mensagem_sefaz),
+    focusMessage(payload.mensagem),
+    focusMessage(payload.erros),
+  ].filter((message): message is string => Boolean(message));
+  const uniqueMessages = messages.filter(
+    (message, index) =>
+      messages.findIndex(
+        (candidate) => candidate.toLowerCase() === message.toLowerCase(),
+      ) === index,
+  );
+
+  if (uniqueMessages.length > 0) {
+    const [reason, ...details] = uniqueMessages;
+
+    return details.length > 0
+      ? `${reason} Detalhes: ${details.join("; ")}`
+      : reason;
+  }
+
   return (
-    focusMessage(payload.mensagem_sefaz) ??
-    focusMessage(payload.mensagem) ??
-    focusMessage(payload.erros) ??
     focusMessage(payload.status) ??
     "Retorno da Focus NFe nao autorizado."
   );

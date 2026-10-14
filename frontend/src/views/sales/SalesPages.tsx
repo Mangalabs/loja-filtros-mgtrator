@@ -69,6 +69,7 @@ import {
   nonNegativeMoneyInputProps,
   positiveWholeNumberInputProps,
 } from '../../utils/numericInput'
+import { fiscalDocumentCanBeIssuedAgain } from '../finance/fiscalPresentation'
 import { SaleReturnForm, type SaleReturnHandler } from './SaleReturnForm'
 import { salePaymentsAllowBilling } from './saleBilling'
 import {
@@ -1330,10 +1331,17 @@ function DirectSaleActions({
     })
   })
 
-  if (sale.status === 'COMPLETED' && !fiscalDocument && onOpenSaleFiscalQueue) {
+  if (
+    sale.status === 'COMPLETED' &&
+    fiscalDocumentCanBeIssuedAgain(fiscalDocument) &&
+    onOpenSaleFiscalQueue
+  ) {
     actions.push({
       icon: <FileText size={14} />,
-      label: 'Gerar NF-e',
+      label:
+        fiscalDocument?.status === 'CANCELLED'
+          ? 'Gerar nova NF-e'
+          : 'Gerar NF-e',
       onSelect: () => onOpenSaleFiscalQueue(sale),
     })
   }
@@ -2081,10 +2089,16 @@ function CompletedShippingOrderActions({
     })
   })
 
-  if (!fiscalDocument && onOpenSaleFiscalQueue) {
+  if (
+    fiscalDocumentCanBeIssuedAgain(fiscalDocument) &&
+    onOpenSaleFiscalQueue
+  ) {
     actions.push({
       icon: <FileText size={14} />,
-      label: 'Gerar NF-e',
+      label:
+        fiscalDocument?.status === 'CANCELLED'
+          ? 'Gerar nova NF-e'
+          : 'Gerar NF-e',
       onSelect: () => onOpenSaleFiscalQueue(sale),
     })
   }
@@ -3352,10 +3366,16 @@ function CompletedPickupReservationActions({
     })
   })
 
-  if (!fiscalDocument && onOpenSaleFiscalQueue) {
+  if (
+    fiscalDocumentCanBeIssuedAgain(fiscalDocument) &&
+    onOpenSaleFiscalQueue
+  ) {
     actions.push({
       icon: <FileText size={14} />,
-      label: 'Gerar NF-e',
+      label:
+        fiscalDocument?.status === 'CANCELLED'
+          ? 'Gerar nova NF-e'
+          : 'Gerar NF-e',
       onSelect: () => onOpenSaleFiscalQueue(sale),
     })
   }

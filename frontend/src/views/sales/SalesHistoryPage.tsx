@@ -34,6 +34,7 @@ import {
   positiveWholeNumberInputProps,
 } from '../../utils/numericInput'
 import {
+  fiscalDocumentCanBeIssuedAgain,
   fiscalDocumentStatusLabel,
   fiscalDocumentStatusTone,
 } from '../finance/fiscalPresentation'
@@ -452,10 +453,13 @@ function SalesHistoryActions({
     })
 
   row.sale?.status === 'COMPLETED' &&
-    !row.fiscalDocument &&
+    fiscalDocumentCanBeIssuedAgain(row.fiscalDocument) &&
     actions.push({
       icon: <FileText size={14} />,
-      label: 'Gerar NF-e',
+      label:
+        row.fiscalDocument?.status === 'CANCELLED'
+          ? 'Gerar nova NF-e'
+          : 'Gerar NF-e',
       onSelect: () => onOpenSaleFiscalQueue(row.sale as Sale),
     })
 

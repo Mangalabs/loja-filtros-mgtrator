@@ -5,6 +5,7 @@ import type { FiscalIssueRequest } from "../../integrations/fiscal/fiscal-provid
 import { makeFiscalProviderByName } from "../../integrations/fiscal/fiscal-provider-factory.js";
 import { currentFiscalSettings } from "../fiscal-settings/fiscal-settings.controller.js";
 import {
+  countFiscalDocumentsBySource,
   findBlockingFiscalDocumentBySale,
   findFiscalDocumentBySource,
   getFiscalDocumentById,
@@ -25,6 +26,7 @@ import {
 import { getPickupReservationById } from "../../models/pickup-reservations/pickup-reservations.model.js";
 import {
   getSaleById,
+  lockSaleForFiscalIssue,
   saleHasLinkedOperation,
 } from "../../models/sales/sales.model.js";
 import { getShippingOrderById } from "../../models/shipping-orders/shipping-orders.model.js";
@@ -1134,6 +1136,16 @@ type FiscalDocumentRequestInput = Omit<
 
 async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
   const fiscalDocument = await db.transaction(async (transaction) => {
+    const lockedSale = await lockSaleForFiscalIssue(
+      transaction,
+      input.saleId,
+      input.branchId,
+    );
+
+    if (!lockedSale) {
+      throw new AppError("Venda informada nao encontrada.", 404);
+    }
+
     if (
       input.sourceType === "SALE" &&
       (await saleHasLinkedOperation(transaction, input.saleId))
@@ -1151,7 +1163,12 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       input.documentType,
     );
 
-    if (existing && !canReplaceFiscalDocument(existing.status)) {
+    const replacesExisting = Boolean(
+      existing && canReplaceFiscalDocument(existing.status),
+    );
+    const reissuesCancelled = existing?.status === "CANCELLED";
+
+    if (existing && !replacesExisting && !reissuesCancelled) {
       throw new AppError(input.duplicateMessage, 409);
     }
 
@@ -1168,9 +1185,23 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       );
     }
 
+    const reissueReference = reissuesCancelled
+      ? fiscalReissueReference(
+          input.sourceType,
+          input.sourceId,
+          (await countFiscalDocumentsBySource(
+            transaction,
+            input.sourceType,
+            input.sourceId,
+            input.documentType,
+          )) + 1,
+        )
+      : undefined;
+
     const { fiscalSettings, requestPayload } = await fiscalDocumentRequest(
       input,
       transaction,
+      reissueReference,
     );
     ensureFiscalSettingsCanIssue(fiscalSettings);
     const provider = makeFiscalProviderByName(fiscalSettings.provider);
@@ -1198,7 +1229,7 @@ async function issueFiscalDocument(input: IssueFiscalDocumentInput) {
       issuedByUserId: input.issuedByUserId,
     };
 
-    if (existing) {
+    if (existing && replacesExisting) {
       return replaceFiscalDocumentIssue(
         transaction,
         existing.id,
@@ -1231,6 +1262,7 @@ async function previewFiscalDocument(input: FiscalDocumentRequestInput) {
 async function fiscalDocumentRequest(
   input: FiscalDocumentRequestInput,
   database: typeof db | Parameters<typeof getSaleById>[1],
+  referenceOverride?: string,
 ) {
   const sale = await getSaleById(input.saleId, database, {
     branchId: input.branchId,
@@ -1253,13 +1285,15 @@ async function fiscalDocumentRequest(
       input.branchId,
       input.sourceType,
       input.saleId,
+      referenceOverride,
     );
   }
 
   return {
     fiscalSettings,
     requestPayload: {
-      reference: fiscalReference(input.sourceType, input.sourceId),
+      reference:
+        referenceOverride ?? fiscalReference(input.sourceType, input.sourceId),
       documentType: input.documentType,
       environment: fiscalSettings.environment,
       companyCnpj: fiscalSettings.companyCnpj,
@@ -1280,13 +1314,14 @@ async function manualFiscalDocumentRequest(
   branchId: string,
   sourceType: FiscalDocumentSourceType = "MANUAL_NFE",
   saleId = "manual",
+  referenceOverride?: string,
 ) {
   const fiscalSettings = await currentFiscalSettings(branchId);
 
   return {
     fiscalSettings,
     requestPayload: {
-      reference: fiscalReference(sourceType, sourceId),
+      reference: referenceOverride ?? fiscalReference(sourceType, sourceId),
       documentType: input.documentType,
       environment: fiscalSettings.environment,
       companyCnpj: fiscalSettings.companyCnpj,
@@ -1593,6 +1628,14 @@ function ensureFiscalSettingsCanIssue(
 
 function fiscalReference(sourceType: FiscalDocumentSourceType, sourceId: string) {
   return `${sourceType}${sourceId}`.replace(/[^a-zA-Z0-9]/g, "");
+}
+
+function fiscalReissueReference(
+  sourceType: FiscalDocumentSourceType,
+  sourceId: string,
+  issueSequence: number,
+) {
+  return fiscalReference(sourceType, `${sourceId}RE${issueSequence}`);
 }
 
 type FiscalSale = IssueFiscalDocumentInput extends never

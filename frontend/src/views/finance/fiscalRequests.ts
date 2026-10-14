@@ -13,6 +13,7 @@ import {
   type FiscalReadinessClient,
   type FiscalReadinessItem,
 } from './fiscalReadiness'
+import { fiscalDocumentCanBeIssuedAgain } from './fiscalPresentation'
 
 export type FiscalRequest = {
   sourceType: FiscalDocument['sourceType']
@@ -121,7 +122,8 @@ export function fiscalRequestActionLabel(
     },
     {
       active:
-        Boolean(request.document) && request.document?.status !== 'REJECTED',
+        Boolean(request.document) &&
+        !fiscalDocumentCanBeIssuedAgain(request.document),
       key: 'documented',
     },
     {
@@ -134,13 +136,17 @@ export function fiscalRequestActionLabel(
 }
 
 export function fiscalRequestActionText(request: FiscalRequest) {
+  if (request.document?.status === 'CANCELLED') {
+    return 'Emitir nova NF-e'
+  }
+
   return request.document?.status === 'REJECTED'
     ? 'Reemitir NF-e'
     : 'Emitir NF-e'
 }
 
 export function canIssueFiscalRequest(request: FiscalRequest) {
-  return !request.document || request.document.status === 'REJECTED'
+  return fiscalDocumentCanBeIssuedAgain(request.document)
 }
 
 function fiscalRequestSort(current: FiscalRequest, next: FiscalRequest) {
@@ -172,7 +178,8 @@ function fiscalRequestState(request: FiscalRequest) {
   const states = [
     {
       active:
-        request.document?.status === 'REJECTED' &&
+        (request.document?.status === 'REJECTED' ||
+          request.document?.status === 'CANCELLED') &&
         request.readinessIssues.length === 0,
       key: 'reissue',
     },

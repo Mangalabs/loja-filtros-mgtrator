@@ -304,6 +304,18 @@ export async function lockSaleForCancellation(
     .first();
 }
 
+export async function lockSaleForFiscalIssue(
+  transaction: Knex.Transaction,
+  id: string,
+  branchId: string,
+): Promise<{ id: string } | undefined> {
+  return transaction("sales")
+    .select("id")
+    .where({ id, branch_id: branchId })
+    .forUpdate()
+    .first();
+}
+
 export async function listSaleItemsForStockCorrection(
   transaction: Knex.Transaction,
   saleId: string,

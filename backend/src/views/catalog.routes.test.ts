@@ -2036,7 +2036,6 @@ describe("catalog routes", () => {
     const pix = paymentMethods.body.data?.find(
       (paymentMethod) => paymentMethod.code === "PIX",
     );
-
     await request("/stock-adjustments", {
       method: "POST",
       body: {
@@ -3421,6 +3420,9 @@ describe("catalog routes", () => {
     const pix = paymentMethods.body.data?.find(
       (paymentMethod) => paymentMethod.code === "PIX",
     );
+    const boleto = paymentMethods.body.data?.find(
+      (paymentMethod) => paymentMethod.code === "BOLETO",
+    );
 
     await request("/stock-adjustments", {
       method: "POST",
@@ -3566,6 +3568,40 @@ describe("catalog routes", () => {
         body: {},
       },
     );
+    const reopenedAfterCancellation = await request<Sale>(
+      `/sales/${sale.body.data?.id}/reopen`,
+      { method: "PATCH" },
+    );
+    const correctedAfterCancellation = await request<Sale>(
+      `/sales/${sale.body.data?.id}`,
+      {
+        method: "PUT",
+        body: {
+          clientId: client.body.data?.id,
+          items: [{ productId: product.body.data?.id, quantity: 1 }],
+          payments: [{ paymentMethodId: boleto?.id, amount: 35 }],
+          billingIssueDate: "2026-10-15",
+          billingDueDate: "2026-11-15",
+        },
+      },
+    );
+    const completedAfterCancellation = await request<Sale>(
+      `/sales/${sale.body.data?.id}/complete`,
+      { method: "PATCH" },
+    );
+    const reissuedAfterCancellation = await request<FiscalDocument>(
+      `/sales/${sale.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
+    const fiscalDocumentsAfterReissue = await request<FiscalDocument[]>(
+      "/fiscal-documents",
+    );
+    const originalAfterReissue = await request<FiscalDocument>(
+      `/fiscal-documents/${issued.body.data?.id}`,
+    );
 
     assert.equal(issued.status, 201);
     assert.equal(issued.body.data?.sourceType, "SALE");
@@ -3662,6 +3698,45 @@ describe("catalog routes", () => {
     assert.ok(cancelled.body.data?.cancelledAt);
     assert.equal(syncedAfterCancellation.status, 200);
     assert.equal(syncedAfterCancellation.body.data?.status, "CANCELLED");
+    assert.equal(reopenedAfterCancellation.status, 200);
+    assert.equal(reopenedAfterCancellation.body.data?.status, "OPEN");
+    assert.equal(correctedAfterCancellation.status, 200);
+    assert.ok(
+      correctedAfterCancellation.body.data?.billingIssueDate?.startsWith(
+        "2026-10-15",
+      ),
+    );
+    assert.ok(
+      correctedAfterCancellation.body.data?.billingDueDate?.startsWith(
+        "2026-11-15",
+      ),
+    );
+    assert.equal(completedAfterCancellation.status, 200);
+    assert.equal(completedAfterCancellation.body.data?.status, "COMPLETED");
+    assert.equal(reissuedAfterCancellation.status, 201);
+    assert.equal(reissuedAfterCancellation.body.data?.status, "AUTHORIZED");
+    assert.notEqual(
+      reissuedAfterCancellation.body.data?.id,
+      issued.body.data?.id,
+    );
+    assert.notEqual(
+      reissuedAfterCancellation.body.data?.providerReference,
+      issued.body.data?.providerReference,
+    );
+    assert.equal(
+      reissuedAfterCancellation.body.data?.providerReference,
+      `${issued.body.data?.providerReference}RE2`,
+    );
+    assert.equal(fiscalDocumentsAfterReissue.body.data?.length, 2);
+    assert.equal(
+      fiscalDocumentsAfterReissue.body.data?.[0]?.id,
+      reissuedAfterCancellation.body.data?.id,
+    );
+    assert.equal(originalAfterReissue.body.data?.status, "CANCELLED");
+    assert.equal(
+      originalAfterReissue.body.data?.cancellationReason,
+      "Cancelamento de teste da nota fiscal",
+    );
   });
 
   it("issues a manual mock return fiscal document", async () => {
@@ -5273,6 +5348,8 @@ describe("catalog routes", () => {
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify({
+          mensagem_sefaz:
+            "Erro na validacao do Schema XML, verifique o detalhamento dos erros",
           erros: [{ mensagem: "NCM invalido" }, "CFOP invalido"],
         }),
         {
@@ -5285,7 +5362,10 @@ describe("catalog routes", () => {
 
       assert.equal(result.provider, "FOCUS");
       assert.equal(result.status, "REJECTED");
-      assert.equal(result.rejectionReason, "NCM invalido; CFOP invalido");
+      assert.equal(
+        result.rejectionReason,
+        "Erro na validacao do Schema XML, verifique o detalhamento dos erros Detalhes: NCM invalido; CFOP invalido",
+      );
       assert.equal(result.providerReference, "SALEfocusprovidertest");
     } finally {
       env.fiscal.provider = originalFiscalProvider;

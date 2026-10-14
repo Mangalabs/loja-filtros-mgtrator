@@ -24,6 +24,16 @@ export function fiscalDocumentStatusTone(
   return fiscalDocumentStatusPresentations[status].tone
 }
 
+export function fiscalDocumentCanBeIssuedAgain(
+  document?: FiscalDocument,
+) {
+  return (
+    !document ||
+    document.status === 'CANCELLED' ||
+    document.status === 'REJECTED'
+  )
+}
+
 export function fiscalDocumentStatusDetail(document: FiscalDocument) {
   const detailByStatus: Partial<Record<FiscalDocument['status'], string | null>> =
     {

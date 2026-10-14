@@ -171,11 +171,30 @@ export async function findFiscalDocumentBySource(
       "fiscal_documents.source_id": sourceId,
       "fiscal_documents.document_type": documentType,
     })
+    .orderBy("fiscal_documents.created_at", "desc")
     .first();
 
   return fiscalDocument
     ? (await withFiscalDocumentCorrectionLetters(transaction, [fiscalDocument]))[0]
     : undefined;
+}
+
+export async function countFiscalDocumentsBySource(
+  transaction: Knex.Transaction,
+  sourceType: FiscalDocumentSourceType,
+  sourceId: string,
+  documentType: FiscalDocumentType,
+): Promise<number> {
+  const result = await transaction("fiscal_documents")
+    .where({
+      source_type: sourceType,
+      source_id: sourceId,
+      document_type: documentType,
+    })
+    .count<{ count: string }>("id as count")
+    .first();
+
+  return Number(result?.count ?? 0);
 }
 
 export async function findBlockingFiscalDocumentBySale(
@@ -185,7 +204,11 @@ export async function findBlockingFiscalDocumentBySale(
 ): Promise<FiscalDocument | undefined> {
   const fiscalDocument = await fiscalDocumentQuery(transaction)
     .where("fiscal_documents.document_type", documentType)
-    .whereNot("fiscal_documents.status", "REJECTED")
+    .whereIn("fiscal_documents.status", [
+      "PENDING",
+      "PROCESSING",
+      "AUTHORIZED",
+    ])
     .where((query) => {
       query
         .where({

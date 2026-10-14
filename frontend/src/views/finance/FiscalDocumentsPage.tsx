@@ -4212,9 +4212,7 @@ function FiscalRequestAction({
   })
   const canEditSaleFiscalDocument =
     Boolean(request.sale) &&
-    (!request.document ||
-      request.document.status === 'PENDING' ||
-      request.document.status === 'REJECTED')
+    (canIssueFiscalRequest(request) || request.document?.status === 'PENDING')
   const fiscalDocument = request.document
   const menuActions: TableActionsMenuAction[] = []
   const hasReadinessIssues = request.readinessIssues.length > 0
