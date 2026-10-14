@@ -3181,13 +3181,13 @@ describe("catalog routes", () => {
       clientPhone: null,
       clientStateRegistration: null,
       clientStateRegistrationIndicator: null,
-      clientAddressStreet: null,
-      clientAddressNumber: null,
-      clientAddressComplement: null,
-      clientAddressDistrict: null,
-      clientAddressCity: null,
-      clientAddressState: null,
-      clientAddressZipCode: null,
+      clientAddressStreet: "Rua dos Filtros",
+      clientAddressNumber: "123",
+      clientAddressComplement: "Sala 2",
+      clientAddressDistrict: "Centro",
+      clientAddressCity: "Imperatriz",
+      clientAddressState: "MA",
+      clientAddressZipCode: "65900000",
       paymentMethodCode: "MULTIPLE",
       paymentMethodName: "PIX + Cartao de credito",
       payments: [
@@ -3296,6 +3296,11 @@ describe("catalog routes", () => {
 
     assert.match(html, /Devolucoes e estornos/);
     assert.match(html, /Descricao comercial do comprovante/);
+    assert.match(
+      html,
+      /Rua dos Filtros, 123 - Sala 2 · Centro · Imperatriz - MA/,
+    );
+    assert.match(html, /65900-000/);
     assert.doesNotMatch(html, />Filtro teste</);
     assert.match(html, /Forma de pagamento/);
     assert.match(html, /Cartao de credito/);

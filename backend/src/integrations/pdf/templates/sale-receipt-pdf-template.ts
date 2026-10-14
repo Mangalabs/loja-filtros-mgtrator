@@ -24,6 +24,8 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
   const netAmount = Math.max(Number(sale.totalAmount) - refundAmount, 0);
   const storeContact = [store.phone, store.email].filter(Boolean).join(" | ");
   const saleLabel = sale.saleNumber ? String(sale.saleNumber) : sale.id;
+  const clientAddress = saleReceiptClientAddress(sale);
+  const clientZipCode = formatZipCode(sale.clientAddressZipCode);
 
   return `
     <!doctype html>
@@ -67,6 +69,8 @@ export function saleReceiptPdfHtml(sale: Sale, store: QuotePdfStore) {
             <p><strong>CPF/CNPJ:</strong> ${escapeHtml(sale.clientDocument ?? "Nao informado")}</p>
             <p><strong>Telefone:</strong> ${escapeHtml(sale.clientPhone ?? "Nao informado")}</p>
             <p><strong>Email:</strong> ${escapeHtml(sale.clientEmail ?? "Nao informado")}</p>
+            <p class="full-width"><strong>Endereço:</strong> ${escapeHtml(clientAddress)}</p>
+            <p><strong>CEP:</strong> ${escapeHtml(clientZipCode)}</p>
             <p><strong>Pagamento:</strong> ${escapeHtml(sale.paymentMethodName)}</p>
             </div>
           </section>
@@ -187,6 +191,39 @@ function saleRefundAmount(sale: Sale) {
       ),
     0,
   );
+}
+
+function saleReceiptClientAddress(sale: Sale) {
+  const street = [sale.clientAddressStreet, sale.clientAddressNumber]
+    .filter(nonEmptyAddressPart)
+    .join(", ");
+  const streetWithComplement = [street, sale.clientAddressComplement]
+    .filter(nonEmptyAddressPart)
+    .join(" - ");
+  const city = [sale.clientAddressCity, sale.clientAddressState]
+    .filter(nonEmptyAddressPart)
+    .join(" - ");
+
+  return (
+    [streetWithComplement, sale.clientAddressDistrict, city]
+      .filter(nonEmptyAddressPart)
+      .join(" · ") || "Nao informado"
+  );
+}
+
+function formatZipCode(value: string | null) {
+  const normalizedValue = value?.trim() ?? "";
+  const digits = normalizedValue.replace(/\D/g, "");
+
+  if (digits.length === 8) {
+    return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  }
+
+  return normalizedValue || "Nao informado";
+}
+
+function nonEmptyAddressPart(value: string | null): value is string {
+  return Boolean(value?.trim());
 }
 
 function saleItemRow(item: SaleItem) {
@@ -354,6 +391,9 @@ function saleReceiptCss() {
     }
     .client-box .info-grid {
       margin-bottom: 0;
+    }
+    .info-grid .full-width {
+      grid-column: 1 / -1;
     }
     p {
       margin: 0;

@@ -72,6 +72,32 @@ export function AppSidebar({
           className='grid min-w-0 max-w-full gap-2 overflow-x-hidden'
           aria-label='Navegacao principal'>
         <NavSection
+          active={isSectionActive('catalog')}
+          icon={<Tags size={17} />}
+          open={openSections.catalog}
+          title='Cadastros'
+          onToggle={() => onToggleSection('catalog')}>
+          <NavButton
+            active={view === 'brands'}
+            icon={<Tags size={18} />}
+            onClick={() => onSelectView('brands')}>
+            Fabricantes
+          </NavButton>
+          <NavButton
+            active={view === 'clients'}
+            icon={<UserRound size={18} />}
+            onClick={() => onSelectView('clients')}>
+            Clientes
+          </NavButton>
+          <NavButton
+            active={view === 'suppliers'}
+            icon={<Truck size={18} />}
+            onClick={() => onSelectView('suppliers')}>
+            Fornecedores
+          </NavButton>
+        </NavSection>
+
+        <NavSection
           active={isSectionActive('products')}
           icon={<PackagePlus size={17} />}
           open={openSections.products}
@@ -182,7 +208,6 @@ export function AppSidebar({
         </NavSection>
 
         {[
-          'payment-methods',
           'fiscal-settings',
           'fiscal-operations',
           'fiscal-documents',
@@ -190,19 +215,11 @@ export function AppSidebar({
           'manual-fiscal-document',
         ].some((targetView) => canAccess(targetView as View)) ? (
           <NavSection
-            active={isSectionActive('finance')}
-            icon={<CreditCard size={17} />}
-            open={openSections.finance}
-            title='Financeiro'
-            onToggle={() => onToggleSection('finance')}>
-            {canAccess('payment-methods') ? (
-              <NavButton
-                active={view === 'payment-methods'}
-                icon={<CreditCard size={18} />}
-                onClick={() => onSelectView('payment-methods')}>
-                Formas de pagamento
-              </NavButton>
-            ) : null}
+            active={isSectionActive('fiscal')}
+            icon={<FileText size={17} />}
+            open={openSections.fiscal}
+            title='Notas fiscais'
+            onToggle={() => onToggleSection('fiscal')}>
             {canAccess('fiscal-settings') ? (
               <NavButton
                 active={view === 'fiscal-settings'}
@@ -238,31 +255,21 @@ export function AppSidebar({
           </NavSection>
         ) : null}
 
-        <NavSection
-          active={isSectionActive('catalog')}
-          icon={<Tags size={17} />}
-          open={openSections.catalog}
-          title='Cadastros'
-          onToggle={() => onToggleSection('catalog')}>
-          <NavButton
-            active={view === 'brands'}
-            icon={<Tags size={18} />}
-            onClick={() => onSelectView('brands')}>
-            Fabricantes
-          </NavButton>
-          <NavButton
-            active={view === 'clients'}
-            icon={<UserRound size={18} />}
-            onClick={() => onSelectView('clients')}>
-            Clientes
-          </NavButton>
-          <NavButton
-            active={view === 'suppliers'}
-            icon={<Truck size={18} />}
-            onClick={() => onSelectView('suppliers')}>
-            Fornecedores
-          </NavButton>
-        </NavSection>
+        {canAccess('payment-methods') ? (
+          <NavSection
+            active={isSectionActive('finance')}
+            icon={<CreditCard size={17} />}
+            open={openSections.finance}
+            title='Financeiro'
+            onToggle={() => onToggleSection('finance')}>
+            <NavButton
+              active={view === 'payment-methods'}
+              icon={<CreditCard size={18} />}
+              onClick={() => onSelectView('payment-methods')}>
+              Formas de pagamento
+            </NavButton>
+          </NavSection>
+        ) : null}
 
         {canAccess('cash-register') ? (
           <NavSection
