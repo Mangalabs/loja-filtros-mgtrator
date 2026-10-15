@@ -387,6 +387,9 @@ export function AppViewRenderer({
         products={products}
         sales={sales}
         shippingOrders={shippingOrders}
+        onCancelSale={(event, sale) =>
+          salesActions.cancelSale(event, sale)
+        }
         onCancelPickupReservation={(event, reservation) =>
           salesActions.cancelPickupReservation(event, reservation)
         }
@@ -698,6 +701,9 @@ export function AppViewRenderer({
         pickupReservations={pickupReservations}
         sales={sales}
         shippingOrders={shippingOrders}
+        onCancelSale={(event, sale) =>
+          salesActions.cancelSale(event, sale)
+        }
         onCompleteReopenedSale={(sale) =>
           salesActions.completeReopenedSale(sale)
         }
@@ -718,8 +724,20 @@ export function AppViewRenderer({
           title="Fabricantes"
           fieldName="brandName"
           items={brands}
-          onSubmit={(event) =>
-            catalogActions.createNamedEntity(event, "/brands", "brandName")
+          onSubmit={(event, brand) =>
+            catalogActions.saveNamedEntity(
+              event,
+              "/brands",
+              "brandName",
+              brand,
+            )
+          }
+          onDelete={(brand) =>
+            catalogActions.deleteNamedEntity(
+              brand,
+              "/brands",
+              "Fabricante",
+            )
           }
         />
       ),
@@ -740,7 +758,8 @@ export function AppViewRenderer({
     suppliers: (
         <SuppliersPage
           suppliers={suppliers}
-          onSubmit={catalogActions.createSupplier}
+          onSubmit={catalogActions.saveSupplier}
+          onDelete={catalogActions.deleteSupplier}
         />
       ),
     branches: <BranchesPage />,

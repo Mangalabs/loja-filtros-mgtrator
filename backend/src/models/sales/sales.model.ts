@@ -502,11 +502,29 @@ export async function cancelSale(
   reason: string,
 ): Promise<Sale> {
   const saleItems = await transaction("sale_items")
-    .select<Array<{ productId: string; quantity: string }>>([
+    .select<Array<{ id: string; productId: string; quantity: string }>>([
+      "id",
       "product_id as productId",
       "quantity",
     ])
     .where("sale_id", id);
+  const returnedQuantities = await transaction("sale_item_returns")
+    .select<Array<{ saleItemId: string; quantity: string }>>([
+      "sale_item_id as saleItemId",
+    ])
+    .sum("quantity as quantity")
+    .where("sale_id", id)
+    .groupBy("sale_item_id");
+  const returnedQuantityBySaleItem = new Map(
+    returnedQuantities.map((item) => [item.saleItemId, Number(item.quantity)]),
+  );
+  const cancellationItems = saleItems
+    .map((item) => ({
+      productId: item.productId,
+      quantity:
+        Number(item.quantity) - (returnedQuantityBySaleItem.get(item.id) ?? 0),
+    }))
+    .filter((item) => item.quantity > 0);
 
   await transaction("sales").where("id", id).update({
     status: "CANCELLED",
@@ -515,23 +533,20 @@ export async function cancelSale(
     cancellation_reason: reason,
   });
 
-  await transaction("stock_movements").insert(
-    saleItems.map((item) => ({
-      product_id: item.productId,
-      sale_id: id,
-      created_by_user_id: cancelledByUserId,
-      type: "SALE_CANCEL",
-      quantity: Number(item.quantity),
-      notes: reason,
-    })),
-  );
+  if (cancellationItems.length > 0) {
+    await transaction("stock_movements").insert(
+      cancellationItems.map((item) => ({
+        product_id: item.productId,
+        sale_id: id,
+        created_by_user_id: cancelledByUserId,
+        type: "SALE_CANCEL",
+        quantity: item.quantity,
+        notes: reason,
+      })),
+    );
+  }
 
-  for (const item of aggregateSaleItems(
-    saleItems.map((item) => ({
-      productId: item.productId,
-      quantity: Number(item.quantity),
-    })),
-  )) {
+  for (const item of aggregateSaleItems(cancellationItems)) {
     await transaction("products")
       .where("id", item.productId)
       .update({

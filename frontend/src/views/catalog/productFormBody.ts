@@ -19,6 +19,7 @@ export function productFormBody(form: FormData) {
     cest: nullableFormValue(form, "cest"),
     origin: nullableFormValue(form, "origin"),
     description: nullableFormValue(form, "description"),
+    internalNotes: nullableFormValue(form, "internalNotes"),
   };
 
   return body;

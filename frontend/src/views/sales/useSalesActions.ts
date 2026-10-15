@@ -170,6 +170,29 @@ export function useSalesActions({
     });
   }
 
+  async function cancelSale(
+    event: FormEvent<HTMLFormElement>,
+    sale: Sale,
+  ) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const reason = String(form.get("saleCancellationReason") ?? "").trim();
+    const confirmed = await requestConfirmation(
+      `Cancelar a venda Nº ${sale.saleNumber}? O estoque dos itens sera devolvido e a venda permanecera no historico.`,
+      "Cancelar venda?",
+      "Cancelar venda",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiPatch(`/sales/${sale.id}/cancel`, { reason });
+      await refreshSalesFlow();
+    });
+  }
+
   async function updateSaleCommercialDetails(
     event: FormEvent<HTMLFormElement>,
     sale: Sale,
@@ -507,6 +530,7 @@ export function useSalesActions({
   }
 
   return {
+    cancelSale,
     cancelPickupReservation,
     cancelShippingOrder,
     completeReopenedSale,

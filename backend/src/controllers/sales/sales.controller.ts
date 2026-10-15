@@ -18,7 +18,6 @@ import {
   returnedSaleItemQuantity,
   salePaymentMethodId,
   saleHasBlockingFiscalDocument,
-  saleHasLinkedOperation,
   updateSaleCommercialDetails,
   updateSaleStatus,
   type SaleCommercialDetailsInput,
@@ -178,13 +177,6 @@ export async function cancelCounterSale(
 
     if (lockedSale.status === "CANCELLED") {
       throw new AppError("Esta venda ja foi cancelada.", 409);
-    }
-
-    if (await saleHasLinkedOperation(transaction, id)) {
-      throw new AppError(
-        "Venda gerada por envio ou retirada nao pode ser cancelada por este fluxo.",
-        409,
-      );
     }
 
     if (await saleHasBlockingFiscalDocument(transaction, id)) {

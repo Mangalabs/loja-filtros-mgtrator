@@ -43,6 +43,7 @@ const productBodySchema = z.object({
   cofinsCst: optionalText(2),
   origin: optionalText(2),
   description: optionalText(1000),
+  internalNotes: optionalText(2000),
   active: z.boolean().optional(),
 });
 

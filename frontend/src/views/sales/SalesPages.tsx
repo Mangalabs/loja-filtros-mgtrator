@@ -14,6 +14,7 @@ import {
   ReceiptText,
   Send,
   ShoppingCart,
+  Trash2,
   User,
   X,
 } from 'lucide-react'
@@ -70,6 +71,10 @@ import {
   positiveWholeNumberInputProps,
 } from '../../utils/numericInput'
 import { fiscalDocumentCanBeIssuedAgain } from '../finance/fiscalPresentation'
+import {
+  SaleCancellationForm,
+  type SaleCancellationHandler,
+} from './SaleCancellationForm'
 import { SaleReturnForm, type SaleReturnHandler } from './SaleReturnForm'
 import { salePaymentsAllowBilling } from './saleBilling'
 import {
@@ -166,6 +171,7 @@ export function SalesPage({
   paymentMethods,
   products,
   sales,
+  onCancelSale,
   onCompleteReopenedSale,
   onEditSale,
   onOpenSalesHistory,
@@ -182,6 +188,7 @@ export function SalesPage({
   paymentMethods: PaymentMethod[]
   products: Product[]
   sales: Sale[]
+  onCancelSale?: SaleCancellationHandler
   onCompleteReopenedSale?: SaleStatusActionHandler
   onEditSale?: SaleEditActionHandler
   onOpenSalesHistory: () => void
@@ -618,6 +625,7 @@ export function SalesPage({
                     )}
                     paymentMethods={paymentMethods}
                     sale={sale}
+                    onCancelSale={onCancelSale}
                     onCompleteReopenedSale={onCompleteReopenedSale}
                     onEditSale={onEditSale}
                     onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
@@ -1260,6 +1268,7 @@ function DirectSaleActions({
   fiscalDocument,
   paymentMethods,
   sale,
+  onCancelSale,
   onCompleteReopenedSale,
   onEditSale,
   onOpenDetails,
@@ -1270,6 +1279,7 @@ function DirectSaleActions({
   fiscalDocument?: FiscalDocument
   paymentMethods: PaymentMethod[]
   sale: Sale
+  onCancelSale?: SaleCancellationHandler
   onCompleteReopenedSale?: SaleStatusActionHandler
   onEditSale?: SaleEditActionHandler
   onOpenDetails?: () => void
@@ -1278,6 +1288,7 @@ function DirectSaleActions({
   onUpdateSaleCommercialDetails?: SaleCommercialDetailsHandler
 }) {
   const [showReturnForm, setShowReturnForm] = useState(false)
+  const [showCancellationForm, setShowCancellationForm] = useState(false)
   const [showCommercialDetailsForm, setShowCommercialDetailsForm] =
     useState(false)
   const { pendingAction, runPendingAction } = usePendingSaleAction()
@@ -1385,6 +1396,18 @@ function DirectSaleActions({
     })
   }
 
+  if (
+    (sale.status === 'OPEN' || sale.status === 'COMPLETED') &&
+    !fiscalDocumentBlocksCommercialChanges &&
+    onCancelSale
+  ) {
+    actions.push({
+      icon: <Trash2 size={14} />,
+      label: 'Cancelar venda',
+      onSelect: () => setShowCancellationForm(true),
+    })
+  }
+
   if (actions.length === 0) {
     return <InlineNote>Sem ações</InlineNote>
   }
@@ -1418,6 +1441,13 @@ function DirectSaleActions({
           paymentMethods={paymentMethods}
           sale={sale}
           onReturnItem={onReturnItem}
+        />
+      ) : null}
+      {showCancellationForm && onCancelSale ? (
+        <SaleCancellationForm
+          sale={sale}
+          onCancel={() => setShowCancellationForm(false)}
+          onCancelSale={onCancelSale}
         />
       ) : null}
     </ActionStack>
@@ -2064,17 +2094,20 @@ function CompletedShippingOrderActions({
     fiscalDocument &&
     ['AUTHORIZED', 'PENDING', 'PROCESSING'].includes(fiscalDocument.status),
   )
-  const actions: TableActionsMenuAction[] = [
-    {
-      icon: <ReceiptText size={14} />,
-      label: 'Baixar comprovante',
-      onSelect: () =>
-        void downloadApiFile(
-          `/sales/${sale.id}/receipt`,
-          `comprovante-${sale.id}.pdf`,
-        ),
-    },
-  ]
+  const actions: TableActionsMenuAction[] =
+    sale.status === 'COMPLETED'
+      ? [
+          {
+            icon: <ReceiptText size={14} />,
+            label: 'Baixar comprovante',
+            onSelect: () =>
+              void downloadApiFile(
+                `/sales/${sale.id}/receipt`,
+                `comprovante-${sale.id}.pdf`,
+              ),
+          },
+        ]
+      : []
 
   shippingOrderFiscalLinks(fiscalDocument).forEach((link) => {
     actions.push({
@@ -2090,6 +2123,7 @@ function CompletedShippingOrderActions({
   })
 
   if (
+    sale.status === 'COMPLETED' &&
     fiscalDocumentCanBeIssuedAgain(fiscalDocument) &&
     onOpenSaleFiscalQueue
   ) {
@@ -2103,7 +2137,8 @@ function CompletedShippingOrderActions({
     })
   }
 
-  onEditSale &&
+  (sale.status === 'OPEN' || sale.status === 'COMPLETED') &&
+    onEditSale &&
     actions.push({
       disabled: fiscalDocumentBlocksCommercialChanges || Boolean(pendingAction),
       label:
@@ -2123,19 +2158,25 @@ function CompletedShippingOrderActions({
         void runPendingAction('complete', () => onCompleteReopenedSale(sale)),
     })
 
-  onUpdateSaleCommercialDetails &&
+  sale.status === 'COMPLETED' &&
+    onUpdateSaleCommercialDetails &&
     actions.push({
       disabled: fiscalDocumentBlocksCommercialChanges,
       label: 'Corrigir pagamento e fatura',
       onSelect: () => setShowCommercialDetailsForm(true),
     })
 
-  onReturnItem &&
+  sale.status === 'COMPLETED' &&
+    onReturnItem &&
     actions.push({
       disabled: fiscalDocumentBlocksCommercialChanges,
       label: 'Registrar devolução',
       onSelect: () => setShowReturnForm(true),
     })
+
+  if (actions.length === 0) {
+    return <InlineNote>Venda cancelada</InlineNote>
+  }
 
   return (
     <ActionStack>
@@ -3338,17 +3379,20 @@ function CompletedPickupReservationActions({
     fiscalDocument &&
     ['AUTHORIZED', 'PENDING', 'PROCESSING'].includes(fiscalDocument.status),
   )
-  const actions: TableActionsMenuAction[] = [
-    {
-      icon: <ReceiptText size={14} />,
-      label: 'Baixar comprovante',
-      onSelect: () =>
-        void downloadApiFile(
-          `/sales/${sale.id}/receipt`,
-          `comprovante-${sale.id}.pdf`,
-        ),
-    },
-  ]
+  const actions: TableActionsMenuAction[] =
+    sale.status === 'COMPLETED'
+      ? [
+          {
+            icon: <ReceiptText size={14} />,
+            label: 'Baixar comprovante',
+            onSelect: () =>
+              void downloadApiFile(
+                `/sales/${sale.id}/receipt`,
+                `comprovante-${sale.id}.pdf`,
+              ),
+          },
+        ]
+      : []
 
   pickupReservationFiscalLinks(fiscalDocument).forEach((link) => {
     actions.push({
@@ -3367,6 +3411,7 @@ function CompletedPickupReservationActions({
   })
 
   if (
+    sale.status === 'COMPLETED' &&
     fiscalDocumentCanBeIssuedAgain(fiscalDocument) &&
     onOpenSaleFiscalQueue
   ) {
@@ -3380,7 +3425,8 @@ function CompletedPickupReservationActions({
     })
   }
 
-  onEditSale &&
+  (sale.status === 'OPEN' || sale.status === 'COMPLETED') &&
+    onEditSale &&
     actions.push({
       disabled: fiscalDocumentBlocksCommercialChanges || Boolean(pendingAction),
       label:
@@ -3400,19 +3446,25 @@ function CompletedPickupReservationActions({
         void runPendingAction('complete', () => onCompleteReopenedSale(sale)),
     })
 
-  onUpdateSaleCommercialDetails &&
+  sale.status === 'COMPLETED' &&
+    onUpdateSaleCommercialDetails &&
     actions.push({
       disabled: fiscalDocumentBlocksCommercialChanges,
       label: 'Corrigir pagamento e fatura',
       onSelect: () => onShowCommercialDetailsForm(true),
     })
 
-  onReturnItem &&
+  sale.status === 'COMPLETED' &&
+    onReturnItem &&
     actions.push({
       disabled: fiscalDocumentBlocksCommercialChanges,
       label: 'Registrar devolução',
       onSelect: () => onShowReturnForm(true),
     })
+
+  if (actions.length === 0) {
+    return <InlineNote>Venda cancelada</InlineNote>
+  }
 
   return (
     <ActionStack>

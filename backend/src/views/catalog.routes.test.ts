@@ -70,6 +70,7 @@ type Product = {
   cofinsCst: string | null;
   origin: string | null;
   description: string | null;
+  internalNotes: string | null;
   active: boolean;
 };
 
@@ -2966,6 +2967,10 @@ describe("catalog routes", () => {
     const receipt = await requestRaw(
       `/sales/${created.body.data?.id}/receipt`,
     );
+    const reopenedBeforeCancellation = await request<Sale>(
+      `/sales/${created.body.data?.id}/reopen`,
+      { method: "PATCH" },
+    );
     const cancelled = await request<Sale>(
       `/sales/${created.body.data?.id}/cancel`,
       {
@@ -3031,6 +3036,8 @@ describe("catalog routes", () => {
     assert.equal(receipt.status, 200);
     assert.equal(receipt.contentType, "application/pdf");
     assert.equal(receipt.body.subarray(0, 4).toString(), "%PDF");
+    assert.equal(reopenedBeforeCancellation.status, 200);
+    assert.equal(reopenedBeforeCancellation.body.data?.status, "OPEN");
     assert.equal(cancelled.status, 200);
     assert.equal(cancelled.body.data?.status, "CANCELLED");
     assert.equal(cancelledReceipt.status, 409);
@@ -3132,6 +3139,21 @@ describe("catalog routes", () => {
       (sale) => sale.id === created.body.data?.id,
     );
     const listedReturn = listedReturnedSale?.items[0]?.returns[0];
+    const cancelledAfterReturn = await request<Sale>(
+      `/sales/${created.body.data?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Cancelar saldo restante da venda" },
+      },
+    );
+    const productAfterCancellation = await request<Product>(
+      `/products/${product.body.data?.id}`,
+    );
+    const movementsAfterCancellation =
+      await request<StockMovement[]>("/stock-movements");
+    const cancellationMovement = movementsAfterCancellation.body.data?.find(
+      (movement) => movement.type === "SALE_CANCEL",
+    );
 
     assert.equal(returned.status, 200);
     assert.equal(returned.body.data?.status, "COMPLETED");
@@ -3155,6 +3177,10 @@ describe("catalog routes", () => {
     assert.equal(returnMovement?.quantity, "1.000");
     assert.equal(returnMovement?.notes, "Cliente devolveu uma unidade");
     assert.equal(returnMovement?.createdByUserName, "Administrador de teste");
+    assert.equal(cancelledAfterReturn.status, 200);
+    assert.equal(cancelledAfterReturn.body.data?.status, "CANCELLED");
+    assert.equal(productAfterCancellation.body.data?.currentStock, "5.000");
+    assert.equal(cancellationMovement?.quantity, "2.000");
   });
 
   it("includes return refunds in sale receipt html", () => {
@@ -7553,13 +7579,6 @@ describe("catalog routes", () => {
     const saleMovement = movements.body.data?.find(
       (movement) => movement.type === "SALE",
     );
-    const linkedSaleCancellation = await request(
-      `/sales/${sales.body.data?.[0]?.id}/cancel`,
-      {
-        method: "PATCH",
-        body: { reason: "Tentativa pelo fluxo de balcao" },
-      },
-    );
     const linkedSaleFiscalDocument = await request(
       `/sales/${sales.body.data?.[0]?.id}/fiscal-documents`,
       {
@@ -7583,11 +7602,6 @@ describe("catalog routes", () => {
     );
     assert.equal(repeatedCompletion.status, 409);
     assert.equal(cancellationAfterCompletion.status, 409);
-    assert.equal(linkedSaleCancellation.status, 409);
-    assert.equal(
-      linkedSaleCancellation.body.message,
-      "Venda gerada por envio ou retirada nao pode ser cancelada por este fluxo.",
-    );
     assert.equal(linkedSaleFiscalDocument.status, 409);
     assert.equal(
       linkedSaleFiscalDocument.body.message,
@@ -7814,6 +7828,19 @@ describe("catalog routes", () => {
     const movements = await request<StockMovement[]>("/stock-movements");
     const saleMovements =
       movements.body.data?.filter((movement) => movement.type === "SALE") ?? [];
+    const linkedSaleCancellation = await request<Sale>(
+      `/sales/${sales.body.data?.[0]?.id}/cancel`,
+      {
+        method: "PATCH",
+        body: { reason: "Pedido concluido nao sera mais utilizado" },
+      },
+    );
+    const firstProductAfterCancellation = await request<Product>(
+      `/products/${firstProduct.body.data?.id}`,
+    );
+    const secondProductAfterCancellation = await request<Product>(
+      `/products/${secondProduct.body.data?.id}`,
+    );
 
     assert.equal(completed.status, 200);
     assert.equal(completed.body.data?.status, "COMPLETED");
@@ -7854,6 +7881,10 @@ describe("catalog routes", () => {
         (movement) => movement.productName === "Filtro envio multi B",
       ),
     );
+    assert.equal(linkedSaleCancellation.status, 200);
+    assert.equal(linkedSaleCancellation.body.data?.status, "CANCELLED");
+    assert.equal(firstProductAfterCancellation.body.data?.currentStock, "5.000");
+    assert.equal(secondProductAfterCancellation.body.data?.currentStock, "3.000");
   });
 
   it("completes a quoted shipping order directly as a sale", async () => {
@@ -8318,7 +8349,7 @@ describe("catalog routes", () => {
     assert.equal(linkedSaleCancellation.status, 409);
     assert.equal(
       linkedSaleCancellation.body.message,
-      "Venda gerada por envio ou retirada nao pode ser cancelada por este fluxo.",
+      "Cancele a NF-e antes de cancelar esta venda.",
     );
     assert.equal(sales.body.data?.length, 1);
     assert.equal(sales.body.data?.[0]?.clientName, "Cliente retirou");
@@ -9406,12 +9437,50 @@ describe("catalog routes", () => {
     });
 
     const listed = await request<NamedEntity[]>("/brands");
+    const updated = await request<NamedEntity>(
+      `/brands/${created.body.data?.id}`,
+      {
+        method: "PUT",
+        body: { name: "Mann Filter Atualizado", active: false },
+      },
+    );
+    const deleted = await request<NamedEntity>(
+      `/brands/${created.body.data?.id}`,
+      { method: "DELETE" },
+    );
+    const afterDelete = await request<NamedEntity[]>("/brands");
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.name, "Mann Filter");
     assert.equal(listed.status, 200);
     assert.equal(listed.body.data?.length, 1);
     assert.equal(listed.body.data?.[0]?.name, "Mann Filter");
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data?.name, "Mann Filter Atualizado");
+    assert.equal(updated.body.data?.active, false);
+    assert.equal(deleted.status, 200);
+    assert.equal(afterDelete.body.data?.length, 0);
+  });
+
+  it("blocks deleting a brand linked to products", async () => {
+    const brand = await request<NamedEntity>("/brands", {
+      method: "POST",
+      body: { name: "Fabricante vinculado" },
+    });
+    await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Produto com fabricante", brandId: brand.body.data?.id },
+    });
+
+    const deleted = await request(`/brands/${brand.body.data?.id}`, {
+      method: "DELETE",
+    });
+
+    assert.equal(deleted.status, 409);
+    assert.equal(
+      deleted.body.message,
+      "Fabricante vinculado a produtos. Inative o cadastro para preservar as associacoes.",
+    );
   });
 
   it("returns conflict when creating a duplicated brand", async () => {
@@ -9458,6 +9527,24 @@ describe("catalog routes", () => {
     });
 
     const listed = await request<Supplier[]>("/suppliers?search=Central");
+    const updated = await request<Supplier>(
+      `/suppliers/${created.body.data?.id}`,
+      {
+        method: "PUT",
+        body: {
+          name: "Distribuidora Central Atualizada",
+          document: "12345678000190",
+          email: "novo@example.com",
+          phone: "85999990001",
+          active: false,
+        },
+      },
+    );
+    const deleted = await request<Supplier>(
+      `/suppliers/${created.body.data?.id}`,
+      { method: "DELETE" },
+    );
+    const afterDelete = await request<Supplier[]>("/suppliers");
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.branchId, defaultBranchId);
@@ -9465,6 +9552,12 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.name, "Distribuidora Central");
     assert.equal(listed.status, 200);
     assert.equal(listed.body.data?.length, 1);
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data?.name, "Distribuidora Central Atualizada");
+    assert.equal(updated.body.data?.email, "novo@example.com");
+    assert.equal(updated.body.data?.active, false);
+    assert.equal(deleted.status, 200);
+    assert.equal(afterDelete.body.data?.length, 0);
   });
 
   it("keeps suppliers scoped to the active branch", async () => {
@@ -9496,6 +9589,20 @@ describe("catalog routes", () => {
     const isolatedList = await request<Supplier[]>("/suppliers", {
       headers: { "x-active-branch-id": branch.body.data.id },
     });
+    const crossBranchUpdate = await request<Supplier>(
+      `/suppliers/${isolatedSupplier.body.data?.id}`,
+      {
+        method: "PUT",
+        body: {
+          name: "Fornecedor alterado por outra filial",
+          active: true,
+        },
+      },
+    );
+    const crossBranchDelete = await request<Supplier>(
+      `/suppliers/${isolatedSupplier.body.data?.id}`,
+      { method: "DELETE" },
+    );
 
     assert.equal(defaultSupplier.status, 201);
     assert.equal(defaultSupplier.body.data?.branchId, defaultBranchId);
@@ -9509,6 +9616,8 @@ describe("catalog routes", () => {
       isolatedList.body.data?.map((supplier) => supplier.name),
       ["Fornecedor Filial"],
     );
+    assert.equal(crossBranchUpdate.status, 404);
+    assert.equal(crossBranchDelete.status, 404);
   });
 
   it("returns validation details for invalid supplier payload", async () => {
@@ -9919,6 +10028,7 @@ describe("catalog routes", () => {
         cofinsCst: "49",
         origin: "0",
         description: "Descricao comercial do filtro para orcamento",
+        internalNotes: "Observacao visivel apenas para a equipe",
       },
     });
 
@@ -9941,6 +10051,7 @@ describe("catalog routes", () => {
           profitMarginPercentage: 1272.43,
           currentStock: 2.75,
           location: "",
+          internalNotes: "Observacao interna atualizada",
         },
       },
     );
@@ -9978,6 +10089,10 @@ describe("catalog routes", () => {
       created.body.data?.description,
       "Descricao comercial do filtro para orcamento",
     );
+    assert.equal(
+      created.body.data?.internalNotes,
+      "Observacao visivel apenas para a equipe",
+    );
     assert.equal(listed.status, 200);
     assert.equal(listed.body.data?.length, 1);
     assert.equal(listedPage.status, 200);
@@ -10005,6 +10120,10 @@ describe("catalog routes", () => {
     assert.equal(updated.body.data?.profitMarginPercentage, "1272.43");
     assert.equal(updated.body.data?.currentStock, "2.750");
     assert.equal(updated.body.data?.location, null);
+    assert.equal(
+      updated.body.data?.internalNotes,
+      "Observacao interna atualizada",
+    );
     assert.equal(
       updatedStockAdjustments.body.data?.[0]?.productName,
       "Filtro Wega FAP4040 Atualizado",

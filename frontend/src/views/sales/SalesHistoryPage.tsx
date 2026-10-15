@@ -1,7 +1,7 @@
 import MenuItem from '@mui/material/MenuItem'
 import Button from '@mui/material/Button'
 import TextField from '@mui/material/TextField'
-import { FileText, ReceiptText } from 'lucide-react'
+import { FileText, ReceiptText, Trash2 } from 'lucide-react'
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   FiscalDocument,
@@ -39,6 +39,10 @@ import {
   fiscalDocumentStatusTone,
 } from '../finance/fiscalPresentation'
 import { SaleReturnForm, type SaleReturnHandler } from './SaleReturnForm'
+import {
+  SaleCancellationForm,
+  type SaleCancellationHandler,
+} from './SaleCancellationForm'
 import { salePaymentsAllowBilling } from './saleBilling'
 
 type SalesHistoryOrigin =
@@ -98,6 +102,7 @@ export function SalesHistoryPage({
   pickupReservations = [],
   sales = [],
   shippingOrders = [],
+  onCancelSale,
   onCompleteReopenedSale,
   onEditSale,
   onOpenSaleFiscalQueue,
@@ -110,6 +115,7 @@ export function SalesHistoryPage({
   pickupReservations: PickupReservation[]
   sales: Sale[]
   shippingOrders: ShippingOrder[]
+  onCancelSale: SaleCancellationHandler
   onCompleteReopenedSale: SaleStatusActionHandler
   onEditSale: SaleEditActionHandler
   onOpenSaleFiscalQueue: (sale: Sale) => void
@@ -276,6 +282,7 @@ export function SalesHistoryPage({
                 <SalesHistoryDownloadActions row={row} />
               ) : (
                 <SalesHistoryActions
+                  onCancelSale={onCancelSale}
                   onCompleteReopenedSale={onCompleteReopenedSale}
                   onEditSale={onEditSale}
                   onOpenSaleFiscalQueue={onOpenSaleFiscalQueue}
@@ -373,6 +380,7 @@ function SalesHistoryTotal({ row }: { row: SalesHistoryRow }) {
 }
 
 function SalesHistoryActions({
+  onCancelSale,
   onCompleteReopenedSale,
   onEditSale,
   onOpenSaleFiscalQueue,
@@ -381,6 +389,7 @@ function SalesHistoryActions({
   onUpdateSaleCommercialDetails,
   onReturnItem,
 }: {
+  onCancelSale: SaleCancellationHandler
   onCompleteReopenedSale: SaleStatusActionHandler
   onEditSale: SaleEditActionHandler
   onOpenSaleFiscalQueue: (sale: Sale) => void
@@ -390,6 +399,7 @@ function SalesHistoryActions({
   onReturnItem: SaleReturnHandler
 }) {
   const [showReturnForm, setShowReturnForm] = useState(false)
+  const [showCancellationForm, setShowCancellationForm] = useState(false)
   const [showCommercialDetailsForm, setShowCommercialDetailsForm] =
     useState(false)
   const [pendingAction, setPendingAction] = useState<'complete' | 'edit'>()
@@ -504,6 +514,17 @@ function SalesHistoryActions({
       onSelect: () => setShowReturnForm(true),
     })
 
+  if (
+    (row.sale?.status === 'OPEN' || row.sale?.status === 'COMPLETED') &&
+    !fiscalDocumentBlocksReturn
+  ) {
+    actions.push({
+      icon: <Trash2 size={14} />,
+      label: 'Cancelar venda',
+      onSelect: () => setShowCancellationForm(true),
+    })
+  }
+
   return (
     <ActionStack>
       <div className='flex justify-end'>
@@ -530,6 +551,13 @@ function SalesHistoryActions({
           paymentMethods={paymentMethods}
           sale={row.sale}
           onReturnItem={onReturnItem}
+        />
+      ) : null}
+      {showCancellationForm && row.sale && !fiscalDocumentBlocksReturn ? (
+        <SaleCancellationForm
+          sale={row.sale}
+          onCancel={() => setShowCancellationForm(false)}
+          onCancelSale={onCancelSale}
         />
       ) : null}
       {row.sale && fiscalDocumentBlocksReturn ? (

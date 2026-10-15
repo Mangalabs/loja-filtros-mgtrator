@@ -712,6 +712,15 @@ export function ProductForm({
         rows={3}
         slotProps={{ htmlInput: { maxLength: 1000 } }}
       />
+      <TextField
+        defaultValue={product?.internalNotes ?? ''}
+        helperText='Uso interno da equipe. Esta informação não aparece em orçamentos ou comprovantes.'
+        label='Observações internas'
+        multiline
+        name='internalNotes'
+        rows={3}
+        slotProps={{ htmlInput: { maxLength: 2000 } }}
+      />
       <ActionGroup className='mt-1'>
         {onCancel ? (
           <SecondaryButton
@@ -869,84 +878,237 @@ export function NamedEntityPage({
   fieldName,
   items,
   onSubmit,
+  onDelete,
 }: {
   title: string
   fieldName: string
   items: NamedEntity[]
-  onSubmit: AsyncFormSubmitHandler
+  onSubmit: (
+    event: FormEvent<HTMLFormElement>,
+    entity?: NamedEntity,
+  ) => Promise<unknown> | unknown
+  onDelete: AsyncEntityAction<NamedEntity>
 }) {
-  const { submit, submitting } = usePendingFormSubmit(onSubmit)
+  const [selectedEntity, setSelectedEntity] = useState<NamedEntity>()
+  const [pendingDeleteId, setPendingDeleteId] = useState<string>()
+  const pendingDeleteRef = useRef(false)
+  const { pagination, visibleItems } = usePaginatedRows<NamedEntity>(items)
+  const { submit, submitting } = usePendingFormSubmit(async (event) => {
+    const saved = await onSubmit(event, selectedEntity)
+
+    if (saved) {
+      setSelectedEntity(undefined)
+    }
+  })
+
+  async function remove(entity: NamedEntity) {
+    if (pendingDeleteRef.current) {
+      return
+    }
+
+    pendingDeleteRef.current = true
+    setPendingDeleteId(entity.id)
+
+    try {
+      await onDelete(entity)
+    } finally {
+      pendingDeleteRef.current = false
+      setPendingDeleteId(undefined)
+    }
+  }
 
   return (
     <section className='grid gap-4 xl:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)]'>
-      <FormGrid onSubmit={submit}>
-        <PageHeader icon={<Tags size={18} />} title='Novo registro' />
-        <TextField label='Nome' name={fieldName} required />
+      <FormGrid key={selectedEntity?.id ?? 'new'} onSubmit={submit}>
+        <PageHeader
+          icon={selectedEntity ? <Pencil size={18} /> : <Tags size={18} />}
+          title={selectedEntity ? 'Editar fabricante' : 'Novo fabricante'}
+        />
+        <TextField
+          defaultValue={selectedEntity?.name ?? ''}
+          label='Nome'
+          name={fieldName}
+          required
+        />
+        {selectedEntity ? (
+          <TextField
+            defaultValue={String(selectedEntity.active)}
+            label='Status'
+            name='active'
+            select>
+            <MenuItem value='true'>Ativo</MenuItem>
+            <MenuItem value='false'>Inativo</MenuItem>
+          </TextField>
+        ) : null}
+        {selectedEntity ? (
+          <SecondaryButton
+            disabled={submitting}
+            type='button'
+            onClick={() => setSelectedEntity(undefined)}>
+            Cancelar edição
+          </SecondaryButton>
+        ) : null}
         <PrimaryButton loading={submitting} icon={<Plus size={17} />} type='submit'>
-          {submitting ? 'Cadastrando…' : 'Cadastrar'}
+          {submitting
+            ? 'Salvando…'
+            : selectedEntity
+              ? 'Salvar alterações'
+              : 'Cadastrar'}
         </PrimaryButton>
       </FormGrid>
 
-      <EntityList title={title} items={items} />
+      <PagePanel wide>
+        <PageHeader
+          actions={
+            <span className='text-sm text-[#5f665f]'>
+              {items.length} registros
+            </span>
+          }
+          title={`${title} cadastrados`}
+        />
+        <ResponsiveTable
+          columns={[
+            {
+              header: 'Nome',
+              render: (item) => <strong>{item.name}</strong>,
+            },
+            {
+              header: 'Status',
+              render: (item) => (
+                <StatusChip
+                  label={item.active ? 'Ativo' : 'Inativo'}
+                  tone={item.active ? 'success' : 'neutral'}
+                />
+              ),
+            },
+            {
+              align: 'right',
+              header: 'Ações',
+              render: (item) => (
+                <TableActionsMenu
+                  actions={[
+                    {
+                      icon: <Pencil size={14} />,
+                      label: 'Editar',
+                      onSelect: () => setSelectedEntity(item),
+                    },
+                    {
+                      disabled: pendingDeleteId === item.id,
+                      icon: <Trash2 size={14} />,
+                      label:
+                        pendingDeleteId === item.id ? 'Excluindo…' : 'Excluir',
+                      onSelect: () => void remove(item),
+                    },
+                  ]}
+                />
+              ),
+            },
+          ]}
+          emptyMessage='Nenhum registro cadastrado.'
+          getRowId={(item) => item.id}
+          items={visibleItems}
+          pagination={pagination}
+        />
+      </PagePanel>
     </section>
-  )
-}
-
-function EntityList({ title, items }: { title: string; items: NamedEntity[] }) {
-  return (
-    <PagePanel>
-      <PageHeader
-        actions={
-          <span className='text-sm text-[#5f665f]'>
-            {items.length} registros
-          </span>
-        }
-        title={`${title} cadastrados`}
-      />
-      <div className='grid gap-2'>
-        {items.map((item) => (
-          <div
-            className='flex min-h-11 items-center justify-between gap-3 border-b border-[#e4e9e5] py-2 last:border-b-0'
-            key={item.id}>
-            <strong>{item.name}</strong>
-            <StatusChip
-              label={item.active ? 'Ativo' : 'Inativo'}
-              tone={item.active ? 'success' : 'neutral'}
-            />
-          </div>
-        ))}
-        {items.length === 0 ? (
-          <p className='m-0 text-sm text-[#5f665f]'>
-            Nenhum registro cadastrado.
-          </p>
-        ) : null}
-      </div>
-    </PagePanel>
   )
 }
 
 export function SuppliersPage({
   suppliers,
   onSubmit,
+  onDelete,
 }: {
   suppliers: Supplier[]
-  onSubmit: AsyncFormSubmitHandler
+  onSubmit: (
+    event: FormEvent<HTMLFormElement>,
+    supplier?: Supplier,
+  ) => Promise<unknown> | unknown
+  onDelete: AsyncEntityAction<Supplier>
 }) {
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier>()
+  const [pendingDeleteId, setPendingDeleteId] = useState<string>()
+  const pendingDeleteRef = useRef(false)
   const { pagination, visibleItems } = usePaginatedRows<Supplier>(suppliers)
-  const { submit, submitting } = usePendingFormSubmit(onSubmit)
+  const { submit, submitting } = usePendingFormSubmit(async (event) => {
+    const saved = await onSubmit(event, selectedSupplier)
+
+    if (saved) {
+      setSelectedSupplier(undefined)
+    }
+  })
+
+  async function remove(supplier: Supplier) {
+    if (pendingDeleteRef.current) {
+      return
+    }
+
+    pendingDeleteRef.current = true
+    setPendingDeleteId(supplier.id)
+
+    try {
+      await onDelete(supplier)
+    } finally {
+      pendingDeleteRef.current = false
+      setPendingDeleteId(undefined)
+    }
+  }
 
   return (
     <section className='grid gap-4 xl:grid-cols-[minmax(300px,0.7fr)_minmax(0,1.3fr)]'>
-      <FormGrid onSubmit={submit}>
-        <PageHeader icon={<Truck size={18} />} title='Novo fornecedor' />
-        <TextField label='Nome' name='supplierName' required />
-        <TextField label='CPF/CNPJ' name='supplierDocument' />
+      <FormGrid key={selectedSupplier?.id ?? 'new'} onSubmit={submit}>
+        <PageHeader
+          icon={selectedSupplier ? <Pencil size={18} /> : <Truck size={18} />}
+          title={selectedSupplier ? 'Editar fornecedor' : 'Novo fornecedor'}
+        />
+        <TextField
+          defaultValue={selectedSupplier?.name ?? ''}
+          label='Nome'
+          name='supplierName'
+          required
+        />
+        <TextField
+          defaultValue={selectedSupplier?.document ?? ''}
+          label='CPF/CNPJ'
+          name='supplierDocument'
+        />
         <FormRow>
-          <TextField label='Telefone' name='supplierPhone' />
-          <TextField label='Email' name='supplierEmail' type='email' />
+          <TextField
+            defaultValue={selectedSupplier?.phone ?? ''}
+            label='Telefone'
+            name='supplierPhone'
+          />
+          <TextField
+            defaultValue={selectedSupplier?.email ?? ''}
+            label='Email'
+            name='supplierEmail'
+            type='email'
+          />
         </FormRow>
+        {selectedSupplier ? (
+          <TextField
+            defaultValue={String(selectedSupplier.active)}
+            label='Status'
+            name='supplierActive'
+            select>
+            <MenuItem value='true'>Ativo</MenuItem>
+            <MenuItem value='false'>Inativo</MenuItem>
+          </TextField>
+        ) : null}
+        {selectedSupplier ? (
+          <SecondaryButton
+            disabled={submitting}
+            type='button'
+            onClick={() => setSelectedSupplier(undefined)}>
+            Cancelar edição
+          </SecondaryButton>
+        ) : null}
         <PrimaryButton loading={submitting} icon={<Plus size={17} />} type='submit'>
-          {submitting ? 'Cadastrando fornecedor…' : 'Cadastrar fornecedor'}
+          {submitting
+            ? 'Salvando fornecedor…'
+            : selectedSupplier
+              ? 'Salvar alterações'
+              : 'Cadastrar fornecedor'}
         </PrimaryButton>
       </FormGrid>
 
@@ -976,6 +1138,39 @@ export function SuppliersPage({
             {
               header: 'Email',
               render: (supplier) => supplier.email ?? '-',
+            },
+            {
+              header: 'Status',
+              render: (supplier) => (
+                <StatusChip
+                  label={supplier.active ? 'Ativo' : 'Inativo'}
+                  tone={supplier.active ? 'success' : 'neutral'}
+                />
+              ),
+            },
+            {
+              align: 'right',
+              header: 'Ações',
+              render: (supplier) => (
+                <TableActionsMenu
+                  actions={[
+                    {
+                      icon: <Pencil size={14} />,
+                      label: 'Editar',
+                      onSelect: () => setSelectedSupplier(supplier),
+                    },
+                    {
+                      disabled: pendingDeleteId === supplier.id,
+                      icon: <Trash2 size={14} />,
+                      label:
+                        pendingDeleteId === supplier.id
+                          ? 'Excluindo…'
+                          : 'Excluir',
+                      onSelect: () => void remove(supplier),
+                    },
+                  ]}
+                />
+              ),
             },
           ]}
           emptyMessage='Nenhum fornecedor cadastrado.'

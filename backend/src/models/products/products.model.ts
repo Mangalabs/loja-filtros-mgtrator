@@ -48,6 +48,7 @@ export type ProductListItem = {
   cofinsCst: string | null;
   origin: string | null;
   description: string | null;
+  internalNotes: string | null;
   active: boolean;
 };
 
@@ -76,6 +77,7 @@ export type ProductCreateInput = {
   cofinsCst?: string | null;
   origin?: string | null;
   description?: string | null;
+  internalNotes?: string | null;
   active?: boolean;
 };
 
@@ -234,6 +236,7 @@ export async function createProduct(
       cofins_cst: input.cofinsCst,
       origin: input.origin,
       description: input.description,
+      internal_notes: input.internalNotes,
       active: input.active,
     })
     .returning("id");
@@ -286,6 +289,7 @@ export async function updateProduct(
       cofins_cst: input.cofinsCst,
       origin: input.origin,
       description: input.description,
+      internal_notes: input.internalNotes,
       active: input.active,
       updated_at: db.fn.now(),
     })
@@ -405,6 +409,7 @@ function productListColumns() {
     "products.cofins_cst as cofinsCst",
     "products.origin",
     "products.description",
+    "products.internal_notes as internalNotes",
     "products.active",
   ];
 }

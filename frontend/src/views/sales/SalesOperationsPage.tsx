@@ -27,6 +27,7 @@ import {
   type SaleStatusActionHandler,
 } from './SalesHistoryPage'
 import type { SaleReturnHandler } from './SaleReturnForm'
+import type { SaleCancellationHandler } from './SaleCancellationForm'
 
 export type SalesOperationsTab = 'shipping' | 'direct' | 'pickup'
 
@@ -40,6 +41,7 @@ export function SalesOperationsPage({
   products,
   sales,
   shippingOrders,
+  onCancelSale,
   onCancelPickupReservation,
   onCancelShippingOrder,
   onCompletePickupReservation,
@@ -63,6 +65,7 @@ export function SalesOperationsPage({
   products: Product[]
   sales: Sale[]
   shippingOrders: ShippingOrder[]
+  onCancelSale: SaleCancellationHandler
   onCancelPickupReservation: (
     event: FormEvent<HTMLFormElement>,
     reservation: PickupReservation,
@@ -200,6 +203,7 @@ export function SalesOperationsPage({
           paymentMethods={paymentMethods}
           products={products}
           sales={sales}
+          onCancelSale={onCancelSale}
           onCompleteReopenedSale={onCompleteReopenedSale}
           onEditSale={onEditSale}
           onOpenSalesHistory={onOpenSalesHistory}

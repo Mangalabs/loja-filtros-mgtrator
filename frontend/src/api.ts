@@ -61,6 +61,7 @@ export type Product = {
   cofinsCst: string | null;
   origin: string | null;
   description: string | null;
+  internalNotes: string | null;
   active: boolean;
 };
 

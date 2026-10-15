@@ -8,7 +8,9 @@ import {
   type ApiResult,
   type Client,
   type ClientCompanyLookup,
+  type NamedEntity,
   type Product,
+  type Supplier,
 } from "../../api";
 import { nullableFormValue, optionalFormValue } from "../../utils/forms";
 import { productFormBody } from "./productFormBody";
@@ -48,10 +50,11 @@ export function useCatalogActions({
   showNewProduct,
   showProducts,
 }: CatalogActionsOptions) {
-  async function createNamedEntity(
+  async function saveNamedEntity(
     event: FormEvent<HTMLFormElement>,
     path: string,
     fieldName: string,
+    entity?: NamedEntity,
   ) {
     event.preventDefault();
     const formElement = event.currentTarget;
@@ -62,27 +65,90 @@ export function useCatalogActions({
       return;
     }
 
-    await runAction(async () => {
-      await apiPost(path, { name });
+    const saved = await runAction(async () => {
+      const body = {
+        name,
+        ...(entity ? { active: form.get("active") === "true" } : {}),
+      };
+
+      if (entity) {
+        await apiPut(`${path}/${entity.id}`, body);
+      } else {
+        await apiPost(path, body);
+      }
       formElement.reset();
+      await refreshCatalogFlow();
+    });
+
+    return saved;
+  }
+
+  async function deleteNamedEntity(
+    entity: NamedEntity,
+    path: string,
+    label: string,
+  ) {
+    const confirmed = await requestConfirmation(
+      `Excluir ${label.toLowerCase()} "${entity.name}"? A exclusao sera bloqueada se houver produtos ou movimentacoes vinculadas.`,
+      `Excluir ${label.toLowerCase()}?`,
+      "Excluir",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiDelete(`${path}/${entity.id}`);
       await refreshCatalogFlow();
     });
   }
 
-  async function createSupplier(event: FormEvent<HTMLFormElement>) {
+  async function saveSupplier(
+    event: FormEvent<HTMLFormElement>,
+    supplier?: Supplier,
+  ) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
 
-    await runAction(async () => {
-      await apiPost("/suppliers", {
+    const saved = await runAction(async () => {
+      const body = {
         name: String(form.get("supplierName") ?? "").trim(),
-        document: optionalFormValue(form, "supplierDocument"),
-        phone: optionalFormValue(form, "supplierPhone"),
-        email: optionalFormValue(form, "supplierEmail"),
-      });
+        document: nullableFormValue(form, "supplierDocument"),
+        phone: nullableFormValue(form, "supplierPhone"),
+        email: nullableFormValue(form, "supplierEmail"),
+        ...(supplier
+          ? { active: form.get("supplierActive") === "true" }
+          : {}),
+      };
+
+      if (supplier) {
+        await apiPut(`/suppliers/${supplier.id}`, body);
+      } else {
+        await apiPost("/suppliers", body);
+      }
 
       formElement.reset();
+      await refreshCatalogFlow();
+    });
+
+    return saved;
+  }
+
+  async function deleteSupplier(supplier: Supplier) {
+    const confirmed = await requestConfirmation(
+      `Excluir o fornecedor "${supplier.name}"? A exclusao sera bloqueada se houver produtos, entradas ou notas de compra vinculadas.`,
+      "Excluir fornecedor?",
+      "Excluir",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiDelete(`/suppliers/${supplier.id}`);
       await refreshCatalogFlow();
     });
   }
@@ -281,15 +347,17 @@ export function useCatalogActions({
     changeClientStatus,
     changeProductStatus,
     cloneProduct,
-    createNamedEntity,
     createProduct,
-    createSupplier,
     deleteClient,
+    deleteNamedEntity,
     deleteProduct,
+    deleteSupplier,
     editProduct,
     lookupClientCompany,
     saveClient,
     saveCommercialSettings,
+    saveNamedEntity,
+    saveSupplier,
     updateProduct,
   };
 }
