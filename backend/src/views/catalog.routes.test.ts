@@ -3772,6 +3772,8 @@ describe("catalog routes", () => {
     input.natureOperation =
       "1.202/2.202 - Devolucao venda mercadoria terceiros";
     (input.items[0] as { productCfop: string | null }).productCfop = null;
+    input.items[0].quantity = 5;
+    input.items[0].unitPrice = 1.5312;
 
     const manualFiscalDocument = await request<FiscalDocument>(
       "/fiscal-documents/manual",
@@ -3804,6 +3806,9 @@ describe("catalog routes", () => {
       "RETURN",
     );
     assert.equal(items[0]?.productCfop, "2202");
+    assert.equal(items[0]?.unitPrice, "1.5312");
+    assert.equal(items[0]?.totalAmount, "7.66");
+    assert.equal(sale.totalAmount, "7.66");
     assert.deepEqual(
       manualFiscalDocument.body.data?.requestPayload.referencedAccessKeys,
       ["1".repeat(44)],
@@ -5953,6 +5958,57 @@ describe("catalog routes", () => {
       assert.equal(items[0]?.valor_desconto, 5);
       assert.equal(items[1]?.valor_bruto, 75);
       assert.equal(items[1]?.valor_desconto, 0);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("preserves decimal unit prices while rounding Focus item totals to cents", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const requestPayload = focusIssueRequest();
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    requestPayload.sale.totalAmount = "24.65";
+    requestPayload.sale.items[0].quantity = "4.000";
+    requestPayload.sale.items[0].unitPrice = "6.1635";
+    requestPayload.sale.items[0].totalAmount = "24.65";
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocusdecimalunitprice",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(requestPayload);
+      assert.ok(submittedPayload);
+
+      const payload = submittedPayload as Record<string, unknown>;
+      const item = (payload.items as Array<Record<string, unknown>>)[0];
+
+      assert.equal(item.valor_unitario_comercial, 6.1635);
+      assert.equal(item.valor_unitario_tributavel, 6.1635);
+      assert.equal(item.valor_bruto, 24.65);
+      assert.equal(payload.valor_produtos, 24.65);
+      assert.equal(payload.valor_total, 24.65);
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;

@@ -46,6 +46,13 @@ export const nonNegativeMoneyInputProps: NumericHtmlInputProps = {
   min: 0,
 };
 
+export const nonNegativeFiscalUnitPriceInputProps: NumericHtmlInputProps = {
+  inputMode: "decimal",
+  min: 0,
+  step: 0.0001,
+  onWheel: blurNumberInputOnWheel,
+};
+
 export const positiveMoneyInputProps: NumericHtmlInputProps = {
   ...moneyInputProps,
   min: 0.01,

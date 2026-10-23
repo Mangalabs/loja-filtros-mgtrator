@@ -1415,7 +1415,7 @@ function manualFiscalSale(
       productOrigin: item.productOrigin,
       productUnit: item.productUnit,
       quantity: item.quantity.toFixed(3),
-      unitPrice: item.unitPrice.toFixed(2),
+      unitPrice: fiscalUnitPrice(item.unitPrice),
       discountAmount: item.discountAmount.toFixed(2),
       totalAmount: (item.quantity * item.unitPrice - item.discountAmount).toFixed(
         2,
@@ -1423,6 +1423,10 @@ function manualFiscalSale(
       position: index + 1,
     })),
   };
+}
+
+function fiscalUnitPrice(value: number) {
+  return value.toFixed(10).replace(/\.?0+$/, "");
 }
 
 function cfopFromNatureOperation(
