@@ -177,9 +177,22 @@ const manualFiscalDocumentSchema = z
             productName: z.string().trim().min(1).max(180),
             productNcm: optionalText(16),
             productCfop: optionalText(4),
-            productIcmsCst: optionalText(3),
-            productPisCst: optionalText(2),
-            productCofinsCst: optionalText(2),
+            productIcmsCst: optionalTaxCode(3),
+            productIcmsCstDescription: optionalText(180),
+            icmsBaseCalculation: optionalTaxNumber(),
+            icmsRate: optionalTaxNumber(100),
+            productPisCst: optionalTaxCode(2),
+            productPisCstDescription: optionalText(180),
+            pisBaseCalculation: optionalTaxNumber(),
+            pisRate: optionalTaxNumber(100),
+            productCofinsCst: optionalTaxCode(2),
+            productCofinsCstDescription: optionalText(180),
+            cofinsBaseCalculation: optionalTaxNumber(),
+            cofinsRate: optionalTaxNumber(100),
+            productIpiCst: optionalTaxCode(2),
+            productIpiCstDescription: optionalText(180),
+            ipiBaseCalculation: optionalTaxNumber(),
+            ipiRate: optionalTaxNumber(100),
             productOrigin: optionalText(2),
             productUnit: z.string().trim().min(1).max(16).default("UN"),
             quantity: z.coerce.number().positive(),
@@ -227,7 +240,35 @@ const manualFiscalDocumentSchema = z
       message: "Sem pagamento nao deve informar valor.",
       path: ["payments"],
     },
-  );
+  )
+  .superRefine((value, context) => {
+    value.items.forEach((item, index) => {
+      validateManualFiscalTaxFields(context, index, "ICMS", {
+        baseCalculation: item.icmsBaseCalculation,
+        code: item.productIcmsCst,
+        description: item.productIcmsCstDescription,
+        rate: item.icmsRate,
+      });
+      validateManualFiscalTaxFields(context, index, "PIS", {
+        baseCalculation: item.pisBaseCalculation,
+        code: item.productPisCst,
+        description: item.productPisCstDescription,
+        rate: item.pisRate,
+      });
+      validateManualFiscalTaxFields(context, index, "COFINS", {
+        baseCalculation: item.cofinsBaseCalculation,
+        code: item.productCofinsCst,
+        description: item.productCofinsCstDescription,
+        rate: item.cofinsRate,
+      });
+      validateManualFiscalTaxFields(context, index, "IPI", {
+        baseCalculation: item.ipiBaseCalculation,
+        code: item.productIpiCst,
+        description: item.productIpiCstDescription,
+        rate: item.ipiRate,
+      });
+    });
+  });
 
 const manualFiscalDocumentDraftPayloadSchema = z
   .record(z.string(), z.unknown())
@@ -678,6 +719,55 @@ function optionalText(max: number) {
     .union([z.string().trim().max(max), z.literal(""), z.null()])
     .transform((value) => value || null)
     .default(null);
+}
+
+function optionalTaxNumber(max = 9999999999999) {
+  return z
+    .union([z.null(), z.coerce.number().min(0).max(max)])
+    .default(null);
+}
+
+function optionalTaxCode(maxLength: 2 | 3) {
+  return z
+    .union([
+      z.string().trim().regex(new RegExp(`^\\d{2,${maxLength}}$`)),
+      z.literal(""),
+      z.null(),
+    ])
+    .transform((value) => value || null)
+    .default(null);
+}
+
+function validateManualFiscalTaxFields(
+  context: z.RefinementCtx,
+  itemIndex: number,
+  taxName: string,
+  tax: {
+    baseCalculation: number | null;
+    code: string | null;
+    description: string | null;
+    rate: number | null;
+  },
+) {
+  const hasDetails = Boolean(
+    tax.description || tax.baseCalculation !== null || tax.rate !== null,
+  );
+
+  if (hasDetails && !tax.code) {
+    context.addIssue({
+      code: "custom",
+      message: `CST ${taxName} e obrigatorio ao informar detalhes do imposto.`,
+      path: ["items", itemIndex, `product${taxName[0]}${taxName.slice(1).toLowerCase()}Cst`],
+    });
+  }
+
+  if ((tax.baseCalculation === null) !== (tax.rate === null)) {
+    context.addIssue({
+      code: "custom",
+      message: `Base de calculo e aliquota do ${taxName} devem ser informadas juntas.`,
+      path: ["items", itemIndex],
+    });
+  }
 }
 
 function normalizeManualFiscalDocumentInput(

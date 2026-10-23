@@ -992,8 +992,21 @@ export type ManualFiscalDocumentInput = {
     productNcm: string | null;
     productCfop: string | null;
     productIcmsCst: string | null;
+    productIcmsCstDescription: string | null;
+    icmsBaseCalculation: number | null;
+    icmsRate: number | null;
     productPisCst: string | null;
+    productPisCstDescription: string | null;
+    pisBaseCalculation: number | null;
+    pisRate: number | null;
     productCofinsCst: string | null;
+    productCofinsCstDescription: string | null;
+    cofinsBaseCalculation: number | null;
+    cofinsRate: number | null;
+    productIpiCst: string | null;
+    productIpiCstDescription: string | null;
+    ipiBaseCalculation: number | null;
+    ipiRate: number | null;
     productOrigin: string | null;
     productUnit: string;
     quantity: number;
@@ -1355,7 +1368,12 @@ function manualFiscalSale(
     (sum, item) => sum + item.discountAmount,
     0,
   );
-  const totalAmount = subtotalAmount - discountAmount;
+  const ipiAmount = input.items.reduce(
+    (sum, item) =>
+      sum + fiscalTaxAmountNumber(item.ipiBaseCalculation, item.ipiRate),
+    0,
+  );
+  const totalAmount = subtotalAmount - discountAmount + ipiAmount;
   const payments = manualFiscalPayments(input, totalAmount);
   ensureManualFiscalPaymentsMatchTotal(payments, totalAmount);
   const hasBillablePayment = payments.some((payment) =>
@@ -1409,9 +1427,32 @@ function manualFiscalSale(
           input.destinationOperation,
         ) ?? item.productCfop,
       productIcmsCst: item.productIcmsCst,
+      productIcmsCstDescription: item.productIcmsCstDescription,
+      icmsBaseCalculation: fiscalTaxNumber(item.icmsBaseCalculation),
+      icmsRate: fiscalTaxNumber(item.icmsRate, 4),
+      icmsAmount: fiscalTaxAmount(
+        item.icmsBaseCalculation,
+        item.icmsRate,
+      ),
       productNcm: item.productNcm,
       productPisCst: item.productPisCst,
+      productPisCstDescription: item.productPisCstDescription,
+      pisBaseCalculation: fiscalTaxNumber(item.pisBaseCalculation),
+      pisRate: fiscalTaxNumber(item.pisRate, 4),
+      pisAmount: fiscalTaxAmount(item.pisBaseCalculation, item.pisRate),
       productCofinsCst: item.productCofinsCst,
+      productCofinsCstDescription: item.productCofinsCstDescription,
+      cofinsBaseCalculation: fiscalTaxNumber(item.cofinsBaseCalculation),
+      cofinsRate: fiscalTaxNumber(item.cofinsRate, 4),
+      cofinsAmount: fiscalTaxAmount(
+        item.cofinsBaseCalculation,
+        item.cofinsRate,
+      ),
+      productIpiCst: item.productIpiCst,
+      productIpiCstDescription: item.productIpiCstDescription,
+      ipiBaseCalculation: fiscalTaxNumber(item.ipiBaseCalculation),
+      ipiRate: fiscalTaxNumber(item.ipiRate, 4),
+      ipiAmount: fiscalTaxAmount(item.ipiBaseCalculation, item.ipiRate),
       productOrigin: item.productOrigin,
       productUnit: item.productUnit,
       quantity: item.quantity.toFixed(3),
@@ -1427,6 +1468,25 @@ function manualFiscalSale(
 
 function fiscalUnitPrice(value: number) {
   return value.toFixed(10).replace(/\.?0+$/, "");
+}
+
+function fiscalTaxNumber(value: number | null, decimalPlaces = 2) {
+  return value === null ? null : value.toFixed(decimalPlaces);
+}
+
+function fiscalTaxAmount(baseCalculation: number | null, rate: number | null) {
+  if (baseCalculation === null || rate === null) {
+    return null;
+  }
+
+  return ((baseCalculation * rate) / 100).toFixed(2);
+}
+
+function fiscalTaxAmountNumber(
+  baseCalculation: number | null,
+  rate: number | null,
+) {
+  return Number(fiscalTaxAmount(baseCalculation, rate) ?? 0);
 }
 
 function cfopFromNatureOperation(
