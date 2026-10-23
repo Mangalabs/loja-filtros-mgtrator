@@ -3774,6 +3774,22 @@ describe("catalog routes", () => {
     (input.items[0] as { productCfop: string | null }).productCfop = null;
     input.items[0].quantity = 5;
     input.items[0].unitPrice = 1.5312;
+    input.items[0].productIcmsCst = "00";
+    input.items[0].productIcmsCstDescription = "Tributada integralmente";
+    input.items[0].icmsBaseCalculation = 7.66;
+    input.items[0].icmsRate = 18;
+    input.items[0].productPisCst = "01";
+    input.items[0].productPisCstDescription = "Operacao tributavel";
+    input.items[0].pisBaseCalculation = 7.66;
+    input.items[0].pisRate = 1.65;
+    input.items[0].productCofinsCst = "01";
+    input.items[0].productCofinsCstDescription = "Operacao tributavel";
+    input.items[0].cofinsBaseCalculation = 7.66;
+    input.items[0].cofinsRate = 7.6;
+    input.items[0].productIpiCst = "50";
+    input.items[0].productIpiCstDescription = "Saida tributada";
+    input.items[0].ipiBaseCalculation = 7.66;
+    input.items[0].ipiRate = 5;
 
     const manualFiscalDocument = await request<FiscalDocument>(
       "/fiscal-documents/manual",
@@ -3808,7 +3824,16 @@ describe("catalog routes", () => {
     assert.equal(items[0]?.productCfop, "2202");
     assert.equal(items[0]?.unitPrice, "1.5312");
     assert.equal(items[0]?.totalAmount, "7.66");
-    assert.equal(sale.totalAmount, "7.66");
+    assert.equal(items[0]?.productIcmsCstDescription, "Tributada integralmente");
+    assert.equal(items[0]?.icmsBaseCalculation, "7.66");
+    assert.equal(items[0]?.icmsRate, "18.0000");
+    assert.equal(items[0]?.icmsAmount, "1.38");
+    assert.equal(items[0]?.pisAmount, "0.13");
+    assert.equal(items[0]?.cofinsAmount, "0.58");
+    assert.equal(items[0]?.productIpiCst, "50");
+    assert.equal(items[0]?.productIpiCstDescription, "Saida tributada");
+    assert.equal(items[0]?.ipiAmount, "0.38");
+    assert.equal(sale.totalAmount, "8.04");
     assert.deepEqual(
       manualFiscalDocument.body.data?.requestPayload.referencedAccessKeys,
       ["1".repeat(44)],
@@ -3822,6 +3847,19 @@ describe("catalog routes", () => {
         (document) => document.id === manualFiscalDocument.body.data?.id,
       ),
     );
+  });
+
+  it("rejects incomplete manual fiscal tax calculations", async () => {
+    const input = manualFiscalDocumentRequest();
+
+    input.items[0].icmsBaseCalculation = 35;
+
+    const response = await request("/fiscal-documents/manual/preview", {
+      method: "POST",
+      body: input,
+    });
+
+    assert.equal(response.status, 422);
   });
 
   it("issues a manual mock return fiscal document with billing", async () => {
@@ -6009,6 +6047,86 @@ describe("catalog routes", () => {
       assert.equal(item.valor_bruto, 24.65);
       assert.equal(payload.valor_produtos, 24.65);
       assert.equal(payload.valor_total, 24.65);
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("sends manually calculated item taxes to Focus", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const requestPayload = focusIssueRequest();
+    const requestItem = requestPayload.sale.items[0];
+    let submittedPayload: Record<string, unknown> | null = null;
+
+    requestPayload.sale.totalAmount = "36.75";
+    requestPayload.sale.payments[0].amount = "36.75";
+    requestItem.productIcmsCst = "00";
+    requestItem.icmsBaseCalculation = "35.00";
+    requestItem.icmsRate = "18.0000";
+    requestItem.icmsAmount = "999.99";
+    requestItem.productPisCst = "01";
+    requestItem.pisBaseCalculation = "35.00";
+    requestItem.pisRate = "1.6500";
+    requestItem.pisAmount = "0.58";
+    requestItem.productCofinsCst = "01";
+    requestItem.cofinsBaseCalculation = "35.00";
+    requestItem.cofinsRate = "7.6000";
+    requestItem.cofinsAmount = "2.66";
+    requestItem.productIpiCst = "50";
+    requestItem.ipiBaseCalculation = "35.00";
+    requestItem.ipiRate = "5.0000";
+    requestItem.ipiAmount = "1.75";
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayload = JSON.parse(String(init?.body)) as Record<
+        string,
+        unknown
+      >;
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocustaxfields",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(requestPayload);
+      assert.ok(submittedPayload);
+
+      const payload = submittedPayload as Record<string, unknown>;
+      const item = (payload.items as Array<Record<string, unknown>>)[0];
+
+      assert.equal(item.icms_situacao_tributaria, "00");
+      assert.equal(item.icms_modalidade_base_calculo, "3");
+      assert.equal(item.icms_base_calculo, 35);
+      assert.equal(item.icms_aliquota, 18);
+      assert.equal(item.icms_valor, 6.3);
+      assert.equal(item.pis_situacao_tributaria, "01");
+      assert.equal(item.pis_base_calculo, 35);
+      assert.equal(item.pis_aliquota_porcentual, 1.65);
+      assert.equal(item.pis_valor, 0.58);
+      assert.equal(item.cofins_situacao_tributaria, "01");
+      assert.equal(item.cofins_base_calculo, 35);
+      assert.equal(item.cofins_aliquota_porcentual, 7.6);
+      assert.equal(item.cofins_valor, 2.66);
+      assert.equal(item.ipi_situacao_tributaria, "50");
+      assert.equal(item.ipi_codigo_enquadramento_legal, "999");
+      assert.equal(item.ipi_base_calculo, 35);
+      assert.equal(item.ipi_aliquota, 5);
+      assert.equal(item.ipi_valor, 1.75);
+      assert.equal(payload.valor_total, 36.75);
     } finally {
       env.fiscal.provider = originalFiscalProvider;
       env.fiscal.focus.token = originalFocusToken;
@@ -11336,8 +11454,21 @@ function manualFiscalDocumentRequest() {
         productNcm: "84212300",
         productCfop: "1202",
         productIcmsCst: "090",
+        productIcmsCstDescription: null as string | null,
+        icmsBaseCalculation: null as number | null,
+        icmsRate: null as number | null,
         productPisCst: "99",
+        productPisCstDescription: null as string | null,
+        pisBaseCalculation: null as number | null,
+        pisRate: null as number | null,
         productCofinsCst: "99",
+        productCofinsCstDescription: null as string | null,
+        cofinsBaseCalculation: null as number | null,
+        cofinsRate: null as number | null,
+        productIpiCst: null as string | null,
+        productIpiCstDescription: null as string | null,
+        ipiBaseCalculation: null as number | null,
+        ipiRate: null as number | null,
         productOrigin: "0",
         productUnit: "UN",
         quantity: 1,

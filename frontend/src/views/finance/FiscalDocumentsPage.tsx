@@ -561,8 +561,21 @@ type ManualFiscalItemForm = {
   productNcm: string
   productCfop: string
   productIcmsCst: string
+  productIcmsCstDescription: string
+  icmsBaseCalculation: string
+  icmsRate: string
   productPisCst: string
+  productPisCstDescription: string
+  pisBaseCalculation: string
+  pisRate: string
   productCofinsCst: string
+  productCofinsCstDescription: string
+  cofinsBaseCalculation: string
+  cofinsRate: string
+  productIpiCst: string
+  productIpiCstDescription: string
+  ipiBaseCalculation: string
+  ipiRate: string
   productOrigin: string
   productUnit: string
   quantity: string
@@ -843,8 +856,21 @@ export function ManualFiscalDocumentPage({
       productNcm: product?.ncm ?? '',
       productCfop: product?.cfop ?? '',
       productIcmsCst: product?.icmsCst ?? '',
+      productIcmsCstDescription: '',
+      icmsBaseCalculation: '',
+      icmsRate: '',
       productPisCst: product?.pisCst ?? '',
+      productPisCstDescription: '',
+      pisBaseCalculation: '',
+      pisRate: '',
       productCofinsCst: product?.cofinsCst ?? '',
+      productCofinsCstDescription: '',
+      cofinsBaseCalculation: '',
+      cofinsRate: '',
+      productIpiCst: '',
+      productIpiCstDescription: '',
+      ipiBaseCalculation: '',
+      ipiRate: '',
       productOrigin: product?.origin ?? '0',
       productUnit: product?.unit ?? 'UN',
       unitPrice: product?.salePrice ?? '',
@@ -1448,29 +1474,6 @@ export function ManualFiscalDocumentPage({
                     }
                   />
                   <TextField
-                    label='CST ICMS'
-                    value={item.productIcmsCst}
-                    onChange={(event) =>
-                      updateItem(index, { productIcmsCst: event.target.value })
-                    }
-                  />
-                  <TextField
-                    label='CST PIS'
-                    value={item.productPisCst}
-                    onChange={(event) =>
-                      updateItem(index, { productPisCst: event.target.value })
-                    }
-                  />
-                  <TextField
-                    label='CST COFINS'
-                    value={item.productCofinsCst}
-                    onChange={(event) =>
-                      updateItem(index, {
-                        productCofinsCst: event.target.value,
-                      })
-                    }
-                  />
-                  <TextField
                     label='Unidade'
                     value={item.productUnit}
                     onChange={(event) =>
@@ -1532,6 +1535,70 @@ export function ManualFiscalDocumentPage({
                           ? { ...nonNegativePercentageInputProps, max: 100 }
                           : nonNegativeMoneyInputProps,
                     }}
+                  />
+                </div>
+                <div className='grid gap-3'>
+                  <strong className='text-sm text-[#2c281e]'>Tributação</strong>
+                  <ManualFiscalTaxFields
+                    baseCalculation={item.icmsBaseCalculation}
+                    code={item.productIcmsCst}
+                    codeHelperText='Use CST com 2 dígitos ou CSOSN com 3 dígitos, conforme o regime da filial.'
+                    description={item.productIcmsCstDescription}
+                    rate={item.icmsRate}
+                    taxName='ICMS'
+                    onChange={(tax) =>
+                      updateItem(index, {
+                        productIcmsCst: tax.code,
+                        productIcmsCstDescription: tax.description,
+                        icmsBaseCalculation: tax.baseCalculation,
+                        icmsRate: tax.rate,
+                      })
+                    }
+                  />
+                  <ManualFiscalTaxFields
+                    baseCalculation={item.pisBaseCalculation}
+                    code={item.productPisCst}
+                    description={item.productPisCstDescription}
+                    rate={item.pisRate}
+                    taxName='PIS'
+                    onChange={(tax) =>
+                      updateItem(index, {
+                        productPisCst: tax.code,
+                        productPisCstDescription: tax.description,
+                        pisBaseCalculation: tax.baseCalculation,
+                        pisRate: tax.rate,
+                      })
+                    }
+                  />
+                  <ManualFiscalTaxFields
+                    baseCalculation={item.cofinsBaseCalculation}
+                    code={item.productCofinsCst}
+                    description={item.productCofinsCstDescription}
+                    rate={item.cofinsRate}
+                    taxName='COFINS'
+                    onChange={(tax) =>
+                      updateItem(index, {
+                        productCofinsCst: tax.code,
+                        productCofinsCstDescription: tax.description,
+                        cofinsBaseCalculation: tax.baseCalculation,
+                        cofinsRate: tax.rate,
+                      })
+                    }
+                  />
+                  <ManualFiscalTaxFields
+                    baseCalculation={item.ipiBaseCalculation}
+                    code={item.productIpiCst}
+                    description={item.productIpiCstDescription}
+                    rate={item.ipiRate}
+                    taxName='IPI'
+                    onChange={(tax) =>
+                      updateItem(index, {
+                        productIpiCst: tax.code,
+                        productIpiCstDescription: tax.description,
+                        ipiBaseCalculation: tax.baseCalculation,
+                        ipiRate: tax.rate,
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -1871,6 +1938,109 @@ export function ManualFiscalDocumentPage({
   )
 }
 
+type ManualFiscalTaxForm = {
+  baseCalculation: string
+  code: string
+  description: string
+  rate: string
+}
+
+function ManualFiscalTaxFields({
+  baseCalculation,
+  code,
+  codeHelperText,
+  description,
+  rate,
+  taxName,
+  onChange,
+}: ManualFiscalTaxForm & {
+  codeHelperText?: string
+  taxName: 'ICMS' | 'PIS' | 'COFINS' | 'IPI'
+  onChange: (tax: ManualFiscalTaxForm) => void
+}) {
+  const updateTax = (changes: Partial<ManualFiscalTaxForm>) =>
+    onChange({ baseCalculation, code, description, rate, ...changes })
+  const calculatedAmount = manualFiscalTaxAmountValue(baseCalculation, rate)
+
+  return (
+    <div className='grid gap-3 rounded-lg border border-[#dfe5e2] bg-white p-3'>
+      <div className='grid gap-3 md:grid-cols-[minmax(140px,0.45fr)_minmax(0,1.55fr)]'>
+        <TextField
+          helperText={codeHelperText}
+          label={taxName === 'ICMS' ? 'CST/CSOSN ICMS' : `CST ${taxName}`}
+          value={code}
+          onChange={(event) => {
+            const nextCode = event.target.value
+              .replace(/\D/g, '')
+              .slice(0, taxName === 'ICMS' ? 3 : 2)
+
+            updateTax(
+              nextCode === code
+                ? { code: nextCode }
+                : {
+                    baseCalculation: '',
+                    code: nextCode,
+                    description: '',
+                    rate: '',
+                  },
+            )
+          }}
+          slotProps={{
+            htmlInput: {
+              inputMode: 'numeric',
+              maxLength: taxName === 'ICMS' ? 3 : 2,
+            },
+          }}
+        />
+        {code.trim() ? (
+          <TextField
+            helperText='Descrição interna informada pelo usuário; não altera o código enviado à NF-e.'
+            label={`Descrição do CST ${taxName}`}
+            value={description}
+            onChange={(event) =>
+              updateTax({ description: event.target.value })
+            }
+          />
+        ) : null}
+      </div>
+      {taxName === 'ICMS' && code.trim().length === 2 ? (
+        <Alert severity='warning'>
+          CST de dois dígitos é usado no regime normal. Para filial do Simples
+          Nacional, confirme com o contador se deve ser informado um CSOSN de
+          três dígitos.
+        </Alert>
+      ) : null}
+      {code.trim() ? (
+        <div className='grid gap-3 md:grid-cols-3'>
+          <TextField
+            helperText='Preencha junto com a alíquota quando este CST exigir cálculo.'
+            label={`Base de cálculo do ${taxName}`}
+            type='number'
+            value={baseCalculation}
+            onChange={(event) =>
+              updateTax({ baseCalculation: event.target.value })
+            }
+            slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
+          />
+          <TextField
+            label={`Alíquota do ${taxName} (%)`}
+            type='number'
+            value={rate}
+            onChange={(event) => updateTax({ rate: event.target.value })}
+            slotProps={{ htmlInput: nonNegativePercentageInputProps }}
+          />
+          <TextField
+            helperText='Calculado automaticamente pela base e alíquota.'
+            label={`Valor do ${taxName}`}
+            value={calculatedAmount}
+            slotProps={{ htmlInput: { readOnly: true } }}
+          />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function emptyManualFiscalItem(): ManualFiscalItemForm {
   return {
     productId: '',
@@ -1879,8 +2049,21 @@ function emptyManualFiscalItem(): ManualFiscalItemForm {
     productNcm: '',
     productCfop: '',
     productIcmsCst: '',
+    productIcmsCstDescription: '',
+    icmsBaseCalculation: '',
+    icmsRate: '',
     productPisCst: '',
+    productPisCstDescription: '',
+    pisBaseCalculation: '',
+    pisRate: '',
     productCofinsCst: '',
+    productCofinsCstDescription: '',
+    cofinsBaseCalculation: '',
+    cofinsRate: '',
+    productIpiCst: '',
+    productIpiCstDescription: '',
+    ipiBaseCalculation: '',
+    ipiRate: '',
     productOrigin: '0',
     productUnit: 'UN',
     quantity: '1',
@@ -2258,8 +2441,27 @@ function manualFiscalDocumentInput(
       productNcm: item.productNcm.trim() || null,
       productCfop: item.productCfop.trim() || null,
       productIcmsCst: item.productIcmsCst.trim() || null,
+      productIcmsCstDescription:
+        item.productIcmsCstDescription.trim() || null,
+      icmsBaseCalculation: nullableNumberInputValue(
+        item.icmsBaseCalculation,
+      ),
+      icmsRate: nullableNumberInputValue(item.icmsRate),
       productPisCst: item.productPisCst.trim() || null,
+      productPisCstDescription: item.productPisCstDescription.trim() || null,
+      pisBaseCalculation: nullableNumberInputValue(item.pisBaseCalculation),
+      pisRate: nullableNumberInputValue(item.pisRate),
       productCofinsCst: item.productCofinsCst.trim() || null,
+      productCofinsCstDescription:
+        item.productCofinsCstDescription.trim() || null,
+      cofinsBaseCalculation: nullableNumberInputValue(
+        item.cofinsBaseCalculation,
+      ),
+      cofinsRate: nullableNumberInputValue(item.cofinsRate),
+      productIpiCst: item.productIpiCst.trim() || null,
+      productIpiCstDescription: item.productIpiCstDescription.trim() || null,
+      ipiBaseCalculation: nullableNumberInputValue(item.ipiBaseCalculation),
+      ipiRate: nullableNumberInputValue(item.ipiRate),
       productOrigin: item.productOrigin.trim() || null,
       productUnit: item.productUnit.trim() || 'UN',
       quantity: Number(item.quantity || 0),
@@ -2406,6 +2608,12 @@ function manualFiscalPayloadItemsTotal(items: ManualFiscalItemForm[]) {
             0,
             Number(item.quantity || 0) * Number(item.unitPrice || 0) -
               Number(item.discountAmount || 0),
+          ) +
+          Number(
+            manualFiscalTaxAmountValue(
+              item.ipiBaseCalculation,
+              item.ipiRate,
+            ) || 0,
           ),
         0,
       )
@@ -2425,8 +2633,27 @@ function manualFiscalGrandTotal(
         items,
         generalDiscountType,
         generalDiscountValue,
-      ),
+      ) +
+      manualFiscalIpiTotal(items),
   )
+}
+
+function manualFiscalIpiTotal(items: ManualFiscalItemForm[]) {
+  return items.reduce(
+    (sum, item) =>
+      sum +
+      Number(
+        manualFiscalTaxAmountValue(
+          item.ipiBaseCalculation,
+          item.ipiRate,
+        ) || 0,
+      ),
+    0,
+  )
+}
+
+function manualFiscalInvoiceItemsTotal(items: ManualFiscalItemForm[]) {
+  return manualFiscalItemsTotal(items) + manualFiscalIpiTotal(items)
 }
 
 function manualFiscalItemTotal(item: ManualFiscalItemForm) {
@@ -2435,6 +2662,21 @@ function manualFiscalItemTotal(item: ManualFiscalItemForm) {
     Number(item.quantity || 0) * Number(item.unitPrice || 0) -
       manualFiscalItemDiscountAmount(item),
   )
+}
+
+function manualFiscalTaxAmountValue(baseCalculation: string, rate: string) {
+  if (!baseCalculation.trim() || !rate.trim()) {
+    return ''
+  }
+
+  const parsedBaseCalculation = Number(baseCalculation)
+  const parsedRate = Number(rate)
+
+  if (!Number.isFinite(parsedBaseCalculation) || !Number.isFinite(parsedRate)) {
+    return ''
+  }
+
+  return ((parsedBaseCalculation * parsedRate) / 100).toFixed(2)
 }
 
 function manualFiscalItemDiscountAmount(item: ManualFiscalItemForm) {
@@ -2725,7 +2967,7 @@ function manualFiscalDocumentFormValues(document?: FiscalDocument) {
       ),
     },
     items: formItems,
-    totalAmount: manualFiscalItemsTotal(formItems).toFixed(2),
+    totalAmount: manualFiscalInvoiceItemsTotal(formItems).toFixed(2),
   }
 }
 
@@ -2814,7 +3056,7 @@ function manualFiscalDocumentDraftFormValues(
       ),
     },
     items: formItems,
-    totalAmount: manualFiscalItemsTotal(formItems).toFixed(2),
+    totalAmount: manualFiscalInvoiceItemsTotal(formItems).toFixed(2),
   }
 }
 
@@ -2827,8 +3069,21 @@ function manualFiscalDocumentSaleFormValues(sale: Sale) {
         productNcm: item.productNcm ?? '',
         productCfop: item.productCfop ?? '',
         productIcmsCst: item.productIcmsCst ?? '',
+        productIcmsCstDescription: '',
+        icmsBaseCalculation: '',
+        icmsRate: '',
         productPisCst: item.productPisCst ?? '',
+        productPisCstDescription: '',
+        pisBaseCalculation: '',
+        pisRate: '',
         productCofinsCst: item.productCofinsCst ?? '',
+        productCofinsCstDescription: '',
+        cofinsBaseCalculation: '',
+        cofinsRate: '',
+        productIpiCst: '',
+        productIpiCstDescription: '',
+        ipiBaseCalculation: '',
+        ipiRate: '',
         productOrigin: item.productOrigin ?? '0',
         productUnit: item.productUnit || 'UN',
         quantity: item.quantity,
@@ -3018,7 +3273,7 @@ function manualFiscalPaymentsFromDraftPayload(
       {
         paymentMethodCode: 'BOLETO',
         paymentMethodName: manualFiscalPaymentName('BOLETO'),
-        amount: manualFiscalItemsTotal(items).toFixed(2),
+        amount: manualFiscalInvoiceItemsTotal(items).toFixed(2),
       },
     ]
   }
@@ -3070,9 +3325,7 @@ function manualFiscalItemFromDraftPayload(
     productName: stringPayloadValue(item.productName) ?? '',
     productNcm: stringPayloadValue(item.productNcm) ?? '',
     productCfop: stringPayloadValue(item.productCfop) ?? '',
-    productIcmsCst: stringPayloadValue(item.productIcmsCst) ?? '',
-    productPisCst: stringPayloadValue(item.productPisCst) ?? '',
-    productCofinsCst: stringPayloadValue(item.productCofinsCst) ?? '',
+    ...manualFiscalItemTaxFormValues(item),
     productOrigin: stringPayloadValue(item.productOrigin) ?? '0',
     productUnit: stringPayloadValue(item.productUnit) ?? 'UN',
     quantity: stringPayloadValue(item.quantity) ?? '1',
@@ -3100,9 +3353,7 @@ function manualFiscalItemFromPayload(
     productName: stringPayloadValue(item.productName) ?? '',
     productNcm: stringPayloadValue(item.productNcm) ?? '',
     productCfop: stringPayloadValue(item.productCfop) ?? '',
-    productIcmsCst: stringPayloadValue(item.productIcmsCst) ?? '',
-    productPisCst: stringPayloadValue(item.productPisCst) ?? '',
-    productCofinsCst: stringPayloadValue(item.productCofinsCst) ?? '',
+    ...manualFiscalItemTaxFormValues(item),
     productOrigin: stringPayloadValue(item.productOrigin) ?? '0',
     productUnit: stringPayloadValue(item.productUnit) ?? 'UN',
     quantity: stringPayloadValue(item.quantity) ?? '1',
@@ -3116,6 +3367,33 @@ function manualFiscalItemFromPayload(
       stringPayloadValue(item.discountAmount) ??
       '0',
     discountAmount: stringPayloadValue(item.discountAmount) ?? '0',
+  }
+}
+
+function manualFiscalItemTaxFormValues(item: Record<string, unknown>) {
+  return {
+    productIcmsCst: stringPayloadValue(item.productIcmsCst) ?? '',
+    productIcmsCstDescription:
+      stringPayloadValue(item.productIcmsCstDescription) ?? '',
+    icmsBaseCalculation:
+      stringPayloadValue(item.icmsBaseCalculation) ?? '',
+    icmsRate: stringPayloadValue(item.icmsRate) ?? '',
+    productPisCst: stringPayloadValue(item.productPisCst) ?? '',
+    productPisCstDescription:
+      stringPayloadValue(item.productPisCstDescription) ?? '',
+    pisBaseCalculation: stringPayloadValue(item.pisBaseCalculation) ?? '',
+    pisRate: stringPayloadValue(item.pisRate) ?? '',
+    productCofinsCst: stringPayloadValue(item.productCofinsCst) ?? '',
+    productCofinsCstDescription:
+      stringPayloadValue(item.productCofinsCstDescription) ?? '',
+    cofinsBaseCalculation:
+      stringPayloadValue(item.cofinsBaseCalculation) ?? '',
+    cofinsRate: stringPayloadValue(item.cofinsRate) ?? '',
+    productIpiCst: stringPayloadValue(item.productIpiCst) ?? '',
+    productIpiCstDescription:
+      stringPayloadValue(item.productIpiCstDescription) ?? '',
+    ipiBaseCalculation: stringPayloadValue(item.ipiBaseCalculation) ?? '',
+    ipiRate: stringPayloadValue(item.ipiRate) ?? '',
   }
 }
 
@@ -3246,6 +3524,15 @@ function manualFiscalDueDate(
 function moneyInputValue(value: string) {
   const parsedValue = Number(value || 0)
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0
+}
+
+function nullableNumberInputValue(value: string) {
+  if (!value.trim()) {
+    return null
+  }
+
+  const parsedValue = Number(value)
+  return Number.isFinite(parsedValue) ? parsedValue : null
 }
 
 function onlyDigits(value: string | null) {
@@ -3625,17 +3912,31 @@ type FiscalDetailItem = {
   id: string
   name: string
   quantity: string
+  taxes?: FiscalDetailItemTax[]
   totalAmount: string
   unitPrice: string
 }
 
+type FiscalDetailItemTax = {
+  amount: string | null
+  baseCalculation: string | null
+  code: string
+  description: string | null
+  name: 'ICMS' | 'PIS' | 'COFINS' | 'IPI'
+  rate: string | null
+}
+
 function fiscalDetailFromRequest(request: FiscalRequest): FiscalDetail {
+  const items = fiscalRequestDetailItems(request)
+
   return {
     clientDocument: fiscalRequestClientDocument(request),
     clientName: request.clientName,
     document: request.document,
     history: fiscalRequestDetailHistory(request),
-    items: fiscalRequestDetailItems(request),
+    items: request.document
+      ? fiscalDetailItemsWithDocumentTaxes(items, request.document)
+      : items,
     paymentSummary: fiscalRequestPaymentSummary(request),
     status: request.document ? (
       <FiscalDocumentStatus document={request.document} />
@@ -3750,6 +4051,9 @@ function FiscalDetailDrawer({
                         <span>Unitário {formatCurrency(item.unitPrice)}</span>
                         <strong>{formatCurrency(item.totalAmount)}</strong>
                       </div>
+                      {item.taxes?.length ? (
+                        <FiscalDetailItemTaxes taxes={item.taxes} />
+                      ) : null}
                     </div>
                   ))}
                   <div className='flex items-center justify-between pt-2'>
@@ -3803,6 +4107,51 @@ function FiscalDetailDrawer({
         </Box>
       ) : null}
     </Drawer>
+  )
+}
+
+function FiscalDetailItemTaxes({
+  taxes,
+}: {
+  taxes: FiscalDetailItemTax[]
+}) {
+  return (
+    <div className='mt-2 grid gap-2 border-t border-[#e4e9e5] pt-2 sm:grid-cols-2'>
+      {taxes.map((tax) => {
+        const codeLabel =
+          tax.name === 'ICMS' && tax.code.length === 3 ? 'CSOSN' : 'CST'
+
+        return (
+          <div
+            className='grid min-w-0 gap-1 rounded-md bg-white p-2 text-xs'
+            key={tax.name}>
+            <strong className='text-[#203466]'>
+              {tax.name} · {codeLabel} {tax.code}
+            </strong>
+            {tax.description ? (
+              <span className='break-words text-[#5f665f]'>
+                {tax.description}
+              </span>
+            ) : null}
+            {tax.baseCalculation || tax.rate || tax.amount ? (
+              <div className='grid gap-0.5 text-[#5f665f]'>
+                {tax.baseCalculation ? (
+                  <span>Base: {formatCurrency(tax.baseCalculation)}</span>
+                ) : null}
+                {tax.rate ? (
+                  <span>Alíquota: {formatFiscalTaxRate(tax.rate)}%</span>
+                ) : null}
+                {tax.amount ? (
+                  <strong className='text-[#2c281e]'>
+                    Valor: {formatCurrency(tax.amount)}
+                  </strong>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -3981,7 +4330,10 @@ function fiscalDocumentSourceDetail(
       clientDocument: sale.clientDocument,
       clientName: sale.clientName ?? 'Não identificado',
       createdAt: sale.createdAt,
-      items: saleFiscalDetailItems(sale),
+      items: fiscalDetailItemsWithDocumentTaxes(
+        saleFiscalDetailItems(sale),
+        document,
+      ),
       operatorName: sale.createdByUserName,
       paymentSummary: saleFiscalPaymentSummary(sale),
       totalAmount: fiscalTotalAmount ?? sale.totalAmount,
@@ -3993,13 +4345,16 @@ function fiscalDocumentSourceDetail(
       clientDocument: null,
       clientName: shippingOrder.clientName,
       createdAt: shippingOrder.createdAt,
-      items: shippingOrder.items.map((item) => ({
-        id: item.id,
-        name: item.description ?? item.productName,
-        quantity: item.quantity,
-        totalAmount: item.totalAmount,
-        unitPrice: item.unitPrice,
-      })),
+      items: fiscalDetailItemsWithDocumentTaxes(
+        shippingOrder.items.map((item) => ({
+          id: item.id,
+          name: item.description ?? item.productName,
+          quantity: item.quantity,
+          totalAmount: item.totalAmount,
+          unitPrice: item.unitPrice,
+        })),
+        document,
+      ),
       operatorName: shippingOrder.createdByUserName,
       paymentSummary: shippingOrder.payments.length
         ? shippingOrder.payments
@@ -4016,13 +4371,16 @@ function fiscalDocumentSourceDetail(
       clientDocument: null,
       clientName: pickupReservation.clientName,
       createdAt: pickupReservation.createdAt,
-      items: pickupReservation.items.map((item) => ({
-        id: item.id,
-        name: item.productName,
-        quantity: item.quantity,
-        totalAmount: item.totalAmount,
-        unitPrice: item.unitPrice,
-      })),
+      items: fiscalDetailItemsWithDocumentTaxes(
+        pickupReservation.items.map((item) => ({
+          id: item.id,
+          name: item.productName,
+          quantity: item.quantity,
+          totalAmount: item.totalAmount,
+          unitPrice: item.unitPrice,
+        })),
+        document,
+      ),
       operatorName: pickupReservation.createdByUserName,
       paymentSummary: 'Definido ao concluir',
       totalAmount: fiscalTotalAmount ?? pickupReservation.totalAmount,
@@ -4092,9 +4450,103 @@ function manualFiscalDetailItemFromPayload(
     id: stringPayloadValue(item.id) ?? `manual-${index}`,
     name: fiscalItem.productName || 'Item sem descrição',
     quantity: fiscalItem.quantity || '0',
+    taxes: manualFiscalDetailTaxesFromPayload(item),
     totalAmount: totalAmount.toFixed(2),
     unitPrice: fiscalItem.unitPrice || '0',
   }
+}
+
+function fiscalDetailItemsWithDocumentTaxes(
+  items: FiscalDetailItem[],
+  document: FiscalDocument,
+) {
+  const sale = manualFiscalPayloadSale(document.requestPayload)
+  const fiscalItems = Array.isArray(sale?.items) ? sale.items : []
+
+  return items.map((item, index) => {
+    const fiscalItem = fiscalItems[index]
+
+    if (typeof fiscalItem !== 'object' || fiscalItem === null) {
+      return item
+    }
+
+    const taxes = manualFiscalDetailTaxesFromPayload(
+      fiscalItem as Record<string, unknown>,
+    )
+
+    return taxes.length > 0 ? { ...item, taxes } : item
+  })
+}
+
+function manualFiscalDetailTaxesFromPayload(
+  item: Record<string, unknown>,
+): FiscalDetailItemTax[] {
+  const taxes: Array<{
+    amount: unknown
+    baseCalculation: unknown
+    code: unknown
+    description: unknown
+    name: FiscalDetailItemTax['name']
+    rate: unknown
+  }> = [
+    {
+      amount: item.icmsAmount,
+      baseCalculation: item.icmsBaseCalculation,
+      code: item.productIcmsCst,
+      description: item.productIcmsCstDescription,
+      name: 'ICMS',
+      rate: item.icmsRate,
+    },
+    {
+      amount: item.pisAmount,
+      baseCalculation: item.pisBaseCalculation,
+      code: item.productPisCst,
+      description: item.productPisCstDescription,
+      name: 'PIS',
+      rate: item.pisRate,
+    },
+    {
+      amount: item.cofinsAmount,
+      baseCalculation: item.cofinsBaseCalculation,
+      code: item.productCofinsCst,
+      description: item.productCofinsCstDescription,
+      name: 'COFINS',
+      rate: item.cofinsRate,
+    },
+    {
+      amount: item.ipiAmount,
+      baseCalculation: item.ipiBaseCalculation,
+      code: item.productIpiCst,
+      description: item.productIpiCstDescription,
+      name: 'IPI',
+      rate: item.ipiRate,
+    },
+  ]
+
+  return taxes.flatMap((tax) => {
+    const code = stringPayloadValue(tax.code)
+
+    return code
+      ? [
+          {
+            amount: stringPayloadValue(tax.amount),
+            baseCalculation: stringPayloadValue(tax.baseCalculation),
+            code,
+            description: stringPayloadValue(tax.description),
+            name: tax.name,
+            rate: stringPayloadValue(tax.rate),
+          },
+        ]
+      : []
+  })
+}
+
+function formatFiscalTaxRate(rate: string) {
+  const parsedRate = Number(rate)
+
+  return Number.isFinite(parsedRate)
+    ? parsedRate.toLocaleString('pt-BR', { maximumFractionDigits: 4 })
+    : rate
 }
 
 function fiscalDocumentDetailHistory(

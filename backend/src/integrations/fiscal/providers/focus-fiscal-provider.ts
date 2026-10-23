@@ -78,8 +78,23 @@ type FocusNfeItemPayload = {
   cfop: string;
   icms_origem: string;
   icms_situacao_tributaria: string;
+  icms_modalidade_base_calculo?: "3";
+  icms_base_calculo?: number;
+  icms_aliquota?: number;
+  icms_valor?: number;
   pis_situacao_tributaria: string;
+  pis_base_calculo?: number;
+  pis_aliquota_porcentual?: number;
+  pis_valor?: number;
   cofins_situacao_tributaria: string;
+  cofins_base_calculo?: number;
+  cofins_aliquota_porcentual?: number;
+  cofins_valor?: number;
+  ipi_situacao_tributaria?: string;
+  ipi_codigo_enquadramento_legal?: "999";
+  ipi_base_calculo?: number;
+  ipi_aliquota?: number;
+  ipi_valor?: number;
   unidade_comercial: string;
   quantidade_comercial: number;
   valor_unitario_comercial: number;
@@ -356,7 +371,6 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
       focusString(request.additionalInformation) ?? undefined,
     ...focusBillingPayload(request, {
       discountAmount,
-      productAmount,
       totalAmount,
     }),
     ...focusReferencedInvoicesPayload(request),
@@ -429,7 +443,6 @@ function focusBillingPayload(
   request: FiscalIssueRequest,
   amounts: {
     discountAmount: number;
-    productAmount: number;
     totalAmount: number;
   },
 ): Partial<FocusNfePayload> {
@@ -445,7 +458,9 @@ function focusBillingPayload(
 
   return {
     numero_fatura: installments[0]?.numero,
-    valor_original_fatura: amounts.productAmount,
+    valor_original_fatura: moneyNumber(
+      String(amounts.totalAmount + amounts.discountAmount),
+    ),
     valor_desconto_fatura: amounts.discountAmount,
     valor_liquido_fatura: amounts.totalAmount,
     duplicatas: installments,
@@ -618,6 +633,7 @@ function focusNfeItemPayload(
       item.productCofinsCst ?? request.defaultCofinsCst,
       "49",
     ),
+    ...focusItemCalculatedTaxes(item),
     unidade_comercial: focusProductUnit(item.productUnit),
     quantidade_comercial: quantity,
     valor_unitario_comercial: unitPrice,
@@ -626,6 +642,79 @@ function focusNfeItemPayload(
     unidade_tributavel: focusProductUnit(item.productUnit),
     quantidade_tributavel: quantity,
     valor_unitario_tributavel: unitPrice,
+  };
+}
+
+function focusItemCalculatedTaxes(
+  item: FiscalIssueRequest["sale"]["items"][number],
+): Partial<FocusNfeItemPayload> {
+  const icms = focusCalculatedTax(item.icmsBaseCalculation, item.icmsRate);
+  const pis = focusCalculatedTax(item.pisBaseCalculation, item.pisRate);
+  const cofins = focusCalculatedTax(
+    item.cofinsBaseCalculation,
+    item.cofinsRate,
+  );
+  const ipi = focusCalculatedTax(item.ipiBaseCalculation, item.ipiRate);
+  const ipiCst = focusString(item.productIpiCst);
+
+  return {
+    ...(icms
+      ? {
+          icms_modalidade_base_calculo: "3" as const,
+          icms_base_calculo: icms.baseCalculation,
+          icms_aliquota: icms.rate,
+          icms_valor: icms.amount,
+        }
+      : {}),
+    ...(pis
+      ? {
+          pis_base_calculo: pis.baseCalculation,
+          pis_aliquota_porcentual: pis.rate,
+          pis_valor: pis.amount,
+        }
+      : {}),
+    ...(cofins
+      ? {
+          cofins_base_calculo: cofins.baseCalculation,
+          cofins_aliquota_porcentual: cofins.rate,
+          cofins_valor: cofins.amount,
+        }
+      : {}),
+    ...(ipiCst
+      ? {
+          ipi_situacao_tributaria: focusTaxCode(ipiCst, ipiCst),
+          ipi_codigo_enquadramento_legal: "999" as const,
+        }
+      : {}),
+    ...(ipi
+      ? {
+          ipi_base_calculo: ipi.baseCalculation,
+          ipi_aliquota: ipi.rate,
+          ipi_valor: ipi.amount,
+        }
+      : {}),
+  };
+}
+
+function focusCalculatedTax(
+  baseCalculation: string | null | undefined,
+  rate: string | null | undefined,
+) {
+  if (baseCalculation == null || rate == null) {
+    return null;
+  }
+
+  const parsedBaseCalculation = focusNumber(baseCalculation);
+  const parsedRate = focusNumber(rate);
+
+  if (parsedBaseCalculation === null || parsedRate === null) {
+    return null;
+  }
+
+  return {
+    amount: moneyNumber(String((parsedBaseCalculation * parsedRate) / 100)),
+    baseCalculation: moneyNumber(String(parsedBaseCalculation)),
+    rate: taxRateNumber(String(parsedRate)),
   };
 }
 
@@ -966,6 +1055,10 @@ function focusTaxCode(value: string | null, fallback: string) {
 
 function moneyNumber(value: string) {
   return Number(Number(value).toFixed(2));
+}
+
+function taxRateNumber(value: string) {
+  return Number(Number(value).toFixed(4));
 }
 
 function unitPriceNumber(value: string) {
