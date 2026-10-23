@@ -723,6 +723,7 @@ export function ManualFiscalDocumentPage({
   const activePaymentMethods = paymentMethods.filter(
     (method) => method.active && method.code !== 'TO_AGREE',
   )
+  const manualUsesNoPayment = manualFiscalUsesNoPayment(manualPayments)
   const manualPaymentsTotal = manualFiscalPaymentsTotal(
     manualPayments,
     Number(manualTotalAmount || 0),
@@ -939,6 +940,19 @@ export function ManualFiscalDocumentPage({
   }
 
   function selectManualPaymentMethod(index: number, methodCode: string) {
+    if (methodCode === 'NO_PAYMENT') {
+      setManualPayments([
+        {
+          paymentMethodCode: 'NO_PAYMENT',
+          paymentMethodName: manualFiscalPaymentName('NO_PAYMENT'),
+          amount: '',
+        },
+      ])
+      setManualBillingEnabled(false)
+      setManualPaymentInstallments([])
+      return
+    }
+
     const method = activePaymentMethods.find(
       (paymentMethod) => paymentMethod.code === methodCode,
     )
@@ -946,6 +960,9 @@ export function ManualFiscalDocumentPage({
     updateManualPayment(index, {
       paymentMethodCode: method?.code ?? '',
       paymentMethodName: method?.name ?? '',
+      ...(manualPayments[index]?.paymentMethodCode === 'NO_PAYMENT'
+        ? { amount: '' }
+        : {}),
     })
   }
 
@@ -1688,6 +1705,7 @@ export function ManualFiscalDocumentPage({
                 Pagamento e faturamento
               </strong>
               <Button
+                disabled={manualUsesNoPayment}
                 startIcon={<Plus size={16} />}
                 type='button'
                 variant='outlined'
@@ -1723,8 +1741,11 @@ export function ManualFiscalDocumentPage({
                   <MenuItem value='NO_PAYMENT'>Sem pagamento</MenuItem>
                 </TextField>
                 <TextField
+                  disabled={payment.paymentMethodCode === 'NO_PAYMENT'}
                   helperText={
-                    manualPayments.length === 1 && index === 0
+                    payment.paymentMethodCode === 'NO_PAYMENT'
+                      ? 'Nenhum valor será informado como pagamento.'
+                      : manualPayments.length === 1 && index === 0
                       ? 'Vazio usa o total.'
                       : undefined
                   }
@@ -1755,11 +1776,24 @@ export function ManualFiscalDocumentPage({
             ))}
             <Alert
               severity={
-                Math.abs(manualPaymentDifference) < 0.01 ? 'success' : 'info'
+                manualUsesNoPayment ||
+                Math.abs(manualPaymentDifference) < 0.01
+                  ? 'success'
+                  : 'info'
               }
               variant='outlined'>
-              Total dos pagamentos: {formatCurrency(manualPaymentsTotal)}.
-              Diferença: {formatCurrency(Math.abs(manualPaymentDifference))}.
+              {manualUsesNoPayment ? (
+                <>
+                  Sem pagamento selecionado. O total da NF-e não será informado
+                  como pagamento.
+                </>
+              ) : (
+                <>
+                  Total dos pagamentos: {formatCurrency(manualPaymentsTotal)}.
+                  Diferença:{' '}
+                  {formatCurrency(Math.abs(manualPaymentDifference))}.
+                </>
+              )}
             </Alert>
             <FormControlLabel
               control={
@@ -2511,6 +2545,13 @@ function manualFiscalPaymentsTotal(
 
   return Number(
     payloads.reduce((sum, payment) => sum + payment.amount, 0).toFixed(2),
+  )
+}
+
+function manualFiscalUsesNoPayment(payments: ManualFiscalPaymentForm[]) {
+  return (
+    payments.length === 1 &&
+    payments[0]?.paymentMethodCode === 'NO_PAYMENT'
   )
 }
 
