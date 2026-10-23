@@ -596,7 +596,7 @@ function focusNfeItemPayload(
   request: FiscalIssueRequest,
 ): FocusNfeItemPayload {
   const quantity = quantityNumber(item.quantity);
-  const unitPrice = moneyNumber(item.unitPrice);
+  const unitPrice = unitPriceNumber(item.unitPrice);
   const grossAmount = moneyNumber(String(unitPrice * quantity));
 
   return {
@@ -966,6 +966,10 @@ function focusTaxCode(value: string | null, fallback: string) {
 
 function moneyNumber(value: string) {
   return Number(Number(value).toFixed(2));
+}
+
+function unitPriceNumber(value: string) {
+  return Number(Number(value).toFixed(10));
 }
 
 function quantityNumber(value: string) {

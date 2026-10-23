@@ -63,6 +63,7 @@ import {
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import { formatCurrency, formatDateTime } from '../../utils/format'
 import {
+  nonNegativeFiscalUnitPriceInputProps,
   nonNegativeMoneyInputProps,
   nonNegativePercentageInputProps,
   positiveDecimalQuantityInputProps,
@@ -1487,6 +1488,7 @@ export function ManualFiscalDocumentPage({
                     slotProps={{ htmlInput: positiveDecimalQuantityInputProps }}
                   />
                   <TextField
+                    helperText='Aceita até 4 casas decimais.'
                     label='Valor unitário'
                     required
                     type='number'
@@ -1494,7 +1496,9 @@ export function ManualFiscalDocumentPage({
                     onChange={(event) =>
                       updateItem(index, { unitPrice: event.target.value })
                     }
-                    slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
+                    slotProps={{
+                      htmlInput: nonNegativeFiscalUnitPriceInputProps,
+                    }}
                   />
                   <TextField
                     label='Tipo desconto'
@@ -3384,7 +3388,13 @@ function manualFiscalPayloadSale(payload: Record<string, unknown> | null) {
 }
 
 function stringPayloadValue(value: unknown) {
-  return typeof value === 'string' && value.trim() ? value : null
+  if (typeof value === 'string') {
+    return value.trim() ? value : null
+  }
+
+  return typeof value === 'number' && Number.isFinite(value)
+    ? String(value)
+    : null
 }
 
 type FiscalRequestReadinessFilter = 'ALL' | 'READY' | 'PENDING' | 'DOCUMENTED'
