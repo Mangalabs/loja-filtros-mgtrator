@@ -3768,6 +3768,13 @@ describe("catalog routes", () => {
   it("issues a manual mock return fiscal document", async () => {
     const input = manualFiscalDocumentRequest();
 
+    input.payments = [
+      {
+        paymentMethodCode: "NO_PAYMENT",
+        paymentMethodName: "Sem pagamento",
+        amount: 0,
+      },
+    ];
     input.destinationOperation = "INTERSTATE";
     input.natureOperation =
       "1.202/2.202 - Devolucao venda mercadoria terceiros";
@@ -3803,6 +3810,7 @@ describe("catalog routes", () => {
       ?.requestPayload as Record<string, unknown>;
     const sale = requestPayload.sale as Record<string, unknown>;
     const items = sale.items as Array<Record<string, unknown>>;
+    const payments = sale.payments as Array<Record<string, unknown>>;
 
     assert.equal(manualFiscalDocument.status, 201);
     assert.equal(manualFiscalDocument.body.data?.sourceType, "MANUAL_NFE");
@@ -3834,6 +3842,8 @@ describe("catalog routes", () => {
     assert.equal(items[0]?.productIpiCstDescription, "Saida tributada");
     assert.equal(items[0]?.ipiAmount, "0.38");
     assert.equal(sale.totalAmount, "8.04");
+    assert.equal(payments[0]?.paymentMethodCode, "NO_PAYMENT");
+    assert.equal(payments[0]?.amount, "0.00");
     assert.deepEqual(
       manualFiscalDocument.body.data?.requestPayload.referencedAccessKeys,
       ["1".repeat(44)],
@@ -3847,6 +3857,30 @@ describe("catalog routes", () => {
         (document) => document.id === manualFiscalDocument.body.data?.id,
       ),
     );
+  });
+
+  it("rejects no payment combined with another payment method", async () => {
+    const input = manualFiscalDocumentRequest();
+
+    input.payments = [
+      {
+        paymentMethodCode: "NO_PAYMENT",
+        paymentMethodName: "Sem pagamento",
+        amount: 0,
+      },
+      {
+        paymentMethodCode: "CASH",
+        paymentMethodName: "Dinheiro",
+        amount: 35,
+      },
+    ];
+
+    const response = await request("/fiscal-documents/manual/preview", {
+      method: "POST",
+      body: input,
+    });
+
+    assert.equal(response.status, 422);
   });
 
   it("rejects incomplete manual fiscal tax calculations", async () => {
@@ -11427,7 +11461,11 @@ function manualFiscalDocumentRequest() {
     billingEnabled: false,
     billingIssueDate: null,
     billingDueDate: null,
-    payments: [],
+    payments: [] as Array<{
+      paymentMethodCode: string;
+      paymentMethodName: string;
+      amount: number;
+    }>,
     paymentInstallments: [],
     additionalInformation: "Devolucao preenchida manualmente",
     client: {

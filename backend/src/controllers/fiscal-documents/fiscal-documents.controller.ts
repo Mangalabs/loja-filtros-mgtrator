@@ -1590,11 +1590,25 @@ function ensureManualFiscalPaymentsMatchTotal(
   payments: Array<{ paymentMethodCode: string; amount: number }>,
   totalAmount: number,
 ) {
-  if (
-    payments.length === 1 &&
-    payments[0]?.paymentMethodCode === "NO_PAYMENT"
-  ) {
-    return;
+  const noPaymentCount = payments.filter(
+    (payment) => payment.paymentMethodCode === "NO_PAYMENT",
+  ).length;
+
+  if (noPaymentCount > 0) {
+    if (payments.length === 1 && noPaymentCount === 1) {
+      return;
+    }
+
+    throw new AppError(
+      "Sem pagamento deve ser a unica forma de pagamento da nota.",
+      422,
+      [
+        {
+          field: "payments",
+          message: "Remova as outras formas ou altere Sem pagamento.",
+        },
+      ],
+    );
   }
 
   const paymentsAmount = moneyValue(

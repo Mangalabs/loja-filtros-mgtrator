@@ -241,6 +241,18 @@ const manualFiscalDocumentSchema = z
       path: ["payments"],
     },
   )
+  .refine(
+    (value) =>
+      value.payments.every(
+        (payment) => payment.paymentMethodCode !== "NO_PAYMENT",
+      ) ||
+      (value.payments.length === 1 &&
+        value.payments[0]?.paymentMethodCode === "NO_PAYMENT"),
+    {
+      message: "Sem pagamento deve ser a unica forma de pagamento.",
+      path: ["payments"],
+    },
+  )
   .superRefine((value, context) => {
     value.items.forEach((item, index) => {
       validateManualFiscalTaxFields(context, index, "ICMS", {
