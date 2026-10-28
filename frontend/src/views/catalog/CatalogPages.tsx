@@ -1,8 +1,13 @@
 import Autocomplete from '@mui/material/Autocomplete'
+import Drawer from '@mui/material/Drawer'
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import {
   ArrowLeftRight,
+  Barcode,
+  Boxes,
+  CircleDollarSign,
+  FileText,
   PackagePlus,
   Pencil,
   Plus,
@@ -12,9 +17,17 @@ import {
   Trash2,
   Truck,
   UserRound,
+  Warehouse,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import type {
   Client,
   ClientCompanyLookup,
@@ -132,6 +145,7 @@ export function ProductsPage({
   onDelete: AsyncEntityAction<Product>
 }) {
   const [pendingAction, setPendingAction] = useState<PendingEntityAction>()
+  const [viewedProduct, setViewedProduct] = useState<Product>()
   const pendingActionRef = useRef(false)
 
   async function runProductAction(
@@ -196,7 +210,9 @@ export function ProductsPage({
           </div>
         }
         description={
-          state === 'loading' ? 'Carregando…' : 'Produtos cadastrados'
+          state === 'loading'
+            ? 'Carregando…'
+            : 'Produtos cadastrados. Clique em uma linha para ver os detalhes.'
         }
         title='Lista de produtos'
       />
@@ -207,6 +223,7 @@ export function ProductsPage({
         products={products}
         rowsPerPage={rowsPerPage}
         totalProducts={totalProducts}
+        onView={setViewedProduct}
         onPageChange={onPageChange}
         onEdit={onEdit}
         onClone={onClone}
@@ -216,6 +233,10 @@ export function ProductsPage({
           runProductAction(product, 'status', onChangeStatus)
         }
         onDelete={(product) => runProductAction(product, 'delete', onDelete)}
+      />
+      <ProductDetailDrawer
+        product={viewedProduct}
+        onClose={() => setViewedProduct(undefined)}
       />
     </PagePanel>
   )
@@ -227,6 +248,7 @@ function ProductTable({
   pageIndex,
   rowsPerPage,
   totalProducts,
+  onView,
   onPageChange,
   onEdit,
   onClone,
@@ -240,6 +262,7 @@ function ProductTable({
   pageIndex: number
   rowsPerPage: number
   totalProducts: number
+  onView: (product: Product) => void
   onPageChange: (pageIndex: number, rowsPerPage?: number) => void
   onEdit: (product: Product) => void
   onClone: (product: Product) => void
@@ -368,6 +391,7 @@ function ProductTable({
       items={products}
       loading={loading}
       loadingLabel='Atualizando lista de produtos'
+      onRowClick={onView}
       pagination={{
         count: totalProducts,
         page: pageIndex,
@@ -378,6 +402,220 @@ function ProductTable({
       }}
     />
   )
+}
+
+function ProductDetailDrawer({
+  product,
+  onClose,
+}: {
+  product?: Product
+  onClose: () => void
+}) {
+  return (
+    <Drawer
+      anchor='right'
+      open={Boolean(product)}
+      onClose={onClose}
+      slotProps={{
+        paper: {
+          sx: {
+            maxWidth: '100%',
+            width: { xs: '100%', sm: 480 },
+          },
+        },
+      }}>
+      {product ? (
+        <div className='grid min-h-full grid-rows-[auto_1fr] bg-white'>
+          <div className='sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#e4e9e5] bg-white px-5 py-4'>
+            <button
+              aria-label='Fechar detalhes do produto'
+              className='rounded-lg border border-[#cfd8d5] p-1.5 text-[#5f665f] hover:bg-[#f3f5f4]'
+              type='button'
+              onClick={onClose}>
+              <X size={16} />
+            </button>
+            <div className='grid min-w-0 justify-items-end gap-1 text-right'>
+              <StatusChip
+                label={product.active ? 'Ativo' : 'Inativo'}
+                tone={product.active ? 'success' : 'neutral'}
+              />
+              <strong className='text-lg text-[#203466]'>
+                {productDisplayName(product)}
+              </strong>
+              <span className='text-sm text-[#5f665f]'>
+                {product.internalCode ?? 'Sem código interno'}
+              </span>
+            </div>
+          </div>
+
+          <div className='divide-y divide-[#eef1ee] overflow-auto text-left'>
+            <ProductDetailSection icon={<Barcode size={15} />} title='Cadastro'>
+              <ProductDetailGrid>
+                <ProductDetailItem
+                  label='Código interno'
+                  value={product.internalCode}
+                />
+                <ProductDetailItem
+                  label='Código de barras'
+                  value={product.barcode}
+                />
+                <ProductDetailItem
+                  label='Fabricante'
+                  value={product.brandName}
+                />
+                <ProductDetailItem label='Grupo' value={product.groupName} />
+                <ProductDetailItem label='Unidade' value={product.unit} />
+                <ProductDetailItem label='Locação' value={product.location} />
+                <ProductDetailItem label='Filial' value={product.branchName} />
+              </ProductDetailGrid>
+            </ProductDetailSection>
+
+            <ProductDetailSection
+              icon={<CircleDollarSign size={15} />}
+              title='Valores'>
+              <ProductDetailGrid>
+                <ProductDetailItem
+                  label='Custo'
+                  value={formatCurrency(product.costPrice)}
+                />
+                <ProductDetailItem
+                  label='Despesas acessórias'
+                  value={formatCurrency(product.accessoryExpenses)}
+                />
+                <ProductDetailItem
+                  label='Venda'
+                  value={formatCurrency(product.salePrice)}
+                />
+                <ProductDetailItem
+                  label='Margem de lucro'
+                  value={formatPercentage(product.profitMarginPercentage)}
+                />
+              </ProductDetailGrid>
+            </ProductDetailSection>
+
+            <ProductDetailSection
+              icon={<Warehouse size={15} />}
+              title='Estoque'>
+              <ProductDetailGrid>
+                <ProductDetailItem
+                  label='Estoque físico'
+                  value={formatQuantity(product.currentStock)}
+                />
+                <ProductDetailItem
+                  label='Reservado'
+                  value={formatQuantity(product.reservedStock)}
+                />
+                <ProductDetailItem
+                  label='Disponível'
+                  value={formatQuantity(product.availableStock)}
+                />
+                <ProductDetailItem
+                  label='Estoque mínimo'
+                  value={formatQuantity(product.minimumStock)}
+                />
+              </ProductDetailGrid>
+            </ProductDetailSection>
+
+            <ProductDetailSection icon={<Boxes size={15} />} title='Fiscal'>
+              <ProductDetailGrid>
+                <ProductDetailItem label='NCM' value={product.ncm} />
+                <ProductDetailItem label='CEST' value={product.cest} />
+                <ProductDetailItem label='Origem' value={product.origin} />
+                <ProductDetailItem label='CFOP' value={product.cfop} />
+                <ProductDetailItem label='CST ICMS' value={product.icmsCst} />
+                <ProductDetailItem label='CST PIS' value={product.pisCst} />
+                <ProductDetailItem
+                  label='CST COFINS'
+                  value={product.cofinsCst}
+                />
+              </ProductDetailGrid>
+            </ProductDetailSection>
+
+            <ProductDetailSection
+              icon={<FileText size={15} />}
+              title='Informações'>
+              <ProductDetailText
+                label='Descrição comercial'
+                value={product.description}
+              />
+              <ProductDetailText
+                label='Observações internas'
+                value={product.internalNotes}
+              />
+            </ProductDetailSection>
+          </div>
+        </div>
+      ) : null}
+    </Drawer>
+  )
+}
+
+function ProductDetailSection({
+  children,
+  icon,
+  title,
+}: {
+  children: ReactNode
+  icon: ReactNode
+  title: string
+}) {
+  return (
+    <section className='grid gap-3 px-5 py-4'>
+      <div className='flex items-center gap-2 text-xs font-bold uppercase text-[#5f665f]'>
+        {icon}
+        {title}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function ProductDetailGrid({ children }: { children: ReactNode }) {
+  return <div className='grid gap-3 sm:grid-cols-2'>{children}</div>
+}
+
+function ProductDetailItem({
+  label,
+  value,
+}: {
+  label: string
+  value: ReactNode
+}) {
+  return (
+    <div className='grid min-w-0 gap-0.5'>
+      <span className='text-xs font-semibold text-[#5f665f]'>{label}</span>
+      <strong className='break-words text-sm text-[#2c281e]'>
+        {value ?? '-'}
+      </strong>
+    </div>
+  )
+}
+
+function ProductDetailText({
+  label,
+  value,
+}: {
+  label: string
+  value?: string | null
+}) {
+  return (
+    <div className='grid gap-1 rounded-lg border border-[#e4e9e5] bg-[#fbfcfb] p-3'>
+      <span className='text-xs font-semibold text-[#5f665f]'>{label}</span>
+      <span className='whitespace-pre-wrap break-words text-sm text-[#2c281e]'>
+        {value || 'Não informado'}
+      </span>
+    </div>
+  )
+}
+
+function formatPercentage(value?: string | null) {
+  if (value === null || value === undefined || value === '') {
+    return '-'
+  }
+
+  return `${Number(value).toLocaleString('pt-BR', {
+    maximumFractionDigits: 2,
+  })}%`
 }
 
 export function ProductForm({
@@ -411,7 +649,7 @@ export function ProductForm({
     product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
   )
   const [accessoryExpenses, setAccessoryExpenses] = useState(
-    product?.accessoryExpenses ?? '',
+    editableAccessoryExpenses(product?.accessoryExpenses),
   )
   const [salePriceTouched, setSalePriceTouched] = useState(
     Boolean(product?.salePrice),
@@ -427,7 +665,7 @@ export function ProductForm({
     setProfitMarginPercentage(
       product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
     )
-    setAccessoryExpenses(product?.accessoryExpenses ?? '')
+    setAccessoryExpenses(editableAccessoryExpenses(product?.accessoryExpenses))
     setSalePriceTouched(Boolean(product?.salePrice))
     setCestValue(product?.cest ?? '')
     setNcmValue(product?.ncm ?? '')
@@ -549,6 +787,7 @@ export function ProductForm({
             helperText='Compõe a base do preço de venda.'
             label='Despesas acessórias'
             name='accessoryExpenses'
+            placeholder='0,00'
             type='number'
             value={accessoryExpenses}
             onChange={(event) => {
@@ -768,6 +1007,10 @@ function numericCurrencyValue(value: string) {
   const numberValue = Number(value)
 
   return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : 0
+}
+
+function editableAccessoryExpenses(value?: string | null) {
+  return value && Number(value) !== 0 ? value : ''
 }
 
 const productOriginOptions = [

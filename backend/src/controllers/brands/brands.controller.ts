@@ -1,5 +1,4 @@
 import {
-  brandHasProductReferences,
   createBrand,
   deleteBrand,
   listBrands,
@@ -45,13 +44,6 @@ export async function replaceBrand(id: string, input: BrandUpdateInput) {
 }
 
 export async function destroyBrand(id: string) {
-  if (await brandHasProductReferences(id)) {
-    throw new AppError(
-      "Fabricante vinculado a produtos. Inative o cadastro para preservar as associacoes.",
-      409,
-    );
-  }
-
   const brand = await deleteBrand(id);
 
   if (!brand) {

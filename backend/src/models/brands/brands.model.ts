@@ -57,10 +57,6 @@ export async function updateBrand(
   return brand;
 }
 
-export async function brandHasProductReferences(id: string) {
-  return Boolean(await db("products").where("brand_id", id).first("id"));
-}
-
 export async function deleteBrand(id: string): Promise<Brand | undefined> {
   const [brand] = await db("brands")
     .where({ id })
