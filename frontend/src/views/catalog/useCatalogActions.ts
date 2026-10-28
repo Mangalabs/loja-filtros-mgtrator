@@ -89,7 +89,7 @@ export function useCatalogActions({
     label: string,
   ) {
     const confirmed = await requestConfirmation(
-      `Excluir ${label.toLowerCase()} "${entity.name}"? A exclusao sera bloqueada se houver produtos ou movimentacoes vinculadas.`,
+      `Excluir ${label.toLowerCase()} "${entity.name}"? Os produtos vinculados permanecerao cadastrados, mas ficarao sem fabricante.`,
       `Excluir ${label.toLowerCase()}?`,
       "Excluir",
     );
