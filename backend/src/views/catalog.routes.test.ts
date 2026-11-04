@@ -118,6 +118,8 @@ type StockMovement = {
   productId: string;
   productName: string;
   supplierName: string | null;
+  saleId: string | null;
+  saleNumber: number | null;
   createdByUserId: string | null;
   createdByUserName: string | null;
   quantity: string;
@@ -3032,6 +3034,8 @@ describe("catalog routes", () => {
     assert.equal(listed.body.data?.length, 1);
     assert.equal(updatedProduct.body.data?.currentStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
+    assert.equal(saleMovement?.saleId, created.body.data?.id);
+    assert.equal(saleMovement?.saleNumber, created.body.data?.saleNumber);
     assert.equal(cashBeforeCancellation.body.data?.salesTotal, "59.80");
     assert.equal(receipt.status, 200);
     assert.equal(receipt.contentType, "application/pdf");

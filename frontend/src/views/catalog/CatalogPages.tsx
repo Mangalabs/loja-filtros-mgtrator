@@ -643,13 +643,17 @@ export function ProductForm({
   const defaultProfitMarginPercentage = Number(
     commercialSettings?.defaultProfitMarginPercentage ?? 0,
   )
-  const [costPrice, setCostPrice] = useState(product?.costPrice ?? '')
-  const [salePrice, setSalePrice] = useState(product?.salePrice ?? '')
+  const [costPrice, setCostPrice] = useState(() =>
+    optionalMoneyFieldValue(product?.costPrice),
+  )
+  const [salePrice, setSalePrice] = useState(() =>
+    optionalMoneyFieldValue(product?.salePrice),
+  )
   const [profitMarginPercentage, setProfitMarginPercentage] = useState(
     product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
   )
-  const [accessoryExpenses, setAccessoryExpenses] = useState(
-    editableAccessoryExpenses(product?.accessoryExpenses),
+  const [accessoryExpenses, setAccessoryExpenses] = useState(() =>
+    optionalMoneyFieldValue(product?.accessoryExpenses),
   )
   const [salePriceTouched, setSalePriceTouched] = useState(
     Boolean(product?.salePrice),
@@ -660,12 +664,12 @@ export function ProductForm({
   const finalCost = salePriceCalculationBase(costPrice, accessoryExpenses)
 
   useEffect(() => {
-    setCostPrice(product?.costPrice ?? '')
-    setSalePrice(product?.salePrice ?? '')
+    setCostPrice(optionalMoneyFieldValue(product?.costPrice))
+    setSalePrice(optionalMoneyFieldValue(product?.salePrice))
     setProfitMarginPercentage(
       product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
     )
-    setAccessoryExpenses(editableAccessoryExpenses(product?.accessoryExpenses))
+    setAccessoryExpenses(optionalMoneyFieldValue(product?.accessoryExpenses))
     setSalePriceTouched(Boolean(product?.salePrice))
     setCestValue(product?.cest ?? '')
     setNcmValue(product?.ncm ?? '')
@@ -775,6 +779,7 @@ export function ProductForm({
           <TextField
             label='Valor de custo'
             name='costPrice'
+            placeholder='0,00'
             type='number'
             value={costPrice}
             onChange={(event) => {
@@ -830,6 +835,7 @@ export function ProductForm({
             )}
             label='Valor de venda sugerido'
             name='salePrice'
+            placeholder='0,00'
             type='number'
             value={salePrice}
             onChange={(event) => {
@@ -1009,8 +1015,10 @@ function numericCurrencyValue(value: string) {
   return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : 0
 }
 
-function editableAccessoryExpenses(value?: string | null) {
-  return value && Number(value) !== 0 ? value : ''
+function optionalMoneyFieldValue(value?: string | null) {
+  const numberValue = Number(value)
+
+  return value && Number.isFinite(numberValue) && numberValue !== 0 ? value : ''
 }
 
 const productOriginOptions = [

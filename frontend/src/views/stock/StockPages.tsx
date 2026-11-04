@@ -611,6 +611,7 @@ export function StockMovementsPage({
             movement.createdByUserName,
             movement.notes,
             movementTypeLabel(movement.type),
+            movement.saleNumber ? `Venda ${movement.saleNumber}` : null,
           ].join(" "),
         ).includes(normalizedSearch);
       const movementDate = new Date(movement.createdAt);
@@ -712,6 +713,11 @@ export function StockMovementsPage({
           {
             header: "Tipo",
             render: (movement) => movementTypeLabel(movement.type),
+          },
+          {
+            header: "Referência",
+            render: (movement) =>
+              movement.saleNumber ? `Venda #${movement.saleNumber}` : "-",
           },
           {
             header: "Produto",

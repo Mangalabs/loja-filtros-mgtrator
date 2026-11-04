@@ -12,6 +12,8 @@ export type StockMovement = {
   productId: string;
   productName: string;
   supplierName: string | null;
+  saleId: string | null;
+  saleNumber: number | null;
   createdByUserId: string | null;
   createdByUserName: string | null;
   quantity: string;
@@ -26,6 +28,7 @@ export async function listStockMovements(filters: {
   return db("stock_movements")
     .join("products", "products.id", "stock_movements.product_id")
     .leftJoin("suppliers", "suppliers.id", "stock_movements.supplier_id")
+    .leftJoin("sales", "sales.id", "stock_movements.sale_id")
     .leftJoin("users", "users.id", "stock_movements.created_by_user_id")
     .select([
       "stock_movements.id",
@@ -33,6 +36,8 @@ export async function listStockMovements(filters: {
       "stock_movements.product_id as productId",
       "products.name as productName",
       "suppliers.name as supplierName",
+      "stock_movements.sale_id as saleId",
+      "sales.sale_number as saleNumber",
       "stock_movements.created_by_user_id as createdByUserId",
       "users.name as createdByUserName",
       "stock_movements.quantity",
