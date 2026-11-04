@@ -9674,7 +9674,7 @@ describe("catalog routes", () => {
     assert.equal(afterDelete.body.data?.length, 0);
   });
 
-  it("deletes a linked brand and clears it from products", async () => {
+  it("deletes a linked brand and keeps the product without a manufacturer", async () => {
     const brand = await request<NamedEntity>("/brands", {
       method: "POST",
       body: { name: "Fabricante vinculado" },
@@ -9687,13 +9687,14 @@ describe("catalog routes", () => {
     const deleted = await request(`/brands/${brand.body.data?.id}`, {
       method: "DELETE",
     });
-    const updatedProduct = await request<Product>(
+    const productAfterDelete = await request<Product>(
       `/products/${product.body.data?.id}`,
     );
 
     assert.equal(deleted.status, 200);
-    assert.equal(updatedProduct.body.data?.brandId, null);
-    assert.equal(updatedProduct.body.data?.brandName, null);
+    assert.equal(productAfterDelete.status, 200);
+    assert.equal(productAfterDelete.body.data?.brandId, null);
+    assert.equal(productAfterDelete.body.data?.brandName, null);
   });
 
   it("returns conflict when creating a duplicated brand", async () => {
