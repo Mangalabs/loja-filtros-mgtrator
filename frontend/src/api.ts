@@ -171,6 +171,8 @@ export type StockMovement = {
   productId: string;
   productName: string;
   supplierName: string | null;
+  saleId: string | null;
+  saleNumber: number | null;
   createdByUserId: string | null;
   createdByUserName: string | null;
   quantity: string;

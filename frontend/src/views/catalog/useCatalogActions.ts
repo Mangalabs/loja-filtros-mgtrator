@@ -88,8 +88,12 @@ export function useCatalogActions({
     path: string,
     label: string,
   ) {
+    const dependencyMessage =
+      path === "/brands"
+        ? "Os produtos vinculados ficarao sem fabricante."
+        : "A exclusao sera bloqueada se houver produtos ou movimentacoes vinculadas.";
     const confirmed = await requestConfirmation(
-      `Excluir ${label.toLowerCase()} "${entity.name}"? A exclusao sera bloqueada se houver produtos ou movimentacoes vinculadas.`,
+      `Excluir ${label.toLowerCase()} "${entity.name}"? ${dependencyMessage}`,
       `Excluir ${label.toLowerCase()}?`,
       "Excluir",
     );

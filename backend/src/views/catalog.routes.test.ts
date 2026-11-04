@@ -118,6 +118,8 @@ type StockMovement = {
   productId: string;
   productName: string;
   supplierName: string | null;
+  saleId: string | null;
+  saleNumber: number | null;
   createdByUserId: string | null;
   createdByUserName: string | null;
   quantity: string;
@@ -3032,6 +3034,8 @@ describe("catalog routes", () => {
     assert.equal(listed.body.data?.length, 1);
     assert.equal(updatedProduct.body.data?.currentStock, "3.000");
     assert.equal(saleMovement?.quantity, "-2.000");
+    assert.equal(saleMovement?.saleId, created.body.data?.id);
+    assert.equal(saleMovement?.saleNumber, created.body.data?.saleNumber);
     assert.equal(cashBeforeCancellation.body.data?.salesTotal, "59.80");
     assert.equal(receipt.status, 200);
     assert.equal(receipt.contentType, "application/pdf");
@@ -9670,12 +9674,12 @@ describe("catalog routes", () => {
     assert.equal(afterDelete.body.data?.length, 0);
   });
 
-  it("blocks deleting a brand linked to products", async () => {
+  it("deletes a linked brand and clears it from products", async () => {
     const brand = await request<NamedEntity>("/brands", {
       method: "POST",
       body: { name: "Fabricante vinculado" },
     });
-    await request<Product>("/products", {
+    const product = await request<Product>("/products", {
       method: "POST",
       body: { name: "Produto com fabricante", brandId: brand.body.data?.id },
     });
@@ -9683,12 +9687,13 @@ describe("catalog routes", () => {
     const deleted = await request(`/brands/${brand.body.data?.id}`, {
       method: "DELETE",
     });
-
-    assert.equal(deleted.status, 409);
-    assert.equal(
-      deleted.body.message,
-      "Fabricante vinculado a produtos. Inative o cadastro para preservar as associacoes.",
+    const updatedProduct = await request<Product>(
+      `/products/${product.body.data?.id}`,
     );
+
+    assert.equal(deleted.status, 200);
+    assert.equal(updatedProduct.body.data?.brandId, null);
+    assert.equal(updatedProduct.body.data?.brandName, null);
   });
 
   it("returns conflict when creating a duplicated brand", async () => {
