@@ -7,7 +7,12 @@ import TableHead from '@mui/material/TableHead'
 import TablePagination from '@mui/material/TablePagination'
 import TableRow from '@mui/material/TableRow'
 import { Inbox } from 'lucide-react'
-import { forwardRef, type FormEvent, type ReactNode } from 'react'
+import {
+  forwardRef,
+  type FormEvent,
+  type FormEventHandler,
+  type ReactNode,
+} from 'react'
 
 type PagePanelProps = {
   children: ReactNode
@@ -25,6 +30,7 @@ type PageHeaderProps = {
 type FormGridProps = {
   children: ReactNode
   className?: string
+  onChange?: FormEventHandler<HTMLFormElement>
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void
 }
 
@@ -106,7 +112,7 @@ export function PagePanel({ children, className, wide }: PagePanelProps) {
 }
 
 export const FormGrid = forwardRef<HTMLFormElement, FormGridProps>(
-  function FormGrid({ children, className, onSubmit }, ref) {
+  function FormGrid({ children, className, onChange, onSubmit }, ref) {
   return (
     <form
       ref={ref}
@@ -114,6 +120,7 @@ export const FormGrid = forwardRef<HTMLFormElement, FormGridProps>(
         'grid content-start gap-5 rounded-xl border border-[#dfe5e1] bg-white p-4 sm:gap-6 sm:p-5',
         className,
       )}
+      onChange={onChange}
       onSubmit={onSubmit}>
       {children}
     </form>

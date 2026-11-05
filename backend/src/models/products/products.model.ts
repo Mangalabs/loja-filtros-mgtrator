@@ -83,6 +83,11 @@ export type ProductCreateInput = {
 
 export type ProductUpdateInput = Partial<ProductCreateInput>;
 
+export type ProductIdentifierDuplicates = {
+  internalCodeExists: boolean;
+  barcodeExists: boolean;
+};
+
 export async function listProducts(
   filters: ProductListFilters,
 ): Promise<ProductListItem[]> {
@@ -257,13 +262,66 @@ export async function getProductById(
   return findProductById(id, database);
 }
 
+export async function lockProductForUpdate(
+  id: string,
+  branchId: string,
+  transaction: Knex.Transaction,
+) {
+  return transaction("products")
+    .where({ id, branch_id: branchId })
+    .whereNull("deleted_at")
+    .forUpdate()
+    .first("id");
+}
+
+export async function findProductIdentifierDuplicates(input: {
+  branchId: string;
+  internalCode?: string;
+  barcode?: string;
+  excludeId?: string;
+}): Promise<ProductIdentifierDuplicates> {
+  const internalCodeQuery = db("products")
+    .where("branch_id", input.branchId)
+    .modify((query) => {
+      if (input.excludeId) {
+        query.whereNot("id", input.excludeId);
+      }
+    });
+  const barcodeQuery = db("products").modify((query) => {
+    if (input.excludeId) {
+      query.whereNot("id", input.excludeId);
+    }
+  });
+
+  const [internalCodeMatch, barcodeMatch] = await Promise.all([
+    input.internalCode
+      ? internalCodeQuery
+          .whereRaw("lower(btrim(internal_code)) = lower(btrim(?))", [
+            input.internalCode,
+          ])
+          .first("id")
+      : undefined,
+    input.barcode
+      ? barcodeQuery
+          .whereRaw("btrim(barcode) = btrim(?)", [input.barcode])
+          .first("id")
+      : undefined,
+  ]);
+
+  return {
+    internalCodeExists: Boolean(internalCodeMatch),
+    barcodeExists: Boolean(barcodeMatch),
+  };
+}
+
 export async function updateProduct(
   id: string,
+  branchId: string,
   input: ProductUpdateInput,
   database: Knex | Knex.Transaction = db,
 ): Promise<ProductListItem | undefined> {
   const [updated] = await database("products")
-    .where("id", id)
+    .where({ id, branch_id: branchId })
     .whereNull("deleted_at")
     .update({
       name: input.name,
@@ -291,7 +349,7 @@ export async function updateProduct(
       description: input.description,
       internal_notes: input.internalNotes,
       active: input.active,
-      updated_at: db.fn.now(),
+      updated_at: database.fn.now(),
     })
     .returning("id");
 
@@ -304,14 +362,16 @@ export async function updateProduct(
 
 export async function updateProductStatus(
   id: string,
+  branchId: string,
   active: boolean,
+  database: Knex | Knex.Transaction = db,
 ): Promise<ProductListItem | undefined> {
-  const [updated] = await db("products")
-    .where("id", id)
+  const [updated] = await database("products")
+    .where({ id, branch_id: branchId })
     .whereNull("deleted_at")
     .update({
       active,
-      updated_at: db.fn.now(),
+      updated_at: database.fn.now(),
     })
     .returning("id");
 
@@ -319,20 +379,21 @@ export async function updateProductStatus(
     return undefined;
   }
 
-  return findProductById(updated.id);
+  return findProductById(updated.id, database);
 }
 
 export async function updateProductReplenishmentMonitor(
   id: string,
   branchId: string,
   enabled: boolean,
+  database: Knex | Knex.Transaction = db,
 ): Promise<ProductListItem | undefined> {
-  const [updated] = await db("products")
+  const [updated] = await database("products")
     .where({ id, branch_id: branchId })
     .whereNull("deleted_at")
     .update({
       replenishment_monitor_enabled: enabled,
-      updated_at: db.fn.now(),
+      updated_at: database.fn.now(),
     })
     .returning("id");
 
@@ -340,23 +401,24 @@ export async function updateProductReplenishmentMonitor(
     return undefined;
   }
 
-  return findProductById(updated.id);
+  return findProductById(updated.id, database);
 }
 
 export async function deleteProduct(
   id: string,
   branchId: string,
+  database: Knex | Knex.Transaction = db,
 ): Promise<ProductListItem | undefined> {
-  const product = await findProductById(id);
+  const product = await findProductById(id, database);
 
   if (!product || product.branchId !== branchId) {
     return undefined;
   }
 
-  await db("products").where({ id, branch_id: branchId }).update({
+  await database("products").where({ id, branch_id: branchId }).update({
     active: false,
-    deleted_at: db.fn.now(),
-    updated_at: db.fn.now(),
+    deleted_at: database.fn.now(),
+    updated_at: database.fn.now(),
   });
 
   return product;

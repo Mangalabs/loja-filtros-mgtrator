@@ -114,7 +114,18 @@ type StockAdjustment = {
 
 type StockMovement = {
   id: string;
-  type: "ENTRY" | "ADJUSTMENT" | "SALE" | "SALE_CANCEL" | "SALE_RETURN";
+  type:
+    | "ENTRY"
+    | "ADJUSTMENT"
+    | "SALE"
+    | "SALE_CANCEL"
+    | "SALE_RETURN"
+    | "SALE_CORRECTION"
+    | "PRODUCT_CREATED"
+    | "PRODUCT_UPDATED"
+    | "PRODUCT_STATUS_CHANGED"
+    | "PRODUCT_DELETED"
+    | "PRODUCT_REPLENISHMENT_CHANGED";
   productId: string;
   productName: string;
   supplierName: string | null;
@@ -122,9 +133,15 @@ type StockMovement = {
   saleNumber: number | null;
   createdByUserId: string | null;
   createdByUserName: string | null;
-  quantity: string;
+  quantity: string | null;
   unitCost: string | null;
   notes: string | null;
+  changes: Record<string, { before: unknown; after: unknown }> | null;
+};
+
+type ProductIdentifierDuplicates = {
+  internalCodeExists: boolean;
+  barcodeExists: boolean;
 };
 
 type PurchaseInvoice = {
@@ -510,6 +527,7 @@ type SalesReport = {
     costAmount: string;
     netAmount: string;
     grossProfitAmount: string;
+    profitPercentage: string;
     grossMarginPercentage: string;
   };
   byProduct: Array<{
@@ -520,6 +538,7 @@ type SalesReport = {
     costAmount: string;
     totalAmount: string;
     grossProfitAmount: string;
+    profitPercentage: string;
     grossMarginPercentage: string;
   }>;
   byClient: Array<{
@@ -6913,6 +6932,7 @@ describe("catalog routes", () => {
     assert.equal(report.body.data?.summary.costAmount, "85.00");
     assert.equal(report.body.data?.summary.netAmount, "145.00");
     assert.equal(report.body.data?.summary.grossProfitAmount, "60.00");
+    assert.equal(report.body.data?.summary.profitPercentage, "70.59");
     assert.equal(report.body.data?.summary.grossMarginPercentage, "41.38");
     assert.equal(
       report.body.data?.byProduct[0]?.productName,
@@ -6925,6 +6945,7 @@ describe("catalog routes", () => {
       report.body.data?.byProduct[0]?.grossProfitAmount,
       "40.00",
     );
+    assert.equal(report.body.data?.byProduct[0]?.profitPercentage, "100.00");
     assert.equal(
       report.body.data?.byProduct[0]?.grossMarginPercentage,
       "50.00",
@@ -8905,7 +8926,7 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.status, "DRAFT");
     assert.equal(created.body.data?.clientName, "Cliente orcamento");
     assert.equal(created.body.data?.paymentMethodName, "PIX");
-    assert.equal(created.body.data?.showBrand, false);
+    assert.equal(created.body.data?.showBrand, true);
     assert.equal(created.body.data?.totalAmount, "170.00");
     assert.ok(created.body.data?.billingIssueDate?.startsWith("2026-06-10"));
     assert.ok(created.body.data?.billingDueDate?.startsWith("2026-06-25"));
@@ -8929,14 +8950,14 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.items[1]?.unitPrice, "80.00");
     assert.equal(shown.body.data?.items.length, 2);
     assert.equal(shown.body.data?.paymentMethodName, "PIX");
-    assert.equal(shown.body.data?.showBrand, false);
+    assert.equal(shown.body.data?.showBrand, true);
     assert.ok(shown.body.data?.billingIssueDate?.startsWith("2026-06-10"));
     assert.ok(shown.body.data?.billingDueDate?.startsWith("2026-06-25"));
     assert.equal(shown.body.data?.shippingOrderId, null);
     assert.equal(shown.body.data?.shippingOrderStatus, null);
     assert.equal(listed.body.data?.length, 1);
     assert.equal(listed.body.data?.[0]?.paymentMethodName, "PIX");
-    assert.equal(listed.body.data?.[0]?.showBrand, false);
+    assert.equal(listed.body.data?.[0]?.showBrand, true);
     assert.ok(
       listed.body.data?.[0]?.billingIssueDate?.startsWith("2026-06-10"),
     );
@@ -9066,7 +9087,7 @@ describe("catalog routes", () => {
     assert.equal(updated.body.data?.discountPercentage, "10.00");
     assert.equal(updated.body.data?.discountAmount, "16.15");
     assert.equal(updated.body.data?.totalAmount, "145.35");
-    assert.equal(updated.body.data?.showBrand, false);
+    assert.equal(updated.body.data?.showBrand, true);
     assert.ok(updated.body.data?.billingIssueDate?.startsWith("2026-07-01"));
     assert.ok(updated.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.ok(updated.body.data?.validUntil?.startsWith("2026-07-15"));
@@ -10012,11 +10033,20 @@ describe("catalog routes", () => {
       method: "DELETE",
     });
     const listed = await request<Product[]>("/products?search=PROD-DELETE-001");
+    const movements = await request<StockMovement[]>("/stock-movements");
+    const deletionHistory = movements.body.data?.find(
+      (movement) => movement.type === "PRODUCT_DELETED",
+    );
 
     assert.equal(created.status, 201);
     assert.equal(deleted.status, 200);
     assert.equal(deleted.body.data?.id, created.body.data?.id);
     assert.equal(listed.body.data?.length, 0);
+    assert.equal(deletionHistory?.productId, created.body.data?.id);
+    assert.equal(
+      deletionHistory?.notes,
+      "Produto removido da lista de produtos.",
+    );
   });
 
   it("soft deletes products with operational references", async () => {
@@ -10279,6 +10309,16 @@ describe("catalog routes", () => {
         body: { active: false },
       },
     );
+    const movements = await request<StockMovement[]>("/stock-movements");
+    const creationHistory = movements.body.data?.find(
+      (movement) => movement.type === "PRODUCT_CREATED",
+    );
+    const updateHistory = movements.body.data?.find(
+      (movement) => movement.type === "PRODUCT_UPDATED",
+    );
+    const statusHistory = movements.body.data?.find(
+      (movement) => movement.type === "PRODUCT_STATUS_CHANGED",
+    );
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.brandId, brand.body.data?.id);
@@ -10349,6 +10389,16 @@ describe("catalog routes", () => {
     );
     assert.equal(deactivated.status, 200);
     assert.equal(deactivated.body.data?.active, false);
+    assert.equal(creationHistory?.quantity, null);
+    assert.equal(creationHistory?.createdByUserName, "Administrador de teste");
+    assert.equal(creationHistory?.notes, "Produto cadastrado.");
+    assert.match(updateHistory?.notes ?? "", /Nome:/);
+    assert.match(updateHistory?.notes ?? "", /Despesas acessorias:/);
+    assert.equal(
+      updateHistory?.changes?.Nome?.after,
+      "Filtro Wega FAP4040 Atualizado",
+    );
+    assert.match(statusHistory?.notes ?? "", /Status: sim -> nao/);
   });
 
   it("filters products by active admin branch context", async () => {
@@ -10409,6 +10459,9 @@ describe("catalog routes", () => {
       },
     });
 
+    const duplicateCheck = await request<ProductIdentifierDuplicates>(
+      "/products/duplicate-check?barcode=7890000000028",
+    );
     const duplicated = await request("/products", {
       method: "POST",
       body: {
@@ -10417,11 +10470,42 @@ describe("catalog routes", () => {
       },
     });
 
+    assert.equal(duplicateCheck.status, 200);
+    assert.equal(duplicateCheck.body.data?.barcodeExists, true);
     assert.equal(duplicated.status, 409);
     assert.equal(
       duplicated.body.message,
       "Ja existe um produto com esse codigo de barras.",
     );
+  });
+
+  it("warns about duplicated internal product codes without blocking creation", async () => {
+    const first = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro codigo repetido A",
+        internalCode: "COD-REPETIDO",
+      },
+    });
+    const duplicateCheck = await request<ProductIdentifierDuplicates>(
+      "/products/duplicate-check?internalCode=cod-repetido",
+    );
+    const second = await request<Product>("/products", {
+      method: "POST",
+      body: {
+        name: "Filtro codigo repetido B",
+        internalCode: "COD-REPETIDO",
+      },
+    });
+    const editCheck = await request<ProductIdentifierDuplicates>(
+      `/products/duplicate-check?internalCode=COD-REPETIDO&excludeId=${second.body.data?.id}`,
+    );
+
+    assert.equal(first.status, 201);
+    assert.equal(duplicateCheck.status, 200);
+    assert.equal(duplicateCheck.body.data?.internalCodeExists, true);
+    assert.equal(second.status, 201);
+    assert.equal(editCheck.body.data?.internalCodeExists, true);
   });
 
   it("lists only active products that require stock replenishment", async () => {
@@ -10646,7 +10730,7 @@ describe("catalog routes", () => {
     assert.equal(createdAdjustment.status, 201);
     assert.equal(defaultEntries.body.data?.length, 1);
     assert.equal(isolatedEntries.body.data?.length, 0);
-    assert.equal(defaultMovements.body.data?.length, 2);
+    assert.equal(defaultMovements.body.data?.length, 3);
     assert.equal(isolatedMovements.body.data?.length, 0);
   });
 
@@ -11264,9 +11348,14 @@ describe("catalog routes", () => {
     const adjustment = response.body.data?.find(
       (movement) => movement.type === "ADJUSTMENT",
     );
+    const productCreation = response.body.data?.find(
+      (movement) => movement.type === "PRODUCT_CREATED",
+    );
 
     assert.equal(response.status, 200);
-    assert.equal(response.body.data?.length, 2);
+    assert.equal(response.body.data?.length, 3);
+    assert.equal(productCreation?.quantity, null);
+    assert.equal(productCreation?.notes, "Produto cadastrado.");
     assert.equal(entry?.productName, "Filtro com historico");
     assert.equal(entry?.supplierName, "Fornecedor do historico");
     assert.equal(entry?.createdByUserName, "Administrador de teste");

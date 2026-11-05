@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
+  checkProductIdentifierDuplicates,
   changeProductReplenishmentMonitor,
   changeProductStatus,
   destroyProduct,
@@ -69,6 +70,16 @@ const productParamsSchema = z.object({
   id: z.uuid(),
 });
 
+const productDuplicateQuerySchema = z
+  .object({
+    internalCode: z.string().trim().min(1).max(80).optional(),
+    barcode: z.string().trim().min(1).max(80).optional(),
+    excludeId: z.uuid().optional(),
+  })
+  .refine((value) => value.internalCode || value.barcode, {
+    message: "Informe um codigo interno ou codigo de barras.",
+  });
+
 productsRoutes.get("/products", async (request, response) => {
   const page = Number(request.query.page ?? 1);
   const limit = Number(request.query.limit ?? 20);
@@ -100,6 +111,20 @@ productsRoutes.get("/products", async (request, response) => {
 
 productsRoutes.get("/products/low-stock", async (_request, response) => {
   const result = await indexLowStockProducts({
+    branchId: requireActiveBranchId(response.locals),
+  });
+
+  response.status(200).json(result);
+});
+
+productsRoutes.get("/products/duplicate-check", async (request, response) => {
+  const query = productDuplicateQuerySchema.parse({
+    internalCode: parseStringFilter(request.query.internalCode),
+    barcode: parseStringFilter(request.query.barcode),
+    excludeId: parseStringFilter(request.query.excludeId),
+  });
+  const result = await checkProductIdentifierDuplicates({
+    ...query,
     branchId: requireActiveBranchId(response.locals),
   });
 
@@ -142,7 +167,12 @@ productsRoutes.put("/products/:id", async (request, response) => {
 productsRoutes.patch("/products/:id/status", async (request, response) => {
   const { id } = productParamsSchema.parse(request.params);
   const body = validateBody(request, updateProductStatusSchema);
-  const result = await changeProductStatus(id, body.active);
+  const result = await changeProductStatus(
+    id,
+    requireActiveBranchId(response.locals),
+    body.active,
+    response.locals.authenticatedUser.id as string,
+  );
 
   response.status(200).json(result);
 });
@@ -156,6 +186,7 @@ productsRoutes.patch(
       id,
       requireActiveBranchId(response.locals),
       body.enabled,
+      response.locals.authenticatedUser.id as string,
     );
 
     response.status(200).json(result);
@@ -164,7 +195,11 @@ productsRoutes.patch(
 
 productsRoutes.delete("/products/:id", async (request, response) => {
   const { id } = productParamsSchema.parse(request.params);
-  const result = await destroyProduct(id, requireActiveBranchId(response.locals));
+  const result = await destroyProduct(
+    id,
+    requireActiveBranchId(response.locals),
+    response.locals.authenticatedUser.id as string,
+  );
 
   response.status(200).json(result);
 });

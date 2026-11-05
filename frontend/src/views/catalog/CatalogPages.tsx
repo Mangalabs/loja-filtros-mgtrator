@@ -28,15 +28,18 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react'
-import type {
-  Client,
-  ClientCompanyLookup,
-  CommercialSettings,
-  CestOption,
-  NamedEntity,
-  NcmOption,
-  Product,
-  Supplier,
+import {
+  apiGet,
+  type ApiResult,
+  type Client,
+  type ClientCompanyLookup,
+  type CommercialSettings,
+  type CestOption,
+  type NamedEntity,
+  type NcmOption,
+  type Product,
+  type ProductIdentifierDuplicates,
+  type Supplier,
 } from '../../api'
 import { SearchableSelectField } from '../../components/SearchableSelectField'
 import {
@@ -63,6 +66,16 @@ import {
   wholeNumberInputProps,
 } from '../../utils/numericInput'
 import { productDisplayName } from '../../utils/productDisplay'
+import {
+  hasDuplicateValue,
+  normalizeDuplicateDocument,
+} from '../../utils/duplicateRegistration'
+import {
+  clearProductFormDraft,
+  productFormDraftStorageKey,
+  readProductFormDraft,
+  writeProductFormDraft,
+} from './productFormDraft'
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 type ClientStatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE'
@@ -626,65 +639,213 @@ export function ProductForm({
   product,
   mode = product ? 'edit' : 'create',
   onSubmit,
+  onCreateBrand,
   onCancel,
+  draftScope,
   submitLabel,
 }: {
   brands: NamedEntity[]
   cestOptions: CestOption[]
   commercialSettings: CommercialSettings | null
+  draftScope?: string
   ncmOptions: NcmOption[]
   product?: Product
   mode?: 'create' | 'edit' | 'clone'
   onSubmit: AsyncFormSubmitHandler
+  onCreateBrand?: (name: string) => Promise<NamedEntity | undefined>
   onCancel?: () => void
   submitLabel: string
 }) {
-  const { submit, submitting } = usePendingFormSubmit(onSubmit)
+  const formRef = useRef<HTMLFormElement>(null)
+  const draftStorageKey =
+    mode === 'create' && draftScope
+      ? productFormDraftStorageKey(draftScope)
+      : undefined
+  const [draftValues] = useState(() =>
+    draftStorageKey ? readProductFormDraft(draftStorageKey) : null,
+  )
   const defaultProfitMarginPercentage = Number(
     commercialSettings?.defaultProfitMarginPercentage ?? 0,
   )
   const [costPrice, setCostPrice] = useState(() =>
-    optionalMoneyFieldValue(product?.costPrice),
+    optionalMoneyFieldValue(draftValues?.costPrice ?? product?.costPrice),
   )
   const [salePrice, setSalePrice] = useState(() =>
-    optionalMoneyFieldValue(product?.salePrice),
+    optionalMoneyFieldValue(draftValues?.salePrice ?? product?.salePrice),
   )
   const [profitMarginPercentage, setProfitMarginPercentage] = useState(
-    product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
+    draftValues?.profitMarginPercentage ??
+      product?.profitMarginPercentage ??
+      String(defaultProfitMarginPercentage),
   )
   const [accessoryExpenses, setAccessoryExpenses] = useState(() =>
-    optionalMoneyFieldValue(product?.accessoryExpenses),
+    optionalMoneyFieldValue(
+      draftValues?.accessoryExpenses ?? product?.accessoryExpenses,
+    ),
   )
   const [salePriceTouched, setSalePriceTouched] = useState(
-    Boolean(product?.salePrice),
+    draftValues?.salePrice !== undefined || Boolean(product?.salePrice),
   )
-  const [cestValue, setCestValue] = useState(product?.cest ?? '')
-  const [ncmValue, setNcmValue] = useState(product?.ncm ?? '')
-  const [brandId, setBrandId] = useState(product?.brandId ?? '')
+  const [marginCalculatedFromSalePrice, setMarginCalculatedFromSalePrice] =
+    useState(false)
+  const [cestValue, setCestValue] = useState(
+    draftValues?.cest ?? product?.cest ?? '',
+  )
+  const [ncmValue, setNcmValue] = useState(
+    draftValues?.ncm ?? product?.ncm ?? '',
+  )
+  const [brandId, setBrandId] = useState(
+    draftValues?.brandId ?? product?.brandId ?? '',
+  )
+  const [internalCode, setInternalCode] = useState(
+    draftValues?.internalCode ?? product?.internalCode ?? '',
+  )
+  const [barcode, setBarcode] = useState(
+    draftValues?.barcode ?? product?.barcode ?? '',
+  )
+  const [showNewBrand, setShowNewBrand] = useState(false)
+  const [newBrandName, setNewBrandName] = useState('')
+  const [createdBrand, setCreatedBrand] = useState<NamedEntity>()
+  const [creatingBrand, setCreatingBrand] = useState(false)
+  const creatingBrandRef = useRef(false)
+  const [duplicateCheck, setDuplicateCheck] = useState<{
+    status: 'idle' | 'loading' | 'ready' | 'error'
+    data: ProductIdentifierDuplicates | null
+  }>({ status: 'idle', data: null })
+  const duplicateCheckRequestRef = useRef(0)
+  const { submit, submitting } = usePendingFormSubmit(async (event) => {
+    const saved = await onSubmit(event)
+
+    if (saved && draftStorageKey) {
+      clearProductFormDraft(draftStorageKey)
+    }
+
+    return saved
+  })
   const finalCost = salePriceCalculationBase(costPrice, accessoryExpenses)
+  const availableBrands =
+    createdBrand && !brands.some((brand) => brand.id === createdBrand.id)
+      ? [...brands, createdBrand]
+      : brands
+  const duplicateNewBrand = hasDuplicateValue(
+    availableBrands,
+    newBrandName,
+    undefined,
+    (brand) => brand.name,
+  )
 
   useEffect(() => {
-    setCostPrice(optionalMoneyFieldValue(product?.costPrice))
-    setSalePrice(optionalMoneyFieldValue(product?.salePrice))
-    setProfitMarginPercentage(
-      product?.profitMarginPercentage ?? String(defaultProfitMarginPercentage),
+    setCostPrice(
+      optionalMoneyFieldValue(draftValues?.costPrice ?? product?.costPrice),
     )
-    setAccessoryExpenses(optionalMoneyFieldValue(product?.accessoryExpenses))
-    setSalePriceTouched(Boolean(product?.salePrice))
-    setCestValue(product?.cest ?? '')
-    setNcmValue(product?.ncm ?? '')
-    setBrandId(product?.brandId ?? '')
+    setSalePrice(
+      optionalMoneyFieldValue(draftValues?.salePrice ?? product?.salePrice),
+    )
+    setProfitMarginPercentage(
+      draftValues?.profitMarginPercentage ??
+        product?.profitMarginPercentage ??
+        String(defaultProfitMarginPercentage),
+    )
+    setAccessoryExpenses(
+      optionalMoneyFieldValue(
+        draftValues?.accessoryExpenses ?? product?.accessoryExpenses,
+      ),
+    )
+    setSalePriceTouched(
+      draftValues?.salePrice !== undefined || Boolean(product?.salePrice),
+    )
+    setMarginCalculatedFromSalePrice(false)
+    setCestValue(draftValues?.cest ?? product?.cest ?? '')
+    setNcmValue(draftValues?.ncm ?? product?.ncm ?? '')
+    setBrandId(draftValues?.brandId ?? product?.brandId ?? '')
+    setInternalCode(
+      draftValues?.internalCode ?? product?.internalCode ?? '',
+    )
+    setBarcode(draftValues?.barcode ?? product?.barcode ?? '')
+    setDuplicateCheck({ status: 'idle', data: null })
   }, [
     defaultProfitMarginPercentage,
+    draftValues,
     product?.accessoryExpenses,
     product?.brandId,
+    product?.barcode,
     product?.cest,
     product?.costPrice,
     product?.id,
+    product?.internalCode,
     product?.ncm,
     product?.profitMarginPercentage,
     product?.salePrice,
   ])
+
+  useEffect(() => {
+    if (draftStorageKey && formRef.current) {
+      writeProductFormDraft(draftStorageKey, formRef.current)
+    }
+  }, [
+    accessoryExpenses,
+    barcode,
+    brandId,
+    cestValue,
+    costPrice,
+    draftStorageKey,
+    internalCode,
+    ncmValue,
+    profitMarginPercentage,
+    salePrice,
+  ])
+
+  useEffect(() => {
+    const normalizedInternalCode = internalCode.trim()
+    const normalizedBarcode = barcode.trim()
+
+    if (!normalizedInternalCode && !normalizedBarcode) {
+      setDuplicateCheck({ status: 'idle', data: null })
+      return
+    }
+
+    const requestId = duplicateCheckRequestRef.current + 1
+    duplicateCheckRequestRef.current = requestId
+    setDuplicateCheck((current) => ({ ...current, status: 'loading' }))
+
+    const timeout = window.setTimeout(async () => {
+      const params = new URLSearchParams()
+
+      if (normalizedInternalCode) {
+        params.set('internalCode', normalizedInternalCode)
+      }
+
+      if (normalizedBarcode) {
+        params.set('barcode', normalizedBarcode)
+      }
+
+      if (mode === 'edit' && product?.id) {
+        params.set('excludeId', product.id)
+      }
+
+      try {
+        const result = await apiGet<ApiResult<ProductIdentifierDuplicates>>(
+          `/products/duplicate-check?${params.toString()}`,
+        )
+
+        if (duplicateCheckRequestRef.current === requestId) {
+          setDuplicateCheck({ status: 'ready', data: result.data })
+        }
+      } catch {
+        if (duplicateCheckRequestRef.current === requestId) {
+          setDuplicateCheck({ status: 'error', data: null })
+        }
+      }
+    }, 450)
+
+    return () => {
+      window.clearTimeout(timeout)
+
+      if (duplicateCheckRequestRef.current === requestId) {
+        duplicateCheckRequestRef.current += 1
+      }
+    }
+  }, [barcode, internalCode, mode, product?.id])
 
   useEffect(() => {
     if (salePriceTouched) {
@@ -705,8 +866,68 @@ export function ProductForm({
     salePriceTouched,
   ])
 
+  async function createBrandFromProductForm() {
+    const name = newBrandName.trim()
+
+    if (
+      !name ||
+      duplicateNewBrand ||
+      !onCreateBrand ||
+      creatingBrandRef.current
+    ) {
+      return
+    }
+
+    creatingBrandRef.current = true
+    setCreatingBrand(true)
+
+    try {
+      const brand = await onCreateBrand(name)
+
+      if (brand) {
+        setCreatedBrand(brand)
+        setBrandId(brand.id)
+        setNewBrandName('')
+        setShowNewBrand(false)
+      }
+    } finally {
+      creatingBrandRef.current = false
+      setCreatingBrand(false)
+    }
+  }
+
+  function persistDraft() {
+    if (draftStorageKey && formRef.current) {
+      writeProductFormDraft(draftStorageKey, formRef.current)
+    }
+  }
+
+  function recalculateProfitMargin(
+    nextCostPrice: string,
+    nextAccessoryExpenses: string,
+    nextSalePrice: string,
+  ) {
+    const calculatedMargin = profitMarginFromSalePrice(
+      nextCostPrice,
+      nextAccessoryExpenses,
+      nextSalePrice,
+    )
+
+    if (calculatedMargin === null) {
+      setMarginCalculatedFromSalePrice(false)
+      return
+    }
+
+    setProfitMarginPercentage(calculatedMargin)
+    setMarginCalculatedFromSalePrice(true)
+  }
+
   return (
-    <FormGrid className='max-w-5xl gap-5' onSubmit={submit}>
+    <FormGrid
+      ref={formRef}
+      className='max-w-5xl gap-5'
+      onChange={persistDraft}
+      onSubmit={submit}>
       <PageHeader
         icon={mode === 'edit' ? <Pencil size={18} /> : <PackagePlus size={18} />}
         title={
@@ -717,45 +938,118 @@ export function ProductForm({
               : 'Dados do produto'
         }
       />
+      {mode === 'create' ? (
+        <span className='text-xs text-[#5f665f]'>
+          Os dados deste novo produto ficam salvos neste navegador até o
+          cadastro ser concluído.
+        </span>
+      ) : null}
       <TextField
         label='Nome do produto'
         name='productName'
-        defaultValue={product?.name}
+        defaultValue={draftValues?.productName ?? product?.name}
         required
       />
       <FormRow>
         <TextField
+          helperText={productIdentifierHelperText(
+            internalCode,
+            duplicateCheck.status,
+            duplicateCheck.data?.internalCodeExists ?? false,
+            'codigo interno nesta filial',
+            true,
+          )}
           label='Codigo interno'
           name='internalCode'
-          defaultValue={product?.internalCode ?? ''}
+          value={internalCode}
+          onChange={(event) => setInternalCode(event.target.value)}
+          sx={duplicateFieldSx(
+            duplicateCheck.data?.internalCodeExists ?? false,
+          )}
         />
         <TextField
+          helperText={productIdentifierHelperText(
+            barcode,
+            duplicateCheck.status,
+            duplicateCheck.data?.barcodeExists ?? false,
+            'codigo de barras no sistema',
+            false,
+          )}
           label='Codigo de barras'
           name='barcode'
-          defaultValue={product?.barcode ?? ''}
+          value={barcode}
+          onChange={(event) => setBarcode(event.target.value)}
+          sx={duplicateFieldSx(
+            duplicateCheck.data?.barcodeExists ?? false,
+          )}
         />
       </FormRow>
       <FormRow>
-        <SearchableSelectField
-          label='Fabricante'
-          name='brandId'
-          options={brands.map((brand) => ({
-            value: brand.id,
-            label: brand.name,
-          }))}
-          placeholder='Sem fabricante'
-          value={brandId}
-          onChange={setBrandId}
-        />
+        <div className='grid gap-2'>
+          <SearchableSelectField
+            label='Fabricante'
+            name='brandId'
+            options={availableBrands.map((brand) => ({
+              value: brand.id,
+              label: brand.name,
+            }))}
+            placeholder='Sem fabricante'
+            value={brandId}
+            onChange={setBrandId}
+          />
+          {mode === 'create' && onCreateBrand ? (
+            showNewBrand ? (
+              <div className='grid gap-2 rounded-lg border border-[#dfe5e1] bg-[#fbfcfb] p-3'>
+                <TextField
+                  helperText={
+                    duplicateNewBrand
+                      ? 'Este fabricante já está cadastrado. Selecione-o no campo acima.'
+                      : 'O novo fabricante será selecionado automaticamente.'
+                  }
+                  label='Nome do novo fabricante'
+                  size='small'
+                  value={newBrandName}
+                  onChange={(event) => setNewBrandName(event.target.value)}
+                  slotProps={{ htmlInput: { maxLength: 120 } }}
+                  sx={duplicateFieldSx(duplicateNewBrand)}
+                />
+                <div className='flex flex-wrap gap-2'>
+                  <PrimaryButton
+                    disabled={!newBrandName.trim() || duplicateNewBrand}
+                    loading={creatingBrand}
+                    type='button'
+                    onClick={() => void createBrandFromProductForm()}>
+                    Cadastrar fabricante
+                  </PrimaryButton>
+                  <SecondaryButton
+                    disabled={creatingBrand}
+                    type='button'
+                    onClick={() => {
+                      setNewBrandName('')
+                      setShowNewBrand(false)
+                    }}>
+                    Cancelar
+                  </SecondaryButton>
+                </div>
+              </div>
+            ) : (
+              <SecondaryButton
+                type='button'
+                onClick={() => setShowNewBrand(true)}>
+                Cadastrar novo fabricante
+              </SecondaryButton>
+            )
+          ) : null}
+        </div>
         <TextField
           label='Locação'
           name='location'
-          defaultValue={product?.location ?? ''}
+          defaultValue={draftValues?.location ?? product?.location ?? ''}
         />
       </FormRow>
       <FormRow columns={3}>
         <TextField
-          defaultValue={product?.unit ?? 'UN'}
+          defaultValue={draftValues?.unit ?? product?.unit ?? 'UN'}
           label='Unidade'
           name='unit'
           select>
@@ -783,8 +1077,17 @@ export function ProductForm({
             type='number'
             value={costPrice}
             onChange={(event) => {
-              setCostPrice(event.target.value)
-              setSalePriceTouched(false)
+              const nextCostPrice = event.target.value
+
+              setCostPrice(nextCostPrice)
+
+              if (salePriceTouched) {
+                recalculateProfitMargin(
+                  nextCostPrice,
+                  accessoryExpenses,
+                  salePrice,
+                )
+              }
             }}
             slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
           />
@@ -796,8 +1099,17 @@ export function ProductForm({
             type='number'
             value={accessoryExpenses}
             onChange={(event) => {
-              setAccessoryExpenses(event.target.value)
-              setSalePriceTouched(false)
+              const nextAccessoryExpenses = event.target.value
+
+              setAccessoryExpenses(nextAccessoryExpenses)
+
+              if (salePriceTouched) {
+                recalculateProfitMargin(
+                  costPrice,
+                  nextAccessoryExpenses,
+                  salePrice,
+                )
+              }
             }}
             slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
           />
@@ -816,7 +1128,10 @@ export function ProductForm({
         </FormRow>
         <FormRow columns={3}>
           <TextField
-            helperText={profitMarginHelperText(defaultProfitMarginPercentage)}
+            helperText={profitMarginHelperText(
+              defaultProfitMarginPercentage,
+              marginCalculatedFromSalePrice,
+            )}
             label='Margem de lucro (%)'
             name='profitMarginPercentage'
             type='number'
@@ -824,6 +1139,7 @@ export function ProductForm({
             onChange={(event) => {
               setProfitMarginPercentage(event.target.value)
               setSalePriceTouched(false)
+              setMarginCalculatedFromSalePrice(false)
             }}
             slotProps={{ htmlInput: nonNegativePercentageInputProps }}
           />
@@ -832,6 +1148,7 @@ export function ProductForm({
               costPrice,
               accessoryExpenses,
               profitMarginPercentage,
+              salePrice,
             )}
             label='Valor de venda sugerido'
             name='salePrice'
@@ -839,8 +1156,15 @@ export function ProductForm({
             type='number'
             value={salePrice}
             onChange={(event) => {
-              setSalePrice(event.target.value)
+              const nextSalePrice = event.target.value
+
+              setSalePrice(nextSalePrice)
               setSalePriceTouched(true)
+              recalculateProfitMargin(
+                costPrice,
+                accessoryExpenses,
+                nextSalePrice,
+              )
             }}
             slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
           />
@@ -852,14 +1176,16 @@ export function ProductForm({
           label='Estoque atual'
           name='currentStock'
           type='number'
-          defaultValue={product?.currentStock ?? '0'}
+          defaultValue={
+            draftValues?.currentStock ?? product?.currentStock ?? '0'
+          }
           slotProps={{ htmlInput: wholeNumberInputProps }}
         />
         <TextField
           label='Estoque min.'
           name='minimumStock'
           type='number'
-          defaultValue={product?.minimumStock}
+          defaultValue={draftValues?.minimumStock ?? product?.minimumStock}
           slotProps={{ htmlInput: nonNegativeWholeNumberInputProps }}
         />
         <Autocomplete
@@ -935,7 +1261,7 @@ export function ProductForm({
       </FormRow>
       <FormRow>
         <TextField
-          defaultValue={product?.origin ?? ''}
+          defaultValue={draftValues?.origin ?? product?.origin ?? ''}
           helperText='Classificação fiscal da origem da mercadoria.'
           label='Origem fiscal'
           name='origin'
@@ -949,7 +1275,7 @@ export function ProductForm({
         </TextField>
       </FormRow>
       <TextField
-        defaultValue={product?.description ?? ''}
+        defaultValue={draftValues?.description ?? product?.description ?? ''}
         helperText='Texto exibido em orçamentos quando precisar separar o nome interno do texto comercial.'
         label='Descrição comercial para orçamento'
         multiline
@@ -958,7 +1284,9 @@ export function ProductForm({
         slotProps={{ htmlInput: { maxLength: 1000 } }}
       />
       <TextField
-        defaultValue={product?.internalNotes ?? ''}
+        defaultValue={
+          draftValues?.internalNotes ?? product?.internalNotes ?? ''
+        }
         helperText='Uso interno da equipe. Esta informação não aparece em orçamentos ou comprovantes.'
         label='Observações internas'
         multiline
@@ -977,6 +1305,7 @@ export function ProductForm({
           </SecondaryButton>
         ) : null}
         <PrimaryButton
+          disabled={submitting || creatingBrand}
           loading={submitting}
           icon={product ? <Pencil size={17} /> : <Plus size={17} />}
           type='submit'>
@@ -1002,6 +1331,28 @@ function suggestedSalePrice(
   return (cost * (1 + margin / 100)).toFixed(2)
 }
 
+function profitMarginFromSalePrice(
+  costPrice: string,
+  accessoryExpenses: string,
+  salePrice: string,
+) {
+  const calculationBase = salePriceCalculationBase(costPrice, accessoryExpenses)
+  const sale = Number(salePrice)
+
+  if (
+    !salePrice.trim() ||
+    calculationBase <= 0 ||
+    !Number.isFinite(sale) ||
+    sale < 0
+  ) {
+    return null
+  }
+
+  const margin = ((sale - calculationBase) / calculationBase) * 100
+
+  return Math.max(margin, 0).toFixed(2)
+}
+
 function salePriceCalculationBase(
   costPrice: string,
   accessoryExpenses: string,
@@ -1019,6 +1370,40 @@ function optionalMoneyFieldValue(value?: string | null) {
   const numberValue = Number(value)
 
   return value && Number.isFinite(numberValue) && numberValue !== 0 ? value : ''
+}
+
+function productIdentifierHelperText(
+  value: string,
+  status: 'idle' | 'loading' | 'ready' | 'error',
+  exists: boolean,
+  label: string,
+  duplicateAllowed: boolean,
+) {
+  if (!value.trim()) {
+    return undefined
+  }
+
+  if (status === 'loading') {
+    return 'Verificando cadastros existentes…'
+  }
+
+  if (status === 'error') {
+    return 'Nao foi possivel conferir duplicidades agora.'
+  }
+
+  if (!exists) {
+    return undefined
+  }
+
+  return duplicateAllowed
+    ? `Atencao: este ${label} ja foi cadastrado. A repeticao e permitida, mas revise antes de salvar.`
+    : `Atencao: este ${label} ja foi cadastrado. Informe outro valor.`
+}
+
+function duplicateFieldSx(duplicate: boolean) {
+  return duplicate
+    ? { '& .MuiFormHelperText-root': { color: 'warning.dark' } }
+    : undefined
 }
 
 const productOriginOptions = [
@@ -1106,9 +1491,25 @@ function salePriceHelperText(
   costPrice: string,
   accessoryExpenses: string,
   profitMarginPercentage: string,
+  salePrice: string,
 ) {
   const calculationBase = salePriceCalculationBase(costPrice, accessoryExpenses)
   const margin = Number(profitMarginPercentage)
+  const sale = Number(salePrice)
+
+  if (
+    calculationBase > 0 &&
+    salePrice.trim() &&
+    Number.isFinite(sale) &&
+    sale < calculationBase
+  ) {
+    const negativeMargin = ((sale - calculationBase) / calculationBase) * 100
+
+    return `Valor abaixo do custo final: margem de ${negativeMargin.toLocaleString(
+      'pt-BR',
+      { maximumFractionDigits: 2 },
+    )}%. O cadastro manterá a margem em 0%.`
+  }
 
   if (calculationBase <= 0 || !Number.isFinite(margin) || margin <= 0) {
     return 'Configure uma margem comercial para sugerir o preço automaticamente.'
@@ -1120,7 +1521,14 @@ function salePriceHelperText(
   })} + margem de ${margin.toLocaleString('pt-BR')}%`
 }
 
-function profitMarginHelperText(defaultProfitMarginPercentage: number) {
+function profitMarginHelperText(
+  defaultProfitMarginPercentage: number,
+  calculatedFromSalePrice: boolean,
+) {
+  if (calculatedFromSalePrice) {
+    return 'Calculada automaticamente a partir do valor de venda informado.'
+  }
+
   return `Preenchido pela margem padrão de ${defaultProfitMarginPercentage.toLocaleString('pt-BR')}%, mas pode variar por produto.`
 }
 
@@ -1141,6 +1549,7 @@ export function NamedEntityPage({
   onDelete: AsyncEntityAction<NamedEntity>
 }) {
   const [selectedEntity, setSelectedEntity] = useState<NamedEntity>()
+  const [entityName, setEntityName] = useState('')
   const [pendingDeleteId, setPendingDeleteId] = useState<string>()
   const pendingDeleteRef = useRef(false)
   const { pagination, visibleItems } = usePaginatedRows<NamedEntity>(items)
@@ -1149,8 +1558,19 @@ export function NamedEntityPage({
 
     if (saved) {
       setSelectedEntity(undefined)
+      setEntityName('')
     }
   })
+  const duplicateName = hasDuplicateValue(
+    items,
+    entityName,
+    selectedEntity?.id,
+    (item) => item.name,
+  )
+
+  useEffect(() => {
+    setEntityName(selectedEntity?.name ?? '')
+  }, [selectedEntity?.id, selectedEntity?.name])
 
   async function remove(entity: NamedEntity) {
     if (pendingDeleteRef.current) {
@@ -1176,10 +1596,17 @@ export function NamedEntityPage({
           title={selectedEntity ? 'Editar fabricante' : 'Novo fabricante'}
         />
         <TextField
-          defaultValue={selectedEntity?.name ?? ''}
+          helperText={
+            duplicateName
+              ? 'Atencao: ja existe um cadastro com este nome.'
+              : undefined
+          }
           label='Nome'
           name={fieldName}
+          value={entityName}
+          onChange={(event) => setEntityName(event.target.value)}
           required
+          sx={duplicateFieldSx(duplicateName)}
         />
         {selectedEntity ? (
           <TextField
@@ -1278,6 +1705,7 @@ export function SuppliersPage({
   onDelete: AsyncEntityAction<Supplier>
 }) {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier>()
+  const [supplierDocument, setSupplierDocument] = useState('')
   const [pendingDeleteId, setPendingDeleteId] = useState<string>()
   const pendingDeleteRef = useRef(false)
   const { pagination, visibleItems } = usePaginatedRows<Supplier>(suppliers)
@@ -1286,8 +1714,20 @@ export function SuppliersPage({
 
     if (saved) {
       setSelectedSupplier(undefined)
+      setSupplierDocument('')
     }
   })
+  const duplicateDocument = hasDuplicateValue(
+    suppliers,
+    supplierDocument,
+    selectedSupplier?.id,
+    (supplier) => supplier.document,
+    normalizeDuplicateDocument,
+  )
+
+  useEffect(() => {
+    setSupplierDocument(selectedSupplier?.document ?? '')
+  }, [selectedSupplier?.document, selectedSupplier?.id])
 
   async function remove(supplier: Supplier) {
     if (pendingDeleteRef.current) {
@@ -1319,9 +1759,16 @@ export function SuppliersPage({
           required
         />
         <TextField
-          defaultValue={selectedSupplier?.document ?? ''}
+          helperText={
+            duplicateDocument
+              ? 'Atencao: este CPF/CNPJ ja esta vinculado a outro fornecedor. A repeticao e permitida, mas revise antes de salvar.'
+              : undefined
+          }
           label='CPF/CNPJ'
           name='supplierDocument'
+          value={supplierDocument}
+          onChange={(event) => setSupplierDocument(event.target.value)}
+          sx={duplicateFieldSx(duplicateDocument)}
         />
         <FormRow>
           <TextField
@@ -1453,7 +1900,6 @@ export function ClientsPage({
   onChangeStatus: AsyncEntityAction<Client>
   onDelete: AsyncEntityAction<Client>
 }) {
-  const { submit, submitting } = usePendingFormSubmit(onSubmit)
   const [pendingAction, setPendingAction] = useState<PendingEntityAction>()
   const pendingActionRef = useRef(false)
   const [clientSearch, setClientSearch] = useState('')
@@ -1481,6 +1927,14 @@ export function ClientsPage({
   const [lookupValues, setLookupValues] = useState<
     Record<string, string | null>
   >({})
+  const { submit, submitting } = usePendingFormSubmit(async (event) => {
+    const saved = await onSubmit(event)
+
+    if (saved) {
+      setLookupValues({})
+      setLookupState('idle')
+    }
+  })
   const [clientPersonType, setClientPersonType] = useState(
     selectedClient?.personType ?? 'PF',
   )
@@ -1488,6 +1942,15 @@ export function ClientsPage({
     clientStateRegistrationIndicator,
     setClientStateRegistrationIndicator,
   ] = useState(selectedClient?.stateRegistrationIndicator ?? '9')
+  const clientDocumentValue =
+    lookupValues.clientDocument ?? selectedClient?.document ?? ''
+  const duplicateClientDocument = hasDuplicateValue(
+    clients,
+    clientDocumentValue,
+    selectedClient?.id,
+    (client) => client.document,
+    normalizeDuplicateDocument,
+  )
 
   async function runClientAction(
     client: Client,
@@ -1510,6 +1973,8 @@ export function ClientsPage({
   }
 
   useEffect(() => {
+    setLookupValues({})
+    setLookupState('idle')
     setClientPersonType(selectedClient?.personType ?? 'PF')
     setClientStateRegistrationIndicator(
       selectedClient?.stateRegistrationIndicator ?? '9',
@@ -1591,12 +2056,18 @@ export function ClientsPage({
           required
         />
         <TextField
+          helperText={
+            duplicateClientDocument
+              ? 'Atencao: este CPF/CNPJ ja esta vinculado a outro cliente. A repeticao e permitida, mas revise antes de salvar.'
+              : undefined
+          }
           label='CPF/CNPJ'
           name='clientDocument'
-          value={clientFieldValue('clientDocument', selectedClient?.document)}
+          value={clientDocumentValue}
           onChange={(event) =>
             updateLookupValue('clientDocument', event.target.value)
           }
+          sx={duplicateFieldSx(duplicateClientDocument)}
         />
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <span

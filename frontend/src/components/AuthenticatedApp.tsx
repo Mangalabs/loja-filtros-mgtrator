@@ -398,6 +398,7 @@ export function AuthenticatedApp({
 
         <section className="mt-5 sm:mt-6">
           <AppViewRenderer
+            activeBranchId={activeBranchId}
             brands={brands}
             cashRegister={cashRegister}
             cashReport={cashReport}

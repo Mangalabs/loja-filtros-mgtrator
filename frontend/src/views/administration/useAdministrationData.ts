@@ -139,7 +139,7 @@ export function useAdministrationData() {
           apiPut<ApiResult<AuthUser>>(`/users/${selectedEmployee.id}`, input)
       : () => apiPost<ApiResult<AuthUser>>("/users", input);
 
-    await runAction(async () => {
+    return runAction(async () => {
       await saveRequest();
       form.reset();
       setSelectedEmployee(undefined);
@@ -222,9 +222,11 @@ export function useAdministrationData() {
     try {
       await action();
       await loadAdministration();
+      return true;
     } catch (error) {
       setMessage(readErrorMessage(error));
       setState("error");
+      return false;
     }
   }
 

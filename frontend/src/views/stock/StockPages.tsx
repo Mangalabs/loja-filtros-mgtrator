@@ -725,7 +725,10 @@ export function StockMovementsPage({
           },
           {
             header: "Quantidade",
-            render: (movement) => formatSignedQuantity(movement.quantity),
+            render: (movement) =>
+              movement.quantity === null
+                ? "-"
+                : formatSignedQuantity(movement.quantity),
           },
           {
             header: "Fornecedor",
@@ -761,6 +764,11 @@ function movementTypeLabel(type: StockMovement["type"]) {
 const movementTypeLabels: Record<StockMovement["type"], string> = {
   ADJUSTMENT: "Ajuste",
   ENTRY: "Entrada",
+  PRODUCT_CREATED: "Cadastro de produto",
+  PRODUCT_DELETED: "Exclusao de produto",
+  PRODUCT_REPLENISHMENT_CHANGED: "Monitor de reposicao",
+  PRODUCT_STATUS_CHANGED: "Status do produto",
+  PRODUCT_UPDATED: "Edicao de produto",
   SALE: "Venda",
   SALE_CANCEL: "Estorno de venda",
   SALE_CORRECTION: "Correcao de venda",

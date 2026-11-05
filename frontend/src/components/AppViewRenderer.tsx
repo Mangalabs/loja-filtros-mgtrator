@@ -85,6 +85,7 @@ import { PurchaseInvoicesPage } from "../views/stock/PurchaseInvoicesPage";
 import type { useStockActions } from "../views/stock/useStockActions";
 
 type AppViewRendererProps = {
+  activeBranchId: string;
   brands: NamedEntity[];
   cashRegister: CashRegisterSession | null;
   cashReport: CashReport | null;
@@ -199,6 +200,7 @@ type AppViewRendererProps = {
 };
 
 export function AppViewRenderer({
+  activeBranchId,
   brands,
   cashRegister,
   cashReport,
@@ -450,12 +452,15 @@ export function AppViewRenderer({
       ),
     "new-product": (
         <ProductForm
+          key={`new-product:${user.id}:${activeBranchId}`}
           brands={brands}
           cestOptions={cestOptions}
           commercialSettings={commercialSettings}
+          draftScope={`${user.id}:${activeBranchId}`}
           ncmOptions={ncmOptions}
           product={selectedProduct}
           mode={selectedProduct ? "clone" : "create"}
+          onCreateBrand={catalogActions.createBrand}
           onSubmit={catalogActions.createProduct}
           submitLabel={selectedProduct ? "Cadastrar produto clonado" : "Cadastrar produto"}
         />
