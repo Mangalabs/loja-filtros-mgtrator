@@ -184,6 +184,7 @@ function filterReportDocumentColumns<Key extends string>(
 const salesReportPdfColumnLabels: Record<SalesReportColumnKey, readonly string[]> = {
   code: ["Codigo"], product: ["Produto"], quantity: ["Qtde"],
   total: ["Total", "Faturamento"], cost: ["Custo"], profit: ["Lucro"],
+  profitPercentage: ["Lucro (%)"],
   margin: ["Margem"], client: ["Cliente"], sales: ["Vendas"],
   paymentMethod: ["Forma de pagamento"], participation: ["Part."],
   cumulative: ["Acum."], class: ["Classe"],
@@ -238,6 +239,7 @@ function salesReportDocument(
       { label: "Descontos", value: formatCurrency(report.summary.discountAmount) },
       { label: "Custo", value: formatCurrency(report.summary.costAmount) },
       { label: "Lucro", value: formatCurrency(report.summary.grossProfitAmount) },
+      { label: "Lucro (%)", value: `${report.summary.profitPercentage}%` },
       { label: "Liquido", value: formatCurrency(report.summary.netAmount) },
       { label: "Margem", value: `${report.summary.grossMarginPercentage}%` },
     ],
@@ -252,6 +254,7 @@ function salesReportDocument(
           { label: "Total", align: "right" },
           { label: "Custo", align: "right" },
           { label: "Lucro", align: "right" },
+          { label: "Lucro (%)", align: "right" },
           { label: "Margem", align: "right" },
         ],
         rows: report.byProduct.map((item) => [
@@ -261,6 +264,7 @@ function salesReportDocument(
           formatCurrency(item.totalAmount),
           formatCurrency(item.costAmount),
           formatCurrency(item.grossProfitAmount),
+          `${item.profitPercentage}%`,
           `${item.grossMarginPercentage}%`,
         ]),
       },

@@ -73,6 +73,11 @@ export type ProductPage = {
   totalPages: number;
 };
 
+export type ProductIdentifierDuplicates = {
+  internalCodeExists: boolean;
+  barcodeExists: boolean;
+};
+
 export type NcmOption = {
   code: string;
   label: string;
@@ -167,7 +172,12 @@ export type StockMovement = {
     | "SALE"
     | "SALE_CANCEL"
     | "SALE_RETURN"
-    | "SALE_CORRECTION";
+    | "SALE_CORRECTION"
+    | "PRODUCT_CREATED"
+    | "PRODUCT_UPDATED"
+    | "PRODUCT_STATUS_CHANGED"
+    | "PRODUCT_DELETED"
+    | "PRODUCT_REPLENISHMENT_CHANGED";
   productId: string;
   productName: string;
   supplierName: string | null;
@@ -175,9 +185,10 @@ export type StockMovement = {
   saleNumber: number | null;
   createdByUserId: string | null;
   createdByUserName: string | null;
-  quantity: string;
+  quantity: string | null;
   unitCost: string | null;
   notes: string | null;
+  changes: Record<string, { before: unknown; after: unknown }> | null;
   createdAt: string;
 };
 
@@ -642,6 +653,7 @@ export type SalesReport = {
     costAmount: string;
     netAmount: string;
     grossProfitAmount: string;
+    profitPercentage: string;
     grossMarginPercentage: string;
   };
   byProduct: Array<{
@@ -652,6 +664,7 @@ export type SalesReport = {
     costAmount: string;
     totalAmount: string;
     grossProfitAmount: string;
+    profitPercentage: string;
     grossMarginPercentage: string;
   }>;
   byClient: Array<{

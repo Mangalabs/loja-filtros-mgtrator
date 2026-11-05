@@ -50,6 +50,18 @@ export function useCatalogActions({
   showNewProduct,
   showProducts,
 }: CatalogActionsOptions) {
+  async function createBrand(name: string) {
+    let createdBrand: NamedEntity | undefined;
+    const saved = await runAction(async () => {
+      const result = await apiPost<ApiResult<NamedEntity>>("/brands", { name });
+
+      createdBrand = result.data;
+      await refreshCatalogFlow();
+    });
+
+    return saved ? createdBrand : undefined;
+  }
+
   async function saveNamedEntity(
     event: FormEvent<HTMLFormElement>,
     path: string,
@@ -186,7 +198,7 @@ export function useCatalogActions({
       addressZipCode: nullableFormValue(form, "clientAddressZipCode"),
     };
 
-    await runAction(async () => {
+    return runAction(async () => {
       const save = selectedClient
         ? () => apiPut(`/clients/${selectedClient.id}`, body)
         : () => apiPost("/clients", body);
@@ -231,7 +243,7 @@ export function useCatalogActions({
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
 
-    await runAction(async () => {
+    return runAction(async () => {
       await apiPost("/products", productFormBody(form));
       formElement.reset();
       setSelectedProduct(undefined);
@@ -351,6 +363,7 @@ export function useCatalogActions({
     changeClientStatus,
     changeProductStatus,
     cloneProduct,
+    createBrand,
     createProduct,
     deleteClient,
     deleteNamedEntity,

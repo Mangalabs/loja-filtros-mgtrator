@@ -394,6 +394,11 @@ const salesReportExportColumns = [
   { key: 'total', label: 'Total / faturamento', csvHeaders: ['Total', 'Faturamento'] },
   { key: 'cost', label: 'Custo', csvHeaders: ['Custo'] },
   { key: 'profit', label: 'Lucro', csvHeaders: ['Lucro'] },
+  {
+    key: 'profitPercentage',
+    label: 'Lucro (%)',
+    csvHeaders: ['Lucro (%)'],
+  },
   { key: 'margin', label: 'Margem', csvHeaders: ['Margem'] },
   { key: 'client', label: 'Cliente', csvHeaders: ['Cliente'] },
   { key: 'sales', label: 'Quantidade de vendas', csvHeaders: ['Vendas'] },
@@ -860,7 +865,7 @@ function SalesReportSection({
         onChange={setSelectedColumns}
         onClose={() => setColumnsDrawerOpen(false)}
       />
-      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>
+      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-7'>
         <ReportMetric
           icon={<ShoppingCart size={18} />}
           label='Vendas'
@@ -885,6 +890,11 @@ function SalesReportSection({
           icon={<CircleDollarSign size={18} />}
           label='Lucro'
           value={formatCurrency(salesReport.summary.grossProfitAmount)}
+        />
+        <ReportMetric
+          icon={<CircleDollarSign size={18} />}
+          label='Lucro (%)'
+          value={`${salesReport.summary.profitPercentage}%`}
         />
         <ReportMetric
           icon={<CircleDollarSign size={18} />}
@@ -922,6 +932,11 @@ function SalesReportSection({
               align: 'right',
               header: 'Lucro',
               render: (item) => formatCurrency(item.grossProfitAmount),
+            },
+            {
+              align: 'right',
+              header: 'Lucro (%)',
+              render: (item) => `${item.profitPercentage}%`,
             },
             {
               align: 'right',
@@ -2573,6 +2588,7 @@ function exportSalesReportCsv(
     ['Resumo', 'Desconto', report.summary.discountAmount],
     ['Resumo', 'Custo', report.summary.costAmount],
     ['Resumo', 'Lucro', report.summary.grossProfitAmount],
+    ['Resumo', 'Lucro (%)', `${report.summary.profitPercentage}%`],
     ['Resumo', 'Margem geral', `${report.summary.grossMarginPercentage}%`],
     ['Resumo', 'Liquido', report.summary.netAmount],
     [],
@@ -2584,6 +2600,7 @@ function exportSalesReportCsv(
       'Total',
       'Custo',
       'Lucro',
+      'Lucro (%)',
       'Margem',
     ],
     ...report.byProduct.map((item) => [
@@ -2594,6 +2611,7 @@ function exportSalesReportCsv(
       item.totalAmount,
       item.costAmount,
       item.grossProfitAmount,
+      `${item.profitPercentage}%`,
       `${item.grossMarginPercentage}%`,
     ]),
     [],

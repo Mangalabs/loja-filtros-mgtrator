@@ -37,7 +37,7 @@ function reportQuerySchema<
 }
 
 const salesReportQuerySchema = reportQuerySchema([
-  "code", "product", "quantity", "total", "cost", "profit", "margin",
+  "code", "product", "quantity", "total", "cost", "profit", "profitPercentage", "margin",
   "client", "sales", "paymentMethod", "participation", "cumulative", "class",
 ]);
 const stockReportQuerySchema = reportQuerySchema([

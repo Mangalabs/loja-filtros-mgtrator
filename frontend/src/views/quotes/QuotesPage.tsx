@@ -1,11 +1,9 @@
 import Autocomplete from '@mui/material/Autocomplete'
 import Alert from '@mui/material/Alert'
-import Checkbox from '@mui/material/Checkbox'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
-import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
@@ -222,7 +220,6 @@ export function QuotesPage({
     quoteValidityDate(todayInputDate(), commercialSettings),
   )
   const [notes, setNotes] = useState('')
-  const [showBrand, setShowBrand] = useState(true)
   const [discountMode, setDiscountMode] =
     useState<QuoteDiscountMode>('PERCENTAGE')
   const [discountPercentage, setDiscountPercentage] = useState('')
@@ -445,7 +442,6 @@ export function QuotesPage({
     setBillingDueDateTouched(false)
     setValidUntil(quoteValidityDate(issueDate, commercialSettings))
     setNotes('')
-    setShowBrand(true)
     setDiscountMode('PERCENTAGE')
     setDiscountPercentage('')
     setDiscountAmount('')
@@ -464,7 +460,7 @@ export function QuotesPage({
       billingDueDateTouched,
       validUntil,
       notes,
-      showBrand,
+      showBrand: true,
       discountMode,
       discountPercentage,
       discountAmount,
@@ -486,7 +482,6 @@ export function QuotesPage({
     setBillingDueDateTouched(payload.billingDueDateTouched)
     setValidUntil(payload.validUntil)
     setNotes(payload.notes)
-    setShowBrand(payload.showBrand)
     setDiscountMode(payload.discountMode)
     setDiscountPercentage(payload.discountPercentage)
     setDiscountAmount(payload.discountAmount)
@@ -509,7 +504,6 @@ export function QuotesPage({
     setBillingDueDateTouched(false)
     setValidUntil(quoteValidityDate(issueDate, commercialSettings))
     setNotes(quote.notes ?? '')
-    setShowBrand(quote.showBrand)
     setDiscountMode(discountMode)
     setDiscountPercentage(
       discountMode === 'PERCENTAGE' ? quote.discountPercentage : '',
@@ -623,7 +617,7 @@ export function QuotesPage({
       billingDueDate: billingDueDate || null,
       validUntil: validUntil || null,
       notes: notes.trim() || null,
-      showBrand,
+      showBrand: true,
       ...quoteGeneralDiscountInput(
         discountMode,
         discountPercentage,
@@ -869,18 +863,6 @@ export function QuotesPage({
             onChange={(event) => setNotes(event.target.value)}
             slotProps={{ htmlInput: { maxLength: 1000 } }}
           />
-          <FormControlLabel
-            className='m-0'
-            control={
-              <Checkbox
-                checked={showBrand}
-                color='primary'
-                onChange={(event) => setShowBrand(event.target.checked)}
-              />
-            }
-            label='Exibir fabricante na coluna Marca do PDF'
-          />
-
           <div className='grid gap-4'>
             {items.map((item, index) => (
               <FormCard key={index}>
@@ -1237,7 +1219,6 @@ export function QuoteEditPage({
     quote.validUntil?.slice(0, 10) ?? '',
   )
   const [notes, setNotes] = useState(quote.notes ?? '')
-  const [showBrand, setShowBrand] = useState(quote.showBrand)
   const [discountMode, setDiscountMode] =
     useState<QuoteDiscountMode>('PERCENTAGE')
   const [discountPercentage, setDiscountPercentage] = useState(
@@ -1345,7 +1326,6 @@ export function QuoteEditPage({
     setBillingDueDateTouched(Boolean(quote.billingDueDate))
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
     setNotes(quote.notes ?? '')
-    setShowBrand(quote.showBrand)
     setDiscountMode('PERCENTAGE')
     setDiscountPercentage(quote.discountPercentage)
     setDiscountAmount(quote.discountAmount)
@@ -1491,7 +1471,7 @@ export function QuoteEditPage({
         billingDueDate: billingDueDate || null,
         validUntil: validUntil || null,
         notes: notes.trim() || null,
-        showBrand,
+        showBrand: true,
         ...quoteGeneralDiscountInput(
           discountMode,
           discountPercentage,
@@ -1688,17 +1668,6 @@ export function QuoteEditPage({
         size='medium'
         onChange={(event) => setNotes(event.target.value)}
         slotProps={{ htmlInput: { maxLength: 1000 } }}
-      />
-      <FormControlLabel
-        className='m-0'
-        control={
-          <Checkbox
-            checked={showBrand}
-            color='primary'
-            onChange={(event) => setShowBrand(event.target.checked)}
-          />
-        }
-        label='Exibir fabricante na coluna Marca do PDF'
       />
       <div className='grid gap-4'>
         {items.map((item, index) => (
@@ -1946,10 +1915,6 @@ function QuoteStatusSummary({ quote }: { quote: Quote }) {
       <StatusChip
         label={quoteStatusPresentation(quote).label}
         tone={quoteStatusPresentation(quote).tone}
-      />
-      <StatusChip
-        label={quoteBrandPresentation(quote.showBrand).label}
-        tone={quoteBrandPresentation(quote.showBrand).tone}
       />
       {quote.cancelledByUserName ? (
         <InlineNote>Cancelado por {quote.cancelledByUserName}</InlineNote>
@@ -2577,15 +2542,6 @@ type QuoteStatusPresentation = {
   tone: 'neutral' | 'success' | 'warning'
 }
 
-type QuoteBrandPresentation = {
-  label: string
-  tone: 'neutral' | 'success'
-}
-
-function quoteBrandPresentation(showBrand: boolean): QuoteBrandPresentation {
-  return quoteBrandPresentations[String(showBrand)]
-}
-
 function quoteStatusPresentation(quote: Quote): QuoteStatusPresentation {
   return (
     quoteStatusPresentationStrategies
@@ -2628,17 +2584,6 @@ const quoteStatusPresentationStrategies: Array<{
     present: () => quoteStatusPresentations.DRAFT,
   },
 ]
-
-const quoteBrandPresentations: Record<string, QuoteBrandPresentation> = {
-  false: {
-    label: 'PDF sem Marca',
-    tone: 'neutral',
-  },
-  true: {
-    label: 'PDF com Marca',
-    tone: 'success',
-  },
-}
 
 function emptyQuoteItem(): QuoteDraftItem {
   return {
@@ -3155,10 +3100,7 @@ export function normalizeQuoteFormDraftPayload(
     billingDueDateTouched: booleanPayloadValue(payload.billingDueDateTouched),
     validUntil: stringPayloadValue(payload.validUntil),
     notes: stringPayloadValue(payload.notes),
-    showBrand:
-      payload.showBrand === undefined
-        ? true
-        : booleanPayloadValue(payload.showBrand),
+    showBrand: true,
     discountMode: quoteDiscountModePayloadValue(payload.discountMode),
     discountPercentage: stringPayloadValue(payload.discountPercentage),
     discountAmount: stringPayloadValue(payload.discountAmount),

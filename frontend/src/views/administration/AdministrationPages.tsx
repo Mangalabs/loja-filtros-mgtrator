@@ -39,6 +39,10 @@ import {
   TableActionsMenu,
 } from "../../components/ui";
 import { usePaginatedRows } from "../../hooks/usePaginatedRows";
+import {
+  hasDuplicateValue,
+  normalizeDuplicateDocument,
+} from "../../utils/duplicateRegistration";
 import { useAdministrationData } from "./useAdministrationData";
 
 export function BranchesPage() {
@@ -134,6 +138,25 @@ function BranchForm({
   const [values, setValues] = useState(branchFormValues(selectedBranch));
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const duplicateName = hasDuplicateValue(
+    administration.branches,
+    values.name,
+    selectedBranch?.id,
+    (branch) => branch.name,
+  );
+  const duplicateCode = hasDuplicateValue(
+    administration.branches,
+    values.code,
+    selectedBranch?.id,
+    (branch) => branch.code,
+  );
+  const duplicateDocument = hasDuplicateValue(
+    administration.branches,
+    values.document,
+    selectedBranch?.id,
+    (branch) => branch.document,
+    normalizeDuplicateDocument,
+  );
 
   useEffect(() => {
     setValues(branchFormValues(selectedBranch));
@@ -197,18 +220,29 @@ function BranchForm({
       />
       <FormRow>
         <BranchTextField
+          helperText={
+            duplicateName
+              ? "Atencao: ja existe uma filial com este nome."
+              : undefined
+          }
           label="Nome da filial"
           name="name"
           required
           updateValue={updateValue}
           values={values}
+          warning={duplicateName}
         />
         <BranchTextField
-          helperText="Identificador curto, como 1, 2, CENTRO ou NORTE."
+          helperText={
+            duplicateCode
+              ? "Atencao: este codigo ja esta vinculado a outra filial."
+              : "Identificador curto, como 1, 2, CENTRO ou NORTE."
+          }
           label="Codigo"
           name="code"
           updateValue={updateValue}
           values={values}
+          warning={duplicateCode}
         />
       </FormRow>
       <FormRow>
@@ -227,10 +261,16 @@ function BranchForm({
       </FormRow>
       <FormRow>
         <BranchTextField
+          helperText={
+            duplicateDocument
+              ? "Atencao: este CNPJ ja esta vinculado a outra filial."
+              : undefined
+          }
           label="CNPJ"
           name="document"
           updateValue={updateValue}
           values={values}
+          warning={duplicateDocument}
         />
         <BranchTextField
           label="Inscricao estadual"
@@ -374,6 +414,7 @@ function BranchTextField({
   required,
   updateValue,
   values,
+  warning = false,
 }: {
   helperText?: string;
   label: string;
@@ -381,6 +422,7 @@ function BranchTextField({
   required?: boolean;
   updateValue: (name: keyof BranchFormValues, value: string) => void;
   values: BranchFormValues;
+  warning?: boolean;
 }) {
   return (
     <TextField
@@ -388,6 +430,11 @@ function BranchTextField({
       label={label}
       name={name}
       required={required}
+      sx={
+        warning
+          ? { "& .MuiFormHelperText-root": { color: "warning.dark" } }
+          : undefined
+      }
       value={values[name]}
       onChange={(event) => updateValue(name, event.target.value)}
     />
@@ -465,10 +512,23 @@ export function EmployeesPage({
   const [savingEmployee, setSavingEmployee] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
   const [statusEmployeeId, setStatusEmployeeId] = useState<string>();
+  const [employeeEmail, setEmployeeEmail] = useState(
+    selectedEmployee?.email ?? "",
+  );
   const savingEmployeeRef = useRef(false);
   const resettingPasswordRef = useRef(false);
   const changingStatusRef = useRef(false);
   const { pagination, visibleItems } = usePaginatedRows(employees);
+  const duplicateEmployeeEmail = hasDuplicateValue(
+    administration.users,
+    employeeEmail,
+    selectedEmployee?.id,
+    (user) => user.email,
+  );
+
+  useEffect(() => {
+    setEmployeeEmail(selectedEmployee?.email ?? "");
+  }, [selectedEmployee?.email, selectedEmployee?.id]);
 
   async function saveEmployee(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -481,7 +541,11 @@ export function EmployeesPage({
     setSavingEmployee(true);
 
     try {
-      await administration.saveEmployee(event);
+      const saved = await administration.saveEmployee(event);
+
+      if (saved) {
+        setEmployeeEmail("");
+      }
     } finally {
       savingEmployeeRef.current = false;
       setSavingEmployee(false);
@@ -557,10 +621,25 @@ export function EmployeesPage({
           <FormRow>
             <TextField
               autoComplete="off"
-              defaultValue={selectedEmployee?.email ?? ""}
+              helperText={
+                duplicateEmployeeEmail
+                  ? "Atencao: este email ja pertence a outro usuario."
+                  : undefined
+              }
               label="Email de acesso"
               name="email"
               required
+              value={employeeEmail}
+              onChange={(event) => setEmployeeEmail(event.target.value)}
+              sx={
+                duplicateEmployeeEmail
+                  ? {
+                      "& .MuiFormHelperText-root": {
+                        color: "warning.dark",
+                      },
+                    }
+                  : undefined
+              }
               type="email"
             />
             <TextField

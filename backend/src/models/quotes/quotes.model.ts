@@ -328,7 +328,7 @@ export async function insertQuote(
       created_by_user_id: createdByUserId,
       branch_id: branchId,
       status: 'DRAFT',
-      show_brand: input.showBrand ?? true,
+      show_brand: true,
       subtotal_amount: subtotalAmount,
       discount_percentage: discountPercentage,
       discount_amount: discountAmount,
@@ -413,7 +413,7 @@ export async function updateQuote(
   await transaction('quotes').where('id', id).update({
     client_id: input.clientId,
     payment_method_id: input.paymentMethodId,
-    show_brand: input.showBrand ?? true,
+    show_brand: true,
     subtotal_amount: subtotalAmount,
     discount_percentage: discountPercentage,
     discount_amount: discountAmount,

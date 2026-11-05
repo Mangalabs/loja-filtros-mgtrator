@@ -28,6 +28,7 @@ export type SalesReportColumnKey =
   | "total"
   | "cost"
   | "profit"
+  | "profitPercentage"
   | "margin"
   | "client"
   | "sales"
@@ -45,6 +46,7 @@ export type SalesReport = {
     costAmount: string;
     netAmount: string;
     grossProfitAmount: string;
+    profitPercentage: string;
     grossMarginPercentage: string;
   };
   byProduct: Array<{
@@ -55,6 +57,7 @@ export type SalesReport = {
     costAmount: string;
     totalAmount: string;
     grossProfitAmount: string;
+    profitPercentage: string;
     grossMarginPercentage: string;
   }>;
   byClient: Array<{
@@ -440,6 +443,7 @@ type SalesReportSummaryRow = {
   costAmount: string;
   netAmount: string;
   grossProfitAmount: string;
+  profitPercentage: string;
   grossMarginPercentage: string;
 };
 
@@ -451,6 +455,7 @@ type SalesByProductRow = {
   costAmount: string;
   totalAmount: string;
   grossProfitAmount: string;
+  profitPercentage: string;
   grossMarginPercentage: string;
 };
 
@@ -726,6 +731,13 @@ export async function getSalesReport(
         ),
         db.raw(
           `case
+            when coalesce(sum(sale_item_totals.cost_amount), 0) = 0 then '0.00'
+            else (((coalesce(sum(sales.total_amount), 0) - coalesce(sum(sale_item_totals.cost_amount), 0)) / coalesce(sum(sale_item_totals.cost_amount), 0)) * 100)::numeric(14, 2)::text
+          end as ??`,
+          ["profitPercentage"],
+        ),
+        db.raw(
+          `case
             when coalesce(sum(sales.total_amount), 0) = 0 then '0.00'
             else (((coalesce(sum(sales.total_amount), 0) - coalesce(sum(sale_item_totals.cost_amount), 0)) / coalesce(sum(sales.total_amount), 0)) * 100)::numeric(8, 2)::text
           end as ??`,
@@ -752,6 +764,13 @@ export async function getSalesReport(
         db.raw(
           "(sum(sale_items.total_amount) - sum(products.cost_price * sale_items.quantity))::numeric(12, 2)::text as ??",
           ["grossProfitAmount"],
+        ),
+        db.raw(
+          `case
+            when sum(products.cost_price * sale_items.quantity) = 0 then '0.00'
+            else (((sum(sale_items.total_amount) - sum(products.cost_price * sale_items.quantity)) / sum(products.cost_price * sale_items.quantity)) * 100)::numeric(14, 2)::text
+          end as ??`,
+          ["profitPercentage"],
         ),
         db.raw(
           `case
@@ -804,6 +823,7 @@ export async function getSalesReport(
       costAmount: summary?.costAmount ?? "0.00",
       netAmount: summary?.netAmount ?? "0.00",
       grossProfitAmount: summary?.grossProfitAmount ?? "0.00",
+      profitPercentage: summary?.profitPercentage ?? "0.00",
       grossMarginPercentage: summary?.grossMarginPercentage ?? "0.00",
     },
     byProduct,
