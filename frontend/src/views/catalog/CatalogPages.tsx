@@ -1553,7 +1553,17 @@ export function NamedEntityPage({
   const [pendingDeleteId, setPendingDeleteId] = useState<string>()
   const pendingDeleteRef = useRef(false)
   const { pagination, visibleItems } = usePaginatedRows<NamedEntity>(items)
+  const duplicateName = hasDuplicateValue(
+    items,
+    entityName,
+    selectedEntity?.id,
+    (item) => item.name,
+  )
   const { submit, submitting } = usePendingFormSubmit(async (event) => {
+    if (duplicateName) {
+      return
+    }
+
     const saved = await onSubmit(event, selectedEntity)
 
     if (saved) {
@@ -1561,12 +1571,6 @@ export function NamedEntityPage({
       setEntityName('')
     }
   })
-  const duplicateName = hasDuplicateValue(
-    items,
-    entityName,
-    selectedEntity?.id,
-    (item) => item.name,
-  )
 
   useEffect(() => {
     setEntityName(selectedEntity?.name ?? '')
@@ -1598,7 +1602,7 @@ export function NamedEntityPage({
         <TextField
           helperText={
             duplicateName
-              ? 'Atencao: ja existe um cadastro com este nome.'
+              ? 'Este fabricante já está cadastrado. Informe outro nome.'
               : undefined
           }
           label='Nome'
@@ -1626,7 +1630,11 @@ export function NamedEntityPage({
             Cancelar edição
           </SecondaryButton>
         ) : null}
-        <PrimaryButton loading={submitting} icon={<Plus size={17} />} type='submit'>
+        <PrimaryButton
+          disabled={duplicateName}
+          loading={submitting}
+          icon={<Plus size={17} />}
+          type='submit'>
           {submitting
             ? 'Salvando…'
             : selectedEntity

@@ -46,7 +46,12 @@ import {
   type TableActionsMenuAction,
 } from '../../components/ui'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
-import { formatCurrency, formatDate, formatDateTime } from '../../utils/format'
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatQuantity,
+} from '../../utils/format'
 import {
   nonNegativeMoneyInputProps,
   nonNegativePercentageInputProps,
@@ -77,6 +82,52 @@ type QuotePaymentDraft = {
 }
 
 type QuoteDiscountMode = 'PERCENTAGE' | 'AMOUNT'
+type QuoteFreightType = 'CIF' | 'FOB'
+
+function QuoteFreightFields({
+  freightAmount,
+  freightType,
+  onFreightAmountChange,
+  onFreightTypeChange,
+}: {
+  freightAmount: string
+  freightType: QuoteFreightType | ''
+  onFreightAmountChange: (value: string) => void
+  onFreightTypeChange: (value: QuoteFreightType | '') => void
+}) {
+  return (
+    <FormRow>
+      <TextField
+        helperText='CIF: frete por conta do vendedor. FOB: frete por conta do comprador.'
+        label='Modalidade do frete'
+        select
+        size='medium'
+        value={freightType}
+        onChange={(event) => {
+          const nextType = event.target.value as QuoteFreightType | ''
+
+          onFreightTypeChange(nextType)
+          if (!nextType) {
+            onFreightAmountChange('')
+          }
+        }}>
+        <MenuItem value=''>A combinar</MenuItem>
+        <MenuItem value='CIF'>CIF</MenuItem>
+        <MenuItem value='FOB'>FOB</MenuItem>
+      </TextField>
+      <TextField
+        disabled={!freightType}
+        helperText='Exibido separadamente na proposta; não altera o total dos produtos.'
+        label='Valor do frete'
+        size='medium'
+        type='number'
+        value={freightAmount}
+        onChange={(event) => onFreightAmountChange(event.target.value)}
+        slotProps={{ htmlInput: nonNegativeMoneyInputProps }}
+      />
+    </FormRow>
+  )
+}
 
 type QuoteListStatusFilter =
   | 'ALL'
@@ -91,6 +142,8 @@ type QuoteListStatusFilter =
 export type QuoteDraftInput = {
   clientId: string
   paymentMethodId: string
+  freightType?: QuoteFreightType | null
+  freightAmount?: number
   payments: Array<{
     paymentMethodId: string
     amount: number
@@ -142,6 +195,8 @@ export type QuoteFormDraftPayload = {
   validUntil: string
   notes: string
   showBrand: boolean
+  freightType: QuoteFreightType | ''
+  freightAmount: string
   discountMode: QuoteDiscountMode
   discountPercentage: string
   discountAmount: string
@@ -220,6 +275,8 @@ export function QuotesPage({
     quoteValidityDate(todayInputDate(), commercialSettings),
   )
   const [notes, setNotes] = useState('')
+  const [freightType, setFreightType] = useState<QuoteFreightType | ''>('')
+  const [freightAmount, setFreightAmount] = useState('')
   const [discountMode, setDiscountMode] =
     useState<QuoteDiscountMode>('PERCENTAGE')
   const [discountPercentage, setDiscountPercentage] = useState('')
@@ -442,6 +499,8 @@ export function QuotesPage({
     setBillingDueDateTouched(false)
     setValidUntil(quoteValidityDate(issueDate, commercialSettings))
     setNotes('')
+    setFreightType('')
+    setFreightAmount('')
     setDiscountMode('PERCENTAGE')
     setDiscountPercentage('')
     setDiscountAmount('')
@@ -461,6 +520,8 @@ export function QuotesPage({
       validUntil,
       notes,
       showBrand: true,
+      freightType,
+      freightAmount,
       discountMode,
       discountPercentage,
       discountAmount,
@@ -482,6 +543,8 @@ export function QuotesPage({
     setBillingDueDateTouched(payload.billingDueDateTouched)
     setValidUntil(payload.validUntil)
     setNotes(payload.notes)
+    setFreightType(payload.freightType)
+    setFreightAmount(payload.freightAmount)
     setDiscountMode(payload.discountMode)
     setDiscountPercentage(payload.discountPercentage)
     setDiscountAmount(payload.discountAmount)
@@ -504,6 +567,10 @@ export function QuotesPage({
     setBillingDueDateTouched(false)
     setValidUntil(quoteValidityDate(issueDate, commercialSettings))
     setNotes(quote.notes ?? '')
+    setFreightType(quote.freightType ?? '')
+    setFreightAmount(
+      Number(quote.freightAmount) > 0 ? quote.freightAmount : '',
+    )
     setDiscountMode(discountMode)
     setDiscountPercentage(
       discountMode === 'PERCENTAGE' ? quote.discountPercentage : '',
@@ -618,6 +685,8 @@ export function QuotesPage({
       validUntil: validUntil || null,
       notes: notes.trim() || null,
       showBrand: true,
+      freightType: freightType || null,
+      freightAmount: moneyInputValue(freightAmount),
       ...quoteGeneralDiscountInput(
         discountMode,
         discountPercentage,
@@ -707,9 +776,7 @@ export function QuotesPage({
             ) : null}
           </div>
           <Autocomplete
-            getOptionLabel={(client) =>
-              `${client.name}${client.phone ? ` - ${client.phone}` : ''}`
-            }
+            getOptionLabel={quoteClientOptionLabel}
             isOptionEqualToValue={(option, value) => option.id === value.id}
             noOptionsText='Nenhum cliente encontrado'
             options={activeClients}
@@ -850,6 +917,12 @@ export function QuotesPage({
               value={formatCurrency(quoteTotal)}
             />
           </FormRow>
+          <QuoteFreightFields
+            freightAmount={freightAmount}
+            freightType={freightType}
+            onFreightAmountChange={setFreightAmount}
+            onFreightTypeChange={setFreightType}
+          />
           <InlineNote>
             Desconto nos itens: {formatCurrency(itemDiscountTotal)} | Desconto
             geral: {formatCurrency(generalDiscount)}
@@ -918,6 +991,10 @@ export function QuotesPage({
                 />
                 <FormRow columns={3}>
                   <TextField
+                    helperText={quoteProductStockLabel(
+                      activeProducts,
+                      item.productId,
+                    )}
                     label='Quantidade'
                     value={item.quantity}
                     type='number'
@@ -1219,6 +1296,12 @@ export function QuoteEditPage({
     quote.validUntil?.slice(0, 10) ?? '',
   )
   const [notes, setNotes] = useState(quote.notes ?? '')
+  const [freightType, setFreightType] = useState<QuoteFreightType | ''>(
+    quote.freightType ?? '',
+  )
+  const [freightAmount, setFreightAmount] = useState(
+    Number(quote.freightAmount) > 0 ? quote.freightAmount : '',
+  )
   const [discountMode, setDiscountMode] =
     useState<QuoteDiscountMode>('PERCENTAGE')
   const [discountPercentage, setDiscountPercentage] = useState(
@@ -1326,6 +1409,10 @@ export function QuoteEditPage({
     setBillingDueDateTouched(Boolean(quote.billingDueDate))
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
     setNotes(quote.notes ?? '')
+    setFreightType(quote.freightType ?? '')
+    setFreightAmount(
+      Number(quote.freightAmount) > 0 ? quote.freightAmount : '',
+    )
     setDiscountMode('PERCENTAGE')
     setDiscountPercentage(quote.discountPercentage)
     setDiscountAmount(quote.discountAmount)
@@ -1472,6 +1559,8 @@ export function QuoteEditPage({
         validUntil: validUntil || null,
         notes: notes.trim() || null,
         showBrand: true,
+        freightType: freightType || null,
+        freightAmount: moneyInputValue(freightAmount),
         ...quoteGeneralDiscountInput(
           discountMode,
           discountPercentage,
@@ -1513,9 +1602,7 @@ export function QuoteEditPage({
         </Alert>
       ) : null}
       <Autocomplete
-        getOptionLabel={(client) =>
-          `${client.name}${client.phone ? ` - ${client.phone}` : ''}`
-        }
+        getOptionLabel={quoteClientOptionLabel}
         isOptionEqualToValue={(option, value) => option.id === value.id}
         noOptionsText='Nenhum cliente encontrado'
         options={activeClients}
@@ -1656,6 +1743,12 @@ export function QuoteEditPage({
           value={formatCurrency(quoteTotal)}
         />
       </FormRow>
+      <QuoteFreightFields
+        freightAmount={freightAmount}
+        freightType={freightType}
+        onFreightAmountChange={setFreightAmount}
+        onFreightTypeChange={setFreightType}
+      />
       <InlineNote>
         Desconto nos itens: {formatCurrency(itemDiscountTotal)} | Desconto
         geral: {formatCurrency(generalDiscount)}
@@ -1723,6 +1816,10 @@ export function QuoteEditPage({
             />
             <FormRow columns={3}>
               <TextField
+                helperText={quoteProductStockLabel(
+                  selectableProducts,
+                  item.productId,
+                )}
                 label='Quantidade'
                 value={item.quantity}
                 type='number'
@@ -3075,6 +3172,18 @@ function moneyInputValue(value: string) {
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 0
 }
 
+function quoteClientOptionLabel(client: Client) {
+  return `${client.name} - ${client.document || 'Sem CPF/CNPJ'}`
+}
+
+function quoteProductStockLabel(products: Product[], productId: string) {
+  const product = products.find((candidate) => candidate.id === productId)
+
+  return product
+    ? `Estoque atual: ${formatQuantity(product.currentStock)} ${product.unit}`
+    : undefined
+}
+
 function emptyQuotePayment(): QuotePaymentDraft {
   return {
     amount: '',
@@ -3101,6 +3210,8 @@ export function normalizeQuoteFormDraftPayload(
     validUntil: stringPayloadValue(payload.validUntil),
     notes: stringPayloadValue(payload.notes),
     showBrand: true,
+    freightType: quoteFreightTypePayloadValue(payload.freightType),
+    freightAmount: stringPayloadValue(payload.freightAmount),
     discountMode: quoteDiscountModePayloadValue(payload.discountMode),
     discountPercentage: stringPayloadValue(payload.discountPercentage),
     discountAmount: stringPayloadValue(payload.discountAmount),
@@ -3109,6 +3220,10 @@ export function normalizeQuoteFormDraftPayload(
     items: quoteItemDraftPayloads(payload.items),
     totalAmount: numberPayloadValue(payload.totalAmount, 0),
   }
+}
+
+function quoteFreightTypePayloadValue(value: unknown): QuoteFreightType | '' {
+  return value === 'CIF' || value === 'FOB' ? value : ''
 }
 
 function quotePaymentInstallmentPayloads(value: unknown) {

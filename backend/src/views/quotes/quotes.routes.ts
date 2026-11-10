@@ -36,6 +36,8 @@ const createQuoteSchema = z
       )
       .min(1)
       .optional(),
+    freightType: z.enum(["CIF", "FOB"]).nullable().optional(),
+    freightAmount: z.coerce.number().min(0).max(9_999_999_999.99).optional(),
     billingIssueDate: z
       .union([z.iso.date(), z.literal(""), z.null()])
       .transform((value) => value || null)
@@ -89,6 +91,14 @@ const createQuoteSchema = z
   })
   .strict()
   .superRefine((value, context) => {
+    if ((value.freightAmount ?? 0) > 0 && !value.freightType) {
+      context.addIssue({
+        code: "custom",
+        message: "Informe se o frete e CIF ou FOB.",
+        path: ["freightType"],
+      });
+    }
+
     const hasValidBillingDates =
       !value.billingIssueDate ||
       !value.billingDueDate ||

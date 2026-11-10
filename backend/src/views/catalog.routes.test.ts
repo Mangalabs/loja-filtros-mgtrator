@@ -12,7 +12,9 @@ import {
 import { db } from "../database/knex.js";
 import type { FiscalIssueRequest } from "../integrations/fiscal/fiscal-provider.js";
 import { FocusFiscalProvider } from "../integrations/fiscal/providers/focus-fiscal-provider.js";
+import { quotePdfHtml } from "../integrations/pdf/templates/quote-pdf-template.js";
 import { saleReceiptPdfHtml } from "../integrations/pdf/templates/sale-receipt-pdf-template.js";
+import type { Quote as ModelQuote } from "../models/quotes/quotes.model.js";
 import type { Sale as ModelSale } from "../models/sales/sales.model.js";
 
 type ApiResponse<T = unknown> = {
@@ -360,6 +362,8 @@ type Quote = {
   }>;
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
+  freightType: "CIF" | "FOB" | null;
+  freightAmount: string;
   subtotalAmount: string;
   discountPercentage: string;
   discountAmount: string;
@@ -8882,6 +8886,8 @@ describe("catalog routes", () => {
         billingDueDate: "2026-06-25",
         validUntil: "2026-06-30",
         notes: "Retirar condicoes no PDF depois",
+        freightType: "CIF",
+        freightAmount: 125.5,
         showBrand: false,
         items: [
           {
@@ -8920,6 +8926,17 @@ describe("catalog routes", () => {
     const unchangedProduct = await request<Product>(
       `/products/${firstProduct.body.data?.id}`,
     );
+    const quoteHtml = quotePdfHtml(
+      created.body.data as unknown as ModelQuote,
+      {
+        name: "Loja teste",
+        address: "Endereco teste",
+        city: "Cidade teste",
+        document: "00.000.000/0001-00",
+        phone: null,
+        email: null,
+      },
+    );
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data?.quoteNumber, 1);
@@ -8927,6 +8944,8 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.clientName, "Cliente orcamento");
     assert.equal(created.body.data?.paymentMethodName, "PIX");
     assert.equal(created.body.data?.showBrand, true);
+    assert.equal(created.body.data?.freightType, "CIF");
+    assert.equal(created.body.data?.freightAmount, "125.50");
     assert.equal(created.body.data?.totalAmount, "170.00");
     assert.ok(created.body.data?.billingIssueDate?.startsWith("2026-06-10"));
     assert.ok(created.body.data?.billingDueDate?.startsWith("2026-06-25"));
@@ -8972,6 +8991,9 @@ describe("catalog routes", () => {
       'attachment; filename="ORCAMENTO-CLIENTE-ORCAMENTO-1.pdf"',
     );
     assert.equal(pdf.body.subarray(0, 4).toString(), "%PDF");
+    assert.match(quoteHtml, /Frete \(CIF\)/);
+    assert.match(quoteHtml, /125,50/);
+    assert.match(quoteHtml, /Total dos produtos/);
     assert.equal(shippingOrder.status, 201);
     assert.equal(shippingOrder.body.data?.quoteId, created.body.data?.id);
     assert.equal(shippingOrder.body.data?.clientName, "Cliente orcamento");
@@ -9044,6 +9066,8 @@ describe("catalog routes", () => {
         billingDueDate: "2026-07-20",
         validUntil: "2026-07-15",
         notes: "Orcamento revisado pelo cliente",
+        freightType: "FOB",
+        freightAmount: 50,
         showBrand: false,
         discountPercentage: 10,
         items: [
@@ -9088,6 +9112,8 @@ describe("catalog routes", () => {
     assert.equal(updated.body.data?.discountAmount, "16.15");
     assert.equal(updated.body.data?.totalAmount, "145.35");
     assert.equal(updated.body.data?.showBrand, true);
+    assert.equal(updated.body.data?.freightType, "FOB");
+    assert.equal(updated.body.data?.freightAmount, "50.00");
     assert.ok(updated.body.data?.billingIssueDate?.startsWith("2026-07-01"));
     assert.ok(updated.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.ok(updated.body.data?.validUntil?.startsWith("2026-07-15"));
@@ -9107,6 +9133,8 @@ describe("catalog routes", () => {
     assert.equal(updated.body.data?.items[0]?.discountAmount, "8.50");
     assert.equal(updated.body.data?.items[0]?.totalAmount, "161.50");
     assert.equal(shown.body.data?.totalAmount, "145.35");
+    assert.equal(shown.body.data?.freightType, "FOB");
+    assert.equal(shown.body.data?.freightAmount, "50.00");
     assert.ok(shown.body.data?.billingIssueDate?.startsWith("2026-07-01"));
     assert.ok(shown.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.equal(shown.body.data?.items.length, 1);

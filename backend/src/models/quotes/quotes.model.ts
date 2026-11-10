@@ -13,6 +13,8 @@ export type QuoteInput = {
   clientId: string
   paymentMethodId: string
   payments?: QuotePaymentInput[]
+  freightType?: 'CIF' | 'FOB' | null
+  freightAmount?: number
   billingIssueDate?: string | null
   billingDueDate?: string | null
   validUntil?: string | null
@@ -75,6 +77,8 @@ export type Quote = {
   payments: QuotePayment[]
   status: 'DRAFT' | 'CANCELLED'
   showBrand: boolean
+  freightType: 'CIF' | 'FOB' | null
+  freightAmount: string
   subtotalAmount: string
   discountPercentage: string
   discountAmount: string
@@ -165,6 +169,8 @@ const quoteColumns = [
   'payment_methods.name as paymentMethodName',
   'quotes.status',
   'quotes.show_brand as showBrand',
+  'quotes.freight_type as freightType',
+  'quotes.freight_amount as freightAmount',
   'quotes.subtotal_amount as subtotalAmount',
   'quotes.discount_percentage as discountPercentage',
   'quotes.discount_amount as discountAmount',
@@ -329,6 +335,8 @@ export async function insertQuote(
       branch_id: branchId,
       status: 'DRAFT',
       show_brand: true,
+      freight_type: input.freightType ?? null,
+      freight_amount: input.freightAmount ?? 0,
       subtotal_amount: subtotalAmount,
       discount_percentage: discountPercentage,
       discount_amount: discountAmount,
@@ -414,6 +422,8 @@ export async function updateQuote(
     client_id: input.clientId,
     payment_method_id: input.paymentMethodId,
     show_brand: true,
+    freight_type: input.freightType ?? null,
+    freight_amount: input.freightAmount ?? 0,
     subtotal_amount: subtotalAmount,
     discount_percentage: discountPercentage,
     discount_amount: discountAmount,

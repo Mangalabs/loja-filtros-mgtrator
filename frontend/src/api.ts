@@ -1023,6 +1023,8 @@ export type Quote = {
   }>;
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
+  freightType: "CIF" | "FOB" | null;
+  freightAmount: string;
   subtotalAmount: string;
   discountPercentage: string;
   discountAmount: string;

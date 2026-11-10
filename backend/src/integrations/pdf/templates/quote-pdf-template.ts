@@ -145,11 +145,11 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
                   <td class="text-right">${formatCurrency(quote.discountAmount)}</td>
                 </tr>
                 <tr>
-                  <td>Frete:</td>
-                  <td class="text-right">A combinar</td>
+                  <td>Frete${quote.freightType ? ` (${escapeHtml(quote.freightType)})` : ''}:</td>
+                  <td class="text-right">${quote.freightType ? formatCurrency(quote.freightAmount) : 'A combinar'}</td>
                 </tr>
                 <tr class="total-row">
-                  <td>Total geral:</td>
+                  <td>Total dos produtos:</td>
                   <td class="text-right">${formatCurrency(quote.totalAmount)}</td>
                 </tr>
               </tbody>
