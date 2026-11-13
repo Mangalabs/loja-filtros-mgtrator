@@ -362,6 +362,7 @@ type Quote = {
   }>;
   status: "DRAFT" | "CANCELLED";
   showBrand: boolean;
+  showProductCode: boolean;
   freightType: "CIF" | "FOB" | null;
   freightAmount: string;
   subtotalAmount: string;
@@ -3348,6 +3349,7 @@ describe("catalog routes", () => {
 
     assert.match(html, /Devolucoes e estornos/);
     assert.match(html, /Descricao comercial do comprovante/);
+    assert.doesNotMatch(html, /Fabricante|Marca/);
     assert.match(
       html,
       /Rua dos Filtros, 123 - Sala 2 · Centro · Imperatriz - MA/,
@@ -5750,6 +5752,8 @@ describe("catalog routes", () => {
 
       assert.equal(item.codigo_produto, "FISCAL-1");
       assert.equal(item.descricao, "Filtro Focus");
+      assert.equal("fabricante" in item, false);
+      assert.equal("marca" in item, false);
       assert.equal(item.codigo_ncm, "84212300");
       assert.equal(item.cfop, "5405");
       assert.equal(item.icms_situacao_tributaria, "500");
@@ -8889,6 +8893,7 @@ describe("catalog routes", () => {
         freightType: "CIF",
         freightAmount: 125.5,
         showBrand: false,
+        showProductCode: false,
         items: [
           {
             productId: firstProduct.body.data?.id,
@@ -8944,6 +8949,7 @@ describe("catalog routes", () => {
     assert.equal(created.body.data?.clientName, "Cliente orcamento");
     assert.equal(created.body.data?.paymentMethodName, "PIX");
     assert.equal(created.body.data?.showBrand, true);
+    assert.equal(created.body.data?.showProductCode, false);
     assert.equal(created.body.data?.freightType, "CIF");
     assert.equal(created.body.data?.freightAmount, "125.50");
     assert.equal(created.body.data?.totalAmount, "170.00");
@@ -8970,6 +8976,7 @@ describe("catalog routes", () => {
     assert.equal(shown.body.data?.items.length, 2);
     assert.equal(shown.body.data?.paymentMethodName, "PIX");
     assert.equal(shown.body.data?.showBrand, true);
+    assert.equal(shown.body.data?.showProductCode, false);
     assert.ok(shown.body.data?.billingIssueDate?.startsWith("2026-06-10"));
     assert.ok(shown.body.data?.billingDueDate?.startsWith("2026-06-25"));
     assert.equal(shown.body.data?.shippingOrderId, null);
@@ -8977,6 +8984,7 @@ describe("catalog routes", () => {
     assert.equal(listed.body.data?.length, 1);
     assert.equal(listed.body.data?.[0]?.paymentMethodName, "PIX");
     assert.equal(listed.body.data?.[0]?.showBrand, true);
+    assert.equal(listed.body.data?.[0]?.showProductCode, false);
     assert.ok(
       listed.body.data?.[0]?.billingIssueDate?.startsWith("2026-06-10"),
     );
@@ -8994,6 +9002,7 @@ describe("catalog routes", () => {
     assert.match(quoteHtml, /Frete \(CIF\)/);
     assert.match(quoteHtml, /125,50/);
     assert.match(quoteHtml, /Total dos produtos/);
+    assert.doesNotMatch(quoteHtml, /<th>Codigo<\/th>/);
     assert.equal(shippingOrder.status, 201);
     assert.equal(shippingOrder.body.data?.quoteId, created.body.data?.id);
     assert.equal(shippingOrder.body.data?.clientName, "Cliente orcamento");
@@ -9069,6 +9078,7 @@ describe("catalog routes", () => {
         freightType: "FOB",
         freightAmount: 50,
         showBrand: false,
+        showProductCode: true,
         discountPercentage: 10,
         items: [
           {
@@ -9112,6 +9122,7 @@ describe("catalog routes", () => {
     assert.equal(updated.body.data?.discountAmount, "16.15");
     assert.equal(updated.body.data?.totalAmount, "145.35");
     assert.equal(updated.body.data?.showBrand, true);
+    assert.equal(updated.body.data?.showProductCode, true);
     assert.equal(updated.body.data?.freightType, "FOB");
     assert.equal(updated.body.data?.freightAmount, "50.00");
     assert.ok(updated.body.data?.billingIssueDate?.startsWith("2026-07-01"));
@@ -9135,6 +9146,7 @@ describe("catalog routes", () => {
     assert.equal(shown.body.data?.totalAmount, "145.35");
     assert.equal(shown.body.data?.freightType, "FOB");
     assert.equal(shown.body.data?.freightAmount, "50.00");
+    assert.equal(shown.body.data?.showProductCode, true);
     assert.ok(shown.body.data?.billingIssueDate?.startsWith("2026-07-01"));
     assert.ok(shown.body.data?.billingDueDate?.startsWith("2026-07-20"));
     assert.equal(shown.body.data?.items.length, 1);

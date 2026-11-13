@@ -20,6 +20,7 @@ export type QuoteInput = {
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
+  showProductCode?: boolean
   discountPercentage?: number
   discountAmount?: number
   paymentInstallments?: QuotePaymentInstallmentInput[]
@@ -77,6 +78,7 @@ export type Quote = {
   payments: QuotePayment[]
   status: 'DRAFT' | 'CANCELLED'
   showBrand: boolean
+  showProductCode: boolean
   freightType: 'CIF' | 'FOB' | null
   freightAmount: string
   subtotalAmount: string
@@ -169,6 +171,7 @@ const quoteColumns = [
   'payment_methods.name as paymentMethodName',
   'quotes.status',
   'quotes.show_brand as showBrand',
+  'quotes.show_product_code as showProductCode',
   'quotes.freight_type as freightType',
   'quotes.freight_amount as freightAmount',
   'quotes.subtotal_amount as subtotalAmount',
@@ -335,6 +338,7 @@ export async function insertQuote(
       branch_id: branchId,
       status: 'DRAFT',
       show_brand: true,
+      show_product_code: input.showProductCode ?? true,
       freight_type: input.freightType ?? null,
       freight_amount: input.freightAmount ?? 0,
       subtotal_amount: subtotalAmount,
@@ -422,6 +426,7 @@ export async function updateQuote(
     client_id: input.clientId,
     payment_method_id: input.paymentMethodId,
     show_brand: true,
+    show_product_code: input.showProductCode ?? true,
     freight_type: input.freightType ?? null,
     freight_amount: input.freightAmount ?? 0,
     subtotal_amount: subtotalAmount,

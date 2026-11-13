@@ -289,7 +289,7 @@ function ProductTable({
       columns={[
         {
           header: 'Produto',
-          render: (product) => productDisplayName(product),
+          render: (product) => product.name,
         },
         {
           header: 'Codigo',

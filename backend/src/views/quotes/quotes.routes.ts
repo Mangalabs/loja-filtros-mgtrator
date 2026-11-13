@@ -55,6 +55,7 @@ const createQuoteSchema = z
       .transform((value) => value || null)
       .optional(),
     showBrand: z.boolean().optional(),
+    showProductCode: z.boolean().optional(),
     discountPercentage: z.coerce.number().min(0).max(100).optional(),
     discountAmount: z.coerce.number().min(0).optional(),
     paymentInstallments: z

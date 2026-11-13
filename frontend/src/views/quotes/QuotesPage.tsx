@@ -4,7 +4,9 @@ import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
+import Switch from '@mui/material/Switch'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import TextField from '@mui/material/TextField'
@@ -154,6 +156,7 @@ export type QuoteDraftInput = {
   validUntil?: string | null
   notes?: string | null
   showBrand?: boolean
+  showProductCode?: boolean
   discountPercentage?: number
   discountAmount?: number
   paymentInstallments?: Array<{
@@ -195,6 +198,7 @@ export type QuoteFormDraftPayload = {
   validUntil: string
   notes: string
   showBrand: boolean
+  showProductCode: boolean
   freightType: QuoteFreightType | ''
   freightAmount: string
   discountMode: QuoteDiscountMode
@@ -275,6 +279,7 @@ export function QuotesPage({
     quoteValidityDate(todayInputDate(), commercialSettings),
   )
   const [notes, setNotes] = useState('')
+  const [showProductCode, setShowProductCode] = useState(true)
   const [freightType, setFreightType] = useState<QuoteFreightType | ''>('')
   const [freightAmount, setFreightAmount] = useState('')
   const [discountMode, setDiscountMode] =
@@ -499,6 +504,7 @@ export function QuotesPage({
     setBillingDueDateTouched(false)
     setValidUntil(quoteValidityDate(issueDate, commercialSettings))
     setNotes('')
+    setShowProductCode(true)
     setFreightType('')
     setFreightAmount('')
     setDiscountMode('PERCENTAGE')
@@ -520,6 +526,7 @@ export function QuotesPage({
       validUntil,
       notes,
       showBrand: true,
+      showProductCode,
       freightType,
       freightAmount,
       discountMode,
@@ -543,6 +550,7 @@ export function QuotesPage({
     setBillingDueDateTouched(payload.billingDueDateTouched)
     setValidUntil(payload.validUntil)
     setNotes(payload.notes)
+    setShowProductCode(payload.showProductCode)
     setFreightType(payload.freightType)
     setFreightAmount(payload.freightAmount)
     setDiscountMode(payload.discountMode)
@@ -567,6 +575,7 @@ export function QuotesPage({
     setBillingDueDateTouched(false)
     setValidUntil(quoteValidityDate(issueDate, commercialSettings))
     setNotes(quote.notes ?? '')
+    setShowProductCode(quote.showProductCode)
     setFreightType(quote.freightType ?? '')
     setFreightAmount(
       Number(quote.freightAmount) > 0 ? quote.freightAmount : '',
@@ -685,6 +694,7 @@ export function QuotesPage({
       validUntil: validUntil || null,
       notes: notes.trim() || null,
       showBrand: true,
+      showProductCode,
       freightType: freightType || null,
       freightAmount: moneyInputValue(freightAmount),
       ...quoteGeneralDiscountInput(
@@ -922,6 +932,15 @@ export function QuotesPage({
             freightType={freightType}
             onFreightAmountChange={setFreightAmount}
             onFreightTypeChange={setFreightType}
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showProductCode}
+                onChange={(event) => setShowProductCode(event.target.checked)}
+              />
+            }
+            label='Exibir códigos dos produtos na proposta'
           />
           <InlineNote>
             Desconto nos itens: {formatCurrency(itemDiscountTotal)} | Desconto
@@ -1296,6 +1315,9 @@ export function QuoteEditPage({
     quote.validUntil?.slice(0, 10) ?? '',
   )
   const [notes, setNotes] = useState(quote.notes ?? '')
+  const [showProductCode, setShowProductCode] = useState(
+    quote.showProductCode,
+  )
   const [freightType, setFreightType] = useState<QuoteFreightType | ''>(
     quote.freightType ?? '',
   )
@@ -1409,6 +1431,7 @@ export function QuoteEditPage({
     setBillingDueDateTouched(Boolean(quote.billingDueDate))
     setValidUntil(quote.validUntil?.slice(0, 10) ?? '')
     setNotes(quote.notes ?? '')
+    setShowProductCode(quote.showProductCode)
     setFreightType(quote.freightType ?? '')
     setFreightAmount(
       Number(quote.freightAmount) > 0 ? quote.freightAmount : '',
@@ -1559,6 +1582,7 @@ export function QuoteEditPage({
         validUntil: validUntil || null,
         notes: notes.trim() || null,
         showBrand: true,
+        showProductCode,
         freightType: freightType || null,
         freightAmount: moneyInputValue(freightAmount),
         ...quoteGeneralDiscountInput(
@@ -1748,6 +1772,15 @@ export function QuoteEditPage({
         freightType={freightType}
         onFreightAmountChange={setFreightAmount}
         onFreightTypeChange={setFreightType}
+      />
+      <FormControlLabel
+        control={
+          <Switch
+            checked={showProductCode}
+            onChange={(event) => setShowProductCode(event.target.checked)}
+          />
+        }
+        label='Exibir códigos dos produtos na proposta'
       />
       <InlineNote>
         Desconto nos itens: {formatCurrency(itemDiscountTotal)} | Desconto
@@ -3210,6 +3243,7 @@ export function normalizeQuoteFormDraftPayload(
     validUntil: stringPayloadValue(payload.validUntil),
     notes: stringPayloadValue(payload.notes),
     showBrand: true,
+    showProductCode: payload.showProductCode !== false,
     freightType: quoteFreightTypePayloadValue(payload.freightType),
     freightAmount: stringPayloadValue(payload.freightAmount),
     discountMode: quoteDiscountModePayloadValue(payload.discountMode),

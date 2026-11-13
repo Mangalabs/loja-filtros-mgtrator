@@ -12,7 +12,7 @@ export type QuotePdfStore = {
 
 export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
   const rows = quote.items
-    .map((item, index) => quoteItemRow(item, index))
+    .map((item, index) => quoteItemRow(item, index, quote.showProductCode))
     .join('')
   const storeContact = [store.phone, store.email].filter(Boolean).join(' | ')
   const quoteLabel = quote.quoteNumber ? String(quote.quoteNumber) : quote.id
@@ -112,7 +112,7 @@ export function quotePdfHtml(quote: Quote, store: QuotePdfStore) {
               <tr>
                 <th class="text-center">Item</th>
                 <th class="text-center">Qtde</th>
-                <th>Produto</th>
+                ${quote.showProductCode ? '<th>Codigo</th>' : ''}
                 <th>Descricao</th>
                 <th>Marca</th>
                 <th class="text-center">NCM</th>
@@ -234,12 +234,16 @@ function quotePaymentSummary(quote: Quote) {
     : (quote.paymentMethodName ?? 'Nao informada')
 }
 
-function quoteItemRow(item: QuoteItem, index: number) {
+function quoteItemRow(
+  item: QuoteItem,
+  index: number,
+  showProductCode: boolean,
+) {
   return `
     <tr>
       <td class="text-center">${String(index + 1).padStart(2, '0')}</td>
       <td class="text-center">${formatQuantity(item.quantity)}</td>
-      <td>${escapeHtml(item.productInternalCode ?? '-')}</td>
+      ${showProductCode ? `<td>${escapeHtml(item.productInternalCode ?? '-')}</td>` : ''}
       <td>${escapeHtml(item.description)}</td>
       <td>${escapeHtml(item.productBrandName ?? '-')}</td>
       <td class="text-center">${escapeHtml(item.productNcm ?? '-')}</td>
