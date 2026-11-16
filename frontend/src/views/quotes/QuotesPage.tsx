@@ -64,6 +64,8 @@ import { salePaymentsAllowBilling } from '../sales/saleBilling'
 
 type QuoteDraftItem = {
   productId: string
+  productCurrentStock: string
+  productUnit: string
   description: string
   quantity: string
   unitPrice: string
@@ -597,6 +599,8 @@ export function QuotesPage({
     setItems(
       quote.items.map((item) => ({
         productId: item.productId,
+        productCurrentStock: item.productCurrentStock,
+        productUnit: item.productUnit,
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
@@ -978,6 +982,8 @@ export function QuotesPage({
                   onSelect={(product) =>
                     updateItem(index, {
                       productId: product?.id ?? '',
+                      productCurrentStock: product?.currentStock ?? '',
+                      productUnit: product?.unit ?? '',
                       description: product
                         ? item.description.trim() ||
                           product.description ||
@@ -992,7 +998,12 @@ export function QuotesPage({
                     <TableActionButton
                       type='button'
                       onClick={() =>
-                        updateItem(index, { productId: '', unitPrice: '' })
+                        updateItem(index, {
+                          productId: '',
+                          productCurrentStock: '',
+                          productUnit: '',
+                          unitPrice: '',
+                        })
                       }>
                       Remover produto e pesquisar novamente
                     </TableActionButton>
@@ -1013,6 +1024,7 @@ export function QuotesPage({
                     helperText={quoteProductStockLabel(
                       activeProducts,
                       item.productId,
+                      item,
                     )}
                     label='Quantidade'
                     value={item.quantity}
@@ -1347,6 +1359,8 @@ export function QuoteEditPage({
   const [items, setItems] = useState<QuoteDraftItem[]>(
     quote.items.map((item) => ({
       productId: item.productId,
+      productCurrentStock: item.productCurrentStock,
+      productUnit: item.productUnit,
       description: item.description,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
@@ -1452,6 +1466,8 @@ export function QuoteEditPage({
     setItems(
       quote.items.map((item) => ({
         productId: item.productId,
+        productCurrentStock: item.productCurrentStock,
+        productUnit: item.productUnit,
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
@@ -1818,6 +1834,8 @@ export function QuoteEditPage({
               onSelect={(product) =>
                 updateItem(index, {
                   productId: product?.id ?? '',
+                  productCurrentStock: product?.currentStock ?? '',
+                  productUnit: product?.unit ?? '',
                   description: product
                     ? item.description.trim() ||
                       product.description ||
@@ -1832,7 +1850,12 @@ export function QuoteEditPage({
                 <TableActionButton
                   type='button'
                   onClick={() =>
-                    updateItem(index, { productId: '', unitPrice: '' })
+                    updateItem(index, {
+                      productId: '',
+                      productCurrentStock: '',
+                      productUnit: '',
+                      unitPrice: '',
+                    })
                   }>
                   Remover produto e pesquisar novamente
                 </TableActionButton>
@@ -1852,6 +1875,7 @@ export function QuoteEditPage({
                 helperText={quoteProductStockLabel(
                   selectableProducts,
                   item.productId,
+                  item,
                 )}
                 label='Quantidade'
                 value={item.quantity}
@@ -2718,6 +2742,8 @@ const quoteStatusPresentationStrategies: Array<{
 function emptyQuoteItem(): QuoteDraftItem {
   return {
     productId: '',
+    productCurrentStock: '',
+    productUnit: '',
     description: '',
     quantity: '1',
     unitPrice: '',
@@ -3209,11 +3235,17 @@ function quoteClientOptionLabel(client: Client) {
   return `${client.name} - ${client.document || 'Sem CPF/CNPJ'}`
 }
 
-function quoteProductStockLabel(products: Product[], productId: string) {
+function quoteProductStockLabel(
+  products: Product[],
+  productId: string,
+  fallback?: Pick<QuoteDraftItem, 'productCurrentStock' | 'productUnit'>,
+) {
   const product = products.find((candidate) => candidate.id === productId)
+  const currentStock = product?.currentStock ?? fallback?.productCurrentStock
+  const unit = product?.unit ?? fallback?.productUnit
 
-  return product
-    ? `Estoque atual: ${formatQuantity(product.currentStock)} ${product.unit}`
+  return currentStock
+    ? `Estoque atual: ${formatQuantity(currentStock)} ${unit ?? ''}`.trim()
     : undefined
 }
 
@@ -3334,6 +3366,8 @@ function quoteItemDraftPayloads(value: unknown): QuoteDraftItem[] {
     )
     .map((item) => ({
       productId: stringPayloadValue(item.productId),
+      productCurrentStock: stringPayloadValue(item.productCurrentStock),
+      productUnit: stringPayloadValue(item.productUnit),
       description: stringPayloadValue(item.description),
       quantity: stringPayloadValue(item.quantity) || '1',
       unitPrice: stringPayloadValue(item.unitPrice),

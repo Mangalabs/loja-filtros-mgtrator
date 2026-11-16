@@ -46,6 +46,8 @@ export type QuoteItem = {
   productName: string
   productBrandName: string | null
   productNcm: string | null
+  productCurrentStock: string
+  productUnit: string
   productAvailableStock: string
   description: string
   quantity: string
@@ -202,6 +204,8 @@ const quoteItemColumns = [
   'products.name as productName',
   'brands.name as productBrandName',
   'products.ncm as productNcm',
+  'products.current_stock as productCurrentStock',
+  'products.unit as productUnit',
   db.raw(
     '(products.current_stock - products.reserved_stock) as "productAvailableStock"',
   ),

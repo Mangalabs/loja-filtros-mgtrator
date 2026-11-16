@@ -389,6 +389,8 @@ type Quote = {
     id: string;
     productId: string;
     productName: string;
+    productCurrentStock: string;
+    productUnit: string;
     description: string;
     quantity: string;
     unitPrice: string;
@@ -8963,6 +8965,8 @@ describe("catalog routes", () => {
       "Filtro quote A promocional",
     );
     assert.equal(created.body.data?.items[0]?.unitPrice, "45.00");
+    assert.equal(created.body.data?.items[0]?.productCurrentStock, "2.000");
+    assert.equal(created.body.data?.items[0]?.productUnit, "UN");
     assert.equal(created.body.data?.items[0]?.totalAmount, "90.00");
     assert.equal(
       created.body.data?.items[1]?.description,

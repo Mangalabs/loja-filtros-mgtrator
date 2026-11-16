@@ -1057,6 +1057,8 @@ export type Quote = {
     productName: string;
     productBrandName: string | null;
     productNcm: string | null;
+    productCurrentStock: string;
+    productUnit: string;
     productAvailableStock: string;
     description: string;
     quantity: string;
