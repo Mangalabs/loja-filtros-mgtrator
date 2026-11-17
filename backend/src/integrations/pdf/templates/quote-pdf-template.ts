@@ -469,6 +469,17 @@ function quotePdfCss() {
       margin-bottom: 10px;
       table-layout: fixed;
     }
+    .items-table thead {
+      display: table-header-group;
+    }
+    .items-table tbody {
+      display: table-row-group;
+    }
+    .items-table tbody tr,
+    .items-table tbody td {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
     .items-table th:nth-child(1) { width: 5%; }
     .items-table th:nth-child(2) { width: 6%; }
     .items-table th:nth-child(3) { width: 14%; }
@@ -511,13 +522,10 @@ function quotePdfCss() {
     }
     .footer {
       border-top: 1px solid #e2e8f0;
-      bottom: 0;
       color: #94a3b8;
       font-size: 7pt;
-      left: 8mm;
+      margin-top: 10px;
       padding-top: 5px;
-      position: fixed;
-      right: 8mm;
       text-align: center;
     }
   `
