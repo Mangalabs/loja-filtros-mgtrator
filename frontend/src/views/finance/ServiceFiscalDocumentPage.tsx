@@ -889,12 +889,11 @@ function serviceFiscalReadinessIssues(
   }
 
   if (
-    !settings?.municipalRegistration ||
-    !settings.serviceMunicipalityName ||
+    !settings?.serviceMunicipalityName ||
     !settings.serviceMunicipalityState ||
     !settings.serviceMunicipalityIbgeCode
   ) {
-    issues.push('Complete inscrição municipal e município de incidência da filial.')
+    issues.push('Complete o município de incidência da filial.')
   }
 
   if (

@@ -341,7 +341,7 @@ export function FiscalSettingsPage({
         </Alert>
         <FormRow>
           <TextField
-            helperText='Cadastro municipal da filial prestadora.'
+            helperText='Opcional quando o CNPJ estiver habilitado no Ambiente Nacional sem IM cadastrada.'
             label='Inscrição municipal'
             value={draft.municipalRegistration ?? ''}
             onChange={(event) =>
@@ -886,8 +886,7 @@ function FiscalSettingsStatus({
   settings: FiscalSettings | null
 }) {
   const serviceSettingsReady = Boolean(
-    settings?.municipalRegistration &&
-      settings.serviceMunicipalityName &&
+    settings?.serviceMunicipalityName &&
       settings.serviceMunicipalityState &&
       settings.serviceMunicipalityIbgeCode,
   )

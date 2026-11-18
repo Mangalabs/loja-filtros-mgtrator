@@ -123,7 +123,6 @@ function serviceFiscalPreviewWarnings(
   }
 
   if (
-    !settings.municipalRegistration ||
     !settings.serviceMunicipalityName ||
     !settings.serviceMunicipalityState ||
     !settings.serviceMunicipalityIbgeCode

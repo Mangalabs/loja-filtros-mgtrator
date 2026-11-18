@@ -168,7 +168,7 @@ function buildFocusPayload(request: ServiceFiscalIssueRequest) {
     emitente_dps: 1,
     codigo_municipio_emissora: Number(request.serviceMunicipalityIbgeCode),
     cnpj_prestador: digits(request.companyCnpj),
-    inscricao_municipal_prestador: request.municipalRegistration,
+    inscricao_municipal_prestador: text(request.municipalRegistration),
     codigo_opcao_simples_nacional: 3,
     regime_tributario_simples_nacional: 1,
     regime_especial_tributacao: 0,

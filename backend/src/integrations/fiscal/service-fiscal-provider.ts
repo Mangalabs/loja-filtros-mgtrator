@@ -8,7 +8,7 @@ export type ServiceFiscalIssueRequest = {
   dpsNumber: number;
   environment: FiscalEnvironment;
   companyCnpj: string;
-  municipalRegistration: string;
+  municipalRegistration: string | null;
   serviceMunicipalityIbgeCode: string;
   service: FiscalService;
   document: ServiceFiscalDocumentInput;

@@ -153,7 +153,7 @@ export async function issueServiceFiscalDocument(
     dpsNumber,
     environment: settings.environment,
     companyCnpj: settings.companyCnpj as string,
-    municipalRegistration: settings.municipalRegistration as string,
+    municipalRegistration: settings.municipalRegistration,
     serviceMunicipalityIbgeCode:
       settings.serviceMunicipalityIbgeCode as string,
     service: fiscalService,
@@ -349,7 +349,6 @@ function ensureServiceFiscalIssueIsReady(
   const companyCnpj = settings.companyCnpj?.replace(/\D/g, "") ?? "";
   const missing = [
     ["CNPJ fiscal da filial", companyCnpj.length === 14],
-    ["inscricao municipal", Boolean(settings.municipalRegistration)],
     [
       "codigo IBGE do municipio de incidencia",
       /^\d{7}$/.test(settings.serviceMunicipalityIbgeCode ?? ""),
