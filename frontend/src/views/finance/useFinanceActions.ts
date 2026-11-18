@@ -5,11 +5,16 @@ import {
   apiPost,
   apiPut,
   openApiFile,
+  type ApiResult,
   type FiscalDocument,
+  type FiscalService,
   type FiscalSettings,
   type ManualFiscalDocumentDraft,
   type ManualFiscalDocumentInput,
   type PaymentMethod,
+  type ServiceFiscalDocument,
+  type ServiceFiscalDocumentDraft,
+  type ServiceFiscalDocumentInput,
 } from "../../api";
 
 type FinanceActionsOptions = {
@@ -137,6 +142,17 @@ export function useFinanceActions({
       | "defaultNatureOperation"
       | "defaultPisCst"
       | "defaultSaleCfop"
+      | "municipalRegistration"
+      | "serviceMunicipalityName"
+      | "serviceMunicipalityState"
+      | "serviceMunicipalityIbgeCode"
+      | "serviceTaxRegime"
+      | "defaultIssRate"
+      | "defaultRetainPis"
+      | "defaultRetainCofins"
+      | "defaultRetainCsll"
+      | "defaultRetainIr"
+      | "defaultRetainInss"
       | "environment"
       | "provider"
     > & { productionConfirmation?: string | null },
@@ -157,6 +173,139 @@ export function useFinanceActions({
 
     await runAction(async () => {
       await apiPut("/fiscal-settings", input);
+      await refreshFiscalFlow();
+    });
+  }
+
+  async function saveFiscalService(
+    input: Pick<
+      FiscalService,
+      | "active"
+      | "description"
+      | "issRate"
+      | "municipalActivityCode"
+      | "municipalTaxCode"
+      | "name"
+      | "nationalTaxCode"
+      | "nbsCode"
+    >,
+    service?: FiscalService,
+  ) {
+    return runAction(async () => {
+      if (service) {
+        await apiPut(`/fiscal-services/${service.id}`, input);
+      } else {
+        await apiPost("/fiscal-services", input);
+      }
+
+      await refreshFiscalFlow();
+    });
+  }
+
+  async function saveServiceFiscalDocumentDraft(
+    input: ServiceFiscalDocumentInput,
+    draft?: ServiceFiscalDocumentDraft,
+  ) {
+    let savedDraft: ServiceFiscalDocumentDraft | null = null;
+    const completed = await runAction(async () => {
+      const response = draft
+        ? await apiPut<ApiResult<ServiceFiscalDocumentDraft>>(
+            `/service-fiscal-documents/drafts/${draft.id}`,
+            input,
+          )
+        : await apiPost<ApiResult<ServiceFiscalDocumentDraft>>(
+            "/service-fiscal-documents/drafts",
+            input,
+          );
+      savedDraft = response.data;
+      await refreshFiscalFlow();
+    });
+
+    return completed ? savedDraft : null;
+  }
+
+  async function previewServiceFiscalDocument(
+    input: ServiceFiscalDocumentInput,
+  ) {
+    await runAction(async () => {
+      await openApiFile("/service-fiscal-documents/preview", input);
+    });
+  }
+
+  async function issueServiceFiscalDocument(
+    input: ServiceFiscalDocumentInput,
+  ) {
+    const confirmed = await requestConfirmation(
+      "A DPS sera enviada a Focus para gerar uma NFS-e. Confira os dados e o ambiente antes de continuar.",
+      "Emitir NFS-e?",
+      "Emitir NFS-e",
+    );
+
+    if (!confirmed) {
+      return null;
+    }
+
+    let issuedDocument: ServiceFiscalDocument | null = null;
+    const completed = await runAction(async () => {
+      const response = await apiPost<ApiResult<ServiceFiscalDocument>>(
+        "/service-fiscal-documents",
+        input,
+      );
+      issuedDocument = response.data;
+      await refreshFiscalFlow();
+    });
+
+    return completed ? issuedDocument : null;
+  }
+
+  async function syncServiceFiscalDocument(document: ServiceFiscalDocument) {
+    const response = await apiPatch<ApiResult<ServiceFiscalDocument>>(
+      `/service-fiscal-documents/${document.id}/sync`,
+      {},
+    );
+
+    await refreshFiscalFlow();
+
+    return response.data;
+  }
+
+  async function cancelServiceFiscalDocument(
+    document: ServiceFiscalDocument,
+    justification: string,
+  ) {
+    const confirmed = await requestConfirmation(
+      "O cancelamento da NFS-e autorizada e definitivo.",
+      "Cancelar NFS-e?",
+      "Cancelar NFS-e",
+    );
+
+    if (!confirmed) {
+      return false;
+    }
+
+    return runAction(async () => {
+      await apiPost(`/service-fiscal-documents/${document.id}/cancel`, {
+        justification,
+      });
+      await refreshFiscalFlow();
+    });
+  }
+
+  async function deleteServiceFiscalDocumentDraft(
+    draft: ServiceFiscalDocumentDraft,
+  ) {
+    const confirmed = await requestConfirmation(
+      `Excluir o rascunho "${draft.title}"?`,
+      "Excluir rascunho de NFS-e?",
+      "Excluir",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await runAction(async () => {
+      await apiDelete(`/service-fiscal-documents/drafts/${draft.id}`);
       await refreshFiscalFlow();
     });
   }
@@ -305,18 +454,25 @@ export function useFinanceActions({
   }
 
   return {
+    cancelServiceFiscalDocument,
     cancelFiscalDocument,
     changePaymentMethodStatus,
     closeCashRegister,
     createCashRegisterMovement,
     issueManualFiscalDocument,
+    issueServiceFiscalDocument,
     issueFiscalDocumentCorrectionLetter,
     openCashRegister,
     previewManualFiscalDocument,
+    previewServiceFiscalDocument,
     saveManualFiscalDocumentDraft,
+    saveServiceFiscalDocumentDraft,
     deleteManualFiscalDocumentDraft,
+    deleteServiceFiscalDocumentDraft,
+    saveFiscalService,
     saveFiscalSettings,
     syncFiscalDocuments,
+    syncServiceFiscalDocument,
   };
 }
 

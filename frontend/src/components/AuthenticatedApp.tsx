@@ -81,6 +81,7 @@ export function AuthenticatedApp({
     clients,
     commercialSettings,
     fiscalDocuments,
+    fiscalServices,
     fiscalSettings,
     initialLoadComplete,
     inventoryReport,
@@ -93,6 +94,8 @@ export function AuthenticatedApp({
     loadStockReport,
     lowStockProducts,
     manualFiscalDocumentDrafts,
+    serviceFiscalDocuments,
+    serviceFiscalDocumentDrafts,
     message,
     ncmOptions,
     pendingActionCount,
@@ -408,6 +411,7 @@ export function AuthenticatedApp({
             commercialSettings={commercialSettings}
             financeActions={financeActions}
             fiscalDocuments={fiscalDocuments}
+            fiscalServices={fiscalServices}
             fiscalSettings={fiscalSettings}
             fiscalQueueSearch={fiscalQueueSearch}
             initialLoadComplete={initialLoadComplete}
@@ -415,6 +419,8 @@ export function AuthenticatedApp({
             inventoryReport={inventoryReport}
             lowStockProducts={lowStockProducts}
             manualFiscalDocumentDrafts={manualFiscalDocumentDrafts}
+            serviceFiscalDocuments={serviceFiscalDocuments}
+            serviceFiscalDocumentDrafts={serviceFiscalDocumentDrafts}
             ncmOptions={ncmOptions}
             paymentMethods={paymentMethods}
             pickupReservations={pickupReservations}

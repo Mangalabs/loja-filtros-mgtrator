@@ -36,11 +36,30 @@ export async function replaceFiscalSettings(
       environment: input.environment,
       allowProduction: fiscalProductionAllowance(input),
       companyCnpj,
-      defaultNatureOperation: fiscalText(input.defaultNatureOperation),
-      defaultSaleCfop: fiscalDigits(input.defaultSaleCfop),
+      defaultNatureOperation: currentDefaultNatureOperation(
+        input.defaultNatureOperation,
+      ),
+      defaultSaleCfop: currentDefaultSaleCfop(input.defaultSaleCfop),
       defaultIcmsCst: fiscalDigits(input.defaultIcmsCst),
       defaultPisCst: fiscalDigits(input.defaultPisCst),
       defaultCofinsCst: fiscalDigits(input.defaultCofinsCst),
+      municipalRegistration: optionalFiscalText(input.municipalRegistration),
+      serviceMunicipalityName: optionalFiscalText(
+        input.serviceMunicipalityName,
+      ),
+      serviceMunicipalityState: optionalFiscalState(
+        input.serviceMunicipalityState,
+      ),
+      serviceMunicipalityIbgeCode: optionalFiscalDigits(
+        input.serviceMunicipalityIbgeCode,
+      ),
+      serviceTaxRegime: input.serviceTaxRegime,
+      defaultIssRate: input.defaultIssRate,
+      defaultRetainPis: input.defaultRetainPis,
+      defaultRetainCofins: input.defaultRetainCofins,
+      defaultRetainCsll: input.defaultRetainCsll,
+      defaultRetainIr: input.defaultRetainIr,
+      defaultRetainInss: input.defaultRetainInss,
     },
   );
 
@@ -70,7 +89,11 @@ export async function currentFiscalSettings(branchId: string) {
     });
   }
 
-  if (settings && fiscalSettingsMissingIssueDefaults(settings)) {
+  if (
+    settings &&
+    (fiscalSettingsMissingIssueDefaults(settings) ||
+      fiscalSettingsUseOutdatedSaleDefaults(settings))
+  ) {
     return upsertFiscalSettings(branchId, {
       provider: settings.provider,
       environment: settings.environment,
@@ -104,14 +127,20 @@ export async function currentFiscalSettings(branchId: string) {
   });
 }
 
-function fiscalIssueDefaults(settings: FiscalSettingsInput) {
+type FiscalIssueDefaultsInput = Pick<
+  FiscalSettingsInput,
+  | "defaultNatureOperation"
+  | "defaultSaleCfop"
+  | "defaultIcmsCst"
+  | "defaultPisCst"
+  | "defaultCofinsCst"
+>;
+
+function fiscalIssueDefaults(settings: FiscalIssueDefaultsInput) {
   return {
     defaultNatureOperation:
-      fiscalText(settings.defaultNatureOperation) ??
-      defaultFiscalIssueSettings().defaultNatureOperation,
-    defaultSaleCfop:
-      fiscalDigits(settings.defaultSaleCfop) ??
-      defaultFiscalIssueSettings().defaultSaleCfop,
+      currentDefaultNatureOperation(settings.defaultNatureOperation),
+    defaultSaleCfop: currentDefaultSaleCfop(settings.defaultSaleCfop),
     defaultIcmsCst:
       fiscalDigits(settings.defaultIcmsCst) ??
       defaultFiscalIssueSettings().defaultIcmsCst,
@@ -126,15 +155,45 @@ function fiscalIssueDefaults(settings: FiscalSettingsInput) {
 
 function defaultFiscalIssueSettings() {
   return {
-    defaultNatureOperation: "Venda de mercadoria",
-    defaultSaleCfop: "5102",
+    defaultNatureOperation:
+      "Venda de mercadoria adquirida ou recebida de terceiros (ST)",
+    defaultSaleCfop: "5403",
     defaultIcmsCst: "102",
     defaultPisCst: "49",
     defaultCofinsCst: "49",
   };
 }
 
-function fiscalSettingsMissingIssueDefaults(settings: FiscalSettingsInput) {
+function currentDefaultNatureOperation(value?: string | null) {
+  const normalized = fiscalText(value);
+
+  return !normalized ||
+    normalized === "Venda de mercadoria" ||
+    normalized === "5.102/6.102 - Venda mercadoria terceiros"
+    ? defaultFiscalIssueSettings().defaultNatureOperation
+    : normalized;
+}
+
+function currentDefaultSaleCfop(value?: string | null) {
+  const normalized = fiscalDigits(value);
+
+  return normalized === "5403"
+    ? normalized
+    : defaultFiscalIssueSettings().defaultSaleCfop;
+}
+
+function fiscalSettingsUseOutdatedSaleDefaults(
+  settings: FiscalIssueDefaultsInput,
+) {
+  return (
+    currentDefaultNatureOperation(settings.defaultNatureOperation) !==
+      settings.defaultNatureOperation ||
+    currentDefaultSaleCfop(settings.defaultSaleCfop) !==
+      settings.defaultSaleCfop
+  );
+}
+
+function fiscalSettingsMissingIssueDefaults(settings: FiscalIssueDefaultsInput) {
   return [
     settings.defaultNatureOperation,
     settings.defaultSaleCfop,
@@ -191,4 +250,18 @@ function fiscalDigits(value?: string | null) {
 
 function fiscalText(value?: string | null) {
   return value?.trim() || null;
+}
+
+function optionalFiscalText(value?: string | null) {
+  return value === undefined ? undefined : fiscalText(value);
+}
+
+function optionalFiscalDigits(value?: string | null) {
+  return value === undefined ? undefined : fiscalDigits(value);
+}
+
+function optionalFiscalState(value?: string | null) {
+  const normalized = optionalFiscalText(value);
+
+  return normalized?.toUpperCase() ?? normalized;
 }

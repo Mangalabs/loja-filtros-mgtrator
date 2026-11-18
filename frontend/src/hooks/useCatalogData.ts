@@ -11,7 +11,11 @@ import {
   type Client,
   type CommercialSettings,
   type FiscalDocument,
+  type FiscalService,
   type ManualFiscalDocumentDraft,
+  type PaginatedServiceFiscalDocuments,
+  type ServiceFiscalDocument,
+  type ServiceFiscalDocumentDraft,
   type FiscalSettings,
   type InventoryReport,
   type NamedEntity,
@@ -104,9 +108,16 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   const [manualFiscalDocumentDrafts, setManualFiscalDocumentDrafts] = useState<
     ManualFiscalDocumentDraft[]
   >([]);
+  const [serviceFiscalDocuments, setServiceFiscalDocuments] = useState<
+    ServiceFiscalDocument[]
+  >([]);
+  const [serviceFiscalDocumentDrafts, setServiceFiscalDocumentDrafts] = useState<
+    ServiceFiscalDocumentDraft[]
+  >([]);
   const [fiscalSettings, setFiscalSettings] = useState<FiscalSettings | null>(
     null,
   );
+  const [fiscalServices, setFiscalServices] = useState<FiscalService[]>([]);
   const [commercialSettings, setCommercialSettings] =
     useState<CommercialSettings | null>(null);
   const [shippingOrders, setShippingOrders] = useState<ShippingOrder[]>([]);
@@ -162,7 +173,10 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
         salesResult,
         fiscalDocumentsResult,
         manualFiscalDocumentDraftsResult,
+        serviceFiscalDocumentsResult,
+        serviceFiscalDocumentDraftsResult,
         fiscalSettingsResult,
+        fiscalServicesResult,
         commercialSettingsResult,
         shippingOrdersResult,
         pickupReservationsResult,
@@ -223,9 +237,29 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
               "/fiscal-documents/manual/drafts",
             )
           : emptyResult<ManualFiscalDocumentDraft[]>([]),
-        canAccessView(user, "fiscal-settings")
+        canAccessView(user, "service-fiscal-document")
+          ? apiGet<ApiResult<PaginatedServiceFiscalDocuments>>(
+              "/service-fiscal-documents?limit=50&offset=0",
+            )
+          : emptyResult<PaginatedServiceFiscalDocuments>({
+              items: [],
+              total: 0,
+              limit: 50,
+              offset: 0,
+            }),
+        canAccessView(user, "service-fiscal-document")
+          ? apiGet<ApiResult<ServiceFiscalDocumentDraft[]>>(
+              "/service-fiscal-documents/drafts",
+            )
+          : emptyResult<ServiceFiscalDocumentDraft[]>([]),
+        canAccessView(user, "fiscal-settings") ||
+        canAccessView(user, "service-fiscal-document")
           ? apiGet<ApiResult<FiscalSettings>>("/fiscal-settings")
           : emptyResult<FiscalSettings | null>(null),
+        canAccessView(user, "fiscal-settings") ||
+        canAccessView(user, "service-fiscal-document")
+          ? apiGet<ApiResult<FiscalService[]>>("/fiscal-services")
+          : emptyResult<FiscalService[]>([]),
         fetchCommercialSettings(),
         apiGet<ApiResult<ShippingOrder[]>>("/shipping-orders"),
         apiGet<ApiResult<PickupReservation[]>>("/pickup-reservations"),
@@ -257,7 +291,10 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
       setSales(salesResult.data);
       setFiscalDocuments(fiscalDocumentsResult.data);
       setManualFiscalDocumentDrafts(manualFiscalDocumentDraftsResult.data);
+      setServiceFiscalDocuments(serviceFiscalDocumentsResult.data.items);
+      setServiceFiscalDocumentDrafts(serviceFiscalDocumentDraftsResult.data);
       setFiscalSettings(fiscalSettingsResult.data);
+      setFiscalServices(fiscalServicesResult.data);
       setCommercialSettings(commercialSettingsResult);
       setShippingOrders(shippingOrdersResult.data);
       setPickupReservations(pickupReservationsResult.data);
@@ -418,7 +455,10 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     const [
       fiscalDocumentsResult,
       manualFiscalDocumentDraftsResult,
+      serviceFiscalDocumentsResult,
+      serviceFiscalDocumentDraftsResult,
       fiscalSettingsResult,
+      fiscalServicesResult,
       reportsOverviewResult,
     ] = await Promise.all([
       canAccessView(user, "fiscal-documents")
@@ -429,15 +469,38 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
             "/fiscal-documents/manual/drafts",
           )
         : emptyResult<ManualFiscalDocumentDraft[]>([]),
-      canAccessView(user, "fiscal-settings")
+      canAccessView(user, "service-fiscal-document")
+        ? apiGet<ApiResult<PaginatedServiceFiscalDocuments>>(
+            "/service-fiscal-documents?limit=50&offset=0",
+          )
+        : emptyResult<PaginatedServiceFiscalDocuments>({
+            items: [],
+            total: 0,
+            limit: 50,
+            offset: 0,
+          }),
+      canAccessView(user, "service-fiscal-document")
+        ? apiGet<ApiResult<ServiceFiscalDocumentDraft[]>>(
+            "/service-fiscal-documents/drafts",
+          )
+        : emptyResult<ServiceFiscalDocumentDraft[]>([]),
+      canAccessView(user, "fiscal-settings") ||
+      canAccessView(user, "service-fiscal-document")
         ? apiGet<ApiResult<FiscalSettings>>("/fiscal-settings")
         : emptyResult<FiscalSettings | null>(null),
+      canAccessView(user, "fiscal-settings") ||
+      canAccessView(user, "service-fiscal-document")
+        ? apiGet<ApiResult<FiscalService[]>>("/fiscal-services")
+        : emptyResult<FiscalService[]>([]),
       apiGet<ApiResult<ReportsOverview>>("/reports/overview"),
     ]);
 
     setFiscalDocuments(fiscalDocumentsResult.data);
     setManualFiscalDocumentDrafts(manualFiscalDocumentDraftsResult.data);
+    setServiceFiscalDocuments(serviceFiscalDocumentsResult.data.items);
+    setServiceFiscalDocumentDrafts(serviceFiscalDocumentDraftsResult.data);
     setFiscalSettings(fiscalSettingsResult.data);
+    setFiscalServices(fiscalServicesResult.data);
     setReportsOverview(reportsOverviewResult.data);
   }
 
@@ -746,6 +809,7 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     clients,
     commercialSettings,
     fiscalDocuments,
+    fiscalServices,
     fiscalSettings,
     inventoryReport,
     initialLoadComplete,
@@ -754,6 +818,8 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
     loadInventoryReport,
     loadUserPerformanceReport,
     manualFiscalDocumentDrafts,
+    serviceFiscalDocuments,
+    serviceFiscalDocumentDrafts,
     lowStockProducts,
     loadPurchaseReport,
     loadStockReport,
@@ -803,7 +869,9 @@ export function useCatalogData(user: AuthUser, activeBranchId: string) {
   };
 }
 
-type SalesReportFilters = ReportPeriodFilters;
+type SalesReportFilters = ReportPeriodFilters & {
+  fiscalStatus?: "ALL" | "ISSUED" | "NOT_ISSUED";
+};
 
 type ReportPeriodFilters = {
   dateFrom?: string;

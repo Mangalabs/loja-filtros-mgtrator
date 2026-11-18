@@ -213,6 +213,7 @@ export function AppSidebar({
           'fiscal-documents',
           'fiscal-issued-documents',
           'manual-fiscal-document',
+          'service-fiscal-document',
         ].some((targetView) => canAccess(targetView as View)) ? (
           <NavSection
             active={isSectionActive('fiscal')}
@@ -250,6 +251,14 @@ export function AppSidebar({
                 icon={<FileText size={18} />}
                 onClick={() => onSelectView('manual-fiscal-document')}>
                 NF-e avulsa
+              </NavButton>
+            ) : null}
+            {canAccess('service-fiscal-document') ? (
+              <NavButton
+                active={view === 'service-fiscal-document'}
+                icon={<FileText size={18} />}
+                onClick={() => onSelectView('service-fiscal-document')}>
+                Notas de serviço
               </NavButton>
             ) : null}
           </NavSection>

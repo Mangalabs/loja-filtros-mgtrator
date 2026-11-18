@@ -4,7 +4,10 @@ import {
   replaceFiscalSettings,
   showFiscalSettings,
 } from "../../controllers/fiscal-settings/fiscal-settings.controller.js";
-import { requirePermission } from "../../shared/auth/authorization-middleware.js";
+import {
+  requireAnyPermission,
+  requirePermission,
+} from "../../shared/auth/authorization-middleware.js";
 import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
@@ -38,6 +41,33 @@ const fiscalSettingsSchema = z
       .union([z.string().trim().min(1).max(2), z.literal(""), z.null()])
       .transform((value) => value || null)
       .optional(),
+    municipalRegistration: z
+      .union([z.string().trim().min(1).max(40), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    serviceMunicipalityName: z
+      .union([z.string().trim().min(1).max(100), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    serviceMunicipalityState: z
+      .union([z.string().trim().length(2), z.literal(""), z.null()])
+      .transform((value) => value || null)
+      .optional(),
+    serviceMunicipalityIbgeCode: z
+      .union([
+        z.string().trim().regex(/^\d{7}$/),
+        z.literal(""),
+        z.null(),
+      ])
+      .transform((value) => value || null)
+      .optional(),
+    serviceTaxRegime: z.literal("SIMPLES_NACIONAL_NORMAL").optional(),
+    defaultIssRate: z.coerce.number().min(2).max(5).optional(),
+    defaultRetainPis: z.boolean().optional(),
+    defaultRetainCofins: z.boolean().optional(),
+    defaultRetainCsll: z.boolean().optional(),
+    defaultRetainIr: z.boolean().optional(),
+    defaultRetainInss: z.boolean().optional(),
     productionConfirmation: z
       .union([z.string().trim().min(1).max(64), z.literal(""), z.null()])
       .transform((value) => value || null)
@@ -47,7 +77,10 @@ const fiscalSettingsSchema = z
 
 fiscalSettingsRoutes.get(
   "/fiscal-settings",
-  requirePermission("MANAGE_FISCAL_SETTINGS"),
+  requireAnyPermission([
+    "MANAGE_FISCAL_SETTINGS",
+    "MANAGE_FISCAL_DOCUMENTS",
+  ]),
   async (_request, response) => {
     response
       .status(200)

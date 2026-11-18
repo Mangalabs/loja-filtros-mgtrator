@@ -64,3 +64,11 @@ export const nonNegativePercentageInputProps: NumericHtmlInputProps = {
   step: 0.01,
   onWheel: blurNumberInputOnWheel,
 };
+
+export const issRateInputProps: NumericHtmlInputProps = {
+  inputMode: "decimal",
+  min: 2,
+  max: 5,
+  step: 0.01,
+  onWheel: blurNumberInputOnWheel,
+};

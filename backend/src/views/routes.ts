@@ -11,6 +11,7 @@ import { commercialSettingsRoutes } from "./commercial-settings/commercial-setti
 import { fiscalCodesRoutes } from "./fiscal-codes/fiscal-codes.routes.js";
 import { fiscalDocumentsRoutes } from "./fiscal-documents/fiscal-documents.routes.js";
 import { fiscalSettingsRoutes } from "./fiscal-settings/fiscal-settings.routes.js";
+import { fiscalServicesRoutes } from "./fiscal-services/fiscal-services.routes.js";
 import { healthRoutes } from "./health/health.routes.js";
 import { paymentMethodsRoutes } from "./payment-methods/payment-methods.routes.js";
 import { pickupReservationsRoutes } from "./pickup-reservations/pickup-reservations.routes.js";
@@ -21,6 +22,7 @@ import { quotesRoutes } from "./quotes/quotes.routes.js";
 import { reportsRoutes } from "./reports/reports.routes.js";
 import { rootRoutes } from "./root/root.routes.js";
 import { salesRoutes } from "./sales/sales.routes.js";
+import { serviceFiscalDocumentsRoutes } from "./service-fiscal-documents/service-fiscal-documents.routes.js";
 import { shippingOrdersRoutes } from "./shipping-orders/shipping-orders.routes.js";
 import { stockAdjustmentsRoutes } from "./stock-adjustments/stock-adjustments.routes.js";
 import { stockEntriesRoutes } from "./stock-entries/stock-entries.routes.js";
@@ -43,6 +45,7 @@ export function registerRoutes(app: Express): void {
   app.use(fiscalCodesRoutes);
   app.use(fiscalDocumentsRoutes);
   app.use(fiscalSettingsRoutes);
+  app.use(fiscalServicesRoutes);
   app.use(paymentMethodsRoutes);
   app.use(pickupReservationsRoutes);
   app.use(productGroupsRoutes);
@@ -51,6 +54,7 @@ export function registerRoutes(app: Express): void {
   app.use(quotesRoutes);
   app.use(reportsRoutes);
   app.use(salesRoutes);
+  app.use(serviceFiscalDocumentsRoutes);
   app.use(shippingOrdersRoutes);
   app.use(stockAdjustmentsRoutes);
   app.use(stockEntriesRoutes);

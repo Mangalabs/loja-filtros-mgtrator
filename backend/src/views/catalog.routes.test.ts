@@ -14,8 +14,10 @@ import type { FiscalIssueRequest } from "../integrations/fiscal/fiscal-provider.
 import { FocusFiscalProvider } from "../integrations/fiscal/providers/focus-fiscal-provider.js";
 import { quotePdfHtml } from "../integrations/pdf/templates/quote-pdf-template.js";
 import { saleReceiptPdfHtml } from "../integrations/pdf/templates/sale-receipt-pdf-template.js";
+import type { FiscalService } from "../models/fiscal-services/fiscal-services.model.js";
 import type { Quote as ModelQuote } from "../models/quotes/quotes.model.js";
 import type { Sale as ModelSale } from "../models/sales/sales.model.js";
+import type { ServiceFiscalDocument } from "../models/service-fiscal-documents/service-fiscal-documents.model.js";
 
 type ApiResponse<T = unknown> = {
   code: number;
@@ -839,6 +841,13 @@ type ManualFiscalDocumentDraft = {
 
 type QuoteFormDraft = ManualFiscalDocumentDraft;
 
+type PaginatedServiceFiscalDocuments = {
+  items: ServiceFiscalDocument[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 type FiscalSettings = {
   id: string;
   branchId: string | null;
@@ -889,7 +898,7 @@ before(async () => {
     extension: "cjs",
   });
   await db.raw(
-    "truncate table auth_events, commercial_settings, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
+    "truncate table auth_events, commercial_settings, service_fiscal_documents, service_fiscal_document_drafts, fiscal_services, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
   await db("auth_events").del();
   await db("users").del();
@@ -934,7 +943,7 @@ beforeEach(async () => {
   env.fiscal.provider = "mock";
 
   await db.raw(
-    "truncate table auth_events, commercial_settings, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
+    "truncate table auth_events, commercial_settings, service_fiscal_documents, service_fiscal_document_drafts, fiscal_services, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
   await db("payment_methods").update({ active: true });
 });
@@ -1578,8 +1587,9 @@ describe("catalog routes", () => {
         environment: "HOMOLOGATION",
         companyCnpj: "12.345.678/0001-90",
         allowProduction: false,
-        defaultNatureOperation: "Venda de mercadoria",
-        defaultSaleCfop: "5405",
+        defaultNatureOperation:
+          "Venda de mercadoria adquirida ou recebida de terceiros (ST)",
+        defaultSaleCfop: "5403",
         defaultIcmsCst: "500",
         defaultPisCst: "49",
         defaultCofinsCst: "49",
@@ -1644,13 +1654,21 @@ describe("catalog routes", () => {
     assert.equal(current.body.data?.provider, "MOCK");
     assert.equal(current.body.data?.environment, "HOMOLOGATION");
     assert.equal(current.body.data?.allowProduction, false);
+    assert.equal(
+      current.body.data?.defaultNatureOperation,
+      "Venda de mercadoria adquirida ou recebida de terceiros (ST)",
+    );
+    assert.equal(current.body.data?.defaultSaleCfop, "5403");
     assert.equal(updated.status, 200);
     assert.equal(updated.body.data?.provider, "FOCUS");
     assert.equal(updated.body.data?.environment, "HOMOLOGATION");
     assert.equal(updated.body.data?.companyCnpj, "12345678000190");
     assert.equal(updated.body.data?.allowProduction, false);
-    assert.equal(updated.body.data?.defaultNatureOperation, "Venda de mercadoria");
-    assert.equal(updated.body.data?.defaultSaleCfop, "5405");
+    assert.equal(
+      updated.body.data?.defaultNatureOperation,
+      "Venda de mercadoria adquirida ou recebida de terceiros (ST)",
+    );
+    assert.equal(updated.body.data?.defaultSaleCfop, "5403");
     assert.equal(updated.body.data?.defaultIcmsCst, "500");
     assert.equal(updated.body.data?.defaultPisCst, "49");
     assert.equal(updated.body.data?.defaultCofinsCst, "49");
@@ -1740,9 +1758,9 @@ describe("catalog routes", () => {
         addressStreet: "Rua da Filial",
         addressNumber: "10",
         addressDistrict: "Centro",
-        addressCity: "Sao Luis",
-        addressState: "MA",
-        addressZipCode: "65000000",
+        addressCity: "Araguaina",
+        addressState: "TO",
+        addressZipCode: "77800000",
       },
     });
     assert.ok(branch.body.data?.id);
@@ -4713,13 +4731,6 @@ describe("catalog routes", () => {
       assert.ok(
         fiscalDocument.body.errors?.some(
           (error) =>
-            error.field === "defaultSaleCfop" &&
-            error.message === "CFOP padrao de venda deve conter 4 digitos.",
-        ),
-      );
-      assert.ok(
-        fiscalDocument.body.errors?.some(
-          (error) =>
             error.field === "defaultIcmsCst" &&
             error.message ===
               "CST/CSOSN ICMS padrao deve conter 2 ou 3 digitos.",
@@ -5180,6 +5191,13 @@ describe("catalog routes", () => {
         (submittedPayload as Record<string, unknown>).cnpj_emitente,
         "98765432000110",
       );
+      assert.equal(
+        (submittedPayload as Record<string, unknown>).local_destino,
+        1,
+      );
+      const submittedItems = (submittedPayload as Record<string, unknown>)
+        .items as Array<Record<string, unknown>>;
+      assert.equal(submittedItems[0]?.cfop, "5403");
       assert.equal(
         submittedAuthorization,
         `Basic ${Buffer.from("token-focus-sao-luis:").toString("base64")}`,
@@ -5672,6 +5690,60 @@ describe("catalog routes", () => {
     }
   });
 
+  it("selects the ST sales CFOP from the invoice destination", async () => {
+    const originalFiscalProvider = env.fiscal.provider;
+    const originalFocusToken = env.fiscal.focus.token;
+    const originalFocusCompanyCnpj = env.fiscal.focus.companyCnpj;
+    const originalFetch = globalThis.fetch;
+    const submittedPayloads: Array<Record<string, unknown>> = [];
+    const internalRequest = focusIssueRequest();
+    const interstateRequest = focusIssueRequest();
+
+    internalRequest.defaultSaleCfop = "5403";
+    internalRequest.destinationOperation = "INTERNAL";
+    interstateRequest.defaultSaleCfop = "5403";
+    interstateRequest.destinationOperation = "INTERSTATE";
+
+    env.fiscal.provider = "focus";
+    env.fiscal.focus.token = "token-focus-teste";
+    env.fiscal.focus.companyCnpj = "12345678000199";
+    globalThis.fetch = (async (_input, init) => {
+      submittedPayloads.push(
+        JSON.parse(String(init?.body)) as Record<string, unknown>,
+      );
+
+      return new Response(
+        JSON.stringify({
+          ref: "SALEfocusprovidertest",
+          status: "autorizado",
+        }),
+        { status: 201 },
+      );
+    }) as typeof fetch;
+
+    try {
+      await new FocusFiscalProvider().issue(internalRequest);
+      await new FocusFiscalProvider().issue(interstateRequest);
+
+      const internalItems = submittedPayloads[0]?.items as Array<
+        Record<string, unknown>
+      >;
+      const interstateItems = submittedPayloads[1]?.items as Array<
+        Record<string, unknown>
+      >;
+
+      assert.equal(submittedPayloads[0]?.local_destino, 1);
+      assert.equal(internalItems[0]?.cfop, "5403");
+      assert.equal(submittedPayloads[1]?.local_destino, 2);
+      assert.equal(interstateItems[0]?.cfop, "6403");
+    } finally {
+      env.fiscal.provider = originalFiscalProvider;
+      env.fiscal.focus.token = originalFocusToken;
+      env.fiscal.focus.companyCnpj = originalFocusCompanyCnpj;
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("trims Focus payload text fields before issuing", async () => {
     const originalFiscalProvider = env.fiscal.provider;
     const originalFocusToken = env.fiscal.focus.token;
@@ -5822,7 +5894,7 @@ describe("catalog routes", () => {
     const requestPayload = focusIssueRequest();
     let submittedPayload: Record<string, unknown> | null = null;
 
-    requestPayload.operationType = "ENTRY";
+    requestPayload.operationType = "EXIT";
     requestPayload.destinationOperation = "INTERSTATE";
     requestPayload.purpose = "RETURN";
     requestPayload.defaultNatureOperation = "Devolucao de mercadoria";
@@ -5838,7 +5910,7 @@ describe("catalog routes", () => {
         amount: "35.00",
       },
     ];
-    requestPayload.sale.items[0].productCfop = "1202";
+    requestPayload.sale.items[0].productCfop = "5411";
     requestPayload.sale.items[0].productIcmsCst = "090";
     requestPayload.sale.items[0].productPisCst = "99";
     requestPayload.sale.items[0].productCofinsCst = "99";
@@ -5872,7 +5944,7 @@ describe("catalog routes", () => {
         Record<string, unknown>
       >;
 
-      assert.equal(payload.tipo_documento, 0);
+      assert.equal(payload.tipo_documento, 1);
       assert.equal(payload.local_destino, 2);
       assert.equal(payload.finalidade_emissao, 4);
       assert.equal(payload.natureza_operacao, "Devolucao de mercadoria");
@@ -5882,7 +5954,7 @@ describe("catalog routes", () => {
       assert.equal(payments[0]?.forma_pagamento, "90");
       assert.equal(payments[0]?.valor_pagamento, 0);
       assert.equal(referencedInvoices[0]?.chave_nfe, "1".repeat(44));
-      assert.equal(items[0]?.cfop, "1202");
+      assert.equal(items[0]?.cfop, "6411");
       assert.equal(items[0]?.icms_situacao_tributaria, "090");
       assert.equal(items[0]?.pis_situacao_tributaria, "99");
       assert.equal(items[0]?.cofins_situacao_tributaria, "99");
@@ -6983,6 +7055,90 @@ describe("catalog routes", () => {
       "51.61",
     );
     assert.equal(report.body.data?.abcProducts[0]?.abcClass, "A");
+  });
+
+  it("filters sales reports by authorized fiscal document emission", async () => {
+    const product = await request<Product>("/products", {
+      method: "POST",
+      body: { name: "Filtro relatorio fiscal", salePrice: 50 },
+    });
+    const client = await request<Client>("/clients", {
+      method: "POST",
+      body: {
+        personType: "PF",
+        name: "Cliente relatorio fiscal",
+        document: "12345678901",
+      },
+    });
+    const pix = await activePaymentMethod("PIX");
+
+    await request("/stock-adjustments", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        quantity: 2,
+        reason: "Saldo para separar vendas por emissao fiscal",
+      },
+    });
+    await request("/cash-register/open", {
+      method: "POST",
+      body: { openingBalance: 0 },
+    });
+
+    const saleWithFiscalDocument = await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix.id,
+        quantity: 1,
+      },
+    });
+    await request<Sale>("/sales", {
+      method: "POST",
+      body: {
+        productId: product.body.data?.id,
+        clientId: client.body.data?.id,
+        paymentMethodId: pix.id,
+        quantity: 1,
+      },
+    });
+    const issued = await request<FiscalDocument>(
+      `/sales/${saleWithFiscalDocument.body.data?.id}/fiscal-documents`,
+      {
+        method: "POST",
+        body: { documentType: "NFE" },
+      },
+    );
+
+    const allSales = await request<SalesReport>(
+      "/reports/sales?fiscalStatus=ALL",
+    );
+    const issuedSales = await request<SalesReport>(
+      "/reports/sales?fiscalStatus=ISSUED",
+    );
+    const salesWithoutFiscalDocument = await request<SalesReport>(
+      "/reports/sales?fiscalStatus=NOT_ISSUED",
+    );
+    const invalidFilter = await request(
+      "/reports/sales?fiscalStatus=INVALID",
+    );
+
+    assert.equal(issued.status, 201);
+    assert.equal(issued.body.data?.status, "AUTHORIZED");
+    assert.equal(allSales.body.data?.summary.salesCount, 2);
+    assert.equal(allSales.body.data?.summary.netAmount, "100.00");
+    assert.equal(issuedSales.body.data?.summary.salesCount, 1);
+    assert.equal(issuedSales.body.data?.summary.netAmount, "50.00");
+    assert.equal(
+      salesWithoutFiscalDocument.body.data?.summary.salesCount,
+      1,
+    );
+    assert.equal(
+      salesWithoutFiscalDocument.body.data?.summary.netAmount,
+      "50.00",
+    );
+    assert.equal(invalidFilter.status, 422);
   });
 
   it("returns stock reports with low stock, products without movement, and turnover", async () => {
@@ -11439,6 +11595,111 @@ describe("catalog routes", () => {
     assert.equal(unchangedProduct.body.data?.currentStock, "0.000");
     assert.equal(adjustments.body.data?.length, 0);
   });
+
+  it("emits, lists and cancels an audited NFS-e in homologation", async () => {
+    const service = await request<FiscalService>("/fiscal-services", {
+      method: "POST",
+      body: {
+        name: "Manutencao de caminhoes",
+        nationalTaxCode: "140101",
+        municipalTaxCode: "14.01.01",
+        nbsCode: "120013110",
+        description: "Manutencao preventiva e corretiva",
+        issRate: 2,
+      },
+    });
+
+    assert.equal(service.status, 201);
+
+    const settings = await request("/fiscal-settings", {
+      method: "PUT",
+      body: {
+        provider: "MOCK",
+        environment: "HOMOLOGATION",
+        companyCnpj: "12345678000199",
+        allowProduction: false,
+        municipalRegistration: "3682435794",
+        serviceMunicipalityName: "Sao Luis",
+        serviceMunicipalityState: "MA",
+        serviceMunicipalityIbgeCode: "2111300",
+        serviceTaxRegime: "SIMPLES_NACIONAL_NORMAL",
+        defaultIssRate: 2,
+        defaultRetainPis: false,
+        defaultRetainCofins: false,
+        defaultRetainCsll: false,
+        defaultRetainIr: false,
+        defaultRetainInss: false,
+      },
+    });
+
+    assert.equal(settings.status, 200);
+
+    const issued = await request<ServiceFiscalDocument>(
+      "/service-fiscal-documents",
+      {
+        method: "POST",
+        body: {
+          serviceId: service.body.data?.id,
+          competenceDate: "2026-11-18",
+          serviceDescription: "Manutencao preventiva de caminhao",
+          serviceAmount: 1250,
+          issRate: 2,
+          issRetained: false,
+          consumerFinal: false,
+          additionalInformation: null,
+          taker: {
+            clientId: null,
+            personType: "PJ",
+            name: "Tomador de homologacao",
+            document: "12345678000190",
+            email: "tomador@example.com",
+            phone: "98999990000",
+            addressStreet: "Rua de teste",
+            addressNumber: "10",
+            addressComplement: null,
+            addressDistrict: "Centro",
+            addressCity: "Sao Luis",
+            addressState: "MA",
+            addressZipCode: "65000000",
+            municipalityIbgeCode: "2111300",
+          },
+        },
+      },
+    );
+
+    assert.equal(issued.status, 201);
+    assert.equal(issued.body.data?.status, "AUTHORIZED");
+
+    const listed = await request<PaginatedServiceFiscalDocuments>(
+      "/service-fiscal-documents?limit=10&offset=0",
+    );
+    assert.equal(listed.status, 200);
+    assert.equal(listed.body.data?.total, 1);
+    assert.equal(listed.body.data?.items[0]?.id, issued.body.data?.id);
+
+    const cancelled = await request<ServiceFiscalDocument>(
+      `/service-fiscal-documents/${issued.body.data?.id}/cancel`,
+      {
+        method: "POST",
+        body: {
+          justification: "Servico cancelado a pedido do tomador.",
+        },
+      },
+    );
+
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.body.data?.status, "CANCELLED");
+    assert.equal(
+      cancelled.body.data?.cancellationReason,
+      "Servico cancelado a pedido do tomador.",
+    );
+    assert.ok(cancelled.body.data?.cancelledAt);
+    assert.equal(
+      cancelled.body.data?.cancelledByUserName,
+      "Administrador de teste",
+    );
+  });
+
 });
 
 function purchaseInvoiceXml(accessKey: string) {

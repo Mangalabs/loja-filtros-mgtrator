@@ -75,7 +75,7 @@ const issueFiscalDocumentSchema = z
 const manualFiscalDocumentSchema = z
   .object({
     documentType: z.literal("NFE").default("NFE"),
-    operationType: z.enum(["ENTRY", "EXIT"]).default("ENTRY"),
+    operationType: z.enum(["ENTRY", "EXIT"]).default("EXIT"),
     destinationOperation: z
       .enum(["INTERNAL", "INTERSTATE", "EXTERIOR"])
       .default("INTERNAL"),

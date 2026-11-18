@@ -4,6 +4,7 @@ import { env } from "../../config/env.js";
 import type { FiscalIssueRequest } from "../../integrations/fiscal/fiscal-provider.js";
 import { makeFiscalProviderByName } from "../../integrations/fiscal/fiscal-provider-factory.js";
 import { currentFiscalSettings } from "../fiscal-settings/fiscal-settings.controller.js";
+import { findBranchById } from "../../models/branches/branches.model.js";
 import {
   countFiscalDocumentsBySource,
   findBlockingFiscalDocumentBySale,
@@ -1290,6 +1291,7 @@ async function fiscalDocumentRequest(
   }
 
   const fiscalSettings = await currentFiscalSettings(input.branchId);
+  const branch = await findBranchById(input.branchId, database);
 
   if (input.editedFiscalInput) {
     return manualFiscalDocumentRequest(
@@ -1311,6 +1313,10 @@ async function fiscalDocumentRequest(
       environment: fiscalSettings.environment,
       companyCnpj: fiscalSettings.companyCnpj,
       additionalInformation: input.additionalInformation,
+      destinationOperation: fiscalDestinationOperation(
+        branch?.addressState,
+        sale.clientAddressState,
+      ),
       defaultNatureOperation: fiscalSettings.defaultNatureOperation,
       defaultSaleCfop: fiscalSettings.defaultSaleCfop,
       defaultIcmsCst: fiscalSettings.defaultIcmsCst,
@@ -1319,6 +1325,20 @@ async function fiscalDocumentRequest(
       sale,
     },
   };
+}
+
+function fiscalDestinationOperation(
+  issuerState?: string | null,
+  clientState?: string | null,
+): "INTERNAL" | "INTERSTATE" {
+  const normalizedIssuerState = issuerState?.trim().toUpperCase();
+  const normalizedClientState = clientState?.trim().toUpperCase();
+
+  return normalizedIssuerState &&
+    normalizedClientState &&
+    normalizedIssuerState !== normalizedClientState
+    ? "INTERSTATE"
+    : "INTERNAL";
 }
 
 async function manualFiscalDocumentRequest(

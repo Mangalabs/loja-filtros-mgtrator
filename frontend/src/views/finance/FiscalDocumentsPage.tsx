@@ -1133,8 +1133,10 @@ export function ManualFiscalDocumentPage({
               name='manualFiscalOperationType'
               select
               required>
-              <MenuItem value='ENTRY'>Entrada</MenuItem>
               <MenuItem value='EXIT'>Saída</MenuItem>
+              {sourceValues.operationType === 'ENTRY' ? (
+                <MenuItem value='ENTRY'>Entrada (rascunho anterior)</MenuItem>
+              ) : null}
             </TextField>
             <TextField
               defaultValue={sourceValues.destinationOperation}
@@ -1144,7 +1146,9 @@ export function ManualFiscalDocumentPage({
               required>
               <MenuItem value='INTERNAL'>Operação interna</MenuItem>
               <MenuItem value='INTERSTATE'>Operação interestadual</MenuItem>
-              <MenuItem value='EXTERIOR'>Operação com exterior</MenuItem>
+              {sourceValues.destinationOperation === 'EXTERIOR' ? (
+                <MenuItem value='EXTERIOR'>Exterior (rascunho anterior)</MenuItem>
+              ) : null}
             </TextField>
             <Autocomplete
               getOptionLabel={(option) => `${option.codes} - ${option.label}`}
@@ -2148,6 +2152,13 @@ function distributeManualFiscalInstallments(
   }))
 }
 
+const allowedManualFiscalOperationCodes = new Set([
+  '5.403 / 6.403',
+  '5.411 / 6.411',
+  '5.910 / 6.910',
+  '5.915 / 6.915',
+])
+
 const manualFiscalOperationOptions: ManualFiscalOperationOption[] = [
   {
     codes: '5.101 / 6.101',
@@ -2166,8 +2177,9 @@ const manualFiscalOperationOptions: ManualFiscalOperationOption[] = [
   },
   {
     codes: '5.403 / 6.403',
-    label: 'Venda de mercadoria adquirida de terceiros (ST)',
-    value: '5.403/6.403 - Venda mercadoria terceiros ST',
+    label: 'Venda de mercadoria adquirida ou recebida de terceiros (ST)',
+    value:
+      '5.403/6.403 - Venda mercadoria adquirida ou recebida de terceiros ST',
   },
   {
     codes: '5.115 / 6.115',
@@ -2356,7 +2368,7 @@ const manualFiscalOperationOptions: ManualFiscalOperationOption[] = [
       'Outra entrada de mercadoria ou serviço não especificado do exterior',
     value: '3.949 - Outra entrada exterior',
   },
-]
+].filter((option) => allowedManualFiscalOperationCodes.has(option.codes))
 
 function manualFiscalOperationOptionFromValue(value: string) {
   return (
@@ -2959,7 +2971,7 @@ function manualFiscalDocumentFormValues(document?: FiscalDocument) {
     ),
     natureOperation:
       stringPayloadValue(payload?.defaultNatureOperation) ??
-      '5.102/6.102 - Venda mercadoria terceiros',
+      '5.403/6.403 - Venda mercadoria adquirida ou recebida de terceiros ST',
     referencedAccessKey,
     transportedVolumesQuantity,
     transportedVolumesGrossWeight,
@@ -3056,7 +3068,7 @@ function manualFiscalDocumentDraftFormValues(
     ),
     natureOperation:
       stringPayloadValue(payload?.natureOperation) ??
-      '5.102/6.102 - Venda mercadoria terceiros',
+      '5.403/6.403 - Venda mercadoria adquirida ou recebida de terceiros ST',
     referencedAccessKey,
     transportedVolumesQuantity,
     transportedVolumesGrossWeight,
@@ -3143,7 +3155,8 @@ function manualFiscalDocumentSaleFormValues(sale: Sale) {
     operationType: 'EXIT' as const,
     destinationOperation: 'INTERNAL' as const,
     purpose: 'NORMAL' as const,
-    natureOperation: '5.102/6.102 - Venda mercadoria terceiros',
+    natureOperation:
+      '5.403/6.403 - Venda mercadoria adquirida ou recebida de terceiros ST',
     referencedAccessKey: '',
     transportedVolumesQuantity: '1',
     transportedVolumesGrossWeight: '',

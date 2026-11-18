@@ -1,3 +1,4 @@
+import type { Knex } from "knex";
 import { db } from "../../database/knex.js";
 
 export type Branch = {
@@ -70,8 +71,11 @@ export async function findActiveBranchById(
   return db("branches").select(branchColumns).where({ id, active: true }).first();
 }
 
-export async function findBranchById(id: string): Promise<Branch | undefined> {
-  return db("branches").select(branchColumns).where({ id }).first();
+export async function findBranchById(
+  id: string,
+  database: Knex | Knex.Transaction = db,
+): Promise<Branch | undefined> {
+  return database("branches").select(branchColumns).where({ id }).first();
 }
 
 export async function createBranch(input: BranchCreateInput): Promise<Branch> {

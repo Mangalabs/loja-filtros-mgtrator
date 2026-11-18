@@ -25,3 +25,21 @@ export function requirePermission(permission: EmployeePermission): RequestHandle
     next(new AppError("Acesso nao permitido para este usuario.", 403));
   };
 }
+
+export function requireAnyPermission(
+  permissions: EmployeePermission[],
+): RequestHandler {
+  return (_request, response, next) => {
+    const user = response.locals.authenticatedUser;
+
+    if (
+      user?.role === "ADMIN" ||
+      permissions.some((permission) => user?.permissions?.includes(permission))
+    ) {
+      next();
+      return;
+    }
+
+    next(new AppError("Acesso nao permitido para este usuario.", 403));
+  };
+}

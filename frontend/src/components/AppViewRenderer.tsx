@@ -9,7 +9,10 @@ import type {
   AuthUser,
   NamedEntity,
   FiscalDocument,
+  FiscalService,
   ManualFiscalDocumentDraft,
+  ServiceFiscalDocument,
+  ServiceFiscalDocumentDraft,
   FiscalSettings,
   InventoryReport,
   PaymentMethod,
@@ -63,6 +66,7 @@ import {
   type FiscalOperationsTab,
 } from "../views/finance/FiscalOperationsPage";
 import { FiscalSettingsPage } from "../views/finance/FiscalSettingsPage";
+import { ServiceFiscalDocumentPage } from "../views/finance/ServiceFiscalDocumentPage";
 import { PaymentMethodsPage } from "../views/finance/PaymentMethodsPage";
 import type { useFinanceActions } from "../views/finance/useFinanceActions";
 import { QuoteEditPage, QuotesPage } from "../views/quotes/QuotesPage";
@@ -95,12 +99,15 @@ type AppViewRendererProps = {
   commercialSettings: CommercialSettings | null;
   financeActions: ReturnType<typeof useFinanceActions>;
   fiscalDocuments: FiscalDocument[];
+  fiscalServices: FiscalService[];
   fiscalQueueSearch: string;
   fiscalSettings: FiscalSettings | null;
   initialLoadComplete: boolean;
   inventoryReport: InventoryReport | null;
   lowStockProducts: Product[];
   manualFiscalDocumentDrafts: ManualFiscalDocumentDraft[];
+  serviceFiscalDocuments: ServiceFiscalDocument[];
+  serviceFiscalDocumentDrafts: ServiceFiscalDocumentDraft[];
   ncmOptions: NcmOption[];
   paymentMethods: PaymentMethod[];
   pickupReservations: PickupReservation[];
@@ -165,6 +172,7 @@ type AppViewRendererProps = {
   onLoadSalesReport: (filters?: {
     dateFrom?: string;
     dateTo?: string;
+    fiscalStatus?: "ALL" | "ISSUED" | "NOT_ISSUED";
   }) => Promise<boolean>;
   onLoadCashReport: (filters?: {
     dateFrom?: string;
@@ -210,12 +218,15 @@ export function AppViewRenderer({
   commercialSettings,
   financeActions,
   fiscalDocuments,
+  fiscalServices,
   fiscalQueueSearch,
   fiscalSettings,
   initialLoadComplete,
   inventoryReport,
   lowStockProducts,
   manualFiscalDocumentDrafts,
+  serviceFiscalDocuments,
+  serviceFiscalDocumentDrafts,
   ncmOptions,
   paymentMethods,
   pickupReservations,
@@ -539,7 +550,11 @@ export function AppViewRenderer({
       ),
     "fiscal-settings": (
         <FiscalSettingsPage
+          services={fiscalServices}
           settings={fiscalSettings}
+          onSaveService={(input, service) =>
+            financeActions.saveFiscalService(input, service)
+          }
           onSubmit={(input) => financeActions.saveFiscalSettings(input)}
         />
       ),
@@ -584,6 +599,31 @@ export function AppViewRenderer({
         }
         onSaveManualFiscalDocumentDraft={(input, draft) =>
           financeActions.saveManualFiscalDocumentDraft(input, draft)
+        }
+      />
+    ),
+    "service-fiscal-document": (
+      <ServiceFiscalDocumentPage
+        clients={clients}
+        documents={serviceFiscalDocuments}
+        drafts={serviceFiscalDocumentDrafts}
+        services={fiscalServices}
+        settings={fiscalSettings}
+        onCancel={(document, justification) =>
+          financeActions.cancelServiceFiscalDocument(document, justification)
+        }
+        onDelete={(draft) =>
+          financeActions.deleteServiceFiscalDocumentDraft(draft)
+        }
+        onIssue={(input) => financeActions.issueServiceFiscalDocument(input)}
+        onPreview={(input) =>
+          financeActions.previewServiceFiscalDocument(input)
+        }
+        onSave={(input, draft) =>
+          financeActions.saveServiceFiscalDocumentDraft(input, draft)
+        }
+        onSync={(document) =>
+          financeActions.syncServiceFiscalDocument(document)
         }
       />
     ),

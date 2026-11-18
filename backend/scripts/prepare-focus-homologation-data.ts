@@ -115,7 +115,7 @@ const productUpdates = await db("products")
   })
   .update({
     ncm: "84219999",
-    cfop: "5102",
+    cfop: "5403",
     origin: "0",
     icms_cst: "102",
     pis_cst: "49",
@@ -165,7 +165,7 @@ const product = (
       salePrice: 150,
       minimumStock: 2,
       ncm: "84219999",
-      cfop: "5102",
+      cfop: "5403",
       origin: "0",
       icmsCst: "102",
       pisCst: "49",

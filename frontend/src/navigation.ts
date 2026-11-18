@@ -18,6 +18,7 @@ export type View =
   | 'fiscal-documents'
   | 'fiscal-issued-documents'
   | 'manual-fiscal-document'
+  | 'service-fiscal-document'
   | 'cash-register'
   | 'reports'
   | 'new-quote'
@@ -64,6 +65,7 @@ export const navSectionViews: Record<NavSectionKey, View[]> = {
     'fiscal-documents',
     'fiscal-issued-documents',
     'manual-fiscal-document',
+    'service-fiscal-document',
   ],
   cash: ['cash-register'],
   reports: ['reports'],
@@ -111,6 +113,7 @@ const viewValues: View[] = [
   'fiscal-documents',
   'fiscal-issued-documents',
   'manual-fiscal-document',
+  'service-fiscal-document',
   'cash-register',
   'reports',
   'new-quote',
@@ -141,6 +144,7 @@ export const viewPermissionRequirements: Partial<
   'fiscal-documents': 'MANAGE_FISCAL_DOCUMENTS',
   'fiscal-issued-documents': 'MANAGE_FISCAL_DOCUMENTS',
   'manual-fiscal-document': 'MANAGE_FISCAL_DOCUMENTS',
+  'service-fiscal-document': 'MANAGE_FISCAL_DOCUMENTS',
   'cash-register': 'MANAGE_CASH_REGISTER',
   reports: 'VIEW_REPORTS',
 }
@@ -273,6 +277,11 @@ export const viewTitles: Record<View, { title: string; description: string }> =
       title: 'NF-e avulsa',
       description:
         'Preencha uma NF-e manual para operações específicas, como devolução.',
+    },
+    'service-fiscal-document': {
+      title: 'Notas de serviço',
+      description:
+        'Prepare, acompanhe e consulte NFS-e emitidas pelo Ambiente Nacional.',
     },
     'cash-register': {
       title: 'Caixa',

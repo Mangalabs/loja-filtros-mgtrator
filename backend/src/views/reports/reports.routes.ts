@@ -39,7 +39,9 @@ function reportQuerySchema<
 const salesReportQuerySchema = reportQuerySchema([
   "code", "product", "quantity", "total", "cost", "profit", "profitPercentage", "margin",
   "client", "sales", "paymentMethod", "participation", "cumulative", "class",
-]);
+]).extend({
+  fiscalStatus: z.enum(["ALL", "ISSUED", "NOT_ISSUED"]).optional(),
+});
 const stockReportQuerySchema = reportQuerySchema([
   "code", "product", "location", "movements", "entryQuantity", "entryAmount",
   "exitQuantity", "exitCost", "adjustmentQuantity", "adjustmentCost", "balance",

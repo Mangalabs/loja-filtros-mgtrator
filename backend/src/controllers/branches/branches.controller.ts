@@ -79,8 +79,9 @@ async function saveBranchFiscalBootstrap(
     companyCnpj,
     allowProduction: currentSettings?.allowProduction ?? false,
     defaultNatureOperation:
-      currentSettings?.defaultNatureOperation ?? "Venda de mercadoria",
-    defaultSaleCfop: currentSettings?.defaultSaleCfop ?? "5102",
+      currentSettings?.defaultNatureOperation ??
+      "Venda de mercadoria adquirida ou recebida de terceiros (ST)",
+    defaultSaleCfop: currentSettings?.defaultSaleCfop ?? "5403",
     defaultIcmsCst: currentSettings?.defaultIcmsCst ?? "102",
     defaultPisCst: currentSettings?.defaultPisCst ?? "49",
     defaultCofinsCst: currentSettings?.defaultCofinsCst ?? "49",

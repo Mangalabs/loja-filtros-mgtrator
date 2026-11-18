@@ -229,7 +229,7 @@ function salesReportDocument(
 ): ReportPdfDocument {
   return {
     title: "Relatorio comercial",
-    subtitle: "Vendas concluidas por produto, cliente, pagamento e curva ABC.",
+    subtitle: `${salesReportFiscalStatusLabel(filters.fiscalStatus)} por produto, cliente, pagamento e curva ABC.`,
     generatedAt: new Date(),
     periodLabel: periodLabel(filters),
     metrics: [
@@ -316,6 +316,20 @@ function salesReportDocument(
       },
     ],
   };
+}
+
+function salesReportFiscalStatusLabel(
+  fiscalStatus: SalesReportFilters["fiscalStatus"],
+) {
+  if (fiscalStatus === "ISSUED") {
+    return "Vendas concluidas com NF-e emitida";
+  }
+
+  if (fiscalStatus === "NOT_ISSUED") {
+    return "Vendas concluidas sem NF-e emitida";
+  }
+
+  return "Vendas concluidas";
 }
 
 function stockReportDocument(

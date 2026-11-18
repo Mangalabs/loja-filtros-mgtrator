@@ -19,6 +19,7 @@ export type SalesReportFilters = {
   columns?: SalesReportColumnKey[];
   dateFrom?: string;
   dateTo?: string;
+  fiscalStatus?: "ALL" | "ISSUED" | "NOT_ISSUED";
 };
 
 export type SalesReportColumnKey =
@@ -1703,37 +1704,77 @@ function salesReportBaseQuery(filters: SalesReportFilters) {
     .join("sale_items", "sale_items.sale_id", "sales.id")
     .where("sales.status", "COMPLETED")
     .where("sales.branch_id", filters.branchId)
-    .modify((query) => {
-      if (filters.dateFrom) {
-        query.where("sales.created_at", ">=", filters.dateFrom);
-      }
-
-      if (filters.dateTo) {
-        query.where(
-          "sales.created_at",
-          "<",
-          db.raw("?::date + interval '1 day'", [filters.dateTo]),
-        );
-      }
-    });
+    .modify((query) => applySalesReportFilters(query, filters));
 }
 
 function salesReportSalesQuery(filters: SalesReportFilters) {
   return db("sales")
     .where("sales.status", "COMPLETED")
     .where("sales.branch_id", filters.branchId)
-    .modify((query) => {
-      if (filters.dateFrom) {
-        query.where("sales.created_at", ">=", filters.dateFrom);
-      }
+    .modify((query) => applySalesReportFilters(query, filters));
+}
 
-      if (filters.dateTo) {
-        query.where(
-          "sales.created_at",
-          "<",
-          db.raw("?::date + interval '1 day'", [filters.dateTo]),
-        );
-      }
+function applySalesReportFilters(
+  query: Knex.QueryBuilder,
+  filters: SalesReportFilters,
+) {
+  if (filters.dateFrom) {
+    query.where("sales.created_at", ">=", filters.dateFrom);
+  }
+
+  if (filters.dateTo) {
+    query.where(
+      "sales.created_at",
+      "<",
+      db.raw("?::date + interval '1 day'", [filters.dateTo]),
+    );
+  }
+
+  if (filters.fiscalStatus === "ISSUED") {
+    query.whereExists(authorizedFiscalDocumentForSaleQuery());
+  }
+
+  if (filters.fiscalStatus === "NOT_ISSUED") {
+    query.whereNotExists(authorizedFiscalDocumentForSaleQuery());
+  }
+}
+
+function authorizedFiscalDocumentForSaleQuery() {
+  return db("fiscal_documents")
+    .select(db.raw("1"))
+    .where("fiscal_documents.status", "AUTHORIZED")
+    .whereRaw("fiscal_documents.branch_id = sales.branch_id")
+    .where((sourceQuery) => {
+      sourceQuery
+        .where((directSaleQuery) => {
+          directSaleQuery
+            .where("fiscal_documents.source_type", "SALE")
+            .whereRaw("fiscal_documents.source_id = sales.id");
+        })
+        .orWhere((shippingOrderQuery) => {
+          shippingOrderQuery
+            .where("fiscal_documents.source_type", "SHIPPING_ORDER")
+            .whereExists(
+              db("shipping_orders")
+                .select(db.raw("1"))
+                .whereRaw(
+                  "shipping_orders.id = fiscal_documents.source_id",
+                )
+                .whereRaw("shipping_orders.sale_id = sales.id"),
+            );
+        })
+        .orWhere((pickupReservationQuery) => {
+          pickupReservationQuery
+            .where("fiscal_documents.source_type", "PICKUP_RESERVATION")
+            .whereExists(
+              db("pickup_reservations")
+                .select(db.raw("1"))
+                .whereRaw(
+                  "pickup_reservations.id = fiscal_documents.source_id",
+                )
+                .whereRaw("pickup_reservations.sale_id = sales.id"),
+            );
+        });
     });
 }
 

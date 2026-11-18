@@ -616,6 +616,80 @@ export type ManualFiscalDocumentDraft = {
   updatedAt: string;
 };
 
+export type ServiceFiscalDocumentInput = {
+  serviceId: string;
+  competenceDate: string;
+  serviceDescription: string;
+  serviceAmount: number;
+  issRate: number;
+  issRetained: boolean;
+  consumerFinal: boolean;
+  additionalInformation: string | null;
+  taker: {
+    clientId: string | null;
+    personType: "PF" | "PJ" | "ES";
+    name: string;
+    document: string | null;
+    email: string | null;
+    phone: string | null;
+    addressStreet: string;
+    addressNumber: string;
+    addressComplement: string | null;
+    addressDistrict: string;
+    addressCity: string;
+    addressState: string;
+    addressZipCode: string;
+    municipalityIbgeCode: string;
+  };
+};
+
+export type ServiceFiscalDocumentDraft = {
+  id: string;
+  branchId: string;
+  createdByUserId: string;
+  createdByUserName: string;
+  title: string;
+  payload: ServiceFiscalDocumentInput;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ServiceFiscalDocument = {
+  id: string;
+  branchId: string;
+  fiscalServiceId: string;
+  fiscalServiceName: string;
+  provider: "MOCK" | "FOCUS";
+  environment: "HOMOLOGATION" | "PRODUCTION";
+  status: "PROCESSING" | "AUTHORIZED" | "REJECTED" | "CANCELLED";
+  providerReference: string;
+  protocol: string | null;
+  accessKey: string | null;
+  dpsSeries: number;
+  dpsNumber: string;
+  nfseNumber: string | null;
+  xmlUrl: string | null;
+  pdfUrl: string | null;
+  rejectionReason: string | null;
+  issuedByUserId: string;
+  issuedByUserName: string;
+  issuedAt: string;
+  authorizedAt: string | null;
+  cancellationReason: string | null;
+  cancelledAt: string | null;
+  cancelledByUserId: string | null;
+  cancelledByUserName: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PaginatedServiceFiscalDocuments = {
+  items: ServiceFiscalDocument[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type FiscalSettings = {
   id: string;
   branchId: string | null;
@@ -629,6 +703,32 @@ export type FiscalSettings = {
   defaultIcmsCst: string | null;
   defaultPisCst: string | null;
   defaultCofinsCst: string | null;
+  municipalRegistration: string | null;
+  serviceMunicipalityName: string | null;
+  serviceMunicipalityState: string | null;
+  serviceMunicipalityIbgeCode: string | null;
+  serviceTaxRegime: "SIMPLES_NACIONAL_NORMAL";
+  defaultIssRate: string;
+  defaultRetainPis: boolean;
+  defaultRetainCofins: boolean;
+  defaultRetainCsll: boolean;
+  defaultRetainIr: boolean;
+  defaultRetainInss: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FiscalService = {
+  id: string;
+  branchId: string;
+  name: string;
+  nationalTaxCode: string;
+  municipalTaxCode: string | null;
+  municipalActivityCode: string | null;
+  nbsCode: string | null;
+  description: string | null;
+  issRate: string;
+  active: boolean;
   createdAt: string;
   updatedAt: string;
 };

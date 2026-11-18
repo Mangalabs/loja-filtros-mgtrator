@@ -17,6 +17,17 @@ export type FiscalSettings = {
   defaultIcmsCst: string | null;
   defaultPisCst: string | null;
   defaultCofinsCst: string | null;
+  municipalRegistration: string | null;
+  serviceMunicipalityName: string | null;
+  serviceMunicipalityState: string | null;
+  serviceMunicipalityIbgeCode: string | null;
+  serviceTaxRegime: "SIMPLES_NACIONAL_NORMAL";
+  defaultIssRate: string;
+  defaultRetainPis: boolean;
+  defaultRetainCofins: boolean;
+  defaultRetainCsll: boolean;
+  defaultRetainIr: boolean;
+  defaultRetainInss: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -31,6 +42,17 @@ export type FiscalSettingsInput = {
   defaultIcmsCst?: string | null;
   defaultPisCst?: string | null;
   defaultCofinsCst?: string | null;
+  municipalRegistration?: string | null;
+  serviceMunicipalityName?: string | null;
+  serviceMunicipalityState?: string | null;
+  serviceMunicipalityIbgeCode?: string | null;
+  serviceTaxRegime?: "SIMPLES_NACIONAL_NORMAL";
+  defaultIssRate?: number;
+  defaultRetainPis?: boolean;
+  defaultRetainCofins?: boolean;
+  defaultRetainCsll?: boolean;
+  defaultRetainIr?: boolean;
+  defaultRetainInss?: boolean;
 };
 
 const fiscalSettingsColumns = [
@@ -46,6 +68,17 @@ const fiscalSettingsColumns = [
   "fiscal_settings.default_icms_cst as defaultIcmsCst",
   "fiscal_settings.default_pis_cst as defaultPisCst",
   "fiscal_settings.default_cofins_cst as defaultCofinsCst",
+  "fiscal_settings.municipal_registration as municipalRegistration",
+  "fiscal_settings.service_municipality_name as serviceMunicipalityName",
+  "fiscal_settings.service_municipality_state as serviceMunicipalityState",
+  "fiscal_settings.service_municipality_ibge_code as serviceMunicipalityIbgeCode",
+  "fiscal_settings.service_tax_regime as serviceTaxRegime",
+  "fiscal_settings.default_iss_rate as defaultIssRate",
+  "fiscal_settings.default_retain_pis as defaultRetainPis",
+  "fiscal_settings.default_retain_cofins as defaultRetainCofins",
+  "fiscal_settings.default_retain_csll as defaultRetainCsll",
+  "fiscal_settings.default_retain_ir as defaultRetainIr",
+  "fiscal_settings.default_retain_inss as defaultRetainInss",
   "fiscal_settings.created_at as createdAt",
   "fiscal_settings.updated_at as updatedAt",
 ];
@@ -79,6 +112,34 @@ export async function upsertFiscalSettings(
         default_icms_cst: input.defaultIcmsCst,
         default_pis_cst: input.defaultPisCst,
         default_cofins_cst: input.defaultCofinsCst,
+        municipal_registration:
+          input.municipalRegistration === undefined
+            ? existing.municipalRegistration
+            : input.municipalRegistration,
+        service_municipality_name:
+          input.serviceMunicipalityName === undefined
+            ? existing.serviceMunicipalityName
+            : input.serviceMunicipalityName,
+        service_municipality_state:
+          input.serviceMunicipalityState === undefined
+            ? existing.serviceMunicipalityState
+            : input.serviceMunicipalityState,
+        service_municipality_ibge_code:
+          input.serviceMunicipalityIbgeCode === undefined
+            ? existing.serviceMunicipalityIbgeCode
+            : input.serviceMunicipalityIbgeCode,
+        service_tax_regime:
+          input.serviceTaxRegime ?? existing.serviceTaxRegime,
+        default_iss_rate: input.defaultIssRate ?? existing.defaultIssRate,
+        default_retain_pis:
+          input.defaultRetainPis ?? existing.defaultRetainPis,
+        default_retain_cofins:
+          input.defaultRetainCofins ?? existing.defaultRetainCofins,
+        default_retain_csll:
+          input.defaultRetainCsll ?? existing.defaultRetainCsll,
+        default_retain_ir: input.defaultRetainIr ?? existing.defaultRetainIr,
+        default_retain_inss:
+          input.defaultRetainInss ?? existing.defaultRetainInss,
         updated_at: db.fn.now(),
       })
       .returning("id");
@@ -98,6 +159,19 @@ export async function upsertFiscalSettings(
       default_icms_cst: input.defaultIcmsCst,
       default_pis_cst: input.defaultPisCst,
       default_cofins_cst: input.defaultCofinsCst,
+      municipal_registration: input.municipalRegistration ?? null,
+      service_municipality_name: input.serviceMunicipalityName ?? null,
+      service_municipality_state: input.serviceMunicipalityState ?? null,
+      service_municipality_ibge_code:
+        input.serviceMunicipalityIbgeCode ?? null,
+      service_tax_regime:
+        input.serviceTaxRegime ?? "SIMPLES_NACIONAL_NORMAL",
+      default_iss_rate: input.defaultIssRate ?? 2,
+      default_retain_pis: input.defaultRetainPis ?? false,
+      default_retain_cofins: input.defaultRetainCofins ?? false,
+      default_retain_csll: input.defaultRetainCsll ?? false,
+      default_retain_ir: input.defaultRetainIr ?? false,
+      default_retain_inss: input.defaultRetainInss ?? false,
     })
     .returning("id");
 

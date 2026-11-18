@@ -782,6 +782,7 @@ function SalesReportSection({
 }) {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [fiscalStatus, setFiscalStatus] = useState<SalesFiscalStatus>('ALL')
   const [columnsDrawerOpen, setColumnsDrawerOpen] = useState(false)
   const [selectedColumns, setSelectedColumns] = useState<
     SalesReportExportColumnKey[]
@@ -790,12 +791,13 @@ function SalesReportSection({
 
   async function filterSalesReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    await run(() => onLoadSalesReport({ dateFrom, dateTo }))
+    await run(() => onLoadSalesReport({ dateFrom, dateTo, fiscalStatus }))
   }
 
   async function clearSalesReportFilters() {
     setDateFrom('')
     setDateTo('')
+    setFiscalStatus('ALL')
     await run(() => onLoadSalesReport())
   }
 
@@ -804,7 +806,7 @@ function SalesReportSection({
       <PageHeader
         actions={
           <form
-            className='grid w-full gap-3 sm:grid-cols-[repeat(2,minmax(160px,1fr))_auto_auto_auto_auto_auto] lg:w-auto'
+            className='grid w-full gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:w-auto 2xl:grid-cols-[repeat(3,minmax(150px,1fr))_repeat(5,auto)]'
             onSubmit={filterSalesReport}>
             <TextField
               label='De'
@@ -822,11 +824,25 @@ function SalesReportSection({
               onChange={(event) => setDateTo(event.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
+            <TextField
+              select
+              label='Situação da NF-e'
+              size='small'
+              value={fiscalStatus}
+              onChange={(event) =>
+                setFiscalStatus(event.target.value as SalesFiscalStatus)
+              }>
+              <MenuItem value='ALL'>Todas as vendas</MenuItem>
+              <MenuItem value='ISSUED'>Com NF-e emitida</MenuItem>
+              <MenuItem value='NOT_ISSUED'>Sem NF-e emitida</MenuItem>
+            </TextField>
             <Button loading={loading} type='submit' variant='contained'>
               Filtrar
             </Button>
             <Button
-              disabled={loading || (!dateFrom && !dateTo)}
+              disabled={
+                loading || (!dateFrom && !dateTo && fiscalStatus === 'ALL')
+              }
               type='button'
               variant='outlined'
               onClick={() => void clearSalesReportFilters()}>
@@ -843,12 +859,23 @@ function SalesReportSection({
               startIcon={<Download size={16} />}
               type='button'
               variant='outlined'
-              onClick={() => exportSalesReportCsv(salesReport, selectedColumns)}>
+              onClick={() =>
+                exportSalesReportCsv(
+                  salesReport,
+                  selectedColumns,
+                  fiscalStatus,
+                )
+              }>
               CSV
             </Button>
             <ReportPdfButton
               filename='relatorio-vendas'
-              filters={{ columns: selectedColumns, dateFrom, dateTo }}
+              filters={{
+                columns: selectedColumns,
+                dateFrom,
+                dateTo,
+                fiscalStatus,
+              }}
               path='/reports/sales/pdf'
             />
           </form>
@@ -2340,9 +2367,12 @@ function InventoryReportSection({
   )
 }
 
+type SalesFiscalStatus = 'ALL' | 'ISSUED' | 'NOT_ISSUED'
+
 type SalesReportFilters = {
   dateFrom?: string
   dateTo?: string
+  fiscalStatus?: SalesFiscalStatus
 }
 
 type UserPerformanceReportFilters = SalesReportFilters & {
@@ -2579,9 +2609,11 @@ function reportDownloadPath(
 function exportSalesReportCsv(
   report: SalesReport,
   selectedColumns: SalesReportExportColumnKey[],
+  fiscalStatus: SalesFiscalStatus,
 ) {
   downloadCsv('relatorio-vendas', filterReportCsvRows([
     ['Secao', 'Indicador', 'Valor'],
+    ['Filtro', 'Situação da NF-e', salesFiscalStatusLabel(fiscalStatus)],
     ['Resumo', 'Vendas', report.summary.salesCount],
     ['Resumo', 'Itens vendidos', report.summary.itemsQuantity],
     ['Resumo', 'Bruto', report.summary.grossAmount],
@@ -2649,6 +2681,18 @@ function exportSalesReportCsv(
       item.abcClass,
     ]),
   ], salesReportExportColumns, selectedColumns))
+}
+
+function salesFiscalStatusLabel(fiscalStatus: SalesFiscalStatus) {
+  if (fiscalStatus === 'ISSUED') {
+    return 'Com NF-e emitida'
+  }
+
+  if (fiscalStatus === 'NOT_ISSUED') {
+    return 'Sem NF-e emitida'
+  }
+
+  return 'Todas as vendas'
 }
 
 function exportUserPerformanceReportCsv(

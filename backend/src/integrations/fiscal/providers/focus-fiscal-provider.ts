@@ -619,7 +619,7 @@ function focusNfeItemPayload(
     codigo_produto: focusString(item.productInternalCode) ?? item.productId,
     descricao: focusString(item.productName) ?? item.productId,
     codigo_ncm: focusString(item.productNcm) ?? undefined,
-    cfop: focusTaxCode(item.productCfop ?? request.defaultSaleCfop, "5102"),
+    cfop: focusItemCfop(item, request),
     icms_origem: focusProductOrigin(item.productOrigin),
     icms_situacao_tributaria: focusTaxCode(
       item.productIcmsCst ?? request.defaultIcmsCst,
@@ -643,6 +643,34 @@ function focusNfeItemPayload(
     quantidade_tributavel: quantity,
     valor_unitario_tributavel: unitPrice,
   };
+}
+
+function focusItemCfop(
+  item: FiscalIssueRequest["sale"]["items"][number],
+  request: FiscalIssueRequest,
+) {
+  const configuredCfop = request.operationType
+    ? item.productCfop ?? request.defaultSaleCfop
+    : request.defaultSaleCfop ?? item.productCfop;
+  const cfop = focusTaxCode(configuredCfop, "5403");
+  const destinationOperation = request.destinationOperation ?? "INTERNAL";
+  const operationType = request.operationType ?? "EXIT";
+  const expectedInitial =
+    operationType === "ENTRY"
+      ? destinationOperation === "INTERSTATE"
+        ? "2"
+        : destinationOperation === "EXTERIOR"
+          ? "3"
+          : "1"
+      : destinationOperation === "INTERSTATE"
+        ? "6"
+        : destinationOperation === "EXTERIOR"
+          ? "7"
+          : "5";
+
+  return /^[123567]/.test(cfop)
+    ? `${expectedInitial}${cfop.slice(1)}`
+    : cfop;
 }
 
 function focusItemCalculatedTaxes(
