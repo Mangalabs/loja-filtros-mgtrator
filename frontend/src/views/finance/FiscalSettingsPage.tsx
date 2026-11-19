@@ -327,6 +327,14 @@ export function FiscalSettingsPage({
             }
           />
         </FormRow>
+        <div className='flex justify-end'>
+          <PrimaryButton
+            disabled={submitBlocked || submitting}
+            loading={submitting}
+            type='submit'>
+            {submitting ? 'Salvando padrões…' : 'Salvar padrões de NF-e'}
+          </PrimaryButton>
+        </div>
       </FormCard>
 
       <FormCard>
