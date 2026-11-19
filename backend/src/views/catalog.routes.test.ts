@@ -864,6 +864,7 @@ type FiscalSettings = {
   serviceMunicipalityName: string | null;
   serviceMunicipalityState: string | null;
   serviceMunicipalityIbgeCode: string | null;
+  simpleNationalNominalTaxRate: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -1664,6 +1665,7 @@ describe("catalog routes", () => {
           serviceMunicipalityIbgeCode: "1702109",
           serviceTaxRegime: "SIMPLES_NACIONAL_NORMAL",
           defaultIssRate: 2,
+          simpleNationalNominalTaxRate: 2,
           defaultRetainPis: false,
           defaultRetainCofins: false,
           defaultRetainCsll: false,
@@ -1732,6 +1734,10 @@ describe("catalog routes", () => {
     assert.equal(
       productionSettingsUpdate.body.data?.serviceMunicipalityIbgeCode,
       "1702109",
+    );
+    assert.equal(
+      productionSettingsUpdate.body.data?.simpleNationalNominalTaxRate,
+      "2.00",
     );
   });
 
@@ -11659,6 +11665,7 @@ describe("catalog routes", () => {
         serviceMunicipalityIbgeCode: "1702109",
         serviceTaxRegime: "SIMPLES_NACIONAL_NORMAL",
         defaultIssRate: 2,
+        simpleNationalNominalTaxRate: 2,
         defaultRetainPis: false,
         defaultRetainCofins: false,
         defaultRetainCsll: false,

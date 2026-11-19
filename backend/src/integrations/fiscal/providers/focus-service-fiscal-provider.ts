@@ -198,7 +198,9 @@ function buildFocusPayload(request: ServiceFiscalIssueRequest) {
       : null,
     situacao_tributaria_pis_cofins: "00",
     tipo_retencao_pis_cofins: 0,
-    indicador_total_tributacao: "0",
+    percentual_total_tributos_simples_nacional: money(
+      request.simpleNationalNominalTaxRate,
+    ),
     finalidade_emissao: 0,
     consumidor_final: request.document.consumerFinal ? 1 : 0,
     indicador_destinatario: 0,

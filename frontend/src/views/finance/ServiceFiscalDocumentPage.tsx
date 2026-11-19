@@ -896,6 +896,12 @@ function serviceFiscalReadinessIssues(
     issues.push('Complete o município de incidência da filial.')
   }
 
+  if (!settings?.simpleNationalNominalTaxRate) {
+    issues.push(
+      'Informe a alíquota nominal total do Simples Nacional nas configurações fiscais.',
+    )
+  }
+
   if (
     settings?.defaultRetainPis ||
     settings?.defaultRetainCofins ||

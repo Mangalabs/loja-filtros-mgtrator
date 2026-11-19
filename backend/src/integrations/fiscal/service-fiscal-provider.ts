@@ -10,6 +10,7 @@ export type ServiceFiscalIssueRequest = {
   companyCnpj: string;
   municipalRegistration: string | null;
   serviceMunicipalityIbgeCode: string;
+  simpleNationalNominalTaxRate: number;
   service: FiscalService;
   document: ServiceFiscalDocumentInput;
 };

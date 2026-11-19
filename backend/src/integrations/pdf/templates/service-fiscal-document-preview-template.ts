@@ -60,6 +60,14 @@ export function serviceFiscalDocumentPreviewHtml(input: {
               ${info("Município de incidência", municipalityLabel(fiscalSettings))}
               ${info("Código IBGE", fiscalSettings.serviceMunicipalityIbgeCode)}
               ${info("Regime", "Simples Nacional normal")}
+              ${info(
+                "Alíquota nominal total do Simples",
+                fiscalSettings.simpleNationalNominalTaxRate
+                  ? formatPercentage(
+                      Number(fiscalSettings.simpleNationalNominalTaxRate),
+                    )
+                  : null,
+              )}
               ${info("Competência", formatDate(document.competenceDate))}
             </div>
           </section>
@@ -128,6 +136,12 @@ function serviceFiscalPreviewWarnings(
     !settings.serviceMunicipalityIbgeCode
   ) {
     warnings.push("Configuração municipal da filial está incompleta.");
+  }
+
+  if (!settings.simpleNationalNominalTaxRate) {
+    warnings.push(
+      "Alíquota nominal total do Simples Nacional ainda não informada.",
+    );
   }
 
   return warnings;

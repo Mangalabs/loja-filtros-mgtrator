@@ -156,6 +156,9 @@ export async function issueServiceFiscalDocument(
     municipalRegistration: settings.municipalRegistration,
     serviceMunicipalityIbgeCode:
       settings.serviceMunicipalityIbgeCode as string,
+    simpleNationalNominalTaxRate: Number(
+      settings.simpleNationalNominalTaxRate,
+    ),
     service: fiscalService,
     document: payload,
   };
@@ -352,6 +355,10 @@ function ensureServiceFiscalIssueIsReady(
     [
       "codigo IBGE do municipio de incidencia",
       /^\d{7}$/.test(settings.serviceMunicipalityIbgeCode ?? ""),
+    ],
+    [
+      "aliquota nominal total do Simples Nacional",
+      Number(settings.simpleNationalNominalTaxRate) > 0,
     ],
     ["codigo nacional do servico", /^\d{6}$/.test(fiscalService.nationalTaxCode)],
     ["codigo NBS", /^\d{9}$/.test(fiscalService.nbsCode ?? "")],

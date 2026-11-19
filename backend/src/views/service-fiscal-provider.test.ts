@@ -41,6 +41,7 @@ it("sends the national DPS payload and cancellation to Focus", async () => {
       companyCnpj: "12345678000199",
       municipalRegistration: "3682435794",
       serviceMunicipalityIbgeCode: "2111300",
+      simpleNationalNominalTaxRate: 2,
       service: {
         id: "00000000-0000-4000-8000-000000000001",
         branchId: "00000000-0000-4000-8000-000000000002",
@@ -96,7 +97,11 @@ it("sends the national DPS payload and cancellation to Focus", async () => {
     assert.equal(receivedPayload.percentual_aliquota_relativa_municipio, 2);
     assert.equal(receivedPayload.situacao_tributaria_pis_cofins, "00");
     assert.equal(receivedPayload.tipo_retencao_pis_cofins, 0);
-    assert.equal(receivedPayload.indicador_total_tributacao, "0");
+    assert.equal(
+      receivedPayload.percentual_total_tributos_simples_nacional,
+      2,
+    );
+    assert.ok(!("indicador_total_tributacao" in receivedPayload));
     assert.equal(
       receivedPayload.informacoes_complementares,
       "ORDEM DE COMPRA: 276664 VENCIMENTO: 25/12/2026 DADOS BANCÁRIOS: ITAÚ UNIBANCO(341) AG: 8805 CC:98597-8 CNPJ: 45.341.343/0001-58",
@@ -114,6 +119,7 @@ it("sends the national DPS payload and cancellation to Focus", async () => {
       companyCnpj: "12345678000199",
       municipalRegistration: null,
       serviceMunicipalityIbgeCode: "1702109",
+      simpleNationalNominalTaxRate: 2,
       service: {
         id: "00000000-0000-4000-8000-000000000001",
         branchId: "00000000-0000-4000-8000-000000000002",

@@ -63,6 +63,13 @@ const fiscalSettingsSchema = z
       .optional(),
     serviceTaxRegime: z.literal("SIMPLES_NACIONAL_NORMAL").optional(),
     defaultIssRate: z.coerce.number().min(2).max(5).optional(),
+    simpleNationalNominalTaxRate: z
+      .union([
+        z.literal("").transform(() => null),
+        z.null(),
+        z.coerce.number().positive().max(100),
+      ])
+      .optional(),
     defaultRetainPis: z.boolean().optional(),
     defaultRetainCofins: z.boolean().optional(),
     defaultRetainCsll: z.boolean().optional(),

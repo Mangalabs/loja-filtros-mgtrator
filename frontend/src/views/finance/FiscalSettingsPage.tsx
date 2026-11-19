@@ -40,6 +40,7 @@ type FiscalSettingsInput = Pick<
   | 'serviceMunicipalityIbgeCode'
   | 'serviceTaxRegime'
   | 'defaultIssRate'
+  | 'simpleNationalNominalTaxRate'
   | 'defaultRetainPis'
   | 'defaultRetainCofins'
   | 'defaultRetainCsll'
@@ -155,10 +156,20 @@ export function FiscalSettingsPage({
     !Number.isFinite(defaultIssRate) ||
     defaultIssRate < 2 ||
     defaultIssRate > 5
+  const simpleNationalNominalTaxRate = Number(
+    draft.simpleNationalNominalTaxRate,
+  )
+  const simpleNationalNominalTaxRateError = Boolean(
+    draft.simpleNationalNominalTaxRate &&
+      (!Number.isFinite(simpleNationalNominalTaxRate) ||
+        simpleNationalNominalTaxRate <= 0 ||
+        simpleNationalNominalTaxRate > 100),
+  )
   const submitBlocked =
     companyCnpjError ||
     serviceMunicipalityIbgeError ||
     defaultIssRateError ||
+    simpleNationalNominalTaxRateError ||
     productionConfirmationError ||
     productionPhraseError ||
     productionChecklistBlocked
@@ -444,6 +455,26 @@ export function FiscalSettingsPage({
           conferência. Se a prefeitura passar a reconhecer uma alíquota maior,
           atualize este campo antes da próxima emissão.
         </Alert>
+        <TextField
+          error={simpleNationalNominalTaxRateError}
+          helperText={
+            simpleNationalNominalTaxRateError
+              ? 'Informe um percentual maior que 0% e menor ou igual a 100%.'
+              : 'Informe a alíquota nominal total do Anexo e da faixa vigente, confirmada pela contabilidade. Não é a alíquota de ISS.'
+          }
+          label='Alíquota nominal total do Simples Nacional (%)'
+          type='number'
+          value={draft.simpleNationalNominalTaxRate ?? ''}
+          slotProps={{
+            htmlInput: { inputMode: 'decimal', min: 0.01, max: 100, step: 0.01 },
+          }}
+          onChange={(event) =>
+            setDraft((currentDraft) => ({
+              ...currentDraft,
+              simpleNationalNominalTaxRate: event.target.value,
+            }))
+          }
+        />
         <div className='grid gap-2'>
           <strong className='text-sm text-[#2c281e]'>
             Retenções federais padrão
@@ -884,6 +915,8 @@ function fiscalSettingsInput(
     serviceTaxRegime:
       settings?.serviceTaxRegime ?? 'SIMPLES_NACIONAL_NORMAL',
     defaultIssRate: settings?.defaultIssRate ?? '2.00',
+    simpleNationalNominalTaxRate:
+      settings?.simpleNationalNominalTaxRate ?? null,
     defaultRetainPis: settings?.defaultRetainPis ?? false,
     defaultRetainCofins: settings?.defaultRetainCofins ?? false,
     defaultRetainCsll: settings?.defaultRetainCsll ?? false,
@@ -907,7 +940,8 @@ function FiscalSettingsStatus({
   const serviceSettingsReady = Boolean(
     settings?.serviceMunicipalityName &&
       settings.serviceMunicipalityState &&
-      settings.serviceMunicipalityIbgeCode,
+      settings.serviceMunicipalityIbgeCode &&
+      settings.simpleNationalNominalTaxRate,
   )
 
   return (

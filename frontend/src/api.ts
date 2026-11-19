@@ -709,6 +709,7 @@ export type FiscalSettings = {
   serviceMunicipalityIbgeCode: string | null;
   serviceTaxRegime: "SIMPLES_NACIONAL_NORMAL";
   defaultIssRate: string;
+  simpleNationalNominalTaxRate: string | null;
   defaultRetainPis: boolean;
   defaultRetainCofins: boolean;
   defaultRetainCsll: boolean;

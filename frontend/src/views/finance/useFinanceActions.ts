@@ -148,6 +148,7 @@ export function useFinanceActions({
       | "serviceMunicipalityIbgeCode"
       | "serviceTaxRegime"
       | "defaultIssRate"
+      | "simpleNationalNominalTaxRate"
       | "defaultRetainPis"
       | "defaultRetainCofins"
       | "defaultRetainCsll"

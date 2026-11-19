@@ -57,6 +57,7 @@ export async function replaceFiscalSettings(
       ),
       serviceTaxRegime: input.serviceTaxRegime,
       defaultIssRate: input.defaultIssRate,
+      simpleNationalNominalTaxRate: input.simpleNationalNominalTaxRate,
       defaultRetainPis: input.defaultRetainPis,
       defaultRetainCofins: input.defaultRetainCofins,
       defaultRetainCsll: input.defaultRetainCsll,

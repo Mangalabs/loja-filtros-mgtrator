@@ -23,6 +23,7 @@ export type FiscalSettings = {
   serviceMunicipalityIbgeCode: string | null;
   serviceTaxRegime: "SIMPLES_NACIONAL_NORMAL";
   defaultIssRate: string;
+  simpleNationalNominalTaxRate: string | null;
   defaultRetainPis: boolean;
   defaultRetainCofins: boolean;
   defaultRetainCsll: boolean;
@@ -48,6 +49,7 @@ export type FiscalSettingsInput = {
   serviceMunicipalityIbgeCode?: string | null;
   serviceTaxRegime?: "SIMPLES_NACIONAL_NORMAL";
   defaultIssRate?: number;
+  simpleNationalNominalTaxRate?: number | null;
   defaultRetainPis?: boolean;
   defaultRetainCofins?: boolean;
   defaultRetainCsll?: boolean;
@@ -74,6 +76,7 @@ const fiscalSettingsColumns = [
   "fiscal_settings.service_municipality_ibge_code as serviceMunicipalityIbgeCode",
   "fiscal_settings.service_tax_regime as serviceTaxRegime",
   "fiscal_settings.default_iss_rate as defaultIssRate",
+  "fiscal_settings.simple_national_nominal_tax_rate as simpleNationalNominalTaxRate",
   "fiscal_settings.default_retain_pis as defaultRetainPis",
   "fiscal_settings.default_retain_cofins as defaultRetainCofins",
   "fiscal_settings.default_retain_csll as defaultRetainCsll",
@@ -131,6 +134,10 @@ export async function upsertFiscalSettings(
         service_tax_regime:
           input.serviceTaxRegime ?? existing.serviceTaxRegime,
         default_iss_rate: input.defaultIssRate ?? existing.defaultIssRate,
+        simple_national_nominal_tax_rate:
+          input.simpleNationalNominalTaxRate === undefined
+            ? existing.simpleNationalNominalTaxRate
+            : input.simpleNationalNominalTaxRate,
         default_retain_pis:
           input.defaultRetainPis ?? existing.defaultRetainPis,
         default_retain_cofins:
@@ -167,6 +174,8 @@ export async function upsertFiscalSettings(
       service_tax_regime:
         input.serviceTaxRegime ?? "SIMPLES_NACIONAL_NORMAL",
       default_iss_rate: input.defaultIssRate ?? 2,
+      simple_national_nominal_tax_rate:
+        input.simpleNationalNominalTaxRate ?? null,
       default_retain_pis: input.defaultRetainPis ?? false,
       default_retain_cofins: input.defaultRetainCofins ?? false,
       default_retain_csll: input.defaultRetainCsll ?? false,
