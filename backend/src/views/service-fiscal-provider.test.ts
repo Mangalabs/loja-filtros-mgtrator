@@ -93,6 +93,7 @@ it("sends the national DPS payload and cancellation to Focus", async () => {
     assert.equal(receivedPayload.regime_tributario_simples_nacional, 1);
     assert.equal(receivedPayload.inscricao_municipal_prestador, "3682435794");
     assert.equal(receivedPayload.tipo_retencao_iss, 2);
+    assert.equal(receivedPayload.percentual_aliquota_relativa_municipio, 2);
     assert.equal(receivedPayload.situacao_tributaria_pis_cofins, "00");
     assert.equal(receivedPayload.tipo_retencao_pis_cofins, 0);
     assert.equal(receivedPayload.indicador_total_tributacao, "0");
@@ -157,6 +158,10 @@ it("sends the national DPS payload and cancellation to Focus", async () => {
 
     assert.match(receivedUrl, /\/v2\/nfsen\?ref=NFSE-SEM-IM$/);
     assert.ok(!("inscricao_municipal_prestador" in receivedPayload));
+    assert.equal(receivedPayload.tipo_retencao_iss, 1);
+    assert.ok(
+      !("percentual_aliquota_relativa_municipio" in receivedPayload),
+    );
     assert.equal(resultWithoutMunicipalRegistration.status, "PROCESSING");
 
     const cancelled = await provider.cancel({

@@ -193,7 +193,9 @@ function buildFocusPayload(request: ServiceFiscalIssueRequest) {
     valor_servico: money(request.document.serviceAmount),
     tributacao_iss: 1,
     tipo_retencao_iss: request.document.issRetained ? 2 : 1,
-    percentual_aliquota_relativa_municipio: money(request.document.issRate),
+    percentual_aliquota_relativa_municipio: request.document.issRetained
+      ? money(request.document.issRate)
+      : null,
     situacao_tributaria_pis_cofins: "00",
     tipo_retencao_pis_cofins: 0,
     indicador_total_tributacao: "0",
