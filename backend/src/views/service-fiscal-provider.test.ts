@@ -63,7 +63,8 @@ it("sends the national DPS payload and cancellation to Focus", async () => {
         issRate: 2,
         issRetained: true,
         consumerFinal: false,
-        additionalInformation: null,
+        additionalInformation:
+          "ORDEM DE COMPRA: 276664\nVENCIMENTO: 25/12/2026\nDADOS BANCÁRIOS: ITAÚ UNIBANCO(341)\nAG: 8805 CC:98597-8\nCNPJ: 45.341.343/0001-58",
         taker: {
           clientId: null,
           personType: "PJ",
@@ -92,7 +93,13 @@ it("sends the national DPS payload and cancellation to Focus", async () => {
     assert.equal(receivedPayload.regime_tributario_simples_nacional, 1);
     assert.equal(receivedPayload.inscricao_municipal_prestador, "3682435794");
     assert.equal(receivedPayload.tipo_retencao_iss, 2);
+    assert.equal(receivedPayload.situacao_tributaria_pis_cofins, "00");
     assert.equal(receivedPayload.tipo_retencao_pis_cofins, 0);
+    assert.equal(receivedPayload.indicador_total_tributacao, "0");
+    assert.equal(
+      receivedPayload.informacoes_complementares,
+      "ORDEM DE COMPRA: 276664 VENCIMENTO: 25/12/2026 DADOS BANCÁRIOS: ITAÚ UNIBANCO(341) AG: 8805 CC:98597-8 CNPJ: 45.341.343/0001-58",
+    );
     assert.equal(receivedPayload.codigo_tributacao_nacional_iss, "140101");
     assert.equal(receivedPayload.codigo_nbs, "120013110");
     assert.ok(!("ibs_cbs_situacao_tributaria" in receivedPayload));

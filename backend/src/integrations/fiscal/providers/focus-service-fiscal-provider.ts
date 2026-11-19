@@ -187,14 +187,16 @@ function buildFocusPayload(request: ServiceFiscalIssueRequest) {
     codigo_tributacao_nacional_iss: digits(request.service.nationalTaxCode),
     descricao_servico: request.document.serviceDescription,
     codigo_nbs: digits(request.service.nbsCode),
-    informacoes_complementares: text(
+    informacoes_complementares: nationalNfseText(
       request.document.additionalInformation,
     ),
     valor_servico: money(request.document.serviceAmount),
     tributacao_iss: 1,
     tipo_retencao_iss: request.document.issRetained ? 2 : 1,
     percentual_aliquota_relativa_municipio: money(request.document.issRate),
+    situacao_tributaria_pis_cofins: "00",
     tipo_retencao_pis_cofins: 0,
+    indicador_total_tributacao: "0",
     finalidade_emissao: 0,
     consumidor_final: request.document.consumerFinal ? 1 : 0,
     indicador_destinatario: 0,
@@ -369,6 +371,16 @@ function statusKey(value: unknown) {
 
 function text(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function nationalNfseText(value: unknown) {
+  return (
+    text(value)
+      ?.normalize("NFC")
+      .replace(/[^\u0020-\u00ff]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || null
+  );
 }
 
 function digits(value: string | null) {
