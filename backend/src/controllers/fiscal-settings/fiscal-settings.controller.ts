@@ -25,7 +25,9 @@ export async function replaceFiscalSettings(
   branchId: string,
   input: FiscalSettingsPayload,
 ) {
-  ensureProductionIsExplicitlyAllowed(input);
+  const currentSettings = await getFiscalSettings({ branchId });
+
+  ensureProductionIsExplicitlyAllowed(input, currentSettings);
   const companyCnpj = fiscalDigits(input.companyCnpj);
   ensureFocusCompanyCnpj(input.provider, companyCnpj);
 
@@ -207,7 +209,10 @@ function fiscalProductionAllowance(input: FiscalSettingsInput) {
   return input.environment === "PRODUCTION" && input.allowProduction;
 }
 
-function ensureProductionIsExplicitlyAllowed(input: FiscalSettingsPayload) {
+function ensureProductionIsExplicitlyAllowed(
+  input: FiscalSettingsPayload,
+  currentSettings?: Awaited<ReturnType<typeof getFiscalSettings>>,
+) {
   if (input.environment !== "PRODUCTION") {
     return;
   }
@@ -217,6 +222,13 @@ function ensureProductionIsExplicitlyAllowed(input: FiscalSettingsPayload) {
       "Ambiente de producao exige confirmacao explicita.",
       422,
     );
+  }
+
+  if (
+    currentSettings?.environment === "PRODUCTION" &&
+    currentSettings.allowProduction
+  ) {
+    return;
   }
 
   if (input.productionConfirmation === FISCAL_PRODUCTION_CONFIRMATION) {

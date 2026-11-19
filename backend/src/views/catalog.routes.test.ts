@@ -861,6 +861,9 @@ type FiscalSettings = {
   defaultIcmsCst: string | null;
   defaultPisCst: string | null;
   defaultCofinsCst: string | null;
+  serviceMunicipalityName: string | null;
+  serviceMunicipalityState: string | null;
+  serviceMunicipalityIbgeCode: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -1646,6 +1649,29 @@ describe("catalog routes", () => {
         productionConfirmation: "EMITIR EM PRODUCAO",
       },
     });
+    const productionSettingsUpdate = await request<FiscalSettings>(
+      "/fiscal-settings",
+      {
+        method: "PUT",
+        body: {
+          provider: "FOCUS",
+          environment: "PRODUCTION",
+          companyCnpj: "12.345.678/0001-90",
+          allowProduction: true,
+          municipalRegistration: null,
+          serviceMunicipalityName: "Araguaina",
+          serviceMunicipalityState: "TO",
+          serviceMunicipalityIbgeCode: "1702109",
+          serviceTaxRegime: "SIMPLES_NACIONAL_NORMAL",
+          defaultIssRate: 2,
+          defaultRetainPis: false,
+          defaultRetainCofins: false,
+          defaultRetainCsll: false,
+          defaultRetainIr: false,
+          defaultRetainInss: false,
+        },
+      },
+    );
 
     assert.equal(blocked.status, 401);
     assert.equal(current.status, 200);
@@ -1698,6 +1724,15 @@ describe("catalog routes", () => {
     assert.equal(production.status, 200);
     assert.equal(production.body.data?.environment, "PRODUCTION");
     assert.equal(production.body.data?.allowProduction, true);
+    assert.equal(productionSettingsUpdate.status, 200);
+    assert.equal(
+      productionSettingsUpdate.body.data?.serviceMunicipalityName,
+      "Araguaina",
+    );
+    assert.equal(
+      productionSettingsUpdate.body.data?.serviceMunicipalityIbgeCode,
+      "1702109",
+    );
   });
 
   it("keeps fiscal settings scoped to the active branch", async () => {

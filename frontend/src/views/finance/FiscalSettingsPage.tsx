@@ -131,8 +131,11 @@ export function FiscalSettingsPage({
   const productionEnvironment = draft.environment === 'PRODUCTION'
   const productionConfirmationError =
     productionEnvironment && !draft.allowProduction
+  const productionAlreadyAllowed = Boolean(
+    settings?.environment === 'PRODUCTION' && settings.allowProduction,
+  )
   const productionPhraseRequired =
-    productionEnvironment && draft.allowProduction
+    productionEnvironment && draft.allowProduction && !productionAlreadyAllowed
   const productionPhraseError =
     productionPhraseRequired &&
     draft.productionConfirmation !== productionConfirmationPhrase
@@ -471,6 +474,14 @@ export function FiscalSettingsPage({
           “ISS retido pelo tomador” não é fixo nesta configuração: a escolha
           entre Sim e Não fará parte do formulário de cada NFS-e.
         </Alert>
+        <div className='flex justify-end'>
+          <PrimaryButton
+            disabled={submitBlocked || submitting}
+            loading={submitting}
+            type='submit'>
+            {submitting ? 'Salvando padrões…' : 'Salvar padrões de NFS-e'}
+          </PrimaryButton>
+        </div>
       </FormCard>
 
       <FormCard>
