@@ -695,12 +695,13 @@ export function ManualFiscalDocumentPage({
   const [manualPaymentInstallments, setManualPaymentInstallments] = useState<
     ManualFiscalPaymentInstallmentForm[]
   >([...sourceValues.paymentInstallments])
-  const [selectedNatureOperation, setSelectedNatureOperation] =
-    useState<ManualFiscalOperationOption | null>(
-      manualFiscalOperationOptionFromValue(sourceValues.natureOperation),
-    )
-  const [natureOperation, setNatureOperation] = useState(
+  const initialNatureOperationOption = manualFiscalOperationOptionFromValue(
     sourceValues.natureOperation,
+  )
+  const [selectedNatureOperation, setSelectedNatureOperation] =
+    useState<ManualFiscalOperationOption | null>(initialNatureOperationOption)
+  const [natureOperation, setNatureOperation] = useState(
+    initialNatureOperationOption?.value ?? sourceValues.natureOperation,
   )
   const [clientPersonType, setClientPersonType] = useState<
     ManualFiscalDocumentInput['client']['personType']
@@ -2178,8 +2179,7 @@ const manualFiscalOperationOptions: ManualFiscalOperationOption[] = [
   {
     codes: '5.403 / 6.403',
     label: 'Venda de mercadoria adquirida ou recebida de terceiros (ST)',
-    value:
-      '5.403/6.403 - Venda mercadoria adquirida ou recebida de terceiros ST',
+    value: '5.403/6.403 - Venda mercadoria de terceiros ST',
   },
   {
     codes: '5.115 / 6.115',
@@ -2371,14 +2371,24 @@ const manualFiscalOperationOptions: ManualFiscalOperationOption[] = [
 ].filter((option) => allowedManualFiscalOperationCodes.has(option.codes))
 
 function manualFiscalOperationOptionFromValue(value: string) {
+  const compatibleValue =
+    value ===
+    '5.403/6.403 - Venda mercadoria adquirida ou recebida de terceiros ST'
+      ? '5.403/6.403 - Venda mercadoria de terceiros ST'
+      : value
+
   return (
-    manualFiscalOperationOptions.find((option) => option.value === value) ??
-    manualFiscalOperationOptions.find((option) => option.label === value) ??
-    (value
+    manualFiscalOperationOptions.find(
+      (option) => option.value === compatibleValue,
+    ) ??
+    manualFiscalOperationOptions.find(
+      (option) => option.label === compatibleValue,
+    ) ??
+    (compatibleValue
       ? {
           codes: 'Anterior',
-          label: value,
-          value,
+          label: compatibleValue,
+          value: compatibleValue,
         }
       : null)
   )
@@ -2971,7 +2981,7 @@ function manualFiscalDocumentFormValues(document?: FiscalDocument) {
     ),
     natureOperation:
       stringPayloadValue(payload?.defaultNatureOperation) ??
-      '5.403/6.403 - Venda mercadoria adquirida ou recebida de terceiros ST',
+      '5.403/6.403 - Venda mercadoria de terceiros ST',
     referencedAccessKey,
     transportedVolumesQuantity,
     transportedVolumesGrossWeight,
@@ -3068,7 +3078,7 @@ function manualFiscalDocumentDraftFormValues(
     ),
     natureOperation:
       stringPayloadValue(payload?.natureOperation) ??
-      '5.403/6.403 - Venda mercadoria adquirida ou recebida de terceiros ST',
+      '5.403/6.403 - Venda mercadoria de terceiros ST',
     referencedAccessKey,
     transportedVolumesQuantity,
     transportedVolumesGrossWeight,
@@ -3155,8 +3165,7 @@ function manualFiscalDocumentSaleFormValues(sale: Sale) {
     operationType: 'EXIT' as const,
     destinationOperation: 'INTERNAL' as const,
     purpose: 'NORMAL' as const,
-    natureOperation:
-      '5.403/6.403 - Venda mercadoria adquirida ou recebida de terceiros ST',
+    natureOperation: '5.403/6.403 - Venda mercadoria de terceiros ST',
     referencedAccessKey: '',
     transportedVolumesQuantity: '1',
     transportedVolumesGrossWeight: '',

@@ -22,7 +22,15 @@ const fiscalSettingsSchema = z
       .transform((value) => value || null),
     allowProduction: z.boolean(),
     defaultNatureOperation: z
-      .union([z.string().trim().min(1).max(60), z.literal(""), z.null()])
+      .union([
+        z
+          .string()
+          .trim()
+          .min(1)
+          .max(60, "Natureza da operacao deve ter no maximo 60 caracteres."),
+        z.literal(""),
+        z.null(),
+      ])
       .transform((value) => value || null)
       .optional(),
     defaultSaleCfop: z

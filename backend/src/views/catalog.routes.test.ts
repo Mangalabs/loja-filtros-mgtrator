@@ -4122,7 +4122,8 @@ describe("catalog routes", () => {
       operationType: "EXIT",
       destinationOperation: "INTERNAL",
       purpose: "NORMAL",
-      natureOperation: "5.102/6.102 - Venda mercadoria terceiros",
+      natureOperation: "5.403/6.403 - Venda mercadoria de terceiros ST",
+      additionalInformation: "Duas palavras",
       referencedAccessKeys: [],
       transportedVolumesGrossWeight: 12.345,
       payments: [
@@ -4172,6 +4173,11 @@ describe("catalog routes", () => {
       12.345,
     );
     assert.equal(editedSale?.clientName, "Cliente fiscal editado revisado");
+    assert.equal(requestPayload?.additionalInformation, "Duas palavras");
+    assert.equal(
+      requestPayload?.defaultNatureOperation,
+      "5.403/6.403 - Venda mercadoria de terceiros ST",
+    );
     assert.ok(
       listed.body.data?.some(
         (document) =>

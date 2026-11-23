@@ -89,7 +89,11 @@ const manualFiscalDocumentSchema = z
         "DEBIT_NOTE",
       ])
       .default("NORMAL"),
-    natureOperation: z.string().trim().min(1).max(60),
+    natureOperation: z
+      .string()
+      .trim()
+      .min(1)
+      .max(60, "Natureza da operacao deve ter no maximo 60 caracteres."),
     referencedAccessKeys: z
       .array(z.string().trim().regex(/^\d{44}$/))
       .max(10)
