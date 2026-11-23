@@ -156,15 +156,16 @@ export function FiscalSettingsPage({
     !Number.isFinite(defaultIssRate) ||
     defaultIssRate < 2 ||
     defaultIssRate > 5
+  const simpleNationalNominalTaxRateText =
+    draft.simpleNationalNominalTaxRate?.trim() ?? ''
   const simpleNationalNominalTaxRate = Number(
-    draft.simpleNationalNominalTaxRate,
+    simpleNationalNominalTaxRateText.replace(',', '.'),
   )
-  const simpleNationalNominalTaxRateError = Boolean(
-    draft.simpleNationalNominalTaxRate &&
-      (!Number.isFinite(simpleNationalNominalTaxRate) ||
-        simpleNationalNominalTaxRate <= 0 ||
-        simpleNationalNominalTaxRate > 100),
-  )
+  const simpleNationalNominalTaxRateError =
+    simpleNationalNominalTaxRateText === '' ||
+    !Number.isFinite(simpleNationalNominalTaxRate) ||
+    simpleNationalNominalTaxRate <= 0 ||
+    simpleNationalNominalTaxRate > 100
   const submitBlocked =
     companyCnpjError ||
     serviceMunicipalityIbgeError ||
@@ -460,10 +461,11 @@ export function FiscalSettingsPage({
           helperText={
             simpleNationalNominalTaxRateError
               ? 'Informe um percentual maior que 0% e menor ou igual a 100%.'
-              : 'Informe a alíquota nominal total do Anexo e da faixa vigente, confirmada pela contabilidade. Não é a alíquota de ISS.'
+              : 'Campo diferente da alíquota de ISS acima. Valor nominal total do Anexo e da faixa vigente, confirmado pela contabilidade.'
           }
           label='Alíquota nominal total do Simples Nacional (%)'
-          type='number'
+          required
+          type='text'
           value={draft.simpleNationalNominalTaxRate ?? ''}
           slotProps={{
             htmlInput: { inputMode: 'decimal', min: 0.01, max: 100, step: 0.01 },
@@ -471,7 +473,10 @@ export function FiscalSettingsPage({
           onChange={(event) =>
             setDraft((currentDraft) => ({
               ...currentDraft,
-              simpleNationalNominalTaxRate: event.target.value,
+              simpleNationalNominalTaxRate: event.target.value.replace(
+                ',',
+                '.',
+              ),
             }))
           }
         />
@@ -916,7 +921,7 @@ function fiscalSettingsInput(
       settings?.serviceTaxRegime ?? 'SIMPLES_NACIONAL_NORMAL',
     defaultIssRate: settings?.defaultIssRate ?? '2.00',
     simpleNationalNominalTaxRate:
-      settings?.simpleNationalNominalTaxRate ?? null,
+      settings?.simpleNationalNominalTaxRate ?? '2.00',
     defaultRetainPis: settings?.defaultRetainPis ?? false,
     defaultRetainCofins: settings?.defaultRetainCofins ?? false,
     defaultRetainCsll: settings?.defaultRetainCsll ?? false,

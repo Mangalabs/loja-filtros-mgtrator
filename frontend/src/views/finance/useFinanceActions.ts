@@ -173,7 +173,20 @@ export function useFinanceActions({
     }
 
     await runAction(async () => {
-      await apiPut("/fiscal-settings", input);
+      const response = await apiPut<ApiResult<FiscalSettings>>(
+        "/fiscal-settings",
+        input,
+      );
+
+      if (
+        input.simpleNationalNominalTaxRate &&
+        !response.data.simpleNationalNominalTaxRate
+      ) {
+        throw new Error(
+          "A aliquota nominal do Simples Nacional nao foi salva. Tente novamente.",
+        );
+      }
+
       await refreshFiscalFlow();
     });
   }
