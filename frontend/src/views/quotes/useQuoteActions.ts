@@ -92,6 +92,8 @@ export function useQuoteActions({
     quote: Quote,
     input: QuoteSaleClosingInput,
   ) {
+    const stockWarning =
+      'Este orçamento possui item(ns) sem estoque físico suficiente. Deseja concluir a venda mesmo assim?'
     const hasInsufficientStock = quote.items.some(
       (item) => Number(item.productAvailableStock) < Number(item.quantity),
     )
@@ -99,7 +101,7 @@ export function useQuoteActions({
 
     if (hasInsufficientStock) {
       allowInsufficientStock = await requestConfirmation(
-        'Este orçamento possui item(ns) sem estoque físico suficiente. Deseja concluir a venda mesmo assim?',
+        stockWarning,
         'Estoque insuficiente',
         'Concluir mesmo assim',
       )
@@ -110,13 +112,36 @@ export function useQuoteActions({
     }
 
     return runAction(async () => {
-      await apiPost(`/quotes/${quote.id}/sale`, {
-        ...input,
-        allowInsufficientStock,
-      })
+      try {
+        await completeQuoteSaleRequest(allowInsufficientStock)
+      } catch (error) {
+        if (allowInsufficientStock || !isInsufficientStockError(error)) {
+          throw error
+        }
+
+        const confirmed = await requestConfirmation(
+          stockWarning,
+          'Estoque insuficiente',
+          'Concluir mesmo assim',
+        )
+
+        if (!confirmed) {
+          throw error
+        }
+
+        await completeQuoteSaleRequest(true)
+      }
+
       await Promise.all([refreshQuoteFlow(), refreshSalesFlow()])
       showShippingOrders()
     })
+
+    function completeQuoteSaleRequest(confirmedInsufficientStock: boolean) {
+      return apiPost(`/quotes/${quote.id}/sale`, {
+        ...input,
+        allowInsufficientStock: confirmedInsufficientStock,
+      })
+    }
   }
 
   async function cancelQuote(event: FormEvent<HTMLFormElement>, quote: Quote) {
@@ -152,4 +177,11 @@ export function useQuoteActions({
     saveQuoteFormDraft,
     updateQuote,
   }
+}
+
+function isInsufficientStockError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message === 'Estoque insuficiente para concluir esta venda.'
+  )
 }

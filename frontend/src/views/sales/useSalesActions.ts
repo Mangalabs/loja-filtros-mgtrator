@@ -37,10 +37,12 @@ export function useSalesActions({
   showSalesHistory,
 }: SalesActionsOptions) {
   async function createSale(input: SaleDraftInput) {
+    const stockWarning =
+      "A venda possui item(ns) sem saldo disponivel. Deseja concluir mesmo assim?";
     const allowInsufficientStock = await confirmInsufficientStockIfNeeded(
       input.items,
       "availableStock",
-      "A venda possui item(ns) sem saldo disponivel. Deseja concluir mesmo assim?",
+      stockWarning,
     );
 
     if (allowInsufficientStock === null) {
@@ -48,13 +50,39 @@ export function useSalesActions({
     }
 
     return runAction(async () => {
-      await apiPost("/sales", {
-        ...input,
-        allowInsufficientStock,
-      });
+      try {
+        await createSaleRequest(allowInsufficientStock);
+      } catch (error) {
+        if (
+          allowInsufficientStock ||
+          !isDirectSaleInsufficientStockError(error)
+        ) {
+          throw error;
+        }
+
+        const confirmed = await requestConfirmation(
+          stockWarning,
+          "Continuar sem estoque?",
+          "Continuar",
+        );
+
+        if (!confirmed) {
+          throw error;
+        }
+
+        await createSaleRequest(true);
+      }
+
       showSalesHistory("direct");
       await refreshSalesFlow();
     });
+
+    function createSaleRequest(confirmedInsufficientStock: boolean) {
+      return apiPost("/sales", {
+        ...input,
+        allowInsufficientStock: confirmedInsufficientStock,
+      });
+    }
   }
 
   async function issueSaleFiscalDocument(
@@ -586,6 +614,13 @@ export function useSalesActions({
 
     return confirmed ? true : null;
   }
+}
+
+function isDirectSaleInsufficientStockError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message === "Estoque insuficiente para concluir a venda."
+  );
 }
 
 function formDateValue(form: FormData, field: string) {
