@@ -600,6 +600,12 @@ export function AppViewRenderer({
         onSaveManualFiscalDocumentDraft={(input, draft) =>
           financeActions.saveManualFiscalDocumentDraft(input, draft)
         }
+        onShareManualFiscalDocumentDraft={(draft, sharedWithUserId) =>
+          financeActions.shareManualFiscalDocumentDraft(
+            draft,
+            sharedWithUserId,
+          )
+        }
       />
     ),
     "service-fiscal-document": (
@@ -621,6 +627,12 @@ export function AppViewRenderer({
         }
         onSave={(input, draft) =>
           financeActions.saveServiceFiscalDocumentDraft(input, draft)
+        }
+        onShare={(draft, sharedWithUserId) =>
+          financeActions.shareServiceFiscalDocumentDraft(
+            draft,
+            sharedWithUserId,
+          )
         }
         onSync={(document) =>
           financeActions.syncServiceFiscalDocument(document)
@@ -668,6 +680,7 @@ export function AppViewRenderer({
           onSaveQuoteFormDraft={quoteActions.saveQuoteFormDraft}
           onDeleteQuoteFormDraft={quoteActions.deleteQuoteFormDraft}
           onDiscardQuoteFormDraft={quoteActions.discardQuoteFormDraft}
+          onShareQuoteFormDraft={quoteActions.shareQuoteFormDraft}
           onEditQuote={onSelectQuote}
           onReuseQuote={onReuseQuote}
           onCancelQuote={(event, quote) =>
@@ -691,6 +704,7 @@ export function AppViewRenderer({
           onSaveQuoteFormDraft={quoteActions.saveQuoteFormDraft}
           onDeleteQuoteFormDraft={quoteActions.deleteQuoteFormDraft}
           onDiscardQuoteFormDraft={quoteActions.discardQuoteFormDraft}
+          onShareQuoteFormDraft={quoteActions.shareQuoteFormDraft}
           onEditQuote={onSelectQuote}
           onReuseQuote={onReuseQuote}
           onCancelQuote={(event, quote) =>

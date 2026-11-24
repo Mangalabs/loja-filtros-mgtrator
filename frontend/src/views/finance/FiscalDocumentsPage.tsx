@@ -47,6 +47,7 @@ import type {
   ShippingOrder,
 } from '../../api'
 import { downloadApiFile, openApiFile } from '../../api'
+import { DraftSharingControl } from '../../components/DraftSharingControl'
 import {
   InlineNote,
   PageHeader,
@@ -621,6 +622,7 @@ export function ManualFiscalDocumentPage({
   onPreviewManualFiscalDocument,
   onPreviewSaleFiscalDocumentInput,
   onSaveManualFiscalDocumentDraft,
+  onShareManualFiscalDocumentDraft,
 }: {
   clients: Client[]
   commercialSettings: CommercialSettings | null
@@ -653,6 +655,10 @@ export function ManualFiscalDocumentPage({
     input: ManualFiscalDocumentInput,
     draft?: ManualFiscalDocumentDraft,
   ) => Promise<unknown>
+  onShareManualFiscalDocumentDraft: (
+    draft: ManualFiscalDocumentDraft,
+    sharedWithUserId: string | null,
+  ) => Promise<boolean | void>
 }) {
   const sourceValues = sourceSale
     ? manualFiscalDocumentSaleFormValues(sourceSale)
@@ -1075,10 +1081,10 @@ export function ManualFiscalDocumentPage({
         />
         {!sourceSale ? (
           <div className='grid gap-3 pb-4'>
-            <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]'>
+            <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]'>
               <Autocomplete
                 getOptionLabel={(draft) =>
-                  `${draft.title} - ${formatDateTime(draft.updatedAt)}`
+                  `${draft.title} · ${draft.createdByUserName} - ${formatDateTime(draft.updatedAt)}`
                 }
                 isOptionEqualToValue={(option, value) => option.id === value.id}
                 noOptionsText='Nenhum rascunho salvo'
@@ -1097,6 +1103,18 @@ export function ManualFiscalDocumentPage({
                   />
                 )}
               />
+              {sourceDraft ? (
+                <DraftSharingControl
+                  draft={sourceDraft}
+                  scope='fiscal'
+                  onShare={(sharedWithUserId) =>
+                    onShareManualFiscalDocumentDraft(
+                      sourceDraft,
+                      sharedWithUserId,
+                    )
+                  }
+                />
+              ) : null}
               {sourceDraft ? (
                 <Button
                   color='error'

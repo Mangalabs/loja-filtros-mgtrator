@@ -8,6 +8,7 @@ import {
   indexServiceFiscalDocuments,
   previewServiceFiscalDocument,
   replaceServiceFiscalDocumentDraft,
+  replaceServiceFiscalDocumentDraftSharing,
   storeServiceFiscalDocumentDraft,
   syncServiceFiscalDocument,
 } from "../../controllers/service-fiscal-documents/service-fiscal-documents.controller.js";
@@ -18,6 +19,9 @@ import { validateBody } from "../../shared/validation/validate-request.js";
 export const serviceFiscalDocumentsRoutes = Router();
 
 const paramsSchema = z.object({ id: z.uuid() });
+const draftSharingSchema = z
+  .object({ sharedWithUserId: z.uuid().nullable() })
+  .strict();
 const optionalText = (max: number) =>
   z
     .union([z.string().trim().max(max), z.literal(""), z.null()])
@@ -186,6 +190,24 @@ serviceFiscalDocumentsRoutes.put(
       await replaceServiceFiscalDocumentDraft(
         id,
         payload,
+        response.locals.authenticatedUser.id as string,
+        requireActiveBranchId(response.locals),
+      ),
+    );
+  },
+);
+
+serviceFiscalDocumentsRoutes.patch(
+  "/service-fiscal-documents/drafts/:id/share",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { id } = paramsSchema.parse(request.params);
+    const { sharedWithUserId } = validateBody(request, draftSharingSchema);
+
+    response.status(200).json(
+      await replaceServiceFiscalDocumentDraftSharing(
+        id,
+        sharedWithUserId,
         response.locals.authenticatedUser.id as string,
         requireActiveBranchId(response.locals),
       ),

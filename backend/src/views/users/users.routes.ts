@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   changeEmployeeStatus,
   indexUsers,
+  indexDraftShareCandidates,
   replaceEmployee,
   resetEmployeePassword,
   storeUser,
@@ -10,6 +11,7 @@ import {
 import { requireAdmin } from "../../shared/auth/authorization-middleware.js";
 import { employeePermissionValues } from "../../shared/auth/permissions.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
+import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
 
 export const usersRoutes = Router();
 
@@ -61,6 +63,15 @@ const resetEmployeePasswordSchema = z
     password: z.string().min(12).max(128),
   })
   .strict();
+
+usersRoutes.get("/users/draft-share-candidates", async (_request, response) => {
+  response.status(200).json(
+    await indexDraftShareCandidates(
+      requireActiveBranchId(response.locals),
+      response.locals.authenticatedUser.id as string,
+    ),
+  );
+});
 
 usersRoutes.get("/users", requireAdmin, async (_request, response) => {
   response.status(200).json(await indexUsers());

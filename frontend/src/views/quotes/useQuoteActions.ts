@@ -88,6 +88,16 @@ export function useQuoteActions({
     })
   }
 
+  async function shareQuoteFormDraft(
+    draft: QuoteFormDraft,
+    sharedWithUserId: string | null,
+  ) {
+    return runAction(async () => {
+      await apiPatch(`/quotes/drafts/${draft.id}/share`, { sharedWithUserId })
+      await refreshQuoteFlow()
+    })
+  }
+
   async function completeQuoteAsSale(
     quote: Quote,
     input: QuoteSaleClosingInput,
@@ -175,6 +185,7 @@ export function useQuoteActions({
     discardQuoteFormDraft,
     openShippingOrders: showShippingOrders,
     saveQuoteFormDraft,
+    shareQuoteFormDraft,
     updateQuote,
   }
 }

@@ -22,8 +22,10 @@ import {
   deleteManualFiscalDocumentDraft,
   insertManualFiscalDocumentDraft,
   listManualFiscalDocumentDrafts,
+  shareManualFiscalDocumentDraft,
   updateManualFiscalDocumentDraft,
 } from "../../models/fiscal-documents/manual-fiscal-document-drafts.model.js";
+import { draftShareCandidateExists } from "../../models/users/users.model.js";
 import { getPickupReservationById } from "../../models/pickup-reservations/pickup-reservations.model.js";
 import {
   getSaleById,
@@ -119,6 +121,51 @@ export async function destroyManualFiscalDocumentDraft(
     status: "success",
     data: { id },
   };
+}
+
+export async function replaceManualFiscalDocumentDraftSharing(
+  id: string,
+  sharedWithUserId: string | null,
+  userId: string,
+  branchId: string,
+) {
+  await ensureFiscalDraftShareRecipient(sharedWithUserId, userId, branchId);
+  const draft = await shareManualFiscalDocumentDraft({
+    id,
+    branchId,
+    createdByUserId: userId,
+    sharedWithUserId,
+  });
+
+  if (!draft) {
+    throw new AppError("Rascunho de NF-e avulsa nao encontrado.", 404);
+  }
+
+  return { code: 200, status: "success", data: draft };
+}
+
+async function ensureFiscalDraftShareRecipient(
+  sharedWithUserId: string | null,
+  userId: string,
+  branchId: string,
+) {
+  if (sharedWithUserId === userId) {
+    throw new AppError("Selecione outro usuario para compartilhar.", 422);
+  }
+
+  if (
+    sharedWithUserId &&
+    !(await draftShareCandidateExists(
+      sharedWithUserId,
+      branchId,
+      "MANAGE_FISCAL_DOCUMENTS",
+    ))
+  ) {
+    throw new AppError(
+      "Usuario selecionado nao possui acesso fiscal nesta filial.",
+      422,
+    );
+  }
 }
 
 export async function showFiscalDocument(id: string, branchId: string) {

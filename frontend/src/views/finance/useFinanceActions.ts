@@ -324,6 +324,18 @@ export function useFinanceActions({
     });
   }
 
+  async function shareServiceFiscalDocumentDraft(
+    draft: ServiceFiscalDocumentDraft,
+    sharedWithUserId: string | null,
+  ) {
+    return runAction(async () => {
+      await apiPatch(`/service-fiscal-documents/drafts/${draft.id}/share`, {
+        sharedWithUserId,
+      });
+      await refreshFiscalFlow();
+    });
+  }
+
   async function syncFiscalDocuments(fiscalDocuments: FiscalDocument[]) {
     let firstError: unknown;
 
@@ -408,6 +420,18 @@ export function useFinanceActions({
     });
   }
 
+  async function shareManualFiscalDocumentDraft(
+    draft: ManualFiscalDocumentDraft,
+    sharedWithUserId: string | null,
+  ) {
+    return runAction(async () => {
+      await apiPatch(`/fiscal-documents/manual/drafts/${draft.id}/share`, {
+        sharedWithUserId,
+      });
+      await refreshFiscalFlow();
+    });
+  }
+
   async function cancelFiscalDocument(
     event: FormEvent<HTMLFormElement>,
     fiscalDocument: FiscalDocument,
@@ -481,6 +505,8 @@ export function useFinanceActions({
     previewServiceFiscalDocument,
     saveManualFiscalDocumentDraft,
     saveServiceFiscalDocumentDraft,
+    shareManualFiscalDocumentDraft,
+    shareServiceFiscalDocumentDraft,
     deleteManualFiscalDocumentDraft,
     deleteServiceFiscalDocumentDraft,
     saveFiscalService,

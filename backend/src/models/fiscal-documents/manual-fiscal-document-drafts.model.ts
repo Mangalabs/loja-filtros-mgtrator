@@ -6,6 +6,9 @@ export type ManualFiscalDocumentDraft = {
   branchId: string;
   createdByUserId: string;
   createdByUserName: string;
+  sharedWithUserId: string | null;
+  sharedWithUserName: string | null;
+  sharedWithUserEmail: string | null;
   title: string;
   payload: Record<string, unknown>;
   createdAt: Date;
@@ -23,7 +26,10 @@ const manualFiscalDocumentDraftColumns = [
   "manual_fiscal_document_drafts.id",
   "manual_fiscal_document_drafts.branch_id as branchId",
   "manual_fiscal_document_drafts.created_by_user_id as createdByUserId",
-  "users.name as createdByUserName",
+  "draft_owners.name as createdByUserName",
+  "manual_fiscal_document_drafts.shared_with_user_id as sharedWithUserId",
+  "shared_users.name as sharedWithUserName",
+  "shared_users.email as sharedWithUserEmail",
   "manual_fiscal_document_drafts.title",
   "manual_fiscal_document_drafts.payload",
   "manual_fiscal_document_drafts.created_at as createdAt",
@@ -36,9 +42,16 @@ export async function listManualFiscalDocumentDrafts(filters: {
 }): Promise<ManualFiscalDocumentDraft[]> {
   return manualFiscalDocumentDraftQuery(db)
     .where("manual_fiscal_document_drafts.branch_id", filters.branchId)
-    .where(
-      "manual_fiscal_document_drafts.created_by_user_id",
-      filters.createdByUserId,
+    .where((query) =>
+      query
+        .where(
+          "manual_fiscal_document_drafts.created_by_user_id",
+          filters.createdByUserId,
+        )
+        .orWhere(
+          "manual_fiscal_document_drafts.shared_with_user_id",
+          filters.createdByUserId,
+        ),
     )
     .orderBy("manual_fiscal_document_drafts.updated_at", "desc");
 }
@@ -65,7 +78,11 @@ export async function updateManualFiscalDocumentDraft(
   const [updated] = await db("manual_fiscal_document_drafts")
     .where("id", id)
     .where("branch_id", input.branchId)
-    .where("created_by_user_id", input.createdByUserId)
+    .where((query) =>
+      query
+        .where("created_by_user_id", input.createdByUserId)
+        .orWhere("shared_with_user_id", input.createdByUserId),
+    )
     .update({
       title: input.title,
       payload: input.payload,
@@ -88,10 +105,33 @@ export async function deleteManualFiscalDocumentDraft(filters: {
   const deleted = await db("manual_fiscal_document_drafts")
     .where("id", filters.id)
     .where("branch_id", filters.branchId)
-    .where("created_by_user_id", filters.createdByUserId)
+    .where((query) =>
+      query
+        .where("created_by_user_id", filters.createdByUserId)
+        .orWhere("shared_with_user_id", filters.createdByUserId),
+    )
     .delete();
 
   return deleted > 0;
+}
+
+export async function shareManualFiscalDocumentDraft(filters: {
+  id: string;
+  branchId: string;
+  createdByUserId: string;
+  sharedWithUserId: string | null;
+}): Promise<ManualFiscalDocumentDraft | undefined> {
+  const [updated] = await db("manual_fiscal_document_drafts")
+    .where("id", filters.id)
+    .where("branch_id", filters.branchId)
+    .where("created_by_user_id", filters.createdByUserId)
+    .update({
+      shared_with_user_id: filters.sharedWithUserId,
+      updated_at: db.fn.now(),
+    })
+    .returning("id");
+
+  return updated ? getCreatedManualFiscalDocumentDraft(updated.id) : undefined;
 }
 
 async function getCreatedManualFiscalDocumentDraft(
@@ -110,6 +150,15 @@ async function getCreatedManualFiscalDocumentDraft(
 
 function manualFiscalDocumentDraftQuery(database: Knex | Knex.Transaction) {
   return database("manual_fiscal_document_drafts")
-    .join("users", "users.id", "manual_fiscal_document_drafts.created_by_user_id")
+    .join(
+      "users as draft_owners",
+      "draft_owners.id",
+      "manual_fiscal_document_drafts.created_by_user_id",
+    )
+    .leftJoin(
+      "users as shared_users",
+      "shared_users.id",
+      "manual_fiscal_document_drafts.shared_with_user_id",
+    )
     .select<ManualFiscalDocumentDraft[]>(manualFiscalDocumentDraftColumns);
 }

@@ -8,6 +8,7 @@ import {
   indexQuoteFormDrafts,
   indexQuotes,
   replaceQuoteFormDraft,
+  replaceQuoteFormDraftSharing,
   showQuote,
   showQuotePdf,
   storeQuoteFormDraft,
@@ -121,6 +122,9 @@ const quoteParamsSchema = z.object({
 });
 
 const quoteFormDraftPayloadSchema = z.record(z.string(), z.unknown());
+const draftSharingSchema = z
+  .object({ sharedWithUserId: z.uuid().nullable() })
+  .strict();
 
 const cancelQuoteSchema = z.object({
   reason: z.string().trim().min(1).max(500),
@@ -168,6 +172,20 @@ quotesRoutes.put("/quotes/drafts/:id", async (request, response) => {
       id,
       payload,
       userId,
+      requireActiveBranchId(response.locals),
+    ),
+  );
+});
+
+quotesRoutes.patch("/quotes/drafts/:id/share", async (request, response) => {
+  const { id } = quoteParamsSchema.parse(request.params);
+  const { sharedWithUserId } = validateBody(request, draftSharingSchema);
+
+  response.status(200).json(
+    await replaceQuoteFormDraftSharing(
+      id,
+      sharedWithUserId,
+      response.locals.authenticatedUser.id as string,
       requireActiveBranchId(response.locals),
     ),
   );

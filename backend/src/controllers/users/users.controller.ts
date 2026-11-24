@@ -1,6 +1,7 @@
 import {
   createUser,
   findUserById,
+  listDraftShareCandidates,
   listUsers,
   type UserUpdateInput,
   updateUser,
@@ -41,6 +42,17 @@ export async function indexUsers() {
     code: 200,
     status: "success",
     data: await listUsers(),
+  };
+}
+
+export async function indexDraftShareCandidates(
+  branchId: string,
+  currentUserId: string,
+) {
+  return {
+    code: 200,
+    status: "success",
+    data: await listDraftShareCandidates(branchId, currentUserId),
   };
 }
 

@@ -833,6 +833,9 @@ type ManualFiscalDocumentDraft = {
   branchId: string;
   createdByUserId: string;
   createdByUserName: string;
+  sharedWithUserId: string | null;
+  sharedWithUserName: string | null;
+  sharedWithUserEmail: string | null;
   title: string;
   payload: Record<string, unknown>;
   createdAt: string;
@@ -840,6 +843,13 @@ type ManualFiscalDocumentDraft = {
 };
 
 type QuoteFormDraft = ManualFiscalDocumentDraft;
+
+type DraftShareCandidate = {
+  id: string;
+  name: string;
+  email: string;
+  canManageFiscalDocuments: boolean;
+};
 
 type PaginatedServiceFiscalDocuments = {
   items: ServiceFiscalDocument[];
@@ -902,7 +912,7 @@ before(async () => {
     extension: "cjs",
   });
   await db.raw(
-    "truncate table auth_events, commercial_settings, service_fiscal_documents, service_fiscal_document_drafts, fiscal_services, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
+    "truncate table auth_events, commercial_settings, service_fiscal_documents, service_fiscal_document_drafts, manual_fiscal_document_drafts, quote_form_drafts, fiscal_services, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
   await db("auth_events").del();
   await db("users").del();
@@ -947,7 +957,7 @@ beforeEach(async () => {
   env.fiscal.provider = "mock";
 
   await db.raw(
-    "truncate table auth_events, commercial_settings, service_fiscal_documents, service_fiscal_document_drafts, fiscal_services, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
+    "truncate table auth_events, commercial_settings, service_fiscal_documents, service_fiscal_document_drafts, manual_fiscal_document_drafts, quote_form_drafts, fiscal_services, fiscal_settings, fiscal_documents, cash_register_sessions, purchase_invoices, product_suppliers, products, product_groups, suppliers, brands, clients cascade",
   );
   await db("payment_methods").update({ active: true });
 });
@@ -11745,6 +11755,186 @@ describe("catalog routes", () => {
     assert.equal(
       cancelled.body.data?.cancelledByUserName,
       "Administrador de teste",
+    );
+  });
+
+  it("shares quote, NF-e and NFS-e drafts with an authorized branch user", async () => {
+    const employee = await request<User>("/users", {
+      method: "POST",
+      body: {
+        name: "Usuario de rascunhos",
+        email: "rascunhos@example.com",
+        phone: "98999990001",
+        branchId: defaultBranchId,
+        permissions: ["MANAGE_FISCAL_DOCUMENTS"],
+        password: "senha-rascunhos-123",
+      },
+    });
+    const login = await request<User>("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: {
+        email: "rascunhos@example.com",
+        password: "senha-rascunhos-123",
+      },
+    });
+    const changedPassword = await request<User>("/auth/password", {
+      method: "POST",
+      cookie: login.cookie,
+      body: {
+        currentPassword: "senha-rascunhos-123",
+        newPassword: "senha-rascunhos-alterada-123",
+      },
+    });
+    const candidates = await request<DraftShareCandidate[]>(
+      "/users/draft-share-candidates",
+    );
+    const quoteDraft = await request<QuoteFormDraft>("/quotes/drafts", {
+      method: "POST",
+      body: { clientName: "Cliente compartilhado", items: [], totalAmount: 0 },
+    });
+    const manualDraft = await request<ManualFiscalDocumentDraft>(
+      "/fiscal-documents/manual/drafts",
+      { method: "POST", body: manualFiscalDocumentRequest() },
+    );
+    const service = await request<FiscalService>("/fiscal-services", {
+      method: "POST",
+      body: {
+        name: "Servico para rascunho compartilhado",
+        nationalTaxCode: "140101",
+        nbsCode: "120013110",
+        description: "Manutencao compartilhada",
+        issRate: 2,
+      },
+    });
+    const serviceDraftInput = {
+      serviceId: service.body.data?.id,
+      competenceDate: "2026-11-24",
+      serviceDescription: "Manutencao preventiva compartilhada",
+      serviceAmount: 450,
+      issRate: 2,
+      issRetained: false,
+      consumerFinal: false,
+      additionalInformation: null,
+      taker: {
+        clientId: null,
+        personType: "PJ",
+        name: "Tomador compartilhado",
+        document: "12345678000190",
+        email: "tomador@example.com",
+        phone: "98999990000",
+        addressStreet: "Rua de teste",
+        addressNumber: "10",
+        addressComplement: null,
+        addressDistrict: "Centro",
+        addressCity: "Sao Luis",
+        addressState: "MA",
+        addressZipCode: "65000000",
+        municipalityIbgeCode: "2111300",
+      },
+    };
+    const serviceDraft = await request<ManualFiscalDocumentDraft>(
+      "/service-fiscal-documents/drafts",
+      { method: "POST", body: serviceDraftInput },
+    );
+
+    const sharedQuote = await request<QuoteFormDraft>(
+      `/quotes/drafts/${quoteDraft.body.data?.id}/share`,
+      {
+        method: "PATCH",
+        body: { sharedWithUserId: employee.body.data?.id },
+      },
+    );
+    const sharedManual = await request<ManualFiscalDocumentDraft>(
+      `/fiscal-documents/manual/drafts/${manualDraft.body.data?.id}/share`,
+      {
+        method: "PATCH",
+        body: { sharedWithUserId: employee.body.data?.id },
+      },
+    );
+    const sharedService = await request<ManualFiscalDocumentDraft>(
+      `/service-fiscal-documents/drafts/${serviceDraft.body.data?.id}/share`,
+      {
+        method: "PATCH",
+        body: { sharedWithUserId: employee.body.data?.id },
+      },
+    );
+    const recipientQuoteDrafts = await request<QuoteFormDraft[]>(
+      "/quotes/drafts",
+      { cookie: changedPassword.cookie },
+    );
+    const recipientManualDrafts = await request<ManualFiscalDocumentDraft[]>(
+      "/fiscal-documents/manual/drafts",
+      { cookie: changedPassword.cookie },
+    );
+    const recipientServiceDrafts = await request<ManualFiscalDocumentDraft[]>(
+      "/service-fiscal-documents/drafts",
+      { cookie: changedPassword.cookie },
+    );
+    const recipientReshare = await request(
+      `/quotes/drafts/${quoteDraft.body.data?.id}/share`,
+      {
+        method: "PATCH",
+        cookie: changedPassword.cookie,
+        body: { sharedWithUserId: null },
+      },
+    );
+    const recipientUpdate = await request<QuoteFormDraft>(
+      `/quotes/drafts/${quoteDraft.body.data?.id}`,
+      {
+        method: "PUT",
+        cookie: changedPassword.cookie,
+        body: {
+          clientName: "Cliente atualizado pelo destinatario",
+          items: [],
+          totalAmount: 10,
+        },
+      },
+    );
+
+    assert.equal(employee.status, 201);
+    assert.ok(changedPassword.cookie);
+    assert.equal(
+      candidates.body.data?.find((candidate) => candidate.id === employee.body.data?.id)
+        ?.canManageFiscalDocuments,
+      true,
+    );
+    assert.equal(sharedQuote.body.data?.sharedWithUserId, employee.body.data?.id);
+    assert.equal(sharedManual.body.data?.sharedWithUserId, employee.body.data?.id);
+    assert.equal(sharedService.body.data?.sharedWithUserId, employee.body.data?.id);
+    assert.ok(
+      recipientQuoteDrafts.body.data?.some(
+        (draft) => draft.id === quoteDraft.body.data?.id,
+      ),
+    );
+    assert.ok(
+      recipientManualDrafts.body.data?.some(
+        (draft) => draft.id === manualDraft.body.data?.id,
+      ),
+    );
+    assert.ok(
+      recipientServiceDrafts.body.data?.some(
+        (draft) => draft.id === serviceDraft.body.data?.id,
+      ),
+    );
+    assert.equal(recipientReshare.status, 404);
+    assert.equal(recipientUpdate.status, 200);
+    assert.equal(
+      recipientUpdate.body.data?.payload.clientName,
+      "Cliente atualizado pelo destinatario",
+    );
+
+    await request(`/quotes/drafts/${quoteDraft.body.data?.id}`, {
+      method: "DELETE",
+      cookie: changedPassword.cookie,
+    });
+    await request(`/fiscal-documents/manual/drafts/${manualDraft.body.data?.id}`, {
+      method: "DELETE",
+      cookie: changedPassword.cookie,
+    });
+    await request(
+      `/service-fiscal-documents/drafts/${serviceDraft.body.data?.id}`,
+      { method: "DELETE", cookie: changedPassword.cookie },
     );
   });
 

@@ -25,6 +25,7 @@ import {
   ResponsiveTable,
 } from '../../components/layout'
 import { PrimaryButton, SecondaryButton, StatusChip } from '../../components/ui'
+import { DraftSharingControl } from '../../components/DraftSharingControl'
 import { usePaginatedRows } from '../../hooks/usePaginatedRows'
 import { issRateInputProps, positiveMoneyInputProps } from '../../utils/numericInput'
 
@@ -52,6 +53,7 @@ export function ServiceFiscalDocumentPage({
   onIssue,
   onPreview,
   onSave,
+  onShare,
   onSync,
 }: {
   clients: Client[]
@@ -72,6 +74,10 @@ export function ServiceFiscalDocumentPage({
     input: ServiceFiscalDocumentInput,
     draft?: ServiceFiscalDocumentDraft,
   ) => Promise<ServiceFiscalDocumentDraft | null> | ServiceFiscalDocumentDraft | null
+  onShare: (
+    draft: ServiceFiscalDocumentDraft,
+    sharedWithUserId: string | null,
+  ) => Promise<boolean | void>
   onSync: (
     document: ServiceFiscalDocument,
   ) => Promise<ServiceFiscalDocument> | ServiceFiscalDocument
@@ -400,9 +406,11 @@ export function ServiceFiscalDocumentPage({
             </div>
             {selectedDraft ? <StatusChip label='Rascunho salvo' tone='neutral' /> : null}
           </div>
-          <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]'>
+          <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto]'>
             <Autocomplete
-              getOptionLabel={(draft) => draft.title}
+              getOptionLabel={(draft) =>
+                `${draft.title} · ${draft.createdByUserName}`
+              }
               isOptionEqualToValue={(option, value) => option.id === value.id}
               noOptionsText='Nenhum rascunho salvo'
               options={drafts}
@@ -424,6 +432,17 @@ export function ServiceFiscalDocumentPage({
                   ? 'Atualizar rascunho'
                   : 'Salvar rascunho'}
             </SecondaryButton>
+            <div className='flex flex-wrap items-end gap-2'>
+              {selectedDraft ? (
+                <DraftSharingControl
+                  draft={selectedDraft}
+                  scope='fiscal'
+                  onShare={(sharedWithUserId) =>
+                    onShare(selectedDraft, sharedWithUserId)
+                  }
+                />
+              ) : null}
+            </div>
             <div className='flex flex-wrap items-end gap-2'>
               {selectedDraft ? (
                 <SecondaryButton

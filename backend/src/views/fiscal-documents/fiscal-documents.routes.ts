@@ -21,6 +21,7 @@ import {
   previewSaleFiscalDocument,
   previewShippingOrderFiscalDocument,
   replaceManualFiscalDocumentDraft,
+  replaceManualFiscalDocumentDraftSharing,
   showFiscalDocument,
   storeManualFiscalDocumentDraft,
   syncFiscalDocument,
@@ -39,6 +40,9 @@ const fiscalDocumentParamsSchema = z.object({
 const manualFiscalDocumentDraftParamsSchema = z.object({
   id: z.uuid(),
 });
+const draftSharingSchema = z
+  .object({ sharedWithUserId: z.uuid().nullable() })
+  .strict();
 
 const fiscalDocumentFileParamsSchema = fiscalDocumentParamsSchema.extend({
   fileType: z.enum(["danfe", "xml"]),
@@ -396,6 +400,24 @@ fiscalDocumentsRoutes.put(
           requireActiveBranchId(response.locals),
         ),
       );
+  },
+);
+
+fiscalDocumentsRoutes.patch(
+  "/fiscal-documents/manual/drafts/:id/share",
+  requirePermission("MANAGE_FISCAL_DOCUMENTS"),
+  async (request, response) => {
+    const { id } = manualFiscalDocumentDraftParamsSchema.parse(request.params);
+    const { sharedWithUserId } = validateBody(request, draftSharingSchema);
+
+    response.status(200).json(
+      await replaceManualFiscalDocumentDraftSharing(
+        id,
+        sharedWithUserId,
+        response.locals.authenticatedUser.id as string,
+        requireActiveBranchId(response.locals),
+      ),
+    );
   },
 );
 

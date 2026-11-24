@@ -2,8 +2,10 @@ import {
   deleteServiceFiscalDocumentDraft,
   insertServiceFiscalDocumentDraft,
   listServiceFiscalDocumentDrafts,
+  shareServiceFiscalDocumentDraft,
   updateServiceFiscalDocumentDraft,
 } from "../../models/service-fiscal-documents/service-fiscal-document-drafts.model.js";
+import { draftShareCandidateExists } from "../../models/users/users.model.js";
 import { getFiscalServiceById } from "../../models/fiscal-services/fiscal-services.model.js";
 import { findBranchById } from "../../models/branches/branches.model.js";
 import { currentFiscalSettings } from "../fiscal-settings/fiscal-settings.controller.js";
@@ -110,6 +112,44 @@ export async function destroyServiceFiscalDocumentDraft(
   }
 
   return { code: 200, status: "success", data: { id } };
+}
+
+export async function replaceServiceFiscalDocumentDraftSharing(
+  id: string,
+  sharedWithUserId: string | null,
+  userId: string,
+  branchId: string,
+) {
+  if (sharedWithUserId === userId) {
+    throw new AppError("Selecione outro usuario para compartilhar.", 422);
+  }
+
+  if (
+    sharedWithUserId &&
+    !(await draftShareCandidateExists(
+      sharedWithUserId,
+      branchId,
+      "MANAGE_FISCAL_DOCUMENTS",
+    ))
+  ) {
+    throw new AppError(
+      "Usuario selecionado nao possui acesso fiscal nesta filial.",
+      422,
+    );
+  }
+
+  const draft = await shareServiceFiscalDocumentDraft({
+    id,
+    branchId,
+    createdByUserId: userId,
+    sharedWithUserId,
+  });
+
+  if (!draft) {
+    throw new AppError("Rascunho de NFS-e nao encontrado.", 404);
+  }
+
+  return { code: 200, status: "success", data: draft };
 }
 
 export async function previewServiceFiscalDocument(

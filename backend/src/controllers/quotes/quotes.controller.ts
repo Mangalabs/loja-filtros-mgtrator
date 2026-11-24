@@ -5,8 +5,10 @@ import {
   deleteQuoteFormDraft,
   insertQuoteFormDraft,
   listQuoteFormDrafts,
+  shareQuoteFormDraft,
   updateQuoteFormDraft,
 } from '../../models/quotes/quote-form-drafts.model.js'
+import { draftShareCandidateExists } from '../../models/users/users.model.js'
 import {
   activeQuoteClientExists,
   cancelQuote,
@@ -113,6 +115,37 @@ export async function destroyQuoteFormDraft(
     status: 'success',
     data: { deleted: true },
   }
+}
+
+export async function replaceQuoteFormDraftSharing(
+  id: string,
+  sharedWithUserId: string | null,
+  userId: string,
+  branchId: string,
+) {
+  if (sharedWithUserId === userId) {
+    throw new AppError('Selecione outro usuario para compartilhar.', 422)
+  }
+
+  if (
+    sharedWithUserId &&
+    !(await draftShareCandidateExists(sharedWithUserId, branchId))
+  ) {
+    throw new AppError('Usuario selecionado nao esta disponivel nesta filial.', 422)
+  }
+
+  const draft = await shareQuoteFormDraft({
+    id,
+    branchId,
+    createdByUserId: userId,
+    sharedWithUserId,
+  })
+
+  if (!draft) {
+    throw new AppError('Rascunho de orçamento nao encontrado.', 404)
+  }
+
+  return { code: 200, status: 'success', data: draft }
 }
 
 export async function showQuote(id: string, branchId: string) {

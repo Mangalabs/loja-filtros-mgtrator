@@ -6,6 +6,9 @@ export type QuoteFormDraft = {
   branchId: string;
   createdByUserId: string;
   createdByUserName: string;
+  sharedWithUserId: string | null;
+  sharedWithUserName: string | null;
+  sharedWithUserEmail: string | null;
   title: string;
   payload: Record<string, unknown>;
   createdAt: Date;
@@ -23,7 +26,10 @@ const quoteFormDraftColumns = [
   "quote_form_drafts.id",
   "quote_form_drafts.branch_id as branchId",
   "quote_form_drafts.created_by_user_id as createdByUserId",
-  "users.name as createdByUserName",
+  "draft_owners.name as createdByUserName",
+  "quote_form_drafts.shared_with_user_id as sharedWithUserId",
+  "shared_users.name as sharedWithUserName",
+  "shared_users.email as sharedWithUserEmail",
   "quote_form_drafts.title",
   "quote_form_drafts.payload",
   "quote_form_drafts.created_at as createdAt",
@@ -36,7 +42,11 @@ export async function listQuoteFormDrafts(filters: {
 }): Promise<QuoteFormDraft[]> {
   return quoteFormDraftQuery(db)
     .where("quote_form_drafts.branch_id", filters.branchId)
-    .where("quote_form_drafts.created_by_user_id", filters.createdByUserId)
+    .where((query) =>
+      query
+        .where("quote_form_drafts.created_by_user_id", filters.createdByUserId)
+        .orWhere("quote_form_drafts.shared_with_user_id", filters.createdByUserId),
+    )
     .orderBy("quote_form_drafts.updated_at", "desc");
 }
 
@@ -62,7 +72,11 @@ export async function updateQuoteFormDraft(
   const [updated] = await db("quote_form_drafts")
     .where("id", id)
     .where("branch_id", input.branchId)
-    .where("created_by_user_id", input.createdByUserId)
+    .where((query) =>
+      query
+        .where("created_by_user_id", input.createdByUserId)
+        .orWhere("shared_with_user_id", input.createdByUserId),
+    )
     .update({
       title: input.title,
       payload: input.payload,
@@ -85,10 +99,33 @@ export async function deleteQuoteFormDraft(filters: {
   const deleted = await db("quote_form_drafts")
     .where("id", filters.id)
     .where("branch_id", filters.branchId)
-    .where("created_by_user_id", filters.createdByUserId)
+    .where((query) =>
+      query
+        .where("created_by_user_id", filters.createdByUserId)
+        .orWhere("shared_with_user_id", filters.createdByUserId),
+    )
     .delete();
 
   return deleted > 0;
+}
+
+export async function shareQuoteFormDraft(filters: {
+  id: string;
+  branchId: string;
+  createdByUserId: string;
+  sharedWithUserId: string | null;
+}): Promise<QuoteFormDraft | undefined> {
+  const [updated] = await db("quote_form_drafts")
+    .where("id", filters.id)
+    .where("branch_id", filters.branchId)
+    .where("created_by_user_id", filters.createdByUserId)
+    .update({
+      shared_with_user_id: filters.sharedWithUserId,
+      updated_at: db.fn.now(),
+    })
+    .returning("id");
+
+  return updated ? getCreatedQuoteFormDraft(updated.id) : undefined;
 }
 
 async function getCreatedQuoteFormDraft(id: string): Promise<QuoteFormDraft> {
@@ -105,6 +142,15 @@ async function getCreatedQuoteFormDraft(id: string): Promise<QuoteFormDraft> {
 
 function quoteFormDraftQuery(database: Knex | Knex.Transaction) {
   return database("quote_form_drafts")
-    .join("users", "users.id", "quote_form_drafts.created_by_user_id")
+    .join(
+      "users as draft_owners",
+      "draft_owners.id",
+      "quote_form_drafts.created_by_user_id",
+    )
+    .leftJoin(
+      "users as shared_users",
+      "shared_users.id",
+      "quote_form_drafts.shared_with_user_id",
+    )
     .select<QuoteFormDraft[]>(quoteFormDraftColumns);
 }

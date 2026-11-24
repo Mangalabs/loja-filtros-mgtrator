@@ -610,6 +610,9 @@ export type ManualFiscalDocumentDraft = {
   branchId: string;
   createdByUserId: string;
   createdByUserName: string;
+  sharedWithUserId: string | null;
+  sharedWithUserName: string | null;
+  sharedWithUserEmail: string | null;
   title: string;
   payload: Record<string, unknown>;
   createdAt: string;
@@ -648,6 +651,9 @@ export type ServiceFiscalDocumentDraft = {
   branchId: string;
   createdByUserId: string;
   createdByUserName: string;
+  sharedWithUserId: string | null;
+  sharedWithUserName: string | null;
+  sharedWithUserEmail: string | null;
   title: string;
   payload: ServiceFiscalDocumentInput;
   createdAt: string;
@@ -1183,10 +1189,20 @@ export type QuoteFormDraft = {
   branchId: string;
   createdByUserId: string;
   createdByUserName: string;
+  sharedWithUserId: string | null;
+  sharedWithUserName: string | null;
+  sharedWithUserEmail: string | null;
   title: string;
   payload: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+};
+
+export type DraftShareCandidate = {
+  id: string;
+  name: string;
+  email: string;
+  canManageFiscalDocuments: boolean;
 };
 
 export async function apiGet<T>(path: string): Promise<T> {

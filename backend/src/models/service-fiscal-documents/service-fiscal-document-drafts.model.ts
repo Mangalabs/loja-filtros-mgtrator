@@ -7,6 +7,9 @@ export type ServiceFiscalDocumentDraft = {
   branchId: string;
   createdByUserId: string;
   createdByUserName: string;
+  sharedWithUserId: string | null;
+  sharedWithUserName: string | null;
+  sharedWithUserEmail: string | null;
   title: string;
   payload: ServiceFiscalDocumentInput;
   createdAt: Date;
@@ -24,7 +27,10 @@ const columns = [
   "service_fiscal_document_drafts.id",
   "service_fiscal_document_drafts.branch_id as branchId",
   "service_fiscal_document_drafts.created_by_user_id as createdByUserId",
-  "users.name as createdByUserName",
+  "draft_owners.name as createdByUserName",
+  "service_fiscal_document_drafts.shared_with_user_id as sharedWithUserId",
+  "shared_users.name as sharedWithUserName",
+  "shared_users.email as sharedWithUserEmail",
   "service_fiscal_document_drafts.title",
   "service_fiscal_document_drafts.payload",
   "service_fiscal_document_drafts.created_at as createdAt",
@@ -37,9 +43,16 @@ export async function listServiceFiscalDocumentDrafts(filters: {
 }): Promise<ServiceFiscalDocumentDraft[]> {
   return query(db)
     .where("service_fiscal_document_drafts.branch_id", filters.branchId)
-    .where(
-      "service_fiscal_document_drafts.created_by_user_id",
-      filters.createdByUserId,
+    .where((builder) =>
+      builder
+        .where(
+          "service_fiscal_document_drafts.created_by_user_id",
+          filters.createdByUserId,
+        )
+        .orWhere(
+          "service_fiscal_document_drafts.shared_with_user_id",
+          filters.createdByUserId,
+        ),
     )
     .orderBy("service_fiscal_document_drafts.updated_at", "desc");
 }
@@ -66,7 +79,11 @@ export async function updateServiceFiscalDocumentDraft(
   const [updated] = await db("service_fiscal_document_drafts")
     .where("id", id)
     .where("branch_id", input.branchId)
-    .where("created_by_user_id", input.createdByUserId)
+    .where((builder) =>
+      builder
+        .where("created_by_user_id", input.createdByUserId)
+        .orWhere("shared_with_user_id", input.createdByUserId),
+    )
     .update({
       title: input.title,
       payload: input.payload,
@@ -85,10 +102,33 @@ export async function deleteServiceFiscalDocumentDraft(filters: {
   const deleted = await db("service_fiscal_document_drafts")
     .where("id", filters.id)
     .where("branch_id", filters.branchId)
-    .where("created_by_user_id", filters.createdByUserId)
+    .where((builder) =>
+      builder
+        .where("created_by_user_id", filters.createdByUserId)
+        .orWhere("shared_with_user_id", filters.createdByUserId),
+    )
     .delete();
 
   return deleted > 0;
+}
+
+export async function shareServiceFiscalDocumentDraft(filters: {
+  id: string;
+  branchId: string;
+  createdByUserId: string;
+  sharedWithUserId: string | null;
+}): Promise<ServiceFiscalDocumentDraft | undefined> {
+  const [updated] = await db("service_fiscal_document_drafts")
+    .where("id", filters.id)
+    .where("branch_id", filters.branchId)
+    .where("created_by_user_id", filters.createdByUserId)
+    .update({
+      shared_with_user_id: filters.sharedWithUserId,
+      updated_at: db.fn.now(),
+    })
+    .returning("id");
+
+  return updated ? findSavedDraft(updated.id) : undefined;
 }
 
 async function findSavedDraft(id: string): Promise<ServiceFiscalDocumentDraft> {
@@ -105,6 +145,15 @@ async function findSavedDraft(id: string): Promise<ServiceFiscalDocumentDraft> {
 
 function query(database: Knex | Knex.Transaction) {
   return database("service_fiscal_document_drafts")
-    .join("users", "users.id", "service_fiscal_document_drafts.created_by_user_id")
+    .join(
+      "users as draft_owners",
+      "draft_owners.id",
+      "service_fiscal_document_drafts.created_by_user_id",
+    )
+    .leftJoin(
+      "users as shared_users",
+      "shared_users.id",
+      "service_fiscal_document_drafts.shared_with_user_id",
+    )
     .select<ServiceFiscalDocumentDraft[]>(columns);
 }

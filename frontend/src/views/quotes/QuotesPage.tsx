@@ -28,6 +28,7 @@ import type {
 } from '../../api'
 import { downloadApiFile } from '../../api'
 import { ProductSearchField } from '../../components/ProductSearchField'
+import { DraftSharingControl } from '../../components/DraftSharingControl'
 import {
   ActionGroup,
   ActionStack,
@@ -225,6 +226,7 @@ export function QuotesPage({
   onSubmit,
   onSaveQuoteFormDraft,
   onDeleteQuoteFormDraft,
+  onShareQuoteFormDraft,
   onDiscardQuoteFormDraft,
   onEditQuote,
   onReuseQuote,
@@ -247,6 +249,10 @@ export function QuotesPage({
     draft?: QuoteFormDraft,
   ) => Promise<boolean>
   onDeleteQuoteFormDraft: (draft: QuoteFormDraft) => Promise<boolean | void>
+  onShareQuoteFormDraft: (
+    draft: QuoteFormDraft,
+    sharedWithUserId: string | null,
+  ) => Promise<boolean | void>
   onDiscardQuoteFormDraft: (draft: QuoteFormDraft) => Promise<boolean>
   onEditQuote: (quote: Quote) => void
   onReuseQuote: (quote: Quote) => void
@@ -744,10 +750,10 @@ export function QuotesPage({
             icon={<ListIcon size={18} />}
             title='Novo orçamento'
           />
-          <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]'>
+          <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto]'>
             <Autocomplete
               getOptionLabel={(draft) =>
-                `${draft.title} - ${formatDateTime(draft.updatedAt)}`
+                `${draft.title} · ${draft.createdByUserName} - ${formatDateTime(draft.updatedAt)}`
               }
               isOptionEqualToValue={(option, value) => option.id === value.id}
               noOptionsText='Nenhum rascunho salvo'
@@ -777,6 +783,15 @@ export function QuotesPage({
                   ? 'Atualizar rascunho'
                   : 'Salvar rascunho'}
             </SecondaryButton>
+            {sourceDraft ? (
+              <DraftSharingControl
+                draft={sourceDraft}
+                scope='general'
+                onShare={(sharedWithUserId) =>
+                  onShareQuoteFormDraft(sourceDraft, sharedWithUserId)
+                }
+              />
+            ) : null}
             {sourceDraft ? (
               <SecondaryButton
                 disabled={Boolean(pendingFormAction)}

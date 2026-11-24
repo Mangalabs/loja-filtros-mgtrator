@@ -24,6 +24,13 @@ export type UserBranch = {
 
 export type UserRole = "ADMIN" | "EMPLOYEE";
 
+export type DraftShareCandidate = {
+  id: string;
+  name: string;
+  email: string;
+  canManageFiscalDocuments: boolean;
+};
+
 export type UserWithPassword = User & {
   passwordHash: string;
 };
@@ -82,6 +89,43 @@ export async function listUsers(database: Database = db): Promise<User[]> {
     .orderBy("users.name", "asc");
 
   return attachUserDetails(database, users);
+}
+
+export async function listDraftShareCandidates(
+  branchId: string,
+  currentUserId: string,
+  database: Database = db,
+): Promise<DraftShareCandidate[]> {
+  return draftShareCandidateQuery(branchId, database)
+    .whereNot("users.id", currentUserId)
+    .orderBy("users.name", "asc");
+}
+
+export async function draftShareCandidateExists(
+  userId: string,
+  branchId: string,
+  requiredPermission?: EmployeePermission,
+  database: Database = db,
+): Promise<boolean> {
+  const candidate = await draftShareCandidateQuery(branchId, database)
+    .where("users.id", userId)
+    .modify((query) => {
+      if (requiredPermission) {
+        query.where((permissionQuery) =>
+          permissionQuery
+            .where("users.role", "ADMIN")
+            .orWhereExists(
+              database("user_permissions")
+                .select(database.raw("1"))
+                .whereRaw("user_permissions.user_id = users.id")
+                .where("user_permissions.permission", requiredPermission),
+            ),
+        );
+      }
+    })
+    .first();
+
+  return Boolean(candidate);
 }
 
 export async function createUser(
@@ -228,6 +272,39 @@ function userQuery(database: Database) {
     "branches.id",
     "users.branch_id",
   );
+}
+
+function draftShareCandidateQuery(branchId: string, database: Database) {
+  return database("users")
+    .where("users.active", true)
+    .where((query) =>
+      query
+        .where("users.role", "ADMIN")
+        .orWhere("users.branch_id", branchId)
+        .orWhereExists(
+          database("user_branches")
+            .select(database.raw("1"))
+            .whereRaw("user_branches.user_id = users.id")
+            .where("user_branches.branch_id", branchId),
+        ),
+    )
+    .select<DraftShareCandidate[]>([
+      "users.id",
+      "users.name",
+      "users.email",
+      database.raw(
+        `(
+          users.role = 'ADMIN'
+          or exists (
+            select 1
+            from user_permissions
+            where user_permissions.user_id = users.id
+              and user_permissions.permission = 'MANAGE_FISCAL_DOCUMENTS'
+          )
+        ) as ??`,
+        ["canManageFiscalDocuments"],
+      ),
+    ]);
 }
 
 async function attachUserDetails<T extends User>(
