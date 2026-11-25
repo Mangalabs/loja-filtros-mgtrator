@@ -2173,6 +2173,7 @@ function distributeManualFiscalInstallments(
 
 const allowedManualFiscalOperationCodes = new Set([
   '5.403 / 6.403',
+  '5.202 / 6.202',
   '5.411 / 6.411',
   '5.910 / 6.910',
   '5.915 / 6.915',
