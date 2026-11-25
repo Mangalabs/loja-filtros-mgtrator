@@ -3996,6 +3996,26 @@ describe("catalog routes", () => {
     assert.equal(response.status, 422);
   });
 
+  it("rejects regular ICMS calculation fields for CSOSN 102", async () => {
+    const input = manualFiscalDocumentRequest();
+
+    input.items[0].productIcmsCst = "102";
+    input.items[0].icmsBaseCalculation = 35;
+    input.items[0].icmsRate = 7;
+
+    const response = await request("/fiscal-documents/manual/preview", {
+      method: "POST",
+      body: input,
+    });
+
+    assert.equal(response.status, 422);
+    assert.ok(
+      response.body.errors?.some((error) =>
+        /CSOSN 102 nao aceita base de calculo/i.test(error.message),
+      ),
+    );
+  });
+
   it("issues a manual mock return fiscal document with billing", async () => {
     const input = {
       ...manualFiscalDocumentRequest(),

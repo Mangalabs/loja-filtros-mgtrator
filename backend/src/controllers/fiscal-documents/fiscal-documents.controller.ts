@@ -3,6 +3,11 @@ import { db } from "../../database/knex.js";
 import { env } from "../../config/env.js";
 import type { FiscalIssueRequest } from "../../integrations/fiscal/fiscal-provider.js";
 import { makeFiscalProviderByName } from "../../integrations/fiscal/fiscal-provider-factory.js";
+import {
+  generateManualFiscalTaxPreviewPdf,
+  hasManualFiscalTaxes,
+} from "../../integrations/pdf/manual-fiscal-tax-preview-pdf.js";
+import { mergePdfBuffers } from "../../integrations/pdf/pdf-merger.js";
 import { currentFiscalSettings } from "../fiscal-settings/fiscal-settings.controller.js";
 import { findBranchById } from "../../models/branches/branches.model.js";
 import {
@@ -1124,7 +1129,21 @@ export async function previewManualFiscalDocument(
 
   ensureFiscalReadiness(requestPayload, fiscalSettings.provider);
 
-  return provider.preview(requestPayload);
+  const preview = await provider.preview(requestPayload);
+
+  if (!hasManualFiscalTaxes(requestPayload)) {
+    return preview;
+  }
+
+  const taxPreview = await generateManualFiscalTaxPreviewPdf({
+    branch: await findBranchById(branchId),
+    request: requestPayload,
+  });
+
+  return {
+    ...preview,
+    content: await mergePdfBuffers([preview.content, taxPreview]),
+  };
 }
 
 type EditedSaleFiscalSource = {

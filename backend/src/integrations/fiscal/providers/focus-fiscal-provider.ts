@@ -1,5 +1,6 @@
 import { env } from "../../../config/env.js";
 import { AppError } from "../../../shared/errors/app-error.js";
+import { icmsCodeSupportsRegularCalculation } from "../../../shared/fiscal/nfe-tax-codes.js";
 import type {
   FiscalCancelRequest,
   FiscalCancelResult,
@@ -40,6 +41,11 @@ type FocusNfePayload = {
   valor_total: number;
   valor_produtos: number;
   valor_desconto: number;
+  icms_base_calculo?: number;
+  icms_valor_total?: number;
+  valor_pis?: number;
+  valor_cofins?: number;
+  valor_ipi?: number;
   informacoes_adicionais_contribuinte?: string;
   numero_fatura?: string;
   valor_original_fatura?: number;
@@ -367,6 +373,7 @@ function buildFocusNfePayload(request: FiscalIssueRequest): FocusNfePayload {
     valor_total: totalAmount,
     valor_produtos: productAmount,
     valor_desconto: discountAmount,
+    ...focusCalculatedTaxTotals(request.sale.items),
     informacoes_adicionais_contribuinte:
       focusString(request.additionalInformation) ?? undefined,
     ...focusBillingPayload(request, {
@@ -542,6 +549,66 @@ function focusSaleDiscountAmount(sale: FiscalIssueRequest["sale"]) {
   return moneyNumber(String(Number(sale.discountAmount) + itemDiscountAmount));
 }
 
+function focusCalculatedTaxTotals(
+  items: FiscalIssueRequest["sale"]["items"],
+): Partial<FocusNfePayload> {
+  const totals = items.reduce(
+    (current, item) => {
+      const icms = focusCalculatedIcms(item);
+      const pis = focusCalculatedTax(item.pisBaseCalculation, item.pisRate);
+      const cofins = focusCalculatedTax(
+        item.cofinsBaseCalculation,
+        item.cofinsRate,
+      );
+      const ipi = focusCalculatedTax(item.ipiBaseCalculation, item.ipiRate);
+
+      return {
+        icmsBaseCalculation:
+          current.icmsBaseCalculation + (icms?.baseCalculation ?? 0),
+        icmsAmount: current.icmsAmount + (icms?.amount ?? 0),
+        pisAmount: current.pisAmount + (pis?.amount ?? 0),
+        cofinsAmount: current.cofinsAmount + (cofins?.amount ?? 0),
+        ipiAmount: current.ipiAmount + (ipi?.amount ?? 0),
+        hasIcms: current.hasIcms || Boolean(icms),
+        hasPis: current.hasPis || Boolean(pis),
+        hasCofins: current.hasCofins || Boolean(cofins),
+        hasIpi: current.hasIpi || Boolean(ipi),
+      };
+    },
+    {
+      icmsBaseCalculation: 0,
+      icmsAmount: 0,
+      pisAmount: 0,
+      cofinsAmount: 0,
+      ipiAmount: 0,
+      hasIcms: false,
+      hasPis: false,
+      hasCofins: false,
+      hasIpi: false,
+    },
+  );
+
+  return {
+    ...(totals.hasIcms
+      ? {
+          icms_base_calculo: moneyNumber(
+            String(totals.icmsBaseCalculation),
+          ),
+          icms_valor_total: moneyNumber(String(totals.icmsAmount)),
+        }
+      : {}),
+    ...(totals.hasPis
+      ? { valor_pis: moneyNumber(String(totals.pisAmount)) }
+      : {}),
+    ...(totals.hasCofins
+      ? { valor_cofins: moneyNumber(String(totals.cofinsAmount)) }
+      : {}),
+    ...(totals.hasIpi
+      ? { valor_ipi: moneyNumber(String(totals.ipiAmount)) }
+      : {}),
+  };
+}
+
 function focusCustomerDocument(request: FiscalIssueRequest) {
   const document = digits(request.sale.clientDocument);
   const documentFields: Record<string, Record<string, string | undefined>> = {
@@ -676,7 +743,7 @@ function focusItemCfop(
 function focusItemCalculatedTaxes(
   item: FiscalIssueRequest["sale"]["items"][number],
 ): Partial<FocusNfeItemPayload> {
-  const icms = focusCalculatedTax(item.icmsBaseCalculation, item.icmsRate);
+  const icms = focusCalculatedIcms(item);
   const pis = focusCalculatedTax(item.pisBaseCalculation, item.pisRate);
   const cofins = focusCalculatedTax(
     item.cofinsBaseCalculation,
@@ -722,6 +789,18 @@ function focusItemCalculatedTaxes(
         }
       : {}),
   };
+}
+
+function focusCalculatedIcms(
+  item: FiscalIssueRequest["sale"]["items"][number],
+) {
+  const code = focusString(item.productIcmsCst);
+
+  if (!icmsCodeSupportsRegularCalculation(code)) {
+    return null;
+  }
+
+  return focusCalculatedTax(item.icmsBaseCalculation, item.icmsRate);
 }
 
 function focusCalculatedTax(

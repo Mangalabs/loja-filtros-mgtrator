@@ -2018,6 +2018,10 @@ function ManualFiscalTaxFields({
   const updateTax = (changes: Partial<ManualFiscalTaxForm>) =>
     onChange({ baseCalculation, code, description, rate, ...changes })
   const calculatedAmount = manualFiscalTaxAmountValue(baseCalculation, rate)
+  const incompatibleIcmsCalculation =
+    taxName === 'ICMS' &&
+    Boolean(baseCalculation || rate) &&
+    !manualFiscalIcmsCodesWithRegularCalculation.has(code.trim())
 
   return (
     <div className='grid gap-3 rounded-lg border border-[#dfe5e2] bg-white p-3'>
@@ -2067,6 +2071,13 @@ function ManualFiscalTaxFields({
           três dígitos.
         </Alert>
       ) : null}
+      {incompatibleIcmsCalculation ? (
+        <Alert severity='error'>
+          O CST/CSOSN {code} não aceita base de cálculo, alíquota e valor de
+          ICMS. Confirme com a contabilidade um código compatível. No Simples
+          Nacional, o CSOSN 900 admite esse grupo de cálculo.
+        </Alert>
+      ) : null}
       {code.trim() ? (
         <div className='grid gap-3 md:grid-cols-3'>
           <TextField
@@ -2097,6 +2108,16 @@ function ManualFiscalTaxFields({
     </div>
   )
 }
+
+const manualFiscalIcmsCodesWithRegularCalculation = new Set([
+  '00',
+  '10',
+  '20',
+  '51',
+  '70',
+  '90',
+  '900',
+])
 
 function emptyManualFiscalItem(): ManualFiscalItemForm {
   return {

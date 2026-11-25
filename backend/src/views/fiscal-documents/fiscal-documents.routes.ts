@@ -29,6 +29,7 @@ import {
 } from "../../controllers/fiscal-documents/fiscal-documents.controller.js";
 import { requirePermission } from "../../shared/auth/authorization-middleware.js";
 import { requireActiveBranchId } from "../../shared/auth/branch-context.js";
+import { icmsCodeSupportsRegularCalculation } from "../../shared/fiscal/nfe-tax-codes.js";
 import { validateBody } from "../../shared/validation/validate-request.js";
 
 export const fiscalDocumentsRoutes = Router();
@@ -267,6 +268,11 @@ const manualFiscalDocumentSchema = z
         baseCalculation: item.icmsBaseCalculation,
         code: item.productIcmsCst,
         description: item.productIcmsCstDescription,
+        rate: item.icmsRate,
+      });
+      validateManualFiscalIcmsCode(context, index, {
+        baseCalculation: item.icmsBaseCalculation,
+        code: item.productIcmsCst,
         rate: item.icmsRate,
       });
       validateManualFiscalTaxFields(context, index, "PIS", {
@@ -806,6 +812,32 @@ function validateManualFiscalTaxFields(
       path: ["items", itemIndex],
     });
   }
+}
+
+function validateManualFiscalIcmsCode(
+  context: z.RefinementCtx,
+  itemIndex: number,
+  tax: {
+    baseCalculation: number | null;
+    code: string | null;
+    rate: number | null;
+  },
+) {
+  const hasCalculation = tax.baseCalculation !== null || tax.rate !== null;
+
+  if (
+    !hasCalculation ||
+    !tax.code ||
+    icmsCodeSupportsRegularCalculation(tax.code)
+  ) {
+    return;
+  }
+
+  context.addIssue({
+    code: "custom",
+    message: `CST/CSOSN ${tax.code} nao aceita base de calculo, aliquota e valor de ICMS. Confirme com a contabilidade um codigo compativel; no Simples Nacional, o CSOSN 900 admite esse grupo de calculo.`,
+    path: ["items", itemIndex, "productIcmsCst"],
+  });
 }
 
 function normalizeManualFiscalDocumentInput(
