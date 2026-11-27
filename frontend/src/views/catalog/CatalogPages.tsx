@@ -309,16 +309,6 @@ function ProductTable({
         },
         {
           align: 'right',
-          header: 'Fisico',
-          render: (product) => formatQuantity(product.currentStock),
-        },
-        {
-          align: 'right',
-          header: 'Reservado',
-          render: (product) => formatQuantity(product.reservedStock),
-        },
-        {
-          align: 'right',
           header: 'Disponivel',
           render: (product) => formatQuantity(product.availableStock),
         },
